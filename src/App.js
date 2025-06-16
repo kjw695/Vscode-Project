@@ -1606,6 +1606,7 @@ return (
                                                 <th className="py-3 px-6 text-left">세무사 비용</th>
                                                 <th className="py-3 px-6 text-center">작업</th>
                                             </tr>
+                                            
                                         </thead>
                                         <tbody className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} text-sm font-light`}>
                                             {filteredAndSortedEntries.length > 0 ? ( // 데이터가 있을 때만 렌더링
