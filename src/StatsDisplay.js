@@ -89,57 +89,57 @@ function StatsDisplay({
             )}
 
             {/* 통계 상세 내용 */}
+         
             {statisticsView === 'monthly' && monthlyStatsSubTab === 'overview' && (
-                <div className={`grid grid-cols-2 gap-4 text-sm sm:text-base ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
-                    <div className="col-span-2 text-center text-xl font-bold mb-4">
-                        <p className={`text-lg font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>
-                            <span className="text-red-500">{(currentProfitData.totalDeliveryRevenue + currentProfitData.totalReturnRevenue + currentProfitData.totalFreshBagRevenue + currentProfitData.totalDeliveryInterruptionRevenue).toLocaleString()}</span> - <span className="text-blue-500">{currentProfitData.totalExpensesSum.toLocaleString()}</span>
-                        </p>
-                        <p className={`text-4xl font-extrabold ${isDarkMode ? 'text-yellow-300' : 'text-yellow-600'}`}>
+                <div className="space-y-6">
+                    {/* 순이익 카드 */}
+                    <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-white'} shadow`}>
+                        <p className={`text-sm text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>월 순이익</p>
+                        <p className={`text-4xl font-extrabold text-center my-2 ${isDarkMode ? 'text-yellow-300' : 'text-yellow-600'}`}>
                             {currentProfitData.netProfit.toLocaleString()} 원
+                        </p>
+                        <p className={`text-xs text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            <span className="text-red-500">총매출 {(currentProfitData.totalDeliveryRevenue + currentProfitData.totalReturnRevenue + currentProfitData.totalFreshBagRevenue + currentProfitData.totalDeliveryInterruptionRevenue).toLocaleString()}원</span>
+                            <span> - </span>
+                            <span className="text-blue-500">총지출 {currentProfitData.totalExpensesSum.toLocaleString()}원</span>
                         </p>
                     </div>
 
-                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
-                        <span className="font-semibold">총 근무일</span>
-                        <div className="flex items-center space-x-2">
-                            <span>{currentProfitData.totalWorkingDays.toLocaleString()} 일</span>
-                            {statisticsView === 'monthly' && renderComparison(currentProfitData.totalWorkingDays, previousMonthlyProfit.totalWorkingDays)}
-                        </div>
-                    </div>
-                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
-                        <span className="font-semibold">총 물량</span>
-                        <div className="flex items-center space-x-2">
-                            <span>{currentProfitData.totalVolume.toLocaleString()} 건</span>
-                            {statisticsView === 'monthly' && renderComparison(currentProfitData.totalVolume, previousMonthlyProfit.totalVolume)}
-                        </div>
-                    </div>
-                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
-                        <span className="font-semibold">총 프레시백</span>
-                        <div className="flex items-center space-x-2">
-                            <span>{currentProfitData.totalFreshBag.toLocaleString()} 개</span>
-                            {statisticsView === 'monthly' && renderComparison(currentProfitData.totalFreshBag, previousMonthlyProfit.totalFreshBag)}
-                        </div>
-                    </div>
-                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
-                        <span className="font-semibold">일 평균 물량</span>
-                        <div className="flex items-center space-x-2">
-                            <span>{currentProfitData.dailyAverageVolume.toFixed(2).toLocaleString()} 건</span>
-                            {statisticsView === 'monthly' && renderComparison(currentProfitData.dailyAverageVolume, previousMonthlyProfit.dailyAverageVolume)}
-                        </div>
-                    </div>
-                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
-                        <span className="font-semibold">총 매출</span>
-                        <div className="flex items-center space-x-2">
-                            <span className="text-red-500">{(currentProfitData.totalDeliveryRevenue + currentProfitData.totalReturnRevenue + currentProfitData.totalFreshBagRevenue + currentProfitData.totalDeliveryInterruptionRevenue).toLocaleString()} 원</span>
-                            {statisticsView === 'monthly' && renderComparison((currentProfitData.totalDeliveryRevenue + currentProfitData.totalReturnRevenue + currentProfitData.totalFreshBagRevenue + currentProfitData.totalDeliveryInterruptionRevenue), (previousMonthlyProfit.totalDeliveryRevenue + previousMonthlyProfit.totalReturnRevenue + previousMonthlyProfit.totalFreshBagRevenue + previousMonthlyProfit.totalDeliveryInterruptionRevenue), true)}
-                        </div>
-                    </div>
-                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
-                        <span className="font-semibold">총 지출</span>
-                        <div className="flex items-center space-x-2">
-                            <span className="text-blue-500">{currentProfitData.totalExpensesSum.toLocaleString()} 원</span>
-                            {statisticsView === 'monthly' && renderComparison(currentProfitData.totalExpensesSum, previousMonthlyProfit.totalExpensesSum, true)}
+                    {/* 상세 통계 리스트 카드 */}
+                    <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-white'} shadow`}>
+                        <div className="space-y-4">
+                            {/* 총 근무일 */}
+                            <div className="flex justify-between items-center">
+                                <span className="font-semibold">총 근무일</span>
+                                <div className="text-right">
+                                    <span className="font-bold">{currentProfitData.totalWorkingDays.toLocaleString()} 일</span>
+                                    <div className="h-4">{renderComparison(currentProfitData.totalWorkingDays, previousMonthlyProfit.totalWorkingDays)}</div>
+                                </div>
+                            </div>
+                            {/* 총 물량 */}
+                            <div className="flex justify-between items-center">
+                                <span className="font-semibold">총 물량</span>
+                                <div className="text-right">
+                                    <span className="font-bold">{currentProfitData.totalVolume.toLocaleString()} 건</span>
+                                    <div className="h-4">{renderComparison(currentProfitData.totalVolume, previousMonthlyProfit.totalVolume)}</div>
+                                </div>
+                            </div>
+                            {/* 총 프레시백 */}
+                            <div className="flex justify-between items-center">
+                                <span className="font-semibold">총 프레시백</span>
+                                <div className="text-right">
+                                    <span className="font-bold">{currentProfitData.totalFreshBag.toLocaleString()} 개</span>
+                                    <div className="h-4">{renderComparison(currentProfitData.totalFreshBag, previousMonthlyProfit.totalFreshBag)}</div>
+                                </div>
+                            </div>
+                        {/* 일 평균 물량 */}
+                            <div className="flex justify-between items-center">
+                                <span className="font-semibold">일 평균 물량</span>
+                                <div className="text-right">
+                                    <span className="font-bold">{Math.round(currentProfitData.dailyAverageVolume)} 건</span>
+                                    <div className="h-4">{renderComparison(Math.round(currentProfitData.dailyAverageVolume), Math.round(previousMonthlyProfit.dailyAverageVolume))}</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

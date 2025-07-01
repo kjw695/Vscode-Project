@@ -1262,14 +1262,7 @@ return (
                 <h1 className="text-3xl font-bold text-center mb-6">
                   {activeContentTab === 'dataEntry' ? '입출금' : '배송 수익 추적기'}
 </h1>
-                {/* 다크 모드 토글 버튼은 로그인 여부와 관계없이 항상 표시 */}
-                <button
-                    onClick={toggleDarkMode}
-                    className={`absolute top-4 right-4 p-2 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} transition duration-150 ease-in-out`}
-                    title={isDarkMode ? "밝은 모드로 전환" : "다크 모드로 전환"}
-                >
-                    {isDarkMode ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-gray-700" />}
-                </button>
+               
 
                 {/* 로그인 안 된 상태 메시지 (제거) */}
                 {/* {isAuthReady && !userId && activeContentTab !== 'adminSettings' && activeContentTab !== 'userGuide' && (
