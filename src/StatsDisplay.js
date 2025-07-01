@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
+import ProfitHeatmap from './components/ProfitHeatmap';
 
 function StatsDisplay({
     statisticsView,
@@ -7,6 +8,7 @@ function StatsDisplay({
     selectedYear,
     setSelectedYear,
     currentCalendarDate,
+    handleMonthChange, // App.js로부터 이 함수를 전달받아야 합니다.
     monthlyProfit,
     yearlyProfit,
     cumulativeProfit,
@@ -29,12 +31,17 @@ function StatsDisplay({
     };
     
     const renderComparison = (currentValue, previousValue) => {
-        if (previousValue === 0 && currentValue === 0) return <span className="h-4"></span>;
+        if (previousValue === 0 && currentValue === 0) return null;
         const diff = currentValue - previousValue;
-        if (diff === 0) return <span className="h-4"></span>;
+        if (diff === 0) return null;
         const colorClass = diff > 0 ? 'text-red-500' : 'text-blue-500';
-        const arrow = diff > 0 ? <ArrowUp size={14} className="ml-1" /> : <ArrowDown size={14} className="ml-1" />
-        return <span className={`${colorClass} flex items-center justify-end text-xs sm:text-sm`}>{Math.abs(Math.round(diff)).toLocaleString()} {arrow}</span>;
+        const arrow = diff > 0 ? <ArrowUp size={12} className="ml-1" /> : <ArrowDown size={12} className="ml-1" />;
+        return (
+            <span className={`${colorClass} flex items-center text-xs ml-2`}>
+                {Math.abs(Math.round(diff)).toLocaleString()}
+                {arrow}
+            </span>
+        );
     };
 
     const currentProfitData = statisticsView === 'monthly' ? monthlyProfit : (statisticsView === 'yearly' ? yearlyProfit : cumulativeProfit);
@@ -73,29 +80,29 @@ function StatsDisplay({
                 <div className="space-y-4">
                     <div className="flex justify-between items-center">
                         <span className="text-sm font-semibold">총 근무일</span>
-                        <div className="text-right">
+                        <div className="flex items-baseline justify-end">
                             <span className="text-sm font-bold">{profitData.totalWorkingDays.toLocaleString()} 일</span>
                             {isMonthly && renderComparison(profitData.totalWorkingDays, previousMonthlyProfit.totalWorkingDays)}
                         </div>
                     </div>
                     <div className="flex justify-between items-center">
                         <span className="text-sm font-semibold">총 물량</span>
-                        <div className="text-right">
+                        <div className="flex items-baseline justify-end">
                             <span className="text-sm font-bold">{profitData.totalVolume.toLocaleString()} 건</span>
                             {isMonthly && renderComparison(profitData.totalVolume, previousMonthlyProfit.totalVolume)}
                         </div>
                     </div>
                     <div className="flex justify-between items-center">
                         <span className="text-sm font-semibold">총 프레시백</span>
-                        <div className="text-right">
+                        <div className="flex items-baseline justify-end">
                             <span className="text-sm font-bold">{profitData.totalFreshBag.toLocaleString()} 개</span>
                             {isMonthly && renderComparison(profitData.totalFreshBag, previousMonthlyProfit.totalFreshBag)}
                         </div>
                     </div>
                     <div className="flex justify-between items-center">
                         <span className="text-sm font-semibold">일 평균 물량</span>
-                        <div className="text-right">
-                            <span className="text-sm font-bold">{isMonthly ? Math.round(profitData.dailyAverageVolume) : profitData.dailyAverageVolume.toFixed(2)} 건</span>
+                        <div className="flex items-baseline justify-end">
+                            <span className="text-sm font-bold">{Math.round(profitData.dailyAverageVolume)} 건</span>
                             {isMonthly && renderComparison(Math.round(profitData.dailyAverageVolume), Math.round(previousMonthlyProfit.dailyAverageVolume))}
                         </div>
                     </div>
@@ -113,18 +120,35 @@ function StatsDisplay({
             </div>
 
             <h3 className={`text-xl font-bold text-center mb-1 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>
-                {statisticsView === 'monthly' && `${currentCalendarDate.getFullYear()}년 ${currentCalendarDate.getMonth() + 1}월`}
-                {statisticsView === 'yearly' && (<div className="flex items-center justify-center"><input type="number" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className={`font-bold bg-transparent text-center w-24 border-b-2 ${isDarkMode ? 'border-gray-600' : 'border-gray-300'}`} /><span>년</span></div>)}
+                {isMonthly && (
+                    <div className="flex items-center justify-center space-x-4">
+                        <button onClick={() => handleMonthChange(-1)} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`}><ArrowLeft size={20} /></button>
+                        <span className="font-bold text-xl">{currentCalendarDate.getFullYear()}년 {currentCalendarDate.getMonth() + 1}월</span>
+                        <button onClick={() => handleMonthChange(1)} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`}><ArrowRight size={20} /></button>
+                    </div>
+                )}
+                {statisticsView === 'yearly' && (
+                    <div className="flex items-center justify-center space-x-4">
+                        <button onClick={() => setSelectedYear(String(parseInt(selectedYear) - 1))} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`}><ArrowLeft size={20} /></button>
+                        <span className="font-bold text-xl">{selectedYear}년 통계</span>
+                        <button onClick={() => setSelectedYear(String(parseInt(selectedYear) + 1))} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`}><ArrowRight size={20} /></button>
+                    </div>
+                )}
                 {statisticsView === 'cumulative' && `누적 통계`}
             </h3>
             
-            {statisticsView === 'monthly' && (<p className={`text-xs text-center mb-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>집계 기간: {monthlyProfit.periodStartDate ? new Date(monthlyProfit.periodStartDate).toLocaleDateString('ko-KR') : ''} ~ {monthlyProfit.periodEndDate ? new Date(monthlyProfit.periodEndDate).toLocaleDateString('ko-KR') : ''}</p>)}
+            {isMonthly && (<p className={`text-xs text-center mb-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>집계 기간: {monthlyProfit.periodStartDate ? new Date(monthlyProfit.periodStartDate).toLocaleDateString('ko-KR') : ''} ~ {monthlyProfit.periodEndDate ? new Date(monthlyProfit.periodEndDate).toLocaleDateString('ko-KR') : ''}</p>)}
             
             <StatsCard profitData={currentProfitData} />
 
             {statisticsView === 'yearly' && (
                  <div className="mt-6">
-                    <h3 className={`text-lg font-bold mb-3 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>월별 상세 내역</h3>
+                    <h3 className={`text-lg font-bold mb-3 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>연간 수익 히트맵</h3>
+                    <ProfitHeatmap
+                        year={selectedYear}
+                        data={yearlyProfit.dailyBreakdown.map(d => ({ date: d.date, count: d.netProfit }))}
+                    />
+                    <h3 className={`text-lg font-bold mb-3 mt-6 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>월별 상세 내역</h3>
                     <div className="overflow-x-auto"><table className={`min-w-full rounded-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}><thead><tr className={`${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-200 text-gray-600'} uppercase text-sm`}><th className="py-3 px-6 text-left">월</th><th className="py-3 px-6 text-left">순이익</th></tr></thead><tbody className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} text-sm`}>{yearlyProfit.monthlyBreakdown.map(monthData => ( <tr key={monthData.month} className={`${isDarkMode ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-100'} border-b`}><td className="py-3 px-6 text-left">{monthData.month}월</td><td className="py-3 px-6 text-left">{monthData.netProfit.toLocaleString()} 원</td></tr>))}</tbody></table></div>
                 </div>
             )}

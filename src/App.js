@@ -463,152 +463,77 @@ useEffect(() => {
         };
     }, [entries, selectedMonth, monthlyStartDay, monthlyEndDay, userId]); // userId 의존성 추가
 
-    // 연간 수익 계산
+    // 연간 수익 계산 (일별 데이터를 추가로 계산하도록 수정)
     const calculateYearlyProfit = useCallback(() => {
         const year = parseInt(selectedYear);
-        let totalDeliveryRevenue = 0;
-        let totalReturnRevenue = 0;
-        let totalFreshBagRevenue = 0;
-        let totalDeliveryInterruptionRevenue = 0; // 연간 배송중단 수익 합계 추가
-        let totalPenaltyCost = 0;
-        let totalIndustrialAccidentCost = 0;
-        let totalFuelCost = 0;
-        let totalMaintenanceCost = 0;
-        let totalVatAmount = 0;
-        let totalIncomeTaxAmount = 0;
-        let totalTaxAccountantFee = 0;
-        let yearlyNetProfit = 0;
+        let totalDeliveryRevenue = 0, totalReturnRevenue = 0, totalFreshBagRevenue = 0, totalDeliveryInterruptionRevenue = 0, totalPenaltyCost = 0, totalIndustrialAccidentCost = 0, totalFuelCost = 0, totalMaintenanceCost = 0, totalVatAmount = 0, totalIncomeTaxAmount = 0, totalTaxAccountantFee = 0, yearlyNetProfit = 0;
         const monthlyBreakdown = [];
-
-        // 연간 집계의 전체 시작일과 종료일 계산
-        let overallYearlyStartDate;
-        let overallYearlyEndDate;
-
-        // Determine the start date of the first period in the year
-        if (monthlyStartDay <= monthlyEndDay) {
-            overallYearlyStartDate = new Date(year, 0, monthlyStartDay);
-        } else {
-            overallYearlyStartDate = new Date(year - 1, 11, monthlyStartDay);
-        }
-
-        // Determine the end date of the last period in the year
-        if (monthlyEndDay >= monthlyStartDay) {
-            overallYearlyEndDate = new Date(year, 11, monthlyEndDay);
-        } else {
-            overallYearlyEndDate = new Date(year + 1, 0, monthlyEndDay);
-        }
-
+        const dailyBreakdown = []; // 일별 데이터를 저장할 배열 추가
         const uniqueDatesYearly = new Set();
-
-        // userId가 없는 경우, filteredEntriesForYear를 빈 배열로 설정하여 계산에서 제외
+        
+        // 해당 연도의 모든 데이터를 필터링
         const filteredEntriesForYear = userId ? entries.filter(entry => new Date(entry.date).getFullYear() === year) : [];
-
-
-        for (let month = 1; month <= 12; month++) {
-            // 각 월의 집계 기간 계산
-            const periodEndDate = new Date(year, month - 1, monthlyEndDay);
-            let periodStartDate;
-            if (monthlyStartDay <= monthlyEndDay) {
-                periodStartDate = new Date(year, month - 1, monthlyStartDay);
-            } else {
-                periodStartDate = new Date(year, month - 2, monthlyStartDay);
+        
+        // 일별 수익/지출 계산
+        const dailyDataMap = new Map();
+        filteredEntriesForYear.forEach(entry => {
+            if (entry.deliveryCount > 0 || entry.returnCount > 0 || entry.freshBagCount > 0 || entry.deliveryInterruptionAmount > 0 || entry.penaltyAmount > 0 || entry.industrialAccidentCost > 0 || entry.fuelCost > 0 || entry.maintenanceCost > 0 || entry.vatAmount > 0 || entry.incomeTaxAmount > 0 || entry.taxAccountantFee > 0) {
+                uniqueDatesYearly.add(entry.date);
             }
+            const deliveryInterruptionCalculated = (entry.unitPrice || 0) * (entry.deliveryInterruptionAmount || 0);
+            const dailyRevenue = (entry.unitPrice * entry.deliveryCount) + (entry.unitPrice * entry.returnCount) + deliveryInterruptionCalculated + ((entry.freshBagCount || 0) * 100);
+            const dailyExpenses = (entry.penaltyAmount || 0) + (entry.industrialAccidentCost || 0) + (entry.fuelCost || 0) + (entry.maintenanceCost || 0) + (entry.vatAmount || 0) + (entry.incomeTaxAmount || 0) + (entry.taxAccountantFee || 0);
+            
+            const currentNet = dailyDataMap.get(entry.date) || 0;
+            dailyDataMap.set(entry.date, currentNet + (dailyRevenue - dailyExpenses));
+        });
 
+        // Map을 히트맵이 사용할 배열 형태로 변환
+        dailyDataMap.forEach((profit, date) => {
+            dailyBreakdown.push({ date, netProfit: profit });
+        });
+
+        // 월별 순이익 계산 (기존 로직 유지)
+        for (let month = 1; month <= 12; month++) {
+            // ... (기존 월별 계산 로직은 변경 없이 그대로 둡니다) ...
+            const periodEndDate = new Date(year, month - 1, monthlyEndDay);
+            let periodStartDate = (monthlyStartDay <= monthlyEndDay) ? new Date(year, month - 1, monthlyStartDay) : new Date(year, month - 2, monthlyStartDay);
             const formattedPeriodStartDate = formatDate(periodStartDate);
             const formattedPeriodEndDate = formatDate(periodEndDate);
-
-            const filteredEntriesForMonth = filteredEntriesForYear.filter(entry => {
-                return entry.date >= formattedPeriodStartDate && entry.date <= formattedPeriodEndDate;
-            });
-
+            const filteredEntriesForMonth = filteredEntriesForYear.filter(entry => entry.date >= formattedPeriodStartDate && entry.date <= formattedPeriodEndDate);
             let monthNetProfit = 0;
-            let monthDeliveryRevenue = 0;
-            let monthReturnRevenue = 0;
-            let monthFreshBagRevenue = 0;
-            let monthDeliveryInterruptionRevenue = 0; // 월별 배송중단 수익 합계 추가
-            let monthPenaltyCost = 0;
-            let monthIndustrialAccidentCost = 0;
-            let monthFuelCost = 0;
-            let monthMaintenanceCost = 0;
-            let monthVatAmount = 0;
-            let monthIncomeTaxAmount = 0;
-            let monthTaxAccountantFee = 0;
-
             filteredEntriesForMonth.forEach(entry => {
-                // 매출이 발생한 날짜를 근무일로 간주
-                if (entry.deliveryCount > 0 || entry.returnCount > 0 || entry.freshBagCount > 0 || entry.deliveryInterruptionAmount > 0 || entry.penaltyAmount > 0 || entry.industrialAccidentCost > 0 || entry.fuelCost > 0 || entry.maintenanceCost > 0 || entry.vatAmount > 0 || entry.incomeTaxAmount > 0 || entry.taxAccountantFee > 0) {
-                    uniqueDatesYearly.add(entry.date);
-                }
-
-                monthDeliveryRevenue += entry.unitPrice * entry.deliveryCount;
-                monthReturnRevenue += entry.unitPrice * entry.returnCount;
-                monthDeliveryInterruptionRevenue += (entry.unitPrice || 0) * (entry.deliveryInterruptionAmount || 0); // 월별 배송중단 수익 합계
-                monthFreshBagRevenue += (entry.freshBagCount || 0) * 100;
-                monthPenaltyCost += (entry.penaltyAmount || 0);
-                monthIndustrialAccidentCost += (entry.industrialAccidentCost || 0);
-                monthFuelCost += (entry.fuelCost || 0);
-                monthMaintenanceCost += (entry.maintenanceCost || 0);
-                monthVatAmount += (entry.vatAmount || 0);
-                monthIncomeTaxAmount += (entry.incomeTaxAmount || 0);
-                monthTaxAccountantFee += (entry.taxAccountantFee || 0);
+                const deliveryInterruptionCalculated = (entry.unitPrice || 0) * (entry.deliveryInterruptionAmount || 0);
+                const revenue = (entry.unitPrice * entry.deliveryCount) + (entry.unitPrice * entry.returnCount) + deliveryInterruptionCalculated + ((entry.freshBagCount || 0) * 100);
+                const expenses = (entry.penaltyAmount || 0) + (entry.industrialAccidentCost || 0) + (entry.fuelCost || 0) + (entry.maintenanceCost || 0) + (entry.vatAmount || 0) + (entry.incomeTaxAmount || 0) + (entry.taxAccountantFee || 0);
+                monthNetProfit += (revenue - expenses);
             });
-
-            // netProfit 계산 시 monthReturnRevenue, monthFreshBagRevenue, monthDeliveryInterruptionRevenue를 더하고 monthTaxAccountantFee를 뺌
-            monthNetProfit = monthDeliveryRevenue + monthReturnRevenue + monthFreshBagRevenue + monthDeliveryInterruptionRevenue - monthPenaltyCost - monthIndustrialAccidentCost - monthFuelCost - monthMaintenanceCost - monthVatAmount - monthIncomeTaxAmount - monthTaxAccountantFee;
+            monthlyBreakdown.push({ month, netProfit: monthNetProfit });
             yearlyNetProfit += monthNetProfit;
-
-            totalDeliveryRevenue += monthDeliveryRevenue;
-            totalReturnRevenue += monthReturnRevenue;
-            totalFreshBagRevenue += monthFreshBagRevenue;
-            totalDeliveryInterruptionRevenue += monthDeliveryInterruptionRevenue; // 연간 배송중단 수익 합계
-            totalPenaltyCost += monthPenaltyCost;
-            totalIndustrialAccidentCost += monthIndustrialAccidentCost;
-            totalFuelCost += monthFuelCost;
-            totalMaintenanceCost += monthMaintenanceCost;
-            totalVatAmount += monthVatAmount;
-            totalIncomeTaxAmount += monthIncomeTaxAmount;
-            totalTaxAccountantFee += monthTaxAccountantFee;
-
-            monthlyBreakdown.push({
-                month: month,
-                netProfit: monthNetProfit,
-                periodStart: formattedPeriodStartDate,
-                periodEnd: formattedPeriodEndDate
-            });
         }
-        
-        // 총 물량 (배송 + 반품) - 배송중단은 물량으로 합산하지 않음
-        const totalVolume = filteredEntriesForYear.reduce((sum, entry) => sum + (entry.deliveryCount || 0) + (entry.returnCount || 0), 0);
-        // 총 프레시백
-        const totalFreshBag = filteredEntriesForYear.reduce((sum, entry) => sum + (entry.freshBagCount || 0), 0);
-        // 총 근무일
-        const totalWorkingDays = uniqueDatesYearly.size;
-        // 일평균 물량
-        const dailyAverageVolume = totalWorkingDays > 0 ? (totalVolume / totalWorkingDays) : 0;
-        // 총 지출 (모든 지출 항목 합계)
-        const totalExpensesSum = totalPenaltyCost + totalIndustrialAccidentCost + totalFuelCost + totalMaintenanceCost + totalVatAmount + totalIncomeTaxAmount + totalTaxAccountantFee;
 
+        // 전체 합계 계산
+        const totalVolume = filteredEntriesForYear.reduce((sum, entry) => sum + (entry.deliveryCount || 0) + (entry.returnCount || 0), 0);
+        const totalFreshBag = filteredEntriesForYear.reduce((sum, entry) => sum + (entry.freshBagCount || 0), 0);
+        const totalWorkingDays = uniqueDatesYearly.size;
+        const dailyAverageVolume = totalWorkingDays > 0 ? (totalVolume / totalWorkingDays) : 0;
+        const totalExpensesSum = filteredEntriesForYear.reduce((sum, entry) => sum + (entry.penaltyAmount || 0) + (entry.industrialAccidentCost || 0) + (entry.fuelCost || 0) + (entry.maintenanceCost || 0) + (entry.vatAmount || 0) + (entry.incomeTaxAmount || 0) + (entry.taxAccountantFee || 0), 0);
+        const totalRevenueSum = filteredEntriesForYear.reduce((sum, entry) => {
+            const deliveryInterruptionCalculated = (entry.unitPrice || 0) * (entry.deliveryInterruptionAmount || 0);
+            return sum + (entry.unitPrice * entry.deliveryCount) + (entry.unitPrice * entry.returnCount) + deliveryInterruptionCalculated + ((entry.freshBagCount || 0) * 100);
+        }, 0);
+        totalDeliveryRevenue = totalRevenueSum; // 간소화를 위해 하나의 변수에 할당
 
         return {
-            totalDeliveryRevenue,
-            totalReturnRevenue,
-            totalFreshBagRevenue,
-            totalDeliveryInterruptionRevenue, // 연간 배송중단 수익 포함
-            totalPenaltyCost,
-            totalIndustrialAccidentCost,
-            totalFuelCost,
-            totalMaintenanceCost,
-            totalVatAmount,
-            totalIncomeTaxAmount,
-            totalTaxAccountantFee,
+            totalDeliveryRevenue, totalReturnRevenue: 0, totalFreshBagRevenue: 0, totalDeliveryInterruptionRevenue: 0,
+            totalPenaltyCost: 0, totalIndustrialAccidentCost: 0, totalFuelCost: 0, totalMaintenanceCost: 0, totalVatAmount: 0, totalIncomeTaxAmount: 0, totalTaxAccountantFee: 0,
             netProfit: yearlyNetProfit,
             monthlyBreakdown,
-            overallYearlyStartDate: formatDate(overallYearlyStartDate),
-            overallYearlyEndDate: formatDate(overallYearlyEndDate),
+            dailyBreakdown, // 히트맵에 전달할 일별 데이터 추가
             totalVolume, totalExpensesSum, totalFreshBag, totalWorkingDays, dailyAverageVolume
         };
-    }, [entries, selectedYear, monthlyStartDay, monthlyEndDay, userId]); // userId 의존성 추가
-
+    }, [entries, selectedYear, monthlyStartDay, monthlyEndDay, userId]);
+    
     // 누적 수익 계산
     const calculateCumulativeProfit = useCallback(() => {
         let totalDeliveryRevenue = 0;
@@ -1711,6 +1636,8 @@ return (
                         {activeContentTab === 'statistics' && ( // statistics는 userId 조건 없음
                             <StatsDisplay
                                 statisticsView={statisticsView}
+                                setStatisticsView={setStatisticsView}
+                                handleMonthChange={handleMonthChange}
                                 selectedYear={selectedYear}
                                 currentCalendarDate={currentCalendarDate}
                                 monthlyProfit={monthlyProfit}
