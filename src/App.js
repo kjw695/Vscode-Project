@@ -1259,9 +1259,12 @@ return (
 
             {/* 여기는 원래 있던 메인 콘텐츠 div 입니다 */}
             <div className={`p-6 rounded-lg shadow-md w-full max-w-4xl mb-6 relative ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-                <h1 className="text-3xl font-bold text-center mb-6">
-                  {activeContentTab === 'dataEntry' ? '입출금' : '배송 수익 추적기'}
-</h1>
+                {/* 통계와 더보기 화면에서는 큰 제목을 숨겨서 공간 확보 */}
+{activeContentTab !== 'statistics' && activeContentTab !== 'adminSettings' && (
+    <h1 className="text-3xl font-bold text-center mb-6">
+        {activeContentTab === 'dataEntry' ? '입출금' : '배송 수익 추적기'}
+    </h1>
+)}
                
 
                 {/* 로그인 안 된 상태 메시지 (제거) */}
