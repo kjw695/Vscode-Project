@@ -19,6 +19,7 @@ import AccountView from './components/more/AccountView';
 import UnitPriceView from './components/more/UnitPriceView';
 import PeriodView from './components/more/PeriodView';
 import DataSettingsView from './components/more/DataSettingsView';
+
 import { useProfitCalculations } from './hooks/useProfitCalculations';
 
 function App() {
@@ -369,6 +370,7 @@ useEffect(() => {
     };
 
     // 월별 수익 계산
+
     
     // App.js
 
