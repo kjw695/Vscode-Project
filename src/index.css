@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* src/index.css 파일 맨 아래의 react-calendar-heatmap 스타일 부분을 교체 */
+
+.react-calendar-heatmap .color-empty {
+  fill: #ebedf0;
+}
+.react-calendar-heatmap .color-scale-1 {
+  fill: #9be9a8;
+}
+.react-calendar-heatmap .color-scale-2 {
+  fill: #40c463;
+}
+.react-calendar-heatmap .color-scale-3 {
+  fill: #30a14e;
+}
+.react-calendar-heatmap .color-scale-4 {
+  fill: #216e39;
+}
+
+/* 툴팁 스타일 (선택 사항) */
+.react-tooltip {
+  background-color: #222 !important;
+  color: #fff !important;
+  border-radius: 4px !important;
+  padding: 8px 12px !important;
+  font-size: 12px !important;
+}
+
+/* src/index.css 파일 맨 아래에 추가 */
+
+/* 히트맵의 월(Month) 글자 스타일 */
+.react-calendar-heatmap .month-label {
+  font-size: 10px; /* 글자 크기를 키웁니다 */
+  fill: #767676;  /* 글자 색상 */
+}
+
+/* 히트맵의 요일(Weekday) 글자 스타일 */
+.react-calendar-heatmap .wday-label {
+  font-size: 10px; /* 글자 크기를 키웁니다 */
+  fill: #767676;  /* 글자 색상 */
+}
