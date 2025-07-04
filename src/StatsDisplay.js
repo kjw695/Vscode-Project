@@ -143,12 +143,7 @@ function StatsDisplay({
 
             {statisticsView === 'yearly' && (
                  <div className="mt-6">
-                    <h3 className={`text-lg font-bold mb-3 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>연간 수익 히트맵</h3>
-                    <ProfitHeatmap
-                        year={selectedYear}
-                        data={yearlyProfit.dailyBreakdown.map(d => ({ date: d.date, count: d.netProfit }))}
-                    />
-                    <h3 className={`text-lg font-bold mb-3 mt-6 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>월별 상세 내역</h3>
+                     <h3 className={`text-lg font-bold mb-3 mt-6 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>월별 상세 내역</h3>
                     <div className="overflow-x-auto"><table className={`min-w-full rounded-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}><thead><tr className={`${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-200 text-gray-600'} uppercase text-sm`}><th className="py-3 px-6 text-left">월</th><th className="py-3 px-6 text-left">순이익</th></tr></thead><tbody className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} text-sm`}>{yearlyProfit.monthlyBreakdown.map(monthData => ( <tr key={monthData.month} className={`${isDarkMode ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-100'} border-b`}><td className="py-3 px-6 text-left">{monthData.month}월</td><td className="py-3 px-6 text-left">{monthData.netProfit.toLocaleString()} 원</td></tr>))}</tbody></table></div>
                 </div>
             )}

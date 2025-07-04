@@ -11,7 +11,8 @@ import { signInAnonymously, onAuthStateChanged, signOut, linkWithPopup, signInWi
 import { formatDate } from './utils';
 import StatsDisplay from './StatsDisplay';
 import AdBanner from './AdBanner'; // 광고 배너 컴포넌트
-
+import DataEntryForm from './DataEntryForm';
+import EntriesTable from './EntriesTable';
 
 //더보기제어
 import MoreView from './components/more/MoreView';
@@ -1035,338 +1036,63 @@ return (
 )}
                         {activeContentTab === 'dataEntry' && ( // 이제 userId 조건 없음
                             <>
-                               <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                    {/* 새로운 날짜 선택기 UI */}
-                                    <div className={`md:col-span-2 p-1 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-pink-100'}`}>
-                                        <div className="flex items-center justify-center space-x-3">
-                                            <button type="button" onClick={() => handleDateChange(-1)} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-600' : 'hover:bg-pink-200'}`}>
-                                                <ChevronLeft size={20} className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`} />
-                                            </button>
-                                            <span
-                                                onClick={() => dateInputRef.current?.showPicker()}
-                                                className={`font-bold text-lg cursor-pointer select-none ${isDarkMode ? 'text-pink-300' : 'text-pink-700'}`}
-                                            >
-                                                {date}
-                                            </span>
-                                            <button type="button" onClick={() => handleDateChange(1)} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-600' : 'hover:bg-pink-200'}`}>
-                                                <ChevronRight size={20} className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`} />
-                                            </button>
-                                            {/* 실제 날짜 값을 다루고, 달력을 띄우기 위한 숨겨진 입력창 */}
-                                            <input
-                                                ref={dateInputRef}
-                                                type="date"
-                                                value={date}
-                                                onChange={(e) => setDate(e.target.value)}
-                                                className="opacity-0 w-0 h-0 absolute"
-                                                required
-                                            />
-                                        </div>
-                                    </div>
-                                   
-                                    {/* 수익/지출 선택 버튼 */}
-                                    <div className="md:col-span-2 flex justify-center space-x-4 my-4">
-                                        <button
-                                            type="button"
-                                            onClick={() => setFormType('income')}
-                                            className={`py-2 px-6 rounded-md font-semibold transition-colors duration-200 ${
-                                                formType === 'income' 
-                                                ? (isDarkMode ? 'bg-blue-600 text-white' : 'bg-red-500 text-white')
-                                                : (isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300')
-                                            }`}
-                                        >
-                                            수익
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setFormType('expense')}
-                                            className={`py-2 px-6 rounded-md font-semibold transition-colors duration-200 ${
-                                                formType === 'expense' 
-                                                ? (isDarkMode ? 'bg-red-600 text-white' : 'bg-blue-500 text-white')
-                                                : (isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300')
-                                            }`}
-                                        >
-                                            지출
-                                        </button>
-                                    </div>
-
-
-                               {/* 수익 입력 필드 */}
-                                    {formType === 'income' && (
-                                        <div className="md:col-span-2 grid grid-cols-2 gap-4">
-                                            {/* '단가' 입력란이 이곳으로 이동했습니다. */}
-                                            <div className="col-span-2">
-                                                <label htmlFor="unitPrice" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>단가 (원)</label>
-                                                <input
-                                                    type="number"
-                                                    id="unitPrice"
-                                                    value={unitPrice}
-                                                    onChange={(e) => setUnitPrice(e.target.value)}
-                                                    className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-                                                    step="0.01"
-                                                />
-                                                <div className="mt-2 flex space-x-2">
-                                                    {favoriteUnitPrices.map((price) => (
-                                                        <button
-                                                            key={price}
-                                                            type="button"
-                                                            onClick={() => setUnitPrice(price.toString())}
-                                                            className={`${isDarkMode ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} text-xs py-1 px-3 rounded-full transition duration-150 ease-in-out`}
-                                                        >
-                                                            {price.toLocaleString()}원
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label htmlFor="deliveryCount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>배송 수량</label>
-                                                <input
-                                                    type="number"
-                                                    id="deliveryCount"
-                                                    value={deliveryCount}
-                                                    onChange={(e) => setDeliveryCount(e.target.value)}
-                                                    className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-                                                />
-                                            </div>
-                                            <div>
-                                                <label htmlFor="returnCount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>반품 수량</label>
-                                                <input
-                                                    type="number"
-                                                    id="returnCount"
-                                                    value={returnCount}
-                                                    onChange={(e) => setReturnCount(e.target.value)}
-                                                    className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-                                                />
-                                            </div>
-                                            <div>
-                                                <label htmlFor="deliveryInterruptionAmount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>배송중단</label>
-                                                <input
-                                                    type="number"
-                                                    id="deliveryInterruptionAmount"
-                                                    value={deliveryInterruptionAmount}
-                                                    onChange={(e) => setDeliveryInterruptionAmount(e.target.value)}
-                                                    className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-                                                    step="0.01"
-                                                    placeholder="원, 선택 사항"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label htmlFor="freshBagCount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>프레시백 수량</label>
-                                                <input
-                                                    type="number"
-                                                    id="freshBagCount"
-                                                    value={freshBagCount}
-                                                    onChange={(e) => setFreshBagCount(e.target.value)}
-                                                    className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-                                                    placeholder="선택 사항"
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* 지출 입력 필드 */}
-                                    {formType === 'expense' && (
-                                        <div className="md:col-span-2 grid grid-cols-2 gap-4 mt-4">
-                                            <div>
-                                                <label htmlFor="penaltyAmount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>패널티</label>
-                                                <input
-                                                    type="number"
-                                                    id="penaltyAmount"
-                                                    value={penaltyAmount}
-                                                    onChange={(e) => setPenaltyAmount(e.target.value)}
-                                                    className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-                                                    step="0.01"
-                                                    placeholder="원, 지출"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label htmlFor="industrialAccidentCost" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>산재</label>
-                                                <input
-                                                    type="number"
-                                                    id="industrialAccidentCost"
-                                                    value={industrialAccidentCost}
-                                                    onChange={(e) => setIndustrialAccidentCost(e.target.value)}
-                                                    className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-                                                    step="0.01"
-                                                    placeholder="원, 선택 사항"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label htmlFor="fuelCost" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>유류비</label>
-                                                <input
-                                                    type="number"
-                                                    id="fuelCost"
-                                                    value={fuelCost}
-                                                    onChange={(e) => setFuelCost(e.target.value)}
-                                                    className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-                                                    step="0.01"
-                                                    placeholder="원, 선택 사항"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label htmlFor="maintenanceCost" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>유지보수비</label>
-                                                <input
-                                                    type="number"
-                                                    id="maintenanceCost"
-                                                    value={maintenanceCost}
-                                                    onChange={(e) => setMaintenanceCost(e.target.value)}
-                                                    className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-                                                    step="0.01"
-                                                    placeholder="원, 선택 사항"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label htmlFor="vatAmount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>부가세</label>
-                                                <input
-                                                    type="number"
-                                                    id="vatAmount"
-                                                    value={vatAmount}
-                                                    onChange={(e) => setVatAmount(e.target.value)}
-                                                    className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-                                                    step="0.01"
-                                                    placeholder="원, 선택 사항"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label htmlFor="incomeTaxAmount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>종합소득세</label>
-                                                <input
-                                                    type="number"
-                                                    id="incomeTaxAmount"
-                                                    value={incomeTaxAmount}
-                                                    onChange={(e) => setIncomeTaxAmount(e.target.value)}
-                                                    className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-                                                    step="0.01"
-                                                    placeholder="원, 선택 사항"
-                                                />
-                                            </div>
-                                            <div className="md:col-span-2">
-                                                <label htmlFor="taxAccountantFee" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>세무사 비용</label>
-                                                <input
-                                                    type="number"
-                                                    id="taxAccountantFee"
-                                                    value={taxAccountantFee}
-                                                    onChange={(e) => setTaxAccountantFee(e.target.value)}
-                                                    className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-                                                    step="0.01"
-                                                    placeholder="원, 선택 사항"
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="md:col-span-2 mt-4">
-                                        <button
-                                            type="submit"
-                                            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150 ease-in-out"
-                                        >
-                                            {entryToEdit ? '수정' : '저장'}
-                                        </button>
-                                    </div>
-                                </form>
-
-
-                                <h2 className={`text-2xl font-bold mb-4 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>입력된 데이터</h2>
-                                <div className="overflow-x-auto">
-                                    <table className={`min-w-full rounded-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-                                        <thead>
-                                            <tr className={`${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-200 text-gray-600'} uppercase text-sm leading-normal`}>
-                                                <th className="py-3 px-6 text-left cursor-pointer" onClick={() => handleSort('date')}>
-                                                    날짜
-                                                    {sortColumn === 'date' && (sortDirection === 'asc' ? <ArrowUp size={16} className="inline ml-1" /> : <ArrowDown size={16} className="inline ml-1" />)}
-                                                </th>
-                                                <th className="py-3 px-6 text-left cursor-pointer" onClick={() => handleSort('unitPrice')}>
-                                                    단가
-                                                    {sortColumn === 'unitPrice' && (sortDirection === 'asc' ? <ArrowUp size={16} className="inline ml-1" /> : <ArrowDown size={16} className="inline ml-1" />)}
-                                                </th>
-                                                <th className="py-3 px-6 text-left cursor-pointer" onClick={() => handleSort('deliveryCount')}>
-                                                    배송
-                                                    {sortColumn === 'deliveryCount' && (sortDirection === 'asc' ? <ArrowUp size={16} className="inline ml-1" /> : <ArrowDown size={16} className="inline ml-1" />)}
-                                                </th>
-                                                <th className="py-3 px-6 text-left cursor-pointer" onClick={() => handleSort('returnCount')}>
-                                                    반품
-                                                    {sortColumn === 'returnCount' && (sortDirection === 'asc' ? <ArrowUp size={16} className="inline ml-1" /> : <ArrowDown size={16} className="inline ml-1" />)}
-                                                </th>
-                                                <th className="py-3 px-6 text-left">배송중단</th>
-                                                <th className="py-3 px-6 text-left">프레시백</th>
-                                                <th className="py-3 px-6 text-left">패널티</th>
-                                                <th className="py-3 px-6 text-left">산재</th>
-                                                <th className="py-3 px-6 text-left">유류비</th>
-                                                <th className="py-3 px-6 text-left">유지보수비</th>
-                                                <th className="py-3 px-6 text-left">부가세</th>
-                                                <th className="py-3 px-6 text-left">종합소득세</th>
-                                                <th className="py-3 px-6 text-left">세무사 비용</th>
-                                                <th className="py-3 px-6 text-center">작업</th>
-                                            </tr>
-
-                                        </thead>
-                                        <tbody className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} text-sm font-light`}>
-                                            {filteredAndSortedEntries.length > 0 ? ( // 데이터가 있을 때만 렌더링
-                                                filteredAndSortedEntries.map(entry => (
-                                                    <tr key={entry.id} className={`${isDarkMode ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-100'} border-b`}>
-                                                        <td className="py-3 px-6 text-left whitespace-nowrap">{entry.date}</td>
-                                                        <td className="py-3 px-6 text-left">{entry.unitPrice.toLocaleString()}</td>
-                                                        <td className="py-3 px-6 text-left">{entry.deliveryCount.toLocaleString()}</td>
-                                                        <td className="py-3 px-6 text-left">{entry.returnCount.toLocaleString()}</td>
-                                                        <td className="py-3 px-6 text-left">{(entry.deliveryInterruptionAmount || 0).toLocaleString()}</td>
-                                                        <td className="py-3 px-6 text-left">{(entry.freshBagCount || 0).toLocaleString()}</td>
-                                                        <td className="py-3 px-6 text-left">{(entry.penaltyAmount || 0).toLocaleString()}</td>
-                                                        <td className="py-3 px-6 text-left">{(entry.industrialAccidentCost || 0).toLocaleString()}</td>
-                                                        <td className="py-3 px-6 text-left">{(entry.fuelCost || 0).toLocaleString()}</td>
-                                                        <td className="py-3 px-6 text-left">{(entry.maintenanceCost || 0).toLocaleString()}</td>
-                                                        <td className="py-3 px-6 text-left">{(entry.vatAmount || 0).toLocaleString()}</td>
-                                                        <td className="py-3 px-6 text-left">{(entry.incomeTaxAmount || 0).toLocaleString()}</td>
-                                                        <td className="py-3 px-6 text-left">{(entry.taxAccountantFee || 0).toLocaleString()}</td>
-                                                        <td className="py-3 px-6 text-center">
-                                                            <div className="flex item-center justify-center">
-                                                                <button
-                                                                    onClick={() => handleEdit(entry)}
-                                                                    className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-1 px-3 rounded-md mr-2 transition duration-150 ease-in-out"
-                                                                >
-                                                                    수정
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleDelete(entry.id)}
-                                                                    className="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-md transition duration-150 ease-in-out"
-                                                                >
-                                                                    삭제
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            ) : ( // 데이터가 없을 때 표시할 행
-                                                <tr>
-                                                    <td colSpan="14" className="py-3 px-6 text-center">
-                                                        <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>입력된 데이터가 없습니다. (로그인하지 않으면 데이터는 저장되지 않습니다.)</p>
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </>
-                        )}
-
-                        {activeContentTab === 'statistics' && ( // statistics는 userId 조건 없음
-                            <StatsDisplay
-                                statisticsView={statisticsView}
-                                setStatisticsView={setStatisticsView}
-                                handleMonthChange={handleMonthChange}
-                                selectedYear={selectedYear}
-                                currentCalendarDate={currentCalendarDate}
-                                monthlyProfit={monthlyProfit}
-                                yearlyProfit={yearlyProfit}
-                                cumulativeProfit={cumulativeProfit}
-                                previousMonthlyProfit={previousMonthlyProfit}
+   <DataEntryForm
+                                handleSubmit={handleSubmit}
+                                date={date}
+                                setDate={setDate}
+                                handleDateChange={handleDateChange}
+                                dateInputRef={dateInputRef}
+                                formType={formType}
+                                setFormType={setFormType}
                                 isDarkMode={isDarkMode}
-                                showMessage={showMessage}
-                                monthlyStatsSubTab={monthlyStatsSubTab}
-                                setMonthlyStatsSubTab={setMonthlyStatsSubTab}
-                                setSelectedYear={setSelectedYear} // setSelectedYear 전달
+                                entryToEdit={entryToEdit}
+                                unitPrice={unitPrice} setUnitPrice={setUnitPrice}
+                                deliveryCount={deliveryCount} setDeliveryCount={setDeliveryCount}
+                                returnCount={returnCount} setReturnCount={setReturnCount}
+                                deliveryInterruptionAmount={deliveryInterruptionAmount} setDeliveryInterruptionAmount={setDeliveryInterruptionAmount}
+                                freshBagCount={freshBagCount} setFreshBagCount={setFreshBagCount}
+                                penaltyAmount={penaltyAmount} setPenaltyAmount={setPenaltyAmount}
+                                industrialAccidentCost={industrialAccidentCost} setIndustrialAccidentCost={setIndustrialAccidentCost}
+                                fuelCost={fuelCost} setFuelCost={setFuelCost}
+                                maintenanceCost={maintenanceCost} setMaintenanceCost={setMaintenanceCost}
+                                vatAmount={vatAmount} setVatAmount={setVatAmount}
+                                incomeTaxAmount={incomeTaxAmount} setIncomeTaxAmount={setIncomeTaxAmount}
+                                taxAccountantFee={taxAccountantFee} setTaxAccountantFee={setTaxAccountantFee}
+                                favoriteUnitPrices={favoriteUnitPrices}
                             />
-                        )}
+            <h2 className={`text-2xl font-bold mb-4 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>입력된 데이터</h2>
+                            <EntriesTable
+                                entries={filteredAndSortedEntries}
+                                handleSort={handleSort}
+                                handleEdit={handleEdit}
+                                handleDelete={handleDelete}
+                                isDarkMode={isDarkMode}
+                                sortColumn={sortColumn}
+                                sortDirection={sortDirection}
+                            />
+                        </>
+                    )}
+                                
 
-                        {/* 관리자 설정은 로그인 여부와 관계없이 접근 가능하도록 변경 */}
-                        
+                        {activeContentTab === 'statistics' && (
+                        <StatsDisplay
+                            statisticsView={statisticsView}
+                            setStatisticsView={setStatisticsView}
+                            handleMonthChange={handleMonthChange}
+                            selectedYear={selectedYear}
+                            currentCalendarDate={currentCalendarDate}
+                            monthlyProfit={monthlyProfit}
+                            yearlyProfit={yearlyProfit}
+                            cumulativeProfit={cumulativeProfit}
+                            previousMonthlyProfit={previousMonthlyProfit}
+                            isDarkMode={isDarkMode}
+                            showMessage={showMessage}
+                            monthlyStatsSubTab={monthlyStatsSubTab}
+                            setMonthlyStatsSubTab={setMonthlyStatsSubTab}
+                            setSelectedYear={setSelectedYear}
+                        />
+                    )}
+
                         {/* --- 👇 '더보기' 탭의 새로운 렌더링 로직 --- */}
                         {activeContentTab === 'adminSettings' && (
                             <>
