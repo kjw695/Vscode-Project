@@ -14,6 +14,10 @@ import AdBanner from './AdBanner'; // 광고 배너 컴포넌트
 import DataEntryForm from './DataEntryForm';
 import EntriesTable from './EntriesTable';
 
+//입력/데이터탭기능추가
+import TransactionManager from './components/TransactionManager';
+import TransactionTable from './components/TransactionTable';
+
 //더보기제어
 import MoreView from './components/more/MoreView';
 import AccountView from './components/more/AccountView';
@@ -79,6 +83,8 @@ function App() {
     // 정렬 상태 추가
     const [sortColumn, setSortColumn] = useState('date'); // 기본 정렬 기준: 날짜
     const [sortDirection, setSortDirection] = useState('desc'); // 기본 정렬 방향: 내림차순
+    //입력'/'데이터' 탭 상태 추가
+     const [activeDataTab, setActiveDataTab] = useState('entry'); // 'entry' 또는 'list'
 
     // 월별 수익 탭의 캘린더 관련 상태
     const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date()); // 캘린더에 표시될 현재 날짜 (월 이동용)
@@ -344,6 +350,7 @@ useEffect(() => {
         } else {
             setFormType('income'); // 없으면 수익 폼을 보여줌
         }
+        setActiveDataTab('entry'); // 수정 시 '입력' 탭으로 자동 이동
         setSelectedMainTab('data'); // 편집 시 '데이터' 탭으로 이동
         setActiveContentTab('dataEntry');
     };
@@ -901,8 +908,8 @@ return (
                 {/* 통계와 더보기 화면에서는 큰 제목을 숨겨서 공간 확보 */}
 {activeContentTab !== 'statistics' && activeContentTab !== 'adminSettings' && (
     <h1 className="text-3xl font-bold text-center mb-6">
-        {activeContentTab === 'dataEntry' ? '입출금' : '배송 수익 추적기'}
-    </h1>
+         {activeContentTab === 'dataEntry' ? '' : '배송 수익 추적기'}
+</h1>
 )}
                
 
@@ -1034,44 +1041,69 @@ return (
         )}
     </>
 )}
-                        {activeContentTab === 'dataEntry' && ( // 이제 userId 조건 없음
-                            <>
-   <DataEntryForm
-                                handleSubmit={handleSubmit}
-                                date={date}
-                                setDate={setDate}
-                                handleDateChange={handleDateChange}
-                                dateInputRef={dateInputRef}
-                                formType={formType}
-                                setFormType={setFormType}
-                                isDarkMode={isDarkMode}
-                                entryToEdit={entryToEdit}
-                                unitPrice={unitPrice} setUnitPrice={setUnitPrice}
-                                deliveryCount={deliveryCount} setDeliveryCount={setDeliveryCount}
-                                returnCount={returnCount} setReturnCount={setReturnCount}
-                                deliveryInterruptionAmount={deliveryInterruptionAmount} setDeliveryInterruptionAmount={setDeliveryInterruptionAmount}
-                                freshBagCount={freshBagCount} setFreshBagCount={setFreshBagCount}
-                                penaltyAmount={penaltyAmount} setPenaltyAmount={setPenaltyAmount}
-                                industrialAccidentCost={industrialAccidentCost} setIndustrialAccidentCost={setIndustrialAccidentCost}
-                                fuelCost={fuelCost} setFuelCost={setFuelCost}
-                                maintenanceCost={maintenanceCost} setMaintenanceCost={setMaintenanceCost}
-                                vatAmount={vatAmount} setVatAmount={setVatAmount}
-                                incomeTaxAmount={incomeTaxAmount} setIncomeTaxAmount={setIncomeTaxAmount}
-                                taxAccountantFee={taxAccountantFee} setTaxAccountantFee={setTaxAccountantFee}
-                                favoriteUnitPrices={favoriteUnitPrices}
-                            />
+{activeContentTab === 'dataEntry' && (
+    <>
+      {/* 입력 / 데이터 탭 버튼 (중앙 정렬 적용) */}
+      <div className="flex justify-center border-b mb-4">
+        <button
+          onClick={() => setActiveDataTab('entry')}
+          className={`py-2 px-4 font-semibold ${activeDataTab === 'entry' ? (isDarkMode ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-600') : (isDarkMode ? 'border-transparent text-gray-400' : 'border-transparent text-gray-500')} border-b-2`}
+        >
+          입력
+        </button>
+        <button
+          onClick={() => setActiveDataTab('list')}
+          className={`py-2 px-4 font-semibold ${activeDataTab === 'list' ? (isDarkMode ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-600') : (isDarkMode ? 'border-transparent text-gray-400' : 'border-transparent text-gray-500')} border-b-2`}
+        >
+          데이터
+        </button>
+      </div>
+
+      {/* '입력' 탭일 때 DataEntryForm을 보여줍니다. */}
+      {activeDataTab === 'entry' && (
+        <DataEntryForm
+            handleSubmit={handleSubmit}
+            date={date}
+            setDate={setDate}
+            handleDateChange={handleDateChange}
+            dateInputRef={dateInputRef}
+            formType={formType}
+            setFormType={setFormType}
+            isDarkMode={isDarkMode}
+            entryToEdit={entryToEdit}
+            unitPrice={unitPrice} setUnitPrice={setUnitPrice}
+            deliveryCount={deliveryCount} setDeliveryCount={setDeliveryCount}
+            returnCount={returnCount} setReturnCount={setReturnCount}
+            deliveryInterruptionAmount={deliveryInterruptionAmount} setDeliveryInterruptionAmount={setDeliveryInterruptionAmount}
+            freshBagCount={freshBagCount} setFreshBagCount={setFreshBagCount}
+            penaltyAmount={penaltyAmount} setPenaltyAmount={setPenaltyAmount}
+            industrialAccidentCost={industrialAccidentCost} setIndustrialAccidentCost={setIndustrialAccidentCost}
+            fuelCost={fuelCost} setFuelCost={setFuelCost}
+            maintenanceCost={maintenanceCost} setMaintenanceCost={setMaintenanceCost}
+            vatAmount={vatAmount} setVatAmount={setVatAmount}
+            incomeTaxAmount={incomeTaxAmount} setIncomeTaxAmount={setIncomeTaxAmount}
+            taxAccountantFee={taxAccountantFee} setTaxAccountantFee={setTaxAccountantFee}
+            favoriteUnitPrices={favoriteUnitPrices}
+        />
+      )}
+
+      {/* '데이터' 탭일 때 EntriesTable을 보여줍니다. */}
+      {activeDataTab === 'list' && (
+        <>
             <h2 className={`text-2xl font-bold mb-4 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>입력된 데이터</h2>
-                            <EntriesTable
-                                entries={filteredAndSortedEntries}
-                                handleSort={handleSort}
-                                handleEdit={handleEdit}
-                                handleDelete={handleDelete}
-                                isDarkMode={isDarkMode}
-                                sortColumn={sortColumn}
-                                sortDirection={sortDirection}
-                            />
-                        </>
-                    )}
+            <EntriesTable
+                entries={filteredAndSortedEntries}
+                handleSort={handleSort}
+                handleEdit={handleEdit}
+                handleDelete={handleDelete}
+                isDarkMode={isDarkMode}
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+            />
+        </>
+      )}
+    </>
+)}
                                 
 
                         {activeContentTab === 'statistics' && (
