@@ -17,6 +17,10 @@ import EntriesTable from './EntriesTable';
 //입력/데이터탭기능추가
 import TransactionManager from './components/TransactionManager';
 import TransactionTable from './components/TransactionTable';
+//백업관리
+import { exportDataAsCsv, importDataFromCsv } from './utils/dataHandlers';
+//따로 다운로드 팝업보이게하기
+import Modal from './components/Modal';
 
 //더보기제어
 import MoreView from './components/more/MoreView';
@@ -55,7 +59,8 @@ function App() {
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); //YYYY-MM
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString()); //YYYY
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [modalContent, setModalContent] = useState('');
+// modalContent의 초기값을 객체 형태로 변경합니다.
+const [modalContent, setModalContent] = useState({ title: '', content: null });
     const [entryToEdit, setEntryToEdit] = useState(null);
     
     // 메인 내비게이션 탭 상태: 'data', 'statistics', 'home', 'more' (순서 변경)
@@ -232,10 +237,10 @@ useEffect(() => {
     }, [isAuthReady, userId]);
 
     // 메시지 표시 함수
-    const showMessage = (msg) => {
-        setModalContent(msg);
-        setIsModalOpen(true);
-    };
+   const showMessage = (title, content = null) => {
+    setModalContent({ title, content });
+    setIsModalOpen(true);
+};
 
     const closeModal = () => {
         setIsModalOpen(false);
@@ -562,236 +567,6 @@ useEffect(() => {
         setIsDarkMode(prevMode => !prevMode);
     };
 
-    // 데이터 백업 기능 (JSON)
-    const handleBackupData = async () => {
-        if (!userId) {
-            showMessage("로그인해야 데이터를 백업할 수 있습니다.");
-            return;
-        }
-        try {
-            const entriesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/deliveryEntries`);
-            const querySnapshot = await getDocs(entriesCollectionRef);
-            const dataToBackup = querySnapshot.docs.map(doc => doc.data());
-
-            const jsonString = JSON.stringify(dataToBackup, null, 2);
-            const blob = new Blob([jsonString], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            
-            const a = document.createElement('a');
-            a.href = url;
-            const today = new Date().toISOString().slice(0, 10);
-            a.download = `delivery_data_${today}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            showMessage("데이터 백업(JSON)이 완료되었습니다.");
-        } catch (error) {
-            console.error("Error backing up data:", error);
-            showMessage("데이터 백업(JSON)에 실패했습니다.");
-        }
-    };
-
-    // 데이터 복원 기능 (JSON)
-    const handleRestoreData = (event) => {
-        if (!userId) {
-            showMessage("로그인해야 데이터를 복원할 수 있습니다.");
-            return;
-        }
-        const file = event.target.files[0];
-        if (!file) {
-            showMessage("복원할 JSON 파일을 선택해주세요.");
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const importedData = JSON.parse(e.target.result);
-                if (!Array.isArray(importedData)) {
-                    showMessage("유효한 JSON 배열 형식이 아닙니다.");
-                    return;
-                }
-
-                const entriesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/deliveryEntries`);
-                for (const item of importedData) {
-                    const dataToAdd = { ...item };
-                    // Firestore Timestamp 객체 또는 문자열을 Date 객체로 변환
-                    if (dataToAdd.timestamp && typeof dataToAdd.timestamp.toDate === 'function') {
-                        dataToAdd.timestamp = dataToAdd.timestamp.toDate();
-                    } else if (dataToAdd.timestamp && typeof dataToAdd.timestamp === 'object' && dataToAdd.timestamp._seconds) {
-                        dataToAdd.timestamp = new Date(dataToAdd.timestamp._seconds * 1000 + (dataToAdd.timestamp._nanoseconds / 1000000));
-                    } else if (typeof dataToAdd.timestamp === 'string') {
-                        dataToAdd.timestamp = new Date(dataToAdd.timestamp);
-                    } else {
-                        dataToAdd.timestamp = new Date(); // 기본값 설정
-                    }
-                    
-                    delete dataToAdd.id; // Firestore에서 자동으로 생성하므로 제거
-
-                    await addDoc(entriesCollectionRef, dataToAdd);
-                }
-                showMessage("데이터 복원(JSON)이 완료되었습니다.");
-                event.target.value = null; // 파일 입력 초기화
-            } catch (error) {
-                console.error("Error restoring data:", error);
-                showMessage("데이터 복원(JSON)에 실패했습니다. 파일 형식을 확인해주세요. (예: 헤더, 데이터 형식)");
-                event.target.value = null; // 오류 시 파일 입력 초기화
-            }
-        };
-        reader.readAsText(file);
-    };
-
-    // CSV 내보내기 기능
-    const handleExportCsv = async () => {
-        if (!userId) {
-            showMessage("로그인해야 데이터를 내보낼 수 있습니다.");
-            return;
-        }
-        try {
-            const entriesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/deliveryEntries`);
-            const querySnapshot = await getDocs(entriesCollectionRef);
-            const dataToExport = querySnapshot.docs.map(doc => doc.data());
-
-            if (dataToExport.length === 0) {
-                showMessage("내보낼 데이터가 없습니다.");
-                return;
-            }
-
-            // CSV 헤더 정의 (한국어)
-            const headers = [
-                "날짜", "단가", "배송 수량", "반품 수량", "배송중단", "프레시백 수량",
-                "패널티", "산재", "유류비", "유지보수비", "부가세", "종합소득세", "세무사 비용", "타임스탬프"
-            ];
-
-            // 데이터 매핑 및 CSV 행 생성
-            const csvRows = dataToExport.map(entry => {
-                return [
-                    entry.date,
-                    entry.unitPrice || 0,
-                    entry.deliveryCount || 0,
-                    entry.returnCount || 0,
-                    entry.deliveryInterruptionAmount || 0,
-                    entry.freshBagCount || 0,
-                    entry.penaltyAmount || 0,
-                    entry.industrialAccidentCost || 0,
-                    entry.fuelCost || 0,
-                    entry.maintenanceCost || 0,
-                    entry.vatAmount || 0,
-                    entry.incomeTaxAmount || 0,
-                    entry.taxAccountantFee || 0,
-                    entry.timestamp ? new Date(entry.timestamp.seconds * 1000).toISOString() : '' // Firestore Timestamp를 ISO 문자열로 변환
-                ].map(value => {
-                    // 기본적인 CSV 이스케이프: 쉼표나 큰따옴표가 포함된 경우 큰따옴표로 묶고, 큰따옴표는 두 번 반복
-                    let stringValue = String(value);
-                    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-                        stringValue = `"${stringValue.replace(/"/g, '""')}"`;
-                    }
-                    return stringValue;
-                }).join(',');
-            });
-
-            const csvString = [headers.join(','), ...csvRows].join('\n');
-            
-            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            
-            const a = document.createElement('a');
-            a.href = url;
-            const today = new Date().toISOString().slice(0, 10);
-            a.download = `delivery_data_${today}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            showMessage("데이터 내보내기(CSV)가 완료되었습니다.");
-        } catch (error) {
-            console.error("Error exporting data:", error);
-            showMessage("데이터 내보내기(CSV)에 실패했습니다.");
-        }
-    };
-
-    // CSV 가져오기 기능
-    const handleImportCsv = (event) => {
-        if (!userId) {
-            showMessage("로그인해야 데이터를 가져올 수 있습니다.");
-            return;
-        }
-        const file = event.target.files[0];
-        if (!file) {
-            showMessage("가져올 CSV 파일을 선택해주세요.");
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const csvText = e.target.result;
-                const lines = csvText.split('\n').filter(line => line.trim() !== '');
-                if (lines.length < 2) {
-                    showMessage("유효한 CSV 파일 형식이 아닙니다 (헤더와 최소 한 줄의 데이터 필요).");
-                    return;
-                }
-
-                const headers = lines[0].split(',').map(h => h.trim());
-                const dataToImport = [];
-
-                for (let i = 1; i < lines.length; i++) {
-                    // 기본적인 CSV 파싱 (쉼표로 분리, 큰따옴표 처리)
-                    // 이스케이프된 쉼표를 처리하기 위해 정규식을 사용하거나 더 견고한 파서를 사용해야 할 수 있습니다.
-                    // 여기서는 간단한 split으로 처리하며, 복잡한 CSV에는 한계가 있을 수 있습니다.
-                    const values = lines[i].match(/(".*?"|[^",]+)(,|$)/g).map(val => {
-                        val = val.endsWith(',') ? val.slice(0, -1) : val; // 마지막 쉼표 제거
-                        if (val.startsWith('"') && val.endsWith('"')) {
-                            return val.substring(1, val.length - 1).replace(/""/g, '"');
-                        }
-                        return val;
-                    });
-
-                    const entry = {};
-                    headers.forEach((header, index) => {
-                        let value = values[index];
-                        
-                        // CSV 헤더를 Firestore 필드 이름으로 매핑 (한국어 -> 영어)
-                        switch(header) {
-                            case "날짜": entry.date = value; break;
-                            case "단가": entry.unitPrice = parseFloat(value) || 0; break;
-                            case "배송 수량": entry.deliveryCount = parseInt(value) || 0; break;
-                            case "반품 수량": entry.returnCount = parseInt(value) || 0; break;
-                            case "배송중단": entry.deliveryInterruptionAmount = parseFloat(value) || 0; break;
-                            case "프레시백 수량": entry.freshBagCount = parseInt(value) || 0; break;
-                            case "패널티": entry.penaltyAmount = parseFloat(value) || 0; break;
-                            case "산재": entry.industrialAccidentCost = parseFloat(value) || 0; break;
-                            case "유류비": entry.fuelCost = parseFloat(value) || 0; break;
-                            case "유지보수비": entry.maintenanceCost = parseFloat(value) || 0; break;
-                            case "부가세": entry.vatAmount = parseFloat(value) || 0; break;
-                            case "종합소득세": entry.incomeTaxAmount = parseFloat(value) || 0; break;
-                            case "세무사 비용": entry.taxAccountantFee = parseFloat(value) || 0; break;
-                            case "타임스탬프": entry.timestamp = value ? new Date(value) : new Date(); break;
-                            default: break;
-                        }
-                    });
-                    // 타임스탬프가 없으면 현재 시간으로 설정
-                    if (!entry.timestamp) {
-                        entry.timestamp = new Date();
-                    }
-                    dataToImport.push(entry);
-                }
-
-                const entriesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/deliveryEntries`);
-                for (const item of dataToImport) {
-                    await addDoc(entriesCollectionRef, item);
-                }
-                showMessage("데이터 복원(JSON)이 완료되었습니다.");
-                event.target.value = null; // 파일 입력 초기화
-            } catch (error) {
-                console.error("Error restoring data:", error);
-                showMessage("데이터 복원(JSON)에 실패했습니다. 파일 형식을 확인해주세요. (예: 헤더, 데이터 형식)");
-                event.target.value = null; // 오류 시 파일 입력 초기화
-            }
-        };
-        reader.readAsText(file);
-    };
 
     // 정렬 핸들러
     const handleSort = (column) => {
@@ -1170,16 +945,15 @@ return (
                                         monthlyEndDay={monthlyEndDay}
                                     />
                                 )}
-                                {moreSubView === 'data' && (
-                                    <DataSettingsView
-                                        onBack={() => setMoreSubView('main')}
-                                        isDarkMode={isDarkMode}
-                                        handleBackupData={handleBackupData}
-                                        handleRestoreData={handleRestoreData}
-                                        handleExportCsv={handleExportCsv}
-                                        handleImportCsv={handleImportCsv}
-                                    />
-                                )}
+                             
+   {moreSubView === 'data' && (
+    <DataSettingsView
+        onBack={() => setMoreSubView('main')}
+        isDarkMode={isDarkMode}
+        handleExportCsv={() => exportDataAsCsv(db, appId, userId, showMessage)}
+        handleImportCsv={(e) => importDataFromCsv(e, db, appId, userId, showMessage)}
+    />
+)}
                             </>
                         )}
 
@@ -1287,21 +1061,14 @@ return (
             )}
 
             {/* Custom Modal for messages */}
-            {isModalOpen && (
-                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-                    <div className={`p-6 rounded-lg shadow-xl max-w-sm w-full text-center ${isDarkMode ? 'bg-gray-700 text-gray-100' : 'bg-white text-gray-800'}`}>
-                        <p className="text-lg font-semibold mb-4">{modalContent}</p>
-                        <button
-                            onClick={closeModal}
-                            className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                        >
-                            확인
-                        </button>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
+           <Modal
+    isOpen={isModalOpen}
+    onClose={closeModal}
+    title={modalContent.title}
+    content={modalContent.content}
+    isDarkMode={isDarkMode}
+/>
+</div>
+);
 }
-
-export default App;
+export default App;  // <-- export는 함수 바깥, 파일의 최상단 레벨에 있어야 합니다.

@@ -1,50 +1,54 @@
+// src/components/more/DataSettingsView.jsx
+// 파일 전체를 아래 코드로 교체해주세요.
+
 import React from 'react';
 import { ChevronLeft, Download, Upload } from 'lucide-react';
 
-function DataSettingsView({ onBack, isDarkMode, handleBackupData, handleRestoreData, handleExportCsv, handleImportCsv }) {
+const DataSettingsView = ({ onBack, isDarkMode, handleExportCsv, handleImportCsv }) => {
+  const importInputRef = React.useRef(null);
+
+  const handleImportClick = () => {
+    importInputRef.current.click();
+  };
+  
   return (
-    <div className="w-full max-w-4xl">
-      <div className="flex items-center mb-6">
-        <button onClick={onBack} className={`p-2 rounded-full ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`}>
-          <ChevronLeft size={24} />
-        </button>
-        <h2 className="text-2xl font-bold ml-2">데이터 관리</h2>
-      </div>
-
-      <div className="space-y-6">
-        {/* JSON 백업/복원 */}
-        <div>
-          <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>백업 및 복원 (JSON)</h3>
-          <button onClick={handleBackupData} className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 flex items-center justify-center mb-4">
-            <Download size={20} className="mr-2" /> 데이터 백업 (JSON)
-          </button>
-          <div>
-            <label htmlFor="restoreFile" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
-              데이터 복원 (JSON 파일 선택):
-            </label>
-            <input type="file" id="restoreFile" accept=".json" onChange={handleRestoreData} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-          </div>
+    <div className="p-4">
+        <div className="flex items-center mb-6">
+            <button onClick={onBack} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                <ChevronLeft size={24} />
+            </button>
+            <h2 className="text-xl font-bold text-center flex-1">데이터 관리 (CSV)</h2>
         </div>
 
-        {/* CSV 내보내기/가져오기 */}
-        <div>
-          <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>내보내기/가져오기 (CSV)</h3>
-          <button onClick={handleExportCsv} className="w-full bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 flex items-center justify-center mb-4">
-            <Download size={20} className="mr-2" /> 데이터 내보내기 (CSV)
-          </button>
-          <div>
-            <label htmlFor="importCsvFile" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
-              데이터 가져오기 (CSV 파일 선택):
-            </label>
-            <input type="file" id="importCsvFile" accept=".csv" onChange={handleImportCsv} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"/>
-             <p className={`text-xs mt-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                * Excel 파일 직접 가져오기는 지원되지 않습니다. Excel에서 CSV 형식으로 저장 후 사용해주세요.
-             </p>
-          </div>
+        <div className="space-y-4">
+            <button
+                onClick={handleExportCsv}
+                className="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 flex items-center justify-center text-lg shadow-md transition-transform transform hover:scale-105"
+            >
+                <Download size={20} className="mr-2" /> CSV 파일로 내보내기
+            </button>
+
+            <button
+                onClick={handleImportClick}
+                className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 flex items-center justify-center text-lg shadow-md transition-transform transform hover:scale-105"
+            >
+                <Upload size={20} className="mr-2" /> CSV 파일에서 가져오기
+            </button>
+
+            <input
+                type="file"
+                ref={importInputRef}
+                accept=".csv"
+                onChange={handleImportCsv}
+                className="hidden"
+            />
         </div>
-      </div>
+
+        <p className={`text-sm mt-6 text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+            기존 데이터를 백업하거나, 새로운 기기로 데이터를 옮길 때 사용하세요.
+        </p>
     </div>
   );
-}
+};
 
 export default DataSettingsView;
