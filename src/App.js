@@ -35,7 +35,26 @@ function App() {
     const [userId, setUserId] = useState(null);
     const dateInputRef = useRef(null);
     const [isAuthReady, setIsAuthReady] = useState(false);
-    const [isDarkMode, setIsDarkMode] = useState(false); // 다크 모드 상태 추가
+
+    const [isDarkMode, setIsDarkMode] = useState(() => {
+        // 앱이 처음 로드될 때 localStorage에서 값을 읽어옵니다.
+        const savedMode = localStorage.getItem('isDarkMode');
+        // 저장된 값이 있다면 그 값을 사용하고, 없다면 기본값(false: 밝은 모드)을 반환합니다.
+        // JSON.parse를 사용하여 문자열 "true" 또는 "false"를 불리언 값으로 변환합니다.
+        return savedMode ? JSON.parse(savedMode) : false; 
+    }); 
+
+
+    useEffect(() => {
+        // isDarkMode 상태가 변경될 때마다 그 값을 localStorage에 저장합니다.
+        localStorage.setItem('isDarkMode', JSON.stringify(isDarkMode));
+        // HTML body에 dark/light 클래스를 추가하여 Tailwind CSS가 테마를 적용하도록 합니다.
+        if (isDarkMode) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    }, [isDarkMode]);
 
     // 날짜 필드를 오늘 날짜로 초기화
     const [date, setDate] = useState(new Date().toISOString().slice(0, 10));

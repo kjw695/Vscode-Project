@@ -61,7 +61,7 @@ function StatsDisplay({
             <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-white'} shadow`}>
                 <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleDetails('revenue')}>
                     <span className="font-semibold">총 매출</span>
-                    <div className="flex items-center"><span className="font-bold text-red-500">{totalRevenue.toLocaleString()} 원</span><button className="ml-2 text-xs py-1 px-2 rounded bg-gray-200 dark:bg-gray-600">{showRevenueDetails ? '닫기' : '상세'}</button></div>
+                    <div className="flex items-center"><span className="font-bold text-red-500">{totalRevenue.toLocaleString()} 원</span><button className="ml-2 text-xs py-1 px-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700">{showRevenueDetails ? '닫기' : '상세'}</button></div>
                 </div>
                 {showRevenueDetails && (<div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600 space-y-1 text-sm"><p><strong>배송 수익:</strong> {profitData.totalDeliveryRevenue.toLocaleString()} 원</p><p><strong>반품 수익:</strong> {profitData.totalReturnRevenue.toLocaleString()} 원</p><p><strong>배송중단 수익:</strong> {profitData.totalDeliveryInterruptionRevenue.toLocaleString()} 원</p><p><strong>프레시백 수익:</strong> {profitData.totalFreshBagRevenue.toLocaleString()} 원</p></div>)}
             </div>
@@ -70,7 +70,7 @@ function StatsDisplay({
             <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-white'} shadow`}>
                 <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleDetails('expenses')}>
                     <span className="font-semibold">총 지출</span>
-                    <div className="flex items-center"><span className="font-bold text-blue-500">{profitData.totalExpensesSum.toLocaleString()} 원</span><button className="ml-2 text-xs py-1 px-2 rounded bg-gray-200 dark:bg-gray-600">{showExpensesDetails ? '닫기' : '상세'}</button></div>
+                    <div className="flex items-center"><span className="font-bold text-blue-500">{profitData.totalExpensesSum.toLocaleString()} 원</span><button className="ml-2 text-xs py-1 px-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700">{showExpensesDetails ? '닫기' : '상세'}</button></div>
                 </div>
                 {showExpensesDetails && (<div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600 space-y-1 text-sm"><p><strong>패널티 비용:</strong> {profitData.totalPenaltyCost.toLocaleString()} 원</p><p><strong>산재 비용:</strong> {profitData.totalIndustrialAccidentCost.toLocaleString()} 원</p><p><strong>유류비:</strong> {profitData.totalFuelCost.toLocaleString()} 원</p><p><strong>유지보수비:</strong> {profitData.totalMaintenanceCost.toLocaleString()} 원</p><p><strong>부가세:</strong> {profitData.totalVatAmount.toLocaleString()} 원</p><p><strong>종합소득세:</strong> {profitData.totalIncomeTaxAmount.toLocaleString()} 원</p><p><strong>세무사 비용:</strong> {profitData.totalTaxAccountantFee.toLocaleString()} 원</p></div>)}
             </div>
