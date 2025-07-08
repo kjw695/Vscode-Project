@@ -779,7 +779,7 @@
         "licenseUrl": "https://github.com/ionic-team/capacitor/raw/master/LICENSE",
         "parents": "delivery-tracker-app"
     },
-    "@capacitor/cli@7.4.0": {
+    "@capacitor/cli@7.4.1": {
         "licenses": "MIT",
         "repository": "https://github.com/ionic-team/capacitor",
         "licenseUrl": "https://github.com/ionic-team/capacitor/raw/master/LICENSE",
@@ -1213,6 +1213,12 @@
         "licenses": "Apache-2.0",
         "repository": "https://github.com/grpc/grpc-node",
         "licenseUrl": "https://github.com/grpc/grpc-node/raw/master/LICENSE",
+        "parents": "delivery-tracker-app"
+    },
+    "@hamjad/capacitor-pedometer@0.1.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/Hamjadidris/capacitor-pedometer",
+        "licenseUrl": "https://github.com/Hamjadidris/capacitor-pedometer",
         "parents": "delivery-tracker-app"
     },
     "@humanwhocodes/config-array@0.13.0": {

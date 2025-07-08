@@ -15,6 +15,7 @@ import DataEntryForm from './DataEntryForm';
 import EntriesTable from './EntriesTable';
 import PrivacyPolicy from './components/PrivacyPolicy'; // 👈 추가
 import OpenSourceLicenses from './components/OpenSourceLicenses'; // 👈 추가
+import { Pedometer } from '@hamjad/capacitor-pedometer'; //만보기
 
 //입력/데이터탭기능추가
 import TransactionManager from './components/TransactionManager';
@@ -23,7 +24,9 @@ import TransactionTable from './components/TransactionTable';
 import { exportDataAsCsv, importDataFromCsv } from './utils/dataHandlers';
 //따로 다운로드 팝업보이게하기
 import Modal from './components/Modal';
-
+//랭킹 뷰
+import RankingView from './components/RankingView';
+import PedometerView from './components/PedometerView' //만보기
 //더보기제어
 import MoreView from './components/more/MoreView';
 import AccountView from './components/more/AccountView';
@@ -40,7 +43,8 @@ function App() {
     const [userId, setUserId] = useState(null);
     const dateInputRef = useRef(null);
     const [isAuthReady, setIsAuthReady] = useState(false);
-
+    const [dailySteps, setDailySteps] = useState(0); // 👈 오늘의 걸음 수를 저장할 상태
+    const [pedometerAvailable, setPedometerAvailable] = useState(false); // 👈 만보기 사용 가능 여부
     const [isDarkMode, setIsDarkMode] = useState(() => {
         // 앱이 처음 로드될 때 localStorage에서 값을 읽어옵니다.
         const savedMode = localStorage.getItem('isDarkMode');
@@ -61,6 +65,49 @@ function App() {
         }
     }, [isDarkMode]);
 
+useEffect(() => {
+        const fetchDailySteps = async () => {
+            try {
+                const permissions = await Pedometer.requestPermissions();
+                if (permissions.status !== 'granted') {
+                    showMessage("만보기 기능을 사용하려면 신체 활동 권한이 필요합니다.");
+                    setPedometerAvailable(false);
+                    return;
+                }
+                setPedometerAvailable(true);
+
+                const startDate = new Date();
+                startDate.setHours(0, 0, 0, 0);
+                const endDate = new Date();
+
+                const data = await Pedometer.query({
+                    startDate: startDate.getTime(),
+                    endDate: endDate.getTime()
+                });
+                setDailySteps(data?.numberOfSteps || 0);
+
+            } catch (error) {
+                console.error("만보기 데이터 조회 에러:", error);
+                setPedometerAvailable(false);
+            }
+        };
+
+        fetchDailySteps();
+    }, []);
+
+    // 👇 [수정 2] 걸음 수가 변경될 때마다 Firebase에 저장하는 useEffect를 바깥으로 분리
+    useEffect(() => {
+        if (userId && dailySteps > 0) {
+            const today = new Date().toISOString().slice(0, 10);
+            const userStepsRef = doc(db, `pedometer/${today}/userSteps`, userId);
+            setDoc(userStepsRef, {
+                steps: dailySteps,
+                lastUpdated: new Date()
+            }, { merge: true });
+        }
+    }, [userId, dailySteps]);
+
+    
     // 날짜 필드를 오늘 날짜로 초기화
     const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
     const [unitPrice, setUnitPrice] = useState('');
@@ -716,10 +763,10 @@ return (
             {/* 여기는 원래 있던 메인 콘텐츠 div 입니다 */}
 <div className={`p-6 rounded-lg shadow-md w-full max-w-4xl mb-6 relative flex-grow overflow-y-auto ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
                 {/* 통계와 더보기 화면에서는 큰 제목을 숨겨서 공간 확보 */}
-{activeContentTab !== 'statistics' && activeContentTab !== 'adminSettings' && (
+{activeContentTab !== 'statistics' && activeContentTab !== 'adminSettings' && activeContentTab !== 'rankingView' && (
     <h1 className="text-3xl font-bold text-center mb-6">
-         {activeContentTab === 'dataEntry' ? '' : '배송 수익 추적기'}
-</h1>
+        {activeContentTab === 'dataEntry' ? '' : '배송 수익 추적기'}
+    </h1>
 )}
                
 
@@ -1012,8 +1059,12 @@ return (
                             setSelectedYear={setSelectedYear}
                         />
                     )}
-
-                        {/* --- 👇 '더보기' 탭의 새로운 렌더링 로직 --- */}
+                    {/* 👇 랭킹 화면을 보여주는 로직 추가 */}
+                        {activeContentTab === 'rankingView' && (
+                             <RankingView dailySteps={dailySteps} isDarkMode={isDarkMode} />
+                        )}
+                        
+                       {/* --- 👇 '더보기' 탭의 새로운 렌더링 로직 --- */}
                         {activeContentTab === 'adminSettings' && (
                             <>
                                 {moreSubView === 'main' && (
@@ -1119,7 +1170,14 @@ return (
                         <Home size={24} />
                         <span>홈</span>
                     </button>
-                                     <button
+<button
+    className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'ranking' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`}
+    onClick={() => { setSelectedMainTab('ranking'); setActiveContentTab('rankingView'); }}
+>
+    <BarChart2 size={24} />
+    <span>랭킹</span>
+</button>
+                     <button
                         className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'more' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`}
                         onClick={() => { setSelectedMainTab('more'); setActiveContentTab('adminSettings'); setMoreSubView('main'); }}
                     >
