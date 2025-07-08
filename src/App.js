@@ -33,6 +33,8 @@ import { useProfitCalculations } from './hooks/useProfitCalculations';
 
 function App() {
     const [goalAmount, setGoalAmount] = useState(7000000);
+    const [isEditingGoal, setIsEditingGoal] = useState(false); // 👈 목표 수정 모드 상태
+    const [newGoalAmountInput, setNewGoalAmountInput] = useState(''); // 👈 목표 입력값 상태
     const [userId, setUserId] = useState(null);
     const dateInputRef = useRef(null);
     const [isAuthReady, setIsAuthReady] = useState(false);
@@ -83,6 +85,17 @@ function App() {
 const [modalContent, setModalContent] = useState({ title: '', content: null });
     const [entryToEdit, setEntryToEdit] = useState(null);
     
+       // 새로운 목표 금액 저장 함수
+    const handleSaveGoal = () => {
+        const newGoal = parseInt(newGoalAmountInput);
+        if (!isNaN(newGoal) && newGoal > 0) {
+            setGoalAmount(newGoal);
+            setIsEditingGoal(false); // 저장 후 수정 모드 닫기
+        } else {
+            showMessage("올바른 금액을 숫자로 입력해주세요.");
+        }
+    };
+
     // 메인 내비게이션 탭 상태: 'data', 'statistics', 'home', 'more' (순서 변경)
     const [selectedMainTab, setSelectedMainTab] = useState('home'); // 기본 화면은 '홈'
     // 실제 콘텐츠를 렌더링할 서브 탭 상태: 'monthlyProfit', 'dataEntry', 'statistics', 'adminSettings', 'userGuide'
@@ -822,7 +835,7 @@ return (
             <div className="space-y-4">
                 {/* 집계 기간 및 목표 진행률 표시줄 */}
                 <div>
-                    {monthlyProfit.periodEndDate && ( // periodEndDate가 있을 때만 남은 일수 표시
+                    {monthlyProfit.periodEndDate && (
                         <div className="text-center mb-2">
                             <span className={`font-semibold ${isDarkMode ? 'text-red-500' : 'text-red-500'}`}>
                                 {(() => {
@@ -840,10 +853,37 @@ return (
                         </div>
                     )}
 
-                    <div className="flex justify-between text-sm mb-1">
-                        <span className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>목표: {goalAmount.toLocaleString()}원</span>
-                        <span className={`${isDarkMode ? 'text-gray-200' : 'text-gray-800'} font-semibold`}>현재: {monthlyProfit.netProfit.toLocaleString()}원</span>
+                    {/* 목표 금액 표시 및 수정 UI */}
+                    <div className="flex justify-between items-center text-sm mb-1">
+                        {!isEditingGoal ? (
+                            <>
+                                <div className="flex items-center">
+                                    <span className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                        목표: {goalAmount.toLocaleString()}원
+                                    </span>
+                                    <button onClick={() => { setIsEditingGoal(true); setNewGoalAmountInput(goalAmount.toString()); }} className="ml-2">
+                                        <Settings size={14} className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+                                    </button>
+                                </div>
+                                <span className={`${isDarkMode ? 'text-gray-200' : 'text-gray-800'} font-semibold`}>
+                                    현재: {monthlyProfit.netProfit.toLocaleString()}원
+                                </span>
+                            </>
+                        ) : (
+                            <div className="flex items-center space-x-2">
+                                <input
+                                    type="tel"
+                                    value={newGoalAmountInput ? parseInt(newGoalAmountInput).toLocaleString('ko-KR') : ''}
+                                    onChange={(e) => setNewGoalAmountInput(e.target.value.replace(/[^0-9]/g, ''))}
+                                    className={`w-32 p-1 text-xs border rounded-md ${isDarkMode ? 'bg-gray-600 border-gray-500' : 'bg-white border-gray-300'}`}
+                                    placeholder="새 목표 금액"
+                                />
+                                <button onClick={handleSaveGoal} className={`flex-shrink-0 py-1 px-2 text-xs rounded-md ${isDarkMode ? 'bg-blue-600' : 'bg-blue-500'} text-white`}>저장</button>
+                                <button onClick={() => setIsEditingGoal(false)} className={`flex-shrink-0 py-1 px-2 text-xs rounded-md ${isDarkMode ? 'bg-gray-600' : 'bg-gray-200'} ${isDarkMode ? 'text-white' : 'text-black'}`}>취소</button>
+                            </div>
+                        )}
                     </div>
+
                     <div className={`w-full rounded-full h-2.5 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
                         <div
                             className="bg-blue-600 h-2.5 rounded-full"
@@ -851,7 +891,7 @@ return (
                         ></div>
                     </div>
                 </div>
-
+                
                 {/* 전월 대비 통계 */}
                 <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} space-y-3`}>
                     <div className="flex justify-between items-center">
