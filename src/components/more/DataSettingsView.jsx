@@ -25,14 +25,14 @@ const DataSettingsView = ({ onBack, isDarkMode, handleExportCsv, handleImportCsv
                 onClick={handleExportCsv}
                 className="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 flex items-center justify-center text-lg shadow-md transition-transform transform hover:scale-105"
             >
-                <Download size={20} className="mr-2" /> CSV 파일로 내보내기
+                <Download size={20} className="mr-2" /> CSV 백업
             </button>
 
             <button
                 onClick={handleImportClick}
                 className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 flex items-center justify-center text-lg shadow-md transition-transform transform hover:scale-105"
             >
-                <Upload size={20} className="mr-2" /> CSV 파일에서 가져오기
+                <Upload size={20} className="mr-2" /> CSV 복원
             </button>
 
             <input

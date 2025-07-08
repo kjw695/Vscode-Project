@@ -13,6 +13,8 @@ import StatsDisplay from './StatsDisplay';
 import AdBanner from './AdBanner'; // 광고 배너 컴포넌트
 import DataEntryForm from './DataEntryForm';
 import EntriesTable from './EntriesTable';
+import PrivacyPolicy from './components/PrivacyPolicy'; // 👈 추가
+import OpenSourceLicenses from './components/OpenSourceLicenses'; // 👈 추가
 
 //입력/데이터탭기능추가
 import TransactionManager from './components/TransactionManager';
@@ -28,7 +30,7 @@ import AccountView from './components/more/AccountView';
 import UnitPriceView from './components/more/UnitPriceView';
 import PeriodView from './components/more/PeriodView';
 import DataSettingsView from './components/more/DataSettingsView';
-
+import UserGuideView from './components/more/UserGuideView'; //사용자가이드
 import { useProfitCalculations } from './hooks/useProfitCalculations';
 
 function App() {
@@ -694,8 +696,8 @@ const calendarDays = generateCalendarDays();
 
 
 return (
-    <div className={`min-h-screen p-4 font-sans flex flex-col items-center ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-100 text-gray-800'} pb-20`}>
-    
+    <div className={`min-h-screen p-4 font-sans flex flex-col items-center flex-grow ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-100 text-gray-800'} pb-20`}>
+
     
     {/* 'production' 모드일 때만 AdBanner 컴포넌트를 렌더링합니다. */}
 {/*
@@ -712,7 +714,7 @@ return (
 */}
 
             {/* 여기는 원래 있던 메인 콘텐츠 div 입니다 */}
-            <div className={`p-6 rounded-lg shadow-md w-full max-w-4xl mb-6 relative ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+<div className={`p-6 rounded-lg shadow-md w-full max-w-4xl mb-6 relative flex-grow overflow-y-auto ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
                 {/* 통계와 더보기 화면에서는 큰 제목을 숨겨서 공간 확보 */}
 {activeContentTab !== 'statistics' && activeContentTab !== 'adminSettings' && (
     <h1 className="text-3xl font-bold text-center mb-6">
@@ -891,7 +893,7 @@ return (
                         ></div>
                     </div>
                 </div>
-                
+
                 {/* 전월 대비 통계 */}
                 <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} space-y-3`}>
                     <div className="flex justify-between items-center">
@@ -1065,74 +1067,30 @@ return (
         handleImportCsv={(e) => importDataFromCsv(e, db, appId, userId, showMessage)}
     />
 )}
+  {moreSubView === 'privacyPolicy' && (
+                                    <PrivacyPolicy
+                                        onBack={() => setMoreSubView('main')}
+                                        isDarkMode={isDarkMode}
+                                    />
+                                )}
+                                {moreSubView === 'openSource' && (
+                                    <OpenSourceLicenses
+                                        onBack={() => setMoreSubView('main')}
+                                        isDarkMode={isDarkMode}
+                                    />
+                                )}
+
                             </>
                         )}
 
-                        {activeContentTab === 'userGuide' && (
-                            <div className={`p-6 rounded-lg shadow-md w-full max-w-4xl mb-6 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-                                <h2 className={`text-2xl font-bold mb-4 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>사용자 가이드</h2>
-                                <div className={`${isDarkMode ? 'text-gray-200' : 'text-gray-700'} space-y-4`}>
-                                    <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>1. 데이터 입력</h3>
-                                    <p>
-                                        매일의 배송 관련 데이터를 입력하는 섹션입니다.
-                                        <ul>
-                                            <li><strong>날짜:</strong> 데이터 입력 날짜를 선택합니다.</li>
-                                            <li><strong>단가:</strong> 배송 건당 단가를 입력합니다.</li>
-                                            <li><strong>배송 수량:</strong> 해당 날짜의 배송 완료 건수를 입력합니다.</li>
-                                            <li><strong>반품 수량:</strong> 해당 날짜의 반품 건수를 입력합니다. (수익으로 계산됩니다)</li>
-                                            <li><strong>배송중단:</strong> 배송 중단으로 인한 수익 금액을 입력합니다.</li>
-                                            <li><strong>프레시백 수량:</strong> 수거한 프레시백 수량을 입력합니다. (개당 100원으로 계산)</li>
-                                            <li><strong>지출 비용 입력:</strong> 버튼을 클릭하여 패널티, 산재, 유류비, 유지보수비, 부가세, 종합소득세, 세무사 비용을 추가로 입력할 수 있습니다.</li>
-                                        </ul>
-                                        입력 후 '저장' 또는 '수정' 버튼을 클릭하여 저장합니다.
-                                    </p>
-
-                                    <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>2. 월별 수익 (홈)</h3>
-                                    <p>
-                                        '홈' 탭에서 접근할 수 있으며, 선택한 월의 총 배송 수익, 반품 수익, 프레시백 수익, 배송중단 수익, 그리고 각종 비용을 집계하여 월별 순이익을 보여줍니다.
-                                        집계 기간은 '관리자 설정'에서 변경할 수 있습니다.
-                                    </p>
-
-                                    <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>3. 통계</h3>
-                                    <p>
-                                        '통계' 탭에서 접근할 수 있으며, '월간 통계', '연간 통계', '누적 통계'를 선택하여 확인할 수 있습니다.
-                                        각 통계는 총 근무일, 총 물량 (배송+반품), 총 프레시백, 일평균 물량, 총 매출, 총 지출, 순이익 정보를 제공합니다.
-                                        '총 매출'과 '총 지출'을 클릭하면 상세 내역을 볼 수 있습니다.
-                                    </p>
-
-                                    <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>4. 관리자 설정 (더보기)</h3>
-                                    <p>
-                                        '더보기' 탭을 클릭하여 나타나는 모달에서 접근할 수 있으며, 앱의 기본 설정을 변경하는 섹션입니다.
-                                        <ul>
-                                            <li><strong>즐겨찾는 단가 설정:</strong> 자주 사용하는 단가를 등록하여 데이터 입력 시 빠르게 선택할 수 있습니다.</li>
-                                            <li><strong>월별 집계 기간 설정:</strong> 월별 수익을 계산할 때의 시작일과 종료일을 설정할 수 있습니다. (예: 매월 26일 ~ 다음 달 25일)</li>
-                                            <li><strong>데이터 백업 (JSON):</strong> 현재 데이터를 JSON 파일로 다운로드합니다.</li>
-                                            <li><strong>데이터 복원 (JSON):</strong> JSON 파일을 업로드하여 데이터를 복원합니다. (기존 데이터에 추가됩니다)</li>
-                                            <li><strong>데이터 내보내기 (CSV):</strong> 현재 데이터를 CSV 파일로 다운로드합니다.</li>
-                                            <li><strong>데이터 가져오기 (CSV):</strong> CSV 파일을 업로드하여 데이터를 복원합니다. (기존 데이터에 추가됩니다)</li>
-                                        </ul>
-                                    </p>
-
-                                    <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>5. 로그인/로그아웃</h3>
-                                    <p>
-                                        구글 계정으로 로그인하여 데이터를 안전하게 저장하고 관리할 수 있습니다.
-                                        로그인하지 않으면 데이터가 저장되지 않습니다.
-                                        '로그아웃' 버튼을 클릭하여 현재 계정에서 로그아웃할 수 있습니다.
-                                        (네이버 로그인은 현재 지원되지 않습니다.)
-                                    </p>
-
-                                    <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>6. 다크 모드</h3>
-                                    <p>
-                                        앱 오른쪽 상단의 달/해 아이콘을 클릭하여 앱의 색상 테마를 다크 모드와 밝은 모드 사이에서 전환할 수 있습니다.
-                                    </p>
-
-                                    <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>7. 데이터 정렬</h3>
-                                    <p>
-                                        '데이터' 탭의 테이블 각 열 제목을 클릭하여 해당 열을 기준으로 데이터를 정렬할 수 있습니다.
-                                    </p>
-                                </div>
-                            </div>
-                        )}
+                       {moreSubView === 'userGuide' && (
+    <UserGuideView
+        onBack={() => setMoreSubView('main')}
+        isDarkMode={isDarkMode}
+    />
+)}
+                          
+                 
                     </>
                 )}
             </div>

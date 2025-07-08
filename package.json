@@ -25,7 +25,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+     "licenses": "npm-license-crawler --onlyProd --json public/licenses.json"
   },
   "eslintConfig": {
     "extends": [
@@ -46,6 +47,8 @@
     ]
   },
   "devDependencies": {
-    "@capacitor/cli": "^7.3.0"
+    "@capacitor/cli": "^7.3.0",
+    "npm-license-crawler": "^0.2.1"
   }
 }
+
