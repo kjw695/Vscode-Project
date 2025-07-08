@@ -32,6 +32,7 @@ import DataSettingsView from './components/more/DataSettingsView';
 import { useProfitCalculations } from './hooks/useProfitCalculations';
 
 function App() {
+    const [goalAmount, setGoalAmount] = useState(7000000);
     const [userId, setUserId] = useState(null);
     const dateInputRef = useRef(null);
     const [isAuthReady, setIsAuthReady] = useState(false);
@@ -112,7 +113,7 @@ const [modalContent, setModalContent] = useState({ title: '', content: null });
 
     // 월별 수익 탭의 캘린더 관련 상태
     const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date()); // 캘린더에 표시될 현재 날짜 (월 이동용)
-    const [showMonthlyDetails, setShowMonthlyDetails] = useState(false); // 월별 상세 내역 표시 여부
+    const [showMonthlyDetails, setShowMonthlyDetails] = useState(true); // 월별 상세 내역 표시 여부
 
      // 👇 '더보기' 탭의 하위 메뉴를 제어할 상태 추가
     const [moreSubView, setMoreSubView] = useState('main'); // 'main', 'account', 'unitPrice', 'period', 'data'
@@ -818,19 +819,70 @@ return (
             </div>
         ) : (
             // 상세 내역 뷰 (기존 월별 수익 내용)
-            <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
-                <p className="md:col-span-2">
-                    <strong>집계 기간:</strong> {monthlyProfit.periodStartDate ? new Date(monthlyProfit.periodStartDate).toLocaleDateString('ko-KR') : ''} ~ {monthlyProfit.periodEndDate ? new Date(monthlyProfit.periodEndDate).toLocaleDateString('ko-KR') : ''}
-                </p>
-                <div className={`p-4 rounded-md ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} cursor-pointer`} onClick={() => { setMonthlyStatsSubTab('revenue'); setSelectedMainTab('statistics'); setActiveContentTab('statistics'); setStatisticsView('monthly'); }}>
-                    <p className="text-lg font-semibold">총 수익: {(monthlyProfit.totalDeliveryRevenue + monthlyProfit.totalReturnRevenue + monthlyProfit.totalFreshBagRevenue + monthlyProfit.totalDeliveryInterruptionRevenue).toLocaleString()} 원</p>
-                    <p className="text-sm text-gray-500">클릭하여 상세 보기</p>
+            <div className="space-y-4">
+                {/* 집계 기간 및 목표 진행률 표시줄 */}
+                <div>
+                    {monthlyProfit.periodEndDate && ( // periodEndDate가 있을 때만 남은 일수 표시
+                        <div className="text-center mb-2">
+                            <span className={`font-semibold ${isDarkMode ? 'text-red-500' : 'text-red-500'}`}>
+                                {(() => {
+                                    const today = new Date();
+                                    const endDate = new Date(monthlyProfit.periodEndDate);
+                                    today.setHours(0, 0, 0, 0);
+                                    endDate.setHours(0, 0, 0, 0);
+
+                                    const timeDiff = endDate.getTime() - today.getTime();
+                                    const daysRemaining = Math.max(0, Math.ceil(timeDiff / (1000 * 3600 * 24)));
+
+                                    return daysRemaining > 0 ? `마감까지 ${daysRemaining}일 남음` : '이번 달 집계 마감';
+                                })()}
+                            </span>
+                        </div>
+                    )}
+
+                    <div className="flex justify-between text-sm mb-1">
+                        <span className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>목표: {goalAmount.toLocaleString()}원</span>
+                        <span className={`${isDarkMode ? 'text-gray-200' : 'text-gray-800'} font-semibold`}>현재: {monthlyProfit.netProfit.toLocaleString()}원</span>
+                    </div>
+                    <div className={`w-full rounded-full h-2.5 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                        <div
+                            className="bg-blue-600 h-2.5 rounded-full"
+                            style={{ width: `${Math.min((monthlyProfit.netProfit / goalAmount) * 100, 100)}%` }}
+                        ></div>
+                    </div>
                 </div>
-                <div className={`p-4 rounded-md ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} cursor-pointer`} onClick={() => { setMonthlyStatsSubTab('expenses'); setSelectedMainTab('statistics'); setActiveContentTab('statistics'); setStatisticsView('monthly'); }}>
-                    <p className="text-lg font-semibold">총 지출: {monthlyProfit.totalExpensesSum.toLocaleString()} 원</p>
-                    <p className="text-sm text-gray-500">클릭하여 상세 보기</p>
+
+                {/* 전월 대비 통계 */}
+                <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} space-y-3`}>
+                    <div className="flex justify-between items-center">
+                        <span className="font-semibold">총 근무일</span>
+                        <div className="flex items-center space-x-2">
+                            <span>{monthlyProfit.totalWorkingDays.toLocaleString()} 일</span>
+                            {renderComparison(monthlyProfit.totalWorkingDays, previousMonthlyProfit.totalWorkingDays)}
+                        </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="font-semibold">총 물량</span>
+                        <div className="flex items-center space-x-2">
+                            <span>{Math.round(monthlyProfit.totalVolume).toLocaleString()} 건</span>
+                            {renderComparison(monthlyProfit.totalVolume, previousMonthlyProfit.totalVolume)}
+                        </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="font-semibold">총 프레시백</span>
+                        <div className="flex items-center space-x-2">
+                            <span>{monthlyProfit.totalFreshBag.toLocaleString()} 개</span>
+                            {renderComparison(monthlyProfit.totalFreshBag, previousMonthlyProfit.totalFreshBag)}
+                        </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="font-semibold">일 평균 물량</span>
+                        <div className="flex items-center space-x-2">
+                            <span>{Math.round(monthlyProfit.dailyAverageVolume).toLocaleString()} 건</span>
+                            {renderComparison(monthlyProfit.dailyAverageVolume, previousMonthlyProfit.dailyAverageVolume)}
+                        </div>
+                    </div>
                 </div>
-                <p className="md:col-span-2 text-lg font-semibold"><strong>월 순이익:</strong> {monthlyProfit.netProfit.toLocaleString()} 원</p>
             </div>
         )}
     </>
