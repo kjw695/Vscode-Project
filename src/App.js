@@ -1,40 +1,37 @@
-import React, { useState, useEffect, useCallback, useMemo,useRef } from 'react';
-// Lucide React 아이콘 임포트
-import { Settings, Sun, Moon, Info, Download, Upload, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Home, BarChart2, List, MoreHorizontal } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+
+// 1. 중복된 import를 하나로 모두 정리했습니다.
+import { Settings, Sun, Moon, Info, Download, Upload, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Home, BarChart2, List, MoreHorizontal, Trash2, AlertTriangle } from 'lucide-react';
 
 // Firebase 관련 임포트
 import { app, db, auth, appId, googleProvider, kakaoProvider, naverProvider } from './firebaseConfig';
-import { doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged, signOut, linkWithPopup, signInWithPopup } from 'firebase/auth';
 
 // 유틸리티 및 커스텀 컴포넌트 임포트
 import { formatDate } from './utils';
 import StatsDisplay from './StatsDisplay';
-import AdBanner from './AdBanner'; // 광고 배너 컴포넌트
+import AdBanner from './AdBanner';
 import DataEntryForm from './DataEntryForm';
 import EntriesTable from './EntriesTable';
-import PrivacyPolicy from './components/PrivacyPolicy'; // 👈 추가
-import OpenSourceLicenses from './components/OpenSourceLicenses'; // 👈 추가
-import { Pedometer } from '@hamjad/capacitor-pedometer'; //만보기
+import PrivacyPolicy from './components/PrivacyPolicy';
+import OpenSourceLicenses from './components/OpenSourceLicenses';
+import { Pedometer } from '@hamjad/capacitor-pedometer';
 
-//입력/데이터탭기능추가
 import TransactionManager from './components/TransactionManager';
 import TransactionTable from './components/TransactionTable';
-//백업관리
-import { exportDataAsCsv, importDataFromCsv } from './utils/dataHandlers';
-//따로 다운로드 팝업보이게하기
+import { exportDataAsCsv, importDataFromCsv, deleteAllData } from './utils/dataHandlers';
 import Modal from './components/Modal';
-//랭킹 뷰
-import RankingView from './components/RankingView';
-import PedometerView from './components/PedometerView' //만보기
-//더보기제어
+import RankingView from './components/RankingView';import PedometerView from './components/PedometerView';
+
 import MoreView from './components/more/MoreView';
 import AccountView from './components/more/AccountView';
 import UnitPriceView from './components/more/UnitPriceView';
 import PeriodView from './components/more/PeriodView';
 import DataSettingsView from './components/more/DataSettingsView';
-import UserGuideView from './components/more/UserGuideView'; //사용자가이드
+import UserGuideView from './components/more/UserGuideView';
 import { useProfitCalculations } from './hooks/useProfitCalculations';
+
 
 function App() {
     const [goalAmount, setGoalAmount] = useState(7000000);
@@ -43,6 +40,8 @@ function App() {
     const [userId, setUserId] = useState(null);
     const dateInputRef = useRef(null);
     const [isAuthReady, setIsAuthReady] = useState(false);
+    const [isLoading, setIsLoading] = useState(false); // 로딩 상태 추가
+    const [showResetWarning, setShowResetWarning] = useState(false); // 데이터 초기화 경고창 상태
     const [dailySteps, setDailySteps] = useState(0); // 👈 오늘의 걸음 수를 저장할 상태
     const [pedometerAvailable, setPedometerAvailable] = useState(false); // 👈 만보기 사용 가능 여부
     const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -176,6 +175,7 @@ const [modalContent, setModalContent] = useState({ title: '', content: null });
     // 월별 수익 탭의 캘린더 관련 상태
     const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date()); // 캘린더에 표시될 현재 날짜 (월 이동용)
     const [showMonthlyDetails, setShowMonthlyDetails] = useState(true); // 월별 상세 내역 표시 여부
+
 
      // 👇 '더보기' 탭의 하위 메뉴를 제어할 상태 추가
     const [moreSubView, setMoreSubView] = useState('main'); // 'main', 'account', 'unitPrice', 'period', 'data'
@@ -330,85 +330,82 @@ useEffect(() => {
     };
 
     // 데이터 입력 핸들러
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (!userId) {
-            showMessage("로그인해야 데이터를 저장할 수 있습니다. Google 계정으로 로그인해주세요."); // 로그인 필요 메시지
-            return;
-        }
+const handleSubmit = async (e) => {
+    e.preventDefault();
 
-        if (!date) {
-            showMessage("날짜는 필수로 채워주세요.");
-            return;
-        }
+    // 앱이 준비되지 않았거나 userId가 아직 설정되지 않은 경우를 대비한 안전장치만 남깁니다.
+    if (!isAuthReady || !userId) {
+        showMessage("아직 데이터를 저장할 준비가 되지 않았습니다. 잠시 후 다시 시도해주세요.");
+        return;
+    }
 
-        // 모든 입력 필드의 현재 상태를 확인
-        const anyFieldHasData = unitPrice !== '' || deliveryCount !== '' || returnCount !== '' ||
-                                  deliveryInterruptionAmount !== '' || freshBagCount !== '' || penaltyAmount !== '' ||
-                                  industrialAccidentCost !== '' || fuelCost !== '' || maintenanceCost !== '' ||
-                                  vatAmount !== '' || incomeTaxAmount !== '' || taxAccountantFee !== '';
+    if (!date) {
+        showMessage("날짜는 필수로 채워주세요.");
+        return;
+    }
 
-        // 모든 필드가 비어있으면 데이터 저장 불가
-        if (!anyFieldHasData) {
-            showMessage("배송 데이터(단가, 배송 수량, 반품 수량, 배송중단), 프레시백 수량, 패널티, 산재, 유류비, 유지보수비, 부가세, 종합소득세 또는 세무사 비용 중 하나 이상은 입력해야 합니다.");
-            return;
-        }
+    const anyFieldHasData = unitPrice !== '' || deliveryCount !== '' || returnCount !== '' ||
+                              deliveryInterruptionAmount !== '' || freshBagCount !== '' || penaltyAmount !== '' ||
+                              industrialAccidentCost !== '' || fuelCost !== '' || maintenanceCost !== '' ||
+                              vatAmount !== '' || incomeTaxAmount !== '' || taxAccountantFee !== '';
 
-        // 배송 수량 또는 반품 수량이 입력되었을 경우, 단가도 필수로 입력되어야 함
-        if ((deliveryCount !== '' || returnCount !== '') && unitPrice === '') {
-            showMessage("배송 수량 또는 반품 수량을 입력하려면 단가를 입력해야 합니다.");
-            return;
-        }
+    if (!anyFieldHasData) {
+        showMessage("배송 데이터(단가, 배송 수량, 반품 수량, 배송중단), 프레시백 수량, 패널티, 산재, 유류비, 유지보수비, 부가세, 종합소득세 또는 세무사 비용 중 하나 이상은 입력해야 합니다.");
+        return;
+    }
 
-        const newEntry = {
-            date,
-            unitPrice: unitPrice === '' ? 0 : parseFloat(unitPrice),
-            deliveryCount: deliveryCount === '' ? 0 : parseInt(deliveryCount),
-            returnCount: returnCount === '' ? 0 : parseInt(returnCount),
-            deliveryInterruptionAmount: deliveryInterruptionAmount === '' ? 0 : parseFloat(deliveryInterruptionAmount),
-            freshBagCount: freshBagCount === '' ? 0 : parseInt(freshBagCount),
-            penaltyAmount: penaltyAmount === '' ? 0 : parseFloat(penaltyAmount),
-            industrialAccidentCost: industrialAccidentCost === '' ? 0 : parseFloat(industrialAccidentCost),
-            fuelCost: fuelCost === '' ? 0 : parseFloat(fuelCost),
-            maintenanceCost: maintenanceCost === '' ? 0 : parseFloat(maintenanceCost),
-            vatAmount: vatAmount === '' ? 0 : parseFloat(vatAmount),
-            incomeTaxAmount: incomeTaxAmount === '' ? 0 : parseFloat(incomeTaxAmount),
-            taxAccountantFee: taxAccountantFee === '' ? 0 : parseFloat(taxAccountantFee),
-            timestamp: new Date(),
-        };
+    if ((deliveryCount !== '' || returnCount !== '') && unitPrice === '') {
+        showMessage("배송 수량 또는 반품 수량을 입력하려면 단가를 입력해야 합니다.");
+        return;
+    }
 
-        try {
-            if (entryToEdit) {
-                // 기존 항목 업데이트
-                const entryRef = doc(db, `artifacts/${appId}/users/${userId}/deliveryEntries`, entryToEdit.id);
-                await updateDoc(entryRef, newEntry);
-                showMessage("항목이 성공적으로 업데이트되었습니다.");
-                setEntryToEdit(null); // 편집 모드 종료
-            } else {
-                // 새 항목 추가
-                await addDoc(collection(db, `artifacts/${appId}/users/${userId}/deliveryEntries`), newEntry);
-                showMessage("항목이 성공적으로 추가되었습니다.");
-            }
-            // 입력 필드 초기화 (날짜는 오늘 날짜로 유지)
-            setUnitPrice('');
-            setDeliveryCount('');
-            setReturnCount('');
-            setDeliveryInterruptionAmount('');
-            setFreshBagCount('');
-            setPenaltyAmount('');
-            setIndustrialAccidentCost('');
-            setFuelCost('');
-            setMaintenanceCost('');
-            setVatAmount('');
-            setIncomeTaxAmount('');
-            setTaxAccountantFee('');
-            // 성공 후 수익 입력 폼으로 전환
-            setFormType('income'); 
-        } catch (e) {
-            console.error("Error adding/updating document: ", e);
-            showMessage("데이터 저장/업데이트에 실패했습니다. 로그인했는지 확인해주세요."); // 로그인 필요 메시지
-        }
+    const newEntry = {
+        date,
+        unitPrice: unitPrice === '' ? 0 : parseFloat(unitPrice),
+        deliveryCount: deliveryCount === '' ? 0 : parseInt(deliveryCount),
+        returnCount: returnCount === '' ? 0 : parseInt(returnCount),
+        deliveryInterruptionAmount: deliveryInterruptionAmount === '' ? 0 : parseFloat(deliveryInterruptionAmount),
+        freshBagCount: freshBagCount === '' ? 0 : parseInt(freshBagCount),
+        penaltyAmount: penaltyAmount === '' ? 0 : parseFloat(penaltyAmount),
+        industrialAccidentCost: industrialAccidentCost === '' ? 0 : parseFloat(industrialAccidentCost),
+        fuelCost: fuelCost === '' ? 0 : parseFloat(fuelCost),
+        maintenanceCost: maintenanceCost === '' ? 0 : parseFloat(maintenanceCost),
+        vatAmount: vatAmount === '' ? 0 : parseFloat(vatAmount),
+        incomeTaxAmount: incomeTaxAmount === '' ? 0 : parseFloat(incomeTaxAmount),
+        taxAccountantFee: taxAccountantFee === '' ? 0 : parseFloat(taxAccountantFee),
+        timestamp: new Date(),
     };
+
+    try {
+        const entryRefPath = `artifacts/${appId}/users/${userId}/deliveryEntries`;
+        if (entryToEdit) {
+            const entryRef = doc(db, entryRefPath, entryToEdit.id);
+            await updateDoc(entryRef, newEntry);
+            showMessage("항목이 성공적으로 업데이트되었습니다.");
+            setEntryToEdit(null);
+        } else {
+            await addDoc(collection(db, entryRefPath), newEntry);
+            showMessage("항목이 성공적으로 추가되었습니다.");
+        }
+        // 입력 필드 초기화
+        setUnitPrice('');
+        setDeliveryCount('');
+        setReturnCount('');
+        setDeliveryInterruptionAmount('');
+        setFreshBagCount('');
+        setPenaltyAmount('');
+        setIndustrialAccidentCost('');
+        setFuelCost('');
+        setMaintenanceCost('');
+        setVatAmount('');
+        setIncomeTaxAmount('');
+        setTaxAccountantFee('');
+        setFormType('income');
+    } catch (e) {
+        console.error("Error adding/updating document: ", e);
+        showMessage("데이터 저장/업데이트에 실패했습니다.");
+    }
+};
 
     // 항목 편집 모드 설정
     const handleEdit = (entry) => {
@@ -465,13 +462,6 @@ useEffect(() => {
     };
 
     // 월별 수익 계산
-
-    
-    // App.js
-
-    // ... (handleDateChange 함수 바로 다음 줄입니다) ...
-
-    // 🚨 여기를 아래 코드로 수정해주세요. 🚨
 
     const { monthlyProfit, yearlyProfit, cumulativeProfit, previousMonthlyProfit } = useProfitCalculations(
         entries,
