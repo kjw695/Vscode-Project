@@ -1,0 +1,1339 @@
+import React, { useState, useEffect, useCallback, useMemo,useRef } from 'react';
+// Lucide React 아이콘 임포트
+// src/App.js
+import { Settings, Sun, Moon, Info, Download, Upload, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Home, BarChart2, List, MoreHorizontal, AlertTriangle } from 'lucide-react';
+
+// Firebase 관련 임포트
+import { app, db, auth, appId, googleProvider, kakaoProvider, naverProvider } from './firebaseConfig';
+import { doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
+import { signInAnonymously, onAuthStateChanged, signOut, linkWithPopup, signInWithPopup } from 'firebase/auth';
+
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
+
+// 유틸리티 및 커스텀 컴포넌트 임포트
+import { formatDate } from './utils';
+import StatsDisplay from './StatsDisplay';
+import GoalProgressBar from './components/GoalProgressBar';
+import AdBanner from './AdBanner'; // 광고 배너 컴포넌트
+import DataEntryForm from './DataEntryForm';
+//import EntriesTable from './EntriesTable';
+import EntriesList from './components/EntriesList';
+import FilterControls from './components/FilterControls';
+import PrivacyPolicy from './components/PrivacyPolicy'; // 👈 추가
+import OpenSourceLicenses from './components/OpenSourceLicenses'; // 👈 추가
+import { Pedometer } from '@hamjad/capacitor-pedometer'; //만보기
+
+//입력/데이터탭기능추가
+import TransactionManager from './components/TransactionManager';
+import TransactionTable from './components/TransactionTable';
+//백업관리
+import { exportDataAsCsv, importDataFromCsv, deleteAllData } from './utils/dataHandlers.js';
+//따로 다운로드 팝업보이게하기
+import Modal from './components/Modal';
+//랭킹 뷰
+import RankingView from './components/RankingView';
+import PedometerView from './components/PedometerView' //만보기
+//더보기제어
+import MoreView from './components/more/MoreView';
+import AccountView from './components/more/AccountView';
+import UnitPriceView from './components/more/UnitPriceView';
+import PeriodView from './components/more/PeriodView';
+import DataSettingsView from './components/more/DataSettingsView';
+import UserGuideView from './components/more/UserGuideView'; //사용자가이드
+import { useProfitCalculations } from './hooks/useProfitCalculations';
+
+function App() {
+    // --- 목표 관리 ---
+    /** @description 월별 목표 금액 (초기값: 7,000,000원) */
+    const [goalAmount, setGoalAmount] = useState(7000000);
+    /** @description 목표 금액을 수정하는 모드인지 여부 (true/false) */
+    const [isEditingGoal, setIsEditingGoal] = useState(false);
+    /** @description 목표 금액 수정 시, input에 입력되는 값을 임시 저장 */
+    const [newGoalAmountInput, setNewGoalAmountInput] = useState('');
+
+    // --- 사용자 및 인증 ---
+    /** @description 현재 로그인된 사용자의 고유 ID (UID) */
+    const [userId, setUserId] = useState(null);
+    /** @description Firebase 인증 상태가 준비되었는지 확인 (초기 로딩 제어용) */
+    const [isAuthReady, setIsAuthReady] = useState(false);
+    
+    // --- 만보기 기능 ---
+    /** @description 오늘 기록된 걸음 수 */
+    const [dailySteps, setDailySteps] = useState(0);
+    /** @description 만보기 센서 사용 가능 여부 */
+    const [pedometerAvailable, setPedometerAvailable] = useState(false);
+
+    // --- UI 테마 및 화면 제어 ---
+    /** @description 다크 모드 활성화 여부 (앱 시작 시 기기에 저장된 값을 불러옴) */
+    const [isDarkMode, setIsDarkMode] = useState(() => {
+        const savedMode = localStorage.getItem('isDarkMode');
+        return savedMode ? JSON.parse(savedMode) : false; 
+    });
+    /** @description 하단 탭 메뉴('홈', '데이터', '통계' 등) 중 현재 선택된 탭 */
+    const [selectedMainTab, setSelectedMainTab] = useState('home');
+    /** @description 하단 탭 선택 시, 화면에 보여줄 메인 콘텐츠 종류 */
+    const [activeContentTab, setActiveContentTab] = useState('monthlyProfit');
+    /** @description '데이터' 탭 내부의 '입력'과 '목록' 탭 중 현재 선택된 탭 */
+    const [activeDataTab, setActiveDataTab] = useState('entry');
+    /** @description '더보기' 탭 내부의 하위 메뉴 화면 제어 */
+    const [moreSubView, setMoreSubView] = useState('main');
+
+    // --- 데이터 입력 폼 ---
+    /** @description 데이터 입력 시 사용되는 날짜 */
+    const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+    /** @description 배송/반품 건당 단가 */
+    const [unitPrice, setUnitPrice] = useState('');
+    /** @description 배송 완료 수량 */
+    const [deliveryCount, setDeliveryCount] = useState('');
+    /** @description 반품 수량 */
+    const [returnCount, setReturnCount] = useState('');
+    /** @description 프레시백 수거 수량 */
+    const [freshBagCount, setFreshBagCount] = useState('');
+    /** @description 배송 중단으로 발생한 수익 */
+    const [deliveryInterruptionAmount, setDeliveryInterruptionAmount] = useState('');
+    /** @description 패널티 금액 (지출) */
+    const [penaltyAmount, setPenaltyAmount] = useState('');
+    /** @description 산재 비용 (지출) */
+    const [industrialAccidentCost, setIndustrialAccidentCost] = useState('');
+    /** @description 유류비 (지출) */
+    const [fuelCost, setFuelCost] = useState('');
+    /** @description 차량 유지보수비 (지출) */
+    const [maintenanceCost, setMaintenanceCost] = useState('');
+    /** @description 부가세 (지출) */
+    const [vatAmount, setVatAmount] = useState('');
+    /** @description 종합소득세 (지출) */
+    const [incomeTaxAmount, setIncomeTaxAmount] = useState('');
+    /** @description 세무사 비용 (지출) */
+    const [taxAccountantFee, setTaxAccountantFee] = useState('');
+    /** @description 데이터 입력 폼을 '수익'과 '지출' 중 어떤 모드로 보여줄지 제어 */
+    const [formType, setFormType] = useState('income');
+    /** @description 수정할 데이터 항목을 임시 저장 (null이 아니면 수정 모드) */
+    const [entryToEdit, setEntryToEdit] = useState(null);
+
+    // --- 데이터 목록 및 통계 ---
+    /** @description Firebase에서 불러온 모든 데이터 목록을 저장하는 배열 */
+    const [entries, setEntries] = useState([]);
+    /** @description 통계 계산의 기준이 되는 '월' (예: "2025-07") */
+    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+    /** @description 통계 계산의 기준이 되는 '연도' (예: "2025") */
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+    /** @description '통계' 탭에서 '월간', '연간', '누적' 보기 중 현재 선택된 모드 */
+    const [statisticsView, setStatisticsView] = useState('monthly');
+    /** @description '월간 통계' 상세 화면에서 '개요', '매출', '지출' 중 현재 선택된 탭 */
+    const [monthlyStatsSubTab, setMonthlyStatsSubTab] = useState('overview');
+
+    // --- 설정값 관리 ---
+    /** @description 사용자가 즐겨찾기로 등록한 단가 목록 */
+    const [favoriteUnitPrices, setFavoriteUnitPrices] = useState([]);
+    /** @description '더보기 > 단가 설정'에서 사용자가 input에 입력하는 값 */
+    const [adminFavoritePricesInput, setAdminFavoritePricesInput] = useState('');
+    /** @description 월별 수익 집계 시작일 */
+    const [monthlyStartDay, setMonthlyStartDay] = useState(26);
+    /** @description 월별 수익 집계 종료일 */
+    const [monthlyEndDay, setMonthlyEndDay] = useState(25);
+    /** @description '더보기 > 기간 설정'의 시작일 input 값 */
+    const [adminMonthlyStartDayInput, setAdminMonthlyStartDayInput] = useState('26');
+    /** @description '더보기 > 기간 설정'의 종료일 input 값 */
+    const [adminMonthlyEndDayInput, setAdminMonthlyEndDayInput] = useState('25');
+
+    // --- 데이터 목록 필터링 및 정렬 ---
+    /** @description 데이터 목록을 정렬할 기준 컬럼 (예: 'date', 'unitPrice') */
+    const [sortColumn, setSortColumn] = useState('date');
+    /** @description 데이터 목록의 정렬 방향 ('asc': 오름차순, 'desc': 내림차순) */
+    const [sortDirection, setSortDirection] = useState('desc');
+    /** @description 데이터 목록을 필터링할 날짜 범위 (시작일, 종료일) */
+    const [filterRange, setFilterRange] = useState({ start: null, end: null });
+
+    // --- 캘린더 및 상세 보기 ---
+    /** @description '홈' 탭의 캘린더가 보여주는 현재 월 */
+    const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
+    /** @description '홈' 탭에서 '상세보기'와 '캘린더 보기'를 전환하는 상태 */
+    const [showMonthlyDetails, setShowMonthlyDetails] = useState(true);
+
+    // --- 팝업 (모달) ---
+    /** @description 앱 전체에서 사용되는 팝업(모달)의 상태 (열림 여부, 내용, 종류 등) */
+    const [modalState, setModalState] = useState({
+        isOpen: false,
+        content: '',
+        type: 'info',
+        onConfirm: null,
+    });
+
+    // --- DOM 직접 제어 ---
+    /** @description 날짜 input 태그를 직접 제어하기 위한 Ref 객체 */
+    const dateInputRef = useRef(null);
+
+/** @description 삭제/복원 등 시간이 걸리는 작업 진행 여부 (true/false) */
+const [isLoading, setIsLoading] = useState(false);
+/** @description 로딩 팝업에 표시될 메시지 (예: '삭제 중...') */
+const [loadingMessage, setLoadingMessage] = useState('');
+
+
+    useEffect(() => {
+        // isDarkMode 상태가 변경될 때마다 그 값을 localStorage에 저장합니다.
+        localStorage.setItem('isDarkMode', JSON.stringify(isDarkMode));
+        // HTML body에 dark/light 클래스를 추가하여 Tailwind CSS가 테마를 적용하도록 합니다.
+        if (isDarkMode) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    }, [isDarkMode]);
+
+useEffect(() => {
+  const fetchDailySteps = async () => {
+    try {
+      const permissions = await Pedometer.requestPermissions();
+      
+      // 👇 플러그인이 응답이 없더라도 앱이 멈추지 않도록 안전장치를 추가합니다.
+      if (permissions?.status !== 'granted') {
+        console.log("만보기 권한이 부여되지 않았거나, 플러그인이 응답하지 않았습니다.");
+        // 사용자에게 알림은 주되, 앱이 멈추지는 않습니다.
+        showMessage("만보기 기능을 사용하려면 신체 활동 권한이 필요합니다.");
+        setPedometerAvailable(false);
+        return; 
+      }
+      
+      // 이 아래 코드는 권한이 있을 때만 실행됩니다.
+      setPedometerAvailable(true);
+      const startDate = new Date();
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date();
+      const data = await Pedometer.query({
+          startDate: startDate.getTime(),
+          endDate: endDate.getTime()
+      });
+      setDailySteps(data?.numberOfSteps || 0);
+
+    } catch (error) {
+      console.error("만보기 데이터 조회 에러:", error);
+      setPedometerAvailable(false);
+    }
+  };
+
+  fetchDailySteps();
+}, []);
+
+    // 👇 [수정 2] 걸음 수가 변경될 때마다 Firebase에 저장하는 useEffect를 바깥으로 분리
+    useEffect(() => {
+        if (userId && dailySteps > 0) {
+            const today = new Date().toISOString().slice(0, 10);
+            const userStepsRef = doc(db, `pedometer/${today}/userSteps`, userId);
+            setDoc(userStepsRef, {
+                steps: dailySteps,
+                lastUpdated: new Date()
+            }, { merge: true });
+        }
+    }, [userId, dailySteps]);
+
+
+// 정보 팝업을 띄우는 함수 (showMessage의 이름을 content로만 받도록 변경)
+const showMessage = (msg) => {
+    setModalState({ isOpen: true, content: msg, type: 'info', onConfirm: null });
+};
+
+// 확인/취소 팝업을 띄우는 함수
+const showConfirmation = (msg, onConfirmAction) => {
+    setModalState({ isOpen: true, content: msg, type: 'confirm', onConfirm: onConfirmAction });
+}
+
+// 팝업을 닫는 함수
+const closeModal = () => {
+    setModalState({ isOpen: false, content: '', type: 'info', onConfirm: null });
+};
+
+// 팝업의 '확인' 또는 '삭제' 버튼을 눌렀을 때 실행될 함수
+const handleConfirm = () => {
+    if (modalState.onConfirm) {
+        modalState.onConfirm(); // 저장된 함수(예: deleteAllData)를 실행
+    }
+    closeModal();
+};
+
+    
+       // 새로운 목표 금액 저장 함수
+    const handleSaveGoal = () => {
+        const newGoal = parseInt(newGoalAmountInput);
+        if (!isNaN(newGoal) && newGoal > 0) {
+            setGoalAmount(newGoal);
+            setIsEditingGoal(false); // 저장 후 수정 모드 닫기
+        } else {
+            showMessage("올바른 금액을 숫자로 입력해주세요.");
+        }
+    };
+ const handleDeleteAllDataRequest = () => {
+        showConfirmation(
+            "정말로 모든 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.",
+            () => deleteAllData(db, appId, userId, showMessage)
+        );
+    };
+ 
+// Firebase 인증 상태 변경 리스너
+useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      // 이미 로그인된 사용자(소셜 계정 또는 기존 익명 계정)가 있으면 ID 설정
+      setUserId(user.uid);
+      console.log("기존 사용자로 로그인:", user.uid, "익명 여부:", user.isAnonymous);
+    } else {
+      // 로그인된 사용자가 아무도 없으면, 익명으로 새로 로그인 시도
+      try {
+        const userCredential = await signInAnonymously(auth);
+        setUserId(userCredential.user.uid);
+        console.log("새로운 익명 사용자로 로그인:", userCredential.user.uid);
+      } catch (error) {
+        console.error("익명 로그인 실패:", error);
+        showMessage("앱 초기화에 실패했습니다. 새로고침 해주세요.");
+        setUserId(null);
+      }
+    }
+    setIsAuthReady(true);
+  });
+
+  return () => unsubscribe();
+}, []);
+
+    // 데이터 로드 (onSnapshot 사용)
+    useEffect(() => {
+        // userId가 없으면 데이터를 로드하지 않음 (로그인 없이 사용 가능하지만 데이터는 저장 안됨)
+        if (!isAuthReady || !userId) {
+            setEntries([]); // 로그인 안 된 상태에서는 데이터 목록을 비워 둠 (혹은 데모 데이터)
+            return;
+        }
+
+        const entriesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/deliveryEntries`);
+        const q = query(entriesCollectionRef);
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const fetchedEntries = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            // 날짜를 기준으로 정렬 (초기 로드 시)
+            fetchedEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
+            setEntries(fetchedEntries);
+        }, (error) => {
+            console.error("Error fetching documents: ", error);
+            // showMessage("데이터를 불러오는 데 실패했습니다."); // 오류 메시지 모달은 로그인 실패 시에만
+        });
+
+        return () => unsubscribe();
+    }, [isAuthReady, userId]);
+
+    // 즐겨찾는 단가 및 월별 집계 기간 로드 및 초기 설정
+    useEffect(() => {
+        if (!isAuthReady || !userId) { // userId 없으면 설정 로드 안 함 (기본값 사용)
+             // 기본값으로 설정 상태를 초기화
+             setFavoriteUnitPrices([700]);
+             setAdminFavoritePricesInput('700');
+             setUnitPrice('700'); // 기본 단가를 700으로 설정
+
+             setMonthlyStartDay(26);
+             setMonthlyEndDay(25);
+             setAdminMonthlyStartDayInput('26');
+             setAdminMonthlyEndDayInput('25');
+            return;
+        }
+
+        const fetchSettings = async () => {
+            // 즐겨찾는 단가 로드
+            const favPricesDocRef = doc(db, `artifacts/${appId}/users/${userId}/settings`, 'favoriteUnitPrices');
+            try {
+                const docSnap = await getDoc(favPricesDocRef);
+                let loadedPrices = [];
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    loadedPrices = data.prices || []; // Ensure it's an array, default to empty array
+                }
+
+                // If no prices loaded or empty, use a default of [700] and save it
+                if (loadedPrices.length === 0) {
+                    loadedPrices = [700];
+                    await setDoc(favPricesDocRef, { prices: loadedPrices }); // Save this default back
+                }
+
+                setFavoriteUnitPrices(loadedPrices);
+                setAdminFavoritePricesInput(loadedPrices.join(', '));
+
+                // If exactly one favorite price is set, automatically fill the unitPrice
+                if (loadedPrices.length === 1) {
+                    setUnitPrice(loadedPrices[0].toString());
+                } else {
+                    // If multiple or no favorite prices, clear unitPrice or keep existing
+                    setUnitPrice(''); // Clear if multiple or no default
+                }
+
+            } catch (error) {
+                console.error("Error fetching favorite unit prices: ", error);
+                showMessage("즐겨찾는 단가를 불러오는 데 실패했습니다.");
+                const fallbackPrices = [700]; // Fallback to a single default price
+                setFavoriteUnitPrices(fallbackPrices);
+                setAdminFavoritePricesInput(fallbackPrices.join(', '));
+                setUnitPrice(fallbackPrices[0].toString()); // Set unitPrice to the fallback
+            }
+
+            // 월별 집계 기간 로드
+            const monthlyPeriodDocRef = doc(db, `artifacts/${appId}/users/${userId}/settings`, 'monthlyPeriod');
+            try {
+                const docSnap = await getDoc(monthlyPeriodDocRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    const loadedStartDay = data.startDay || 26;
+                    const loadedEndDay = data.endDay || 25;
+                    setMonthlyStartDay(loadedStartDay);
+                    setMonthlyEndDay(loadedEndDay);
+                    setAdminMonthlyStartDayInput(loadedStartDay.toString());
+                    setAdminMonthlyEndDayInput(loadedEndDay.toString());
+                } else {
+                    const defaultStartDay = 26;
+                    const defaultEndDay = 25;
+                    await setDoc(monthlyPeriodDocRef, { startDay: defaultStartDay, endDay: defaultEndDay });
+                    setMonthlyStartDay(defaultStartDay);
+                    setMonthlyEndDay(defaultEndDay);
+                    setAdminMonthlyStartDayInput(defaultStartDay.toString());
+                    setAdminMonthlyEndDayInput(defaultEndDay.toString());
+                }
+            } catch (error) {
+                console.error("Error fetching monthly period settings: ", error);
+                showMessage("월별 집계 기간 설정을 불러오는 데 실패했습니다.");
+                setMonthlyStartDay(26); // Fallback to default
+                setMonthlyEndDay(25);
+                setAdminMonthlyStartDayInput('26');
+                setAdminMonthlyEndDayInput('25');
+            }
+        };
+        fetchSettings();
+    }, [isAuthReady, userId]);
+
+    
+    // 데이터 입력 핸들러
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!userId) {
+            showMessage("로그인해야 데이터를 저장할 수 있습니다. Google 계정으로 로그인해주세요."); // 로그인 필요 메시지
+            return;
+        }
+
+        if (!date) {
+            showMessage("날짜는 필수로 채워주세요.");
+            return;
+        }
+
+        // 모든 입력 필드의 현재 상태를 확인
+        const anyFieldHasData = unitPrice !== '' || deliveryCount !== '' || returnCount !== '' ||
+                                  deliveryInterruptionAmount !== '' || freshBagCount !== '' || penaltyAmount !== '' ||
+                                  industrialAccidentCost !== '' || fuelCost !== '' || maintenanceCost !== '' ||
+                                  vatAmount !== '' || incomeTaxAmount !== '' || taxAccountantFee !== '';
+
+        // 모든 필드가 비어있으면 데이터 저장 불가
+        if (!anyFieldHasData) {
+            showMessage("배송 데이터(단가, 배송 수량, 반품 수량, 배송중단), 프레시백 수량, 패널티, 산재, 유류비, 유지보수비, 부가세, 종합소득세 또는 세무사 비용 중 하나 이상은 입력해야 합니다.");
+            return;
+        }
+
+        // 배송 수량 또는 반품 수량이 입력되었을 경우, 단가도 필수로 입력되어야 함
+        if ((deliveryCount !== '' || returnCount !== '') && unitPrice === '') {
+            showMessage("배송 수량 또는 반품 수량을 입력하려면 단가를 입력해야 합니다.");
+            return;
+        }
+
+        const newEntry = {
+            date,
+            unitPrice: unitPrice === '' ? 0 : parseFloat(unitPrice),
+            deliveryCount: deliveryCount === '' ? 0 : parseInt(deliveryCount),
+            returnCount: returnCount === '' ? 0 : parseInt(returnCount),
+            deliveryInterruptionAmount: deliveryInterruptionAmount === '' ? 0 : parseFloat(deliveryInterruptionAmount),
+            freshBagCount: freshBagCount === '' ? 0 : parseInt(freshBagCount),
+            penaltyAmount: penaltyAmount === '' ? 0 : parseFloat(penaltyAmount),
+            industrialAccidentCost: industrialAccidentCost === '' ? 0 : parseFloat(industrialAccidentCost),
+            fuelCost: fuelCost === '' ? 0 : parseFloat(fuelCost),
+            maintenanceCost: maintenanceCost === '' ? 0 : parseFloat(maintenanceCost),
+            vatAmount: vatAmount === '' ? 0 : parseFloat(vatAmount),
+            incomeTaxAmount: incomeTaxAmount === '' ? 0 : parseFloat(incomeTaxAmount),
+            taxAccountantFee: taxAccountantFee === '' ? 0 : parseFloat(taxAccountantFee),
+            timestamp: new Date(),
+        };
+
+        try {
+            if (entryToEdit) {
+                // 기존 항목 업데이트
+                const entryRef = doc(db, `artifacts/${appId}/users/${userId}/deliveryEntries`, entryToEdit.id);
+                await updateDoc(entryRef, newEntry);
+                showMessage("항목이 성공적으로 업데이트되었습니다.");
+                setEntryToEdit(null); // 편집 모드 종료
+            } else {
+                // 새 항목 추가
+                await addDoc(collection(db, `artifacts/${appId}/users/${userId}/deliveryEntries`), newEntry);
+                showMessage("항목이 성공적으로 추가되었습니다.");
+            }
+            // 입력 필드 초기화 (날짜는 오늘 날짜로 유지)
+            setUnitPrice('');
+            setDeliveryCount('');
+            setReturnCount('');
+            setDeliveryInterruptionAmount('');
+            setFreshBagCount('');
+            setPenaltyAmount('');
+            setIndustrialAccidentCost('');
+            setFuelCost('');
+            setMaintenanceCost('');
+            setVatAmount('');
+            setIncomeTaxAmount('');
+            setTaxAccountantFee('');
+            // 성공 후 수익 입력 폼으로 전환
+            setFormType('income'); 
+        } catch (e) {
+            console.error("Error adding/updating document: ", e);
+            showMessage("데이터 저장/업데이트에 실패했습니다. 로그인했는지 확인해주세요."); // 로그인 필요 메시지
+        }
+    };
+
+    // 항목 편집 모드 설정
+    const handleEdit = (entry) => {
+        if (!userId) {
+            showMessage("로그인해야 데이터를 편집할 수 있습니다.");
+            return;
+        }
+        setEntryToEdit(entry);
+        setDate(entry.date);
+        setUnitPrice(entry.unitPrice.toString());
+        setDeliveryCount(entry.deliveryCount.toString());
+        setReturnCount(entry.returnCount.toString());
+        setDeliveryInterruptionAmount(entry.deliveryInterruptionAmount ? entry.deliveryInterruptionAmount.toString() : '');
+        setFreshBagCount(entry.freshBagCount ? entry.freshBagCount.toString() : '');
+        setPenaltyAmount(entry.penaltyAmount ? entry.penaltyAmount.toString() : '');
+        setIndustrialAccidentCost(entry.industrialAccidentCost ? entry.industrialAccidentCost.toString() : '');
+        setFuelCost(entry.fuelCost ? entry.fuelCost.toString() : '');
+        setMaintenanceCost(entry.maintenanceCost ? entry.maintenanceCost.toString() : '');
+        setVatAmount(entry.vatAmount ? entry.vatAmount.toString() : '');
+        setIncomeTaxAmount(entry.incomeTaxAmount ? entry.incomeTaxAmount.toString() : '');
+        setTaxAccountantFee(entry.taxAccountantFee ? entry.taxAccountantFee.toString() : '');
+        
+        // 지출 데이터 유무에 따라 폼 타입 설정
+        if (entry.penaltyAmount || entry.industrialAccidentCost || entry.fuelCost || entry.maintenanceCost || entry.vatAmount || entry.incomeTaxAmount || entry.taxAccountantFee) {
+            setFormType('expense'); // 지출 데이터가 있으면 지출 폼을 보여줌
+        } else {
+            setFormType('income'); // 없으면 수익 폼을 보여줌
+        }
+        setActiveDataTab('entry'); // 수정 시 '입력' 탭으로 자동 이동
+        setSelectedMainTab('data'); // 편집 시 '데이터' 탭으로 이동
+        setActiveContentTab('dataEntry');
+    };
+
+    // 항목 삭제
+    const handleDelete = async (id) => {
+        if (!userId) {
+            showMessage("로그인해야 데이터를 삭제할 수 있습니다.");
+            return;
+        }
+        try {
+            await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/deliveryEntries`, id));
+            showMessage("항목이 성공적으로 삭제되었습니다.");
+        } catch (e) {
+            console.error("Error deleting document: ", e);
+            showMessage("데이터 삭제에 실패했습니다. 로그인했는지 확인해주세요.");
+        }
+    };
+    // 날짜를 하루씩 변경하는 함수
+    const handleDateChange = (days) => {
+        if (!date) return; // 날짜가 없으면 아무것도 하지 않음
+        const currentDate = new Date(date);
+        currentDate.setDate(currentDate.getDate() + days);
+        setDate(currentDate.toISOString().slice(0, 10));
+    };
+
+    // 월별 수익 계산
+
+    
+
+
+    const { monthlyProfit, yearlyProfit, cumulativeProfit, previousMonthlyProfit } = useProfitCalculations(
+        entries,
+        selectedMonth,
+        selectedYear,
+        monthlyStartDay,
+        monthlyEndDay,
+        userId
+    );
+
+    // Helper to render comparison with previous month
+    const renderComparison = (currentValue, previousValue, isCurrency = false) => {
+        if (previousValue === 0 && currentValue === 0) {
+            return <span className="text-gray-500">-</span>;
+        }
+        if (previousValue === 0) { // If previous is 0 and current is not 0, it's an increase
+            return (
+                <span className="text-red-500 flex items-center text-xs sm:text-sm">
+                    {currentValue.toLocaleString()} {isCurrency ? '원' : ''} <ArrowUp size={14} className="ml-1" />
+                </span>
+            );
+        }
+        const diff = currentValue - previousValue;
+        const colorClass = diff > 0 ? 'text-red-500' : (diff < 0 ? 'text-blue-500' : 'text-gray-500');
+        const arrow = diff > 0 ? <ArrowUp size={14} className="ml-1" /> : (diff < 0 ? <ArrowDown size={14} className="ml-1" /> : null);
+        
+        return (
+            <span className={`${colorClass} flex items-center text-xs sm:text-sm`}>
+                {Math.abs(diff).toLocaleString()} {isCurrency ? '원' : ''} {arrow}
+            </span>
+        );
+    };
+
+
+    // 현재 선택된 통계 데이터 (월간, 연간, 누적)
+    const currentProfitData = useMemo(() => {
+        if (statisticsView === 'monthly') {
+            return monthlyProfit;
+        } else if (statisticsView === 'yearly') {
+            return yearlyProfit;
+        } else { // cumulative
+            return cumulativeProfit;
+        }
+    }, [statisticsView, monthlyProfit, yearlyProfit, cumulativeProfit]);
+
+    // 필터링 및 정렬된 항목 계산 (필터링 제거로 인해 필터링 로직은 주석 처리)
+    const filteredAndSortedEntries = useMemo(() => {
+        let currentEntries = [...entries];
+
+        // userId가 없는 경우, 필터링 및 정렬된 항목을 빈 배열로 설정
+        if (!userId) {
+            return [];
+        }
+
+        // 정렬 적용
+        currentEntries.sort((a, b) => {
+            let valA = a[sortColumn];
+            let valB = b[sortColumn];
+
+            // 날짜 정렬 처리
+            if (sortColumn === 'date') {
+                valA = new Date(valA);
+                valB = new Date(valB);
+            }
+
+            if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+            if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        return currentEntries;
+    }, [entries, sortColumn, sortDirection, userId]); // userId 의존성 추가
+
+    // 👇 날짜 범위에 따라 한번 더 필터링된 최종 데이터 목록
+const finalFilteredEntries = useMemo(() => {
+    if (!filterRange.start || !filterRange.end) {
+        return filteredAndSortedEntries; // 기간이 설정되지 않으면 전체를 보여줌
+    }
+    return filteredAndSortedEntries.filter(entry => {
+        return entry.date >= filterRange.start && entry.date <= filterRange.end;
+    });
+}, [filteredAndSortedEntries, filterRange]);
+
+
+    // 즐겨찾는 단가 저장 핸들러
+    const handleSaveFavoritePrices = async () => {
+        if (!userId) {
+            showMessage("로그인해야 즐겨찾는 단가를 저장할 수 있습니다.");
+            return;
+        }
+        // 입력된 문자열을 쉼표로 분리하고 숫자로 변환, 유효하지 않은 값 제거
+        const pricesArray = adminFavoritePricesInput.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+
+        if (pricesArray.length === 0) {
+            showMessage("유효한 단가를 입력해주세요. (예: 700, 725, 750)");
+            return;
+        }
+
+        const docRef = doc(db, `artifacts/${appId}/users/${userId}/settings`, 'favoriteUnitPrices');
+        try {
+            await setDoc(docRef, { prices: pricesArray });
+            setFavoriteUnitPrices(pricesArray); // 메인 상태 업데이트
+            // If exactly one favorite price is set, automatically fill the unitPrice
+            if (pricesArray.length === 1) {
+                setUnitPrice(pricesArray[0].toString());
+            } else {
+                setUnitPrice(''); // Clear if multiple prices
+            }
+            showMessage("즐겨찾는 단가가 성공적으로 저장되었습니다.");
+        } catch (error) {
+            console.error("Error saving favorite unit prices: ", error);
+            showMessage("즐겨찾는 단가를 저장하는 데 실패했습니다.");
+        }
+    };
+
+    // 월별 집계 기간 저장 핸들러
+    const handleSaveMonthlyPeriodSettings = async () => {
+        if (!userId) {
+            showMessage("로그인해야 월별 집계 기간을 저장할 수 있습니다.");
+            return;
+        }
+        const startDay = parseInt(adminMonthlyStartDayInput);
+        const endDay = parseInt(adminMonthlyEndDayInput);
+
+        if (isNaN(startDay) || isNaN(endDay) || startDay < 1 || startDay > 31 || endDay < 1 || endDay > 31) {
+            showMessage("유효한 시작일과 종료일을 입력해주세요 (1-31 사이의 숫자).");
+            return;
+        }
+
+        const docRef = doc(db, `artifacts/${appId}/users/${userId}/settings`, 'monthlyPeriod');
+        try {
+            await setDoc(docRef, { startDay: startDay, endDay: endDay });
+            setMonthlyStartDay(startDay);
+            setMonthlyEndDay(endDay);
+            showMessage("월별 집계 기간이 성공적으로 저장되었습니다.");
+        } catch (error) {
+            console.error("Error saving monthly period settings: ", error);
+            showMessage("월별 집계 기간을 저장하는 데 실패했습니다.");
+        }
+    };
+
+    // Google 로그인 처리
+    const handleGoogleLogin = async () => {
+        try {
+            await signInWithPopup(auth, googleProvider);
+            showMessage("구글 로그인에 성공했습니다!");
+        } catch (error) {
+            console.error("Google login failed:", error);
+            showMessage("구글 로그인에 실패했습니다.");
+        }
+    };
+// 계정 연결 처리 함수
+    const handleLinkAccount = async (provider) => {
+      if (!auth.currentUser) {
+        showMessage("로그인 정보가 없습니다.");
+        return;
+      }
+      try {
+        await linkWithPopup(auth.currentUser, provider);
+        showMessage("계정이 성공적으로 연결되었습니다! 이제 데이터가 안전하게 보관됩니다.");
+      } catch (error) {
+        console.error("계정 연결 실패:", error);
+        if (error.code === 'auth/popup-closed-by-user') {
+          return;
+        }
+        showMessage("계정 연결에 실패했습니다. 이미 다른 계정과 연결된 소셜 계정일 수 있습니다.");
+      }
+    };
+
+    // 로그아웃 처리
+    const handleLogout = async () => {
+        try {
+            await signOut(auth);
+            setUserId(null); // userId 초기화
+            setEntries([]); // 데이터 초기화
+            showMessage("로그아웃되었습니다.");
+        } catch (error) {
+            console.error("Logout failed:", error);
+            showMessage("로그아웃에 실패했습니다.");
+        }
+    };
+
+    // 다크 모드 토글
+    const toggleDarkMode = () => {
+        setIsDarkMode(prevMode => !prevMode);
+    };
+
+
+    // 정렬 핸들러
+    const handleSort = (column) => {
+        if (sortColumn === column) {
+            setSortDirection(prevDir => (prevDir === 'asc' ? 'desc' : 'asc'));
+        } else {
+            setSortColumn(column);
+            setSortDirection('asc'); // 컬럼 변경 시 기본적으로 오름차순 정렬
+        }
+    };
+
+    // 캘린더 월 변경 핸들러
+    const handleMonthChange = (direction) => {
+        setCurrentCalendarDate(prevDate => {
+            const newDate = new Date(prevDate);
+            newDate.setMonth(newDate.getMonth() + direction);
+            setSelectedMonth(newDate.toISOString().slice(0, 7)); // Update selectedMonth for profit calculation
+            return newDate;
+        });
+    };
+
+    // 캘린더 오늘 날짜로 이동
+    const handleTodayClick = () => {
+        const today = new Date();
+        setCurrentCalendarDate(today);
+        setSelectedMonth(today.toISOString().slice(0, 7));
+    };
+
+    // 캘린더 날짜 생성
+    // 👇 이 최종 버전의 함수로 기존 함수를 완전히 교체해주세요. 👇
+// App.js 파일 내부
+
+// 👇 이 함수 하나만 아래의 새 코드로 완전히 교체해주세요. 👇
+// 👇 이 함수와 바로 아래 const 변수 선언까지를 아래의 '올바른' 코드로 완전히 교체해주세요. 👇
+
+const generateCalendarDays = useCallback(() => {
+    const year = currentCalendarDate.getFullYear();
+    const month = currentCalendarDate.getMonth();
+
+    let periodStartDate;
+    let periodEndDate;
+
+   //...
+    if (monthlyStartDay > monthlyEndDay) {
+        periodStartDate = new Date(year, month - 1, monthlyStartDay);
+        periodEndDate = new Date(year, month, monthlyEndDay);
+    } else {
+        periodStartDate = new Date(year, month, monthlyStartDay);
+        periodEndDate = new Date(year, month, monthlyEndDay);
+    }
+// 종료일의 시간을 23:59:59로 설정하여 해당 일을 완전히 포함시킵니다.
+    periodEndDate.setHours(23, 59, 59, 999);
+
+    const calendarStartDate = new Date(periodStartDate);
+
+    calendarStartDate.setDate(calendarStartDate.getDate() - calendarStartDate.getDay());
+
+    const calendarEndDate = new Date(periodEndDate);
+    if (calendarEndDate.getDay() !== 6) {
+        calendarEndDate.setDate(calendarEndDate.getDate() + (6 - calendarEndDate.getDay()));
+    }
+    
+    const days = [];
+    let dayIterator = new Date(calendarStartDate);
+    const todayString = formatDate(new Date());
+
+    while (dayIterator <= calendarEndDate) {
+        const formattedDate = formatDate(dayIterator);
+        const isToday = formattedDate === todayString;
+        const isWithinPeriod = dayIterator >= periodStartDate && dayIterator <= periodEndDate;
+        
+        // ✨ 핵심: 일별 데이터를 다시 불러옵니다. (이 부분이 빠졌었습니다)
+        const dailyData = monthlyProfit.dailyBreakdown[formattedDate] || { revenue: 0, expenses: 0 };
+
+        days.push({
+            date: formattedDate,
+            day: dayIterator.getDate(),
+            isCurrentMonth: isWithinPeriod,
+            isToday: isToday,
+            // ✨ 핵심: 수익과 지출 데이터를 다시 포함시킵니다.
+            revenue: dailyData.revenue,
+            expenses: dailyData.expenses,
+        });
+
+        dayIterator.setDate(dayIterator.getDate() + 1);
+    }
+    
+    return days;
+}, [currentCalendarDate, monthlyStartDay, monthlyEndDay, monthlyProfit.dailyBreakdown]); // ✨ 핵심: monthlyProfit 의존성을 다시 추가합니다.
+
+const calendarDays = generateCalendarDays();
+
+
+return (
+    <div className={`min-h-screen p-4 font-sans flex flex-col items-center flex-grow ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-100 text-gray-800'} pb-20`}>
+
+    
+    {/* 'production' 모드일 때만 AdBanner 컴포넌트를 렌더링합니다. */}
+{/*
+// 👇 광고 배너를 이 div로 감싸줍니다. 👇
+<div className="w-full max-w-4xl text-center py-2 mx-auto flex-shrink-0 px-4">
+  <AdBanner 
+    data-ad-client="ca-pub-3940256099942544"
+    data-ad-slot="6300978111"
+    data-ad-format="auto"
+    data-full-width-responsive="true"
+  />
+</div>
+// 👆 여기까지 👆
+*/}
+
+            {/* 여기는 원래 있던 메인 콘텐츠 div 입니다 */}
+<div className={`p-6 rounded-lg shadow-md w-full max-w-4xl mb-6 relative flex-grow overflow-y-auto ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                {/* 통계와 더보기 화면에서는 큰 제목을 숨겨서 공간 확보 */}
+{activeContentTab !== 'statistics' && activeContentTab !== 'adminSettings' && activeContentTab !== 'rankingView' && (
+    <h1 className="text-3xl font-bold text-center mb-6">
+        {activeContentTab === 'dataEntry' ? '' : '배송 수익 추적기'}
+    </h1>
+)}
+               
+
+                {/* 로그인 안 된 상태 메시지 (제거) */}
+                {/* {isAuthReady && !userId && activeContentTab !== 'adminSettings' && activeContentTab !== 'userGuide' && (
+                    <div className="text-center mb-6">
+                        <p className={`mb-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>데이터를 저장하고 관리하려면 로그인해주세요.</p>
+                    </div>
+                )} */}
+
+                {/* 모든 콘텐츠 렌더링 조건을 isAuthReady로 변경 (userId 조건 제거) */}
+                {isAuthReady && ( // 인증 초기화가 되면 모든 탭 콘텐츠를 보이게 함
+                    <>
+                        {activeContentTab === 'monthlyProfit' && ( // 이제 userId 조건 없음
+    <>
+        <h2 className={`text-2xl font-bold text-center mb-4 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>
+            {currentCalendarDate.getFullYear()}년 {currentCalendarDate.getMonth() + 1}월 순이익
+        </h2>
+        <p className={`text-4xl font-extrabold text-center mb-6 ${isDarkMode ? 'text-yellow-300' : 'text-yellow-600'}`}>
+            {monthlyProfit.netProfit.toLocaleString()} 원
+        </p>
+        
+    
+       <div className="text-center mb-6">
+  <button
+    onClick={() => setShowMonthlyDetails(!showMonthlyDetails)}
+    className={`py-2 px-4 rounded-md transition duration-150 ease-in-out ${isDarkMode ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} text-sm`}
+  >
+    {showMonthlyDetails ? '캘린더 보기' : '상세보기'}
+  </button>
+</div>
+
+        {!showMonthlyDetails ? (
+            // 캘린더 뷰
+            <div className="calendar-view">
+                <div className="flex justify-between items-center mb-4">
+                    <button
+                        onClick={() => handleMonthChange(-1)}
+                        className={`p-2 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} transition duration-150 ease-in-out`}
+                    >
+                        <ChevronLeft size={24} className={`${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`} />
+                    </button>
+                    <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>
+                        {currentCalendarDate.getFullYear()}년 {currentCalendarDate.getMonth() + 1}월
+                    </h3>
+                    <button
+                        onClick={() => handleMonthChange(1)}
+                        className={`p-2 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} transition duration-150 ease-in-out`}
+                    >
+                        <ChevronRight size={24} className={`${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`} />
+                    </button>
+                </div>
+                <p className={`text-sm text-center mb-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {monthlyProfit.periodStartDate ? new Date(monthlyProfit.periodStartDate).toLocaleDateString('ko-KR') : ''} ~ {monthlyProfit.periodEndDate ? new Date(monthlyProfit.periodEndDate).toLocaleDateString('ko-KR') : ''}
+                    <button
+                        onClick={handleTodayClick}
+                        className={`ml-4 py-1 px-3 rounded-md text-xs ${isDarkMode ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'} transition duration-150 ease-in-out`}
+                    >
+                        오늘
+                    </button>
+                </p>
+
+                <div className="grid grid-cols-7 text-center font-bold mb-2">
+                    <div className="py-2 text-red-500">일</div>
+                    <div className="py-2">월</div>
+                    <div className="py-2">화</div>
+                    <div className="py-2">수</div>
+                    <div className="py-2">목</div>
+                    <div className="py-2">금</div>
+                    <div className="py-2 text-blue-500">토</div>
+                </div>
+                {/* 👇 이 코드 블록 전체를 복사해서 기존 코드를 대체해주세요 👇 */}
+<div className="grid grid-cols-7 gap-1">
+    {calendarDays.map((dayInfo, index) => (
+        <div
+            key={index}
+            // ✨ 핵심 1: Flexbox를 사용해 내용물을 정렬합니다.
+            className={`aspect-square flex flex-col items-center justify-start p-1 rounded-md text-xs sm:text-sm
+                ${dayInfo.isCurrentMonth ? (isDarkMode ? 'bg-gray-700' : 'bg-white') : (isDarkMode ? 'bg-gray-800' : 'bg-gray-100')}
+                ${dayInfo.isToday && dayInfo.isCurrentMonth ? 'border-2 border-blue-500' : ''}
+            `}
+        >
+            {/* 조건부 렌더링으로 현재 월의 날짜만 표시합니다. */}
+            {dayInfo.isCurrentMonth && (
+                <>
+                    {/* 날짜 숫자에 색상 적용 */}
+                    <span className={`font-semibold 
+                        ${index % 7 === 0 ? 'text-red-500' : ''}
+                        ${index % 7 === 6 ? 'text-blue-500' : ''}
+                        ${dayInfo.isToday ? 'text-blue-500' : ''}
+                    `}>
+                        {dayInfo.day}
+                    </span>
+                    
+                    {/* 수익이 있을 때만 표시 */}
+                    {dayInfo.revenue > 0 && (
+                        <span className="text-red-500 text-[10px] leading-tight">
+                            {dayInfo.revenue.toLocaleString()}
+                        </span>
+                    )}
+                    {/* 지출이 있을 때만 표시 */}
+                    {dayInfo.expenses > 0 && (
+                        <span className="text-blue-500 text-[10px] leading-tight">
+                            {dayInfo.expenses.toLocaleString()}
+                        </span>
+                    )}
+                </> 
+            )}
+        </div>
+    ))}
+</div>
+            </div>
+        ) : (
+            // 상세 내역 뷰 (기존 월별 수익 내용)
+            <div className="space-y-4">
+                {/* 집계 기간 및 목표 진행률 표시줄 */}
+                <div>
+                    {monthlyProfit.periodEndDate && (
+                        <div className="text-center mb-2">
+                            <span className={`font-semibold ${isDarkMode ? 'text-red-500' : 'text-red-500'}`}>
+                                {(() => {
+                                    const today = new Date();
+                                    const endDate = new Date(monthlyProfit.periodEndDate);
+                                    today.setHours(0, 0, 0, 0);
+                                    endDate.setHours(0, 0, 0, 0);
+
+                                    const timeDiff = endDate.getTime() - today.getTime();
+                                    const daysRemaining = Math.max(0, Math.ceil(timeDiff / (1000 * 3600 * 24)));
+
+                                    return daysRemaining > 0 ? `마감까지 ${daysRemaining}일 남음` : '이번 달 집계 마감';
+                                })()}
+                            </span>
+                        </div>
+                    )}
+
+                    {/* 목표 금액 표시 및 수정 UI */}
+                    <div className="flex justify-between items-center text-sm mb-1">
+                        {!isEditingGoal ? (
+                            <>
+                                <div className="flex items-center">
+                                    <span className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                        목표: {goalAmount.toLocaleString()}
+                                    </span>
+                                    <button onClick={() => { setIsEditingGoal(true); setNewGoalAmountInput(goalAmount.toString()); }} className="ml-2">
+                                        <Settings size={14} className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+                                    </button>
+                                </div>
+                                <span className={`${isDarkMode ? 'text-gray-200' : 'text-gray-800'} font-semibold`}>
+                                    현재: {monthlyProfit.netProfit.toLocaleString()}
+                                </span>
+                            </>
+                        ) : (
+                            <div className="flex items-center space-x-2">
+                                <input
+                                    type="tel"
+                                    value={newGoalAmountInput ? parseInt(newGoalAmountInput).toLocaleString('ko-KR') : ''}
+                                    onChange={(e) => setNewGoalAmountInput(e.target.value.replace(/[^0-9]/g, ''))}
+                                    className={`w-32 p-1 text-xs border rounded-md ${isDarkMode ? 'bg-gray-600 border-gray-500' : 'bg-white border-gray-300'}`}
+                                    placeholder="새 목표 금액"
+                                />
+                                <button onClick={handleSaveGoal} className={`flex-shrink-0 py-1 px-2 text-xs rounded-md ${isDarkMode ? 'bg-blue-600' : 'bg-blue-500'} text-white`}>저장</button>
+                                <button onClick={() => setIsEditingGoal(false)} className={`flex-shrink-0 py-1 px-2 text-xs rounded-md ${isDarkMode ? 'bg-gray-600' : 'bg-gray-200'} ${isDarkMode ? 'text-white' : 'text-black'}`}>취소</button>
+                            </div>
+                        )}
+                    </div>
+  <GoalProgressBar 
+    current={monthlyProfit.netProfit} 
+    goal={goalAmount} 
+    isDarkMode={isDarkMode}
+/>
+                                </div>
+                {/* 전월 대비 통계 */}
+                <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} space-y-3`}>
+                    <div className="flex justify-between items-center">
+                        <span className="font-semibold">총 근무일</span>
+                        <div className="flex items-center space-x-2">
+                            <span>{monthlyProfit.totalWorkingDays.toLocaleString()} 일</span>
+                            {renderComparison(monthlyProfit.totalWorkingDays, previousMonthlyProfit.totalWorkingDays)}
+                        </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="font-semibold">총 물량</span>
+                        <div className="flex items-center space-x-2">
+                            <span>{Math.round(monthlyProfit.totalVolume).toLocaleString()} 건</span>
+                            {renderComparison(monthlyProfit.totalVolume, previousMonthlyProfit.totalVolume)}
+                        </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="font-semibold">총 프레시백</span>
+                        <div className="flex items-center space-x-2">
+                            <span>{monthlyProfit.totalFreshBag.toLocaleString()} 개</span>
+                            {renderComparison(monthlyProfit.totalFreshBag, previousMonthlyProfit.totalFreshBag)}
+                        </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="font-semibold">일 평균 물량</span>
+                        <div className="flex items-center space-x-2">
+                            <span>{Math.round(monthlyProfit.dailyAverageVolume).toLocaleString()} 건</span>
+                            {renderComparison(monthlyProfit.dailyAverageVolume, previousMonthlyProfit.dailyAverageVolume)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+    </>
+)}
+{activeContentTab === 'dataEntry' && (
+    <>
+      {/* 입력 / 데이터 탭 버튼 (중앙 정렬 적용) */}
+      <div className="flex justify-center border-b mb-4">
+        <button
+          onClick={() => setActiveDataTab('entry')}
+          className={`py-2 px-4 font-semibold ${activeDataTab === 'entry' ? (isDarkMode ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-600') : (isDarkMode ? 'border-transparent text-gray-400' : 'border-transparent text-gray-500')} border-b-2`}
+        >
+          입력
+        </button>
+        <button
+          onClick={() => setActiveDataTab('list')}
+          className={`py-2 px-4 font-semibold ${activeDataTab === 'list' ? (isDarkMode ? 'border-blue-400 text-blue-400' : 'border-blue-500 text-blue-600') : (isDarkMode ? 'border-transparent text-gray-400' : 'border-transparent text-gray-500')} border-b-2`}
+        >
+          데이터
+        </button>
+      </div>
+
+      {/* '입력' 탭일 때 DataEntryForm을 보여줍니다. */}
+      {activeDataTab === 'entry' && (
+        <DataEntryForm
+            handleSubmit={handleSubmit}
+            date={date}
+            setDate={setDate}
+            handleDateChange={handleDateChange}
+            dateInputRef={dateInputRef}
+            formType={formType}
+            setFormType={setFormType}
+            isDarkMode={isDarkMode}
+            entryToEdit={entryToEdit}
+            unitPrice={unitPrice} setUnitPrice={setUnitPrice}
+            deliveryCount={deliveryCount} setDeliveryCount={setDeliveryCount}
+            returnCount={returnCount} setReturnCount={setReturnCount}
+            deliveryInterruptionAmount={deliveryInterruptionAmount} setDeliveryInterruptionAmount={setDeliveryInterruptionAmount}
+            freshBagCount={freshBagCount} setFreshBagCount={setFreshBagCount}
+            penaltyAmount={penaltyAmount} setPenaltyAmount={setPenaltyAmount}
+            industrialAccidentCost={industrialAccidentCost} setIndustrialAccidentCost={setIndustrialAccidentCost}
+            fuelCost={fuelCost} setFuelCost={setFuelCost}
+            maintenanceCost={maintenanceCost} setMaintenanceCost={setMaintenanceCost}
+            vatAmount={vatAmount} setVatAmount={setVatAmount}
+            incomeTaxAmount={incomeTaxAmount} setIncomeTaxAmount={setIncomeTaxAmount}
+            taxAccountantFee={taxAccountantFee} setTaxAccountantFee={setTaxAccountantFee}
+            favoriteUnitPrices={favoriteUnitPrices}
+        />
+      )}
+
+     {/* '데이터' 탭일 때 새로운 EntriesList를 보여줍니다. */}
+{activeDataTab === 'list' && (
+    <EntriesList
+        entries={filteredAndSortedEntries}
+        summary={{
+            totalRevenue: filteredAndSortedEntries.reduce((sum, entry) => sum + (entry.unitPrice * entry.deliveryCount) + (entry.unitPrice * entry.returnCount) + (entry.deliveryInterruptionAmount || 0) + ((entry.freshBagCount || 0) * 100), 0),
+            totalExpenses: filteredAndSortedEntries.reduce((sum, entry) => sum + (entry.penaltyAmount || 0) + (entry.industrialAccidentCost || 0) + (entry.fuelCost || 0) + (entry.maintenanceCost || 0) + (entry.vatAmount || 0) + (entry.incomeTaxAmount || 0) + (entry.taxAccountantFee || 0), 0),
+            entryNetProfit: Object.fromEntries(
+                filteredAndSortedEntries.map(entry => [
+                    entry.id,
+                    ((entry.unitPrice * entry.deliveryCount) + (entry.unitPrice * entry.returnCount) + (entry.deliveryInterruptionAmount || 0) + ((entry.freshBagCount || 0) * 100)) - 
+                    ((entry.penaltyAmount || 0) + (entry.industrialAccidentCost || 0) + (entry.fuelCost || 0) + (entry.maintenanceCost || 0) + (entry.vatAmount || 0) + (entry.incomeTaxAmount || 0) + (entry.taxAccountantFee || 0))
+                ])
+            )
+        }}
+        handleEdit={handleEdit}
+        handleDelete={handleDelete}
+        isDarkMode={isDarkMode}
+    />
+)}
+    </>
+)}
+                                
+
+                        {activeContentTab === 'statistics' && (
+                        <StatsDisplay
+                            statisticsView={statisticsView}
+                            setStatisticsView={setStatisticsView}
+                            handleMonthChange={handleMonthChange}
+                            selectedYear={selectedYear}
+                            currentCalendarDate={currentCalendarDate}
+                            monthlyProfit={monthlyProfit}
+                            yearlyProfit={yearlyProfit}
+                            cumulativeProfit={cumulativeProfit}
+                            previousMonthlyProfit={previousMonthlyProfit}
+                            isDarkMode={isDarkMode}
+                            showMessage={showMessage}
+                            monthlyStatsSubTab={monthlyStatsSubTab}
+                            setMonthlyStatsSubTab={setMonthlyStatsSubTab}
+                            setSelectedYear={setSelectedYear}
+                        />
+                    )}
+                    {/* 👇 랭킹 화면을 보여주는 로직 추가 */}
+                        {activeContentTab === 'rankingView' && (
+                             <RankingView dailySteps={dailySteps} isDarkMode={isDarkMode} />
+                        )}
+                        
+                       {/* --- 👇 '더보기' 탭의 새로운 렌더링 로직 --- */}
+                        {activeContentTab === 'adminSettings' && (
+                            <>
+                                {moreSubView === 'main' && (
+                                    <MoreView
+                                        onNavigate={setMoreSubView}
+                                        isDarkMode={isDarkMode}
+                                        toggleDarkMode={toggleDarkMode}
+                                    />
+                                )}
+                                {moreSubView === 'account' && (
+                                    <AccountView
+                                        onBack={() => setMoreSubView('main')}
+                                        isDarkMode={isDarkMode}
+                                        auth={auth}
+                                        handleLinkAccount={handleLinkAccount}
+                                        handleLogout={handleLogout}
+                                        googleProvider={googleProvider}
+                                        kakaoProvider={kakaoProvider}
+                                        naverProvider={naverProvider}
+                                    />
+                                )}
+                                {moreSubView === 'unitPrice' && (
+                                    <UnitPriceView
+                                        onBack={() => setMoreSubView('main')}
+                                        isDarkMode={isDarkMode}
+                                        adminFavoritePricesInput={adminFavoritePricesInput}
+                                        setAdminFavoritePricesInput={setAdminFavoritePricesInput}
+                                        handleSaveFavoritePrices={handleSaveFavoritePrices}
+                                        favoriteUnitPrices={favoriteUnitPrices}
+                                    />
+                                )}
+                                {moreSubView === 'period' && (
+                                    <PeriodView
+                                        onBack={() => setMoreSubView('main')}
+                                        isDarkMode={isDarkMode}
+                                        adminMonthlyStartDayInput={adminMonthlyStartDayInput}
+                                        setAdminMonthlyStartDayInput={setAdminMonthlyStartDayInput}
+                                        adminMonthlyEndDayInput={adminMonthlyEndDayInput}
+                                        setAdminMonthlyEndDayInput={setAdminMonthlyEndDayInput}
+                                        handleSaveMonthlyPeriodSettings={handleSaveMonthlyPeriodSettings}
+                                        monthlyStartDay={monthlyStartDay}
+                                        monthlyEndDay={monthlyEndDay}
+                                    />
+                                )}
+                             
+{moreSubView === 'data' && (
+    <DataSettingsView
+        onBack={() => setMoreSubView('main')}
+        isDarkMode={isDarkMode}
+        handleExportCsv={() => exportDataAsCsv(db, appId, userId, showMessage)}
+        handleImportCsv={(e) => {
+            setLoadingMessage('데이터를 복원하는 중...'); // 로딩 메시지 설정
+            importDataFromCsv(e.target.files[0], db, appId, userId, showMessage, setIsLoading); // setIsLoading 전달
+        }}
+        handleDeleteAllData={() => {
+            showConfirmation(
+                "정말로 모든 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.",
+                () => {
+                    setLoadingMessage('모든 데이터를 삭제하는 중...'); // 로딩 메시지 설정
+                    deleteAllData(db, appId, userId, showMessage, setIsLoading); // setIsLoading 전달
+                }
+            );
+        }} 
+    />
+)}
+
+  {moreSubView === 'privacyPolicy' && (
+                                    <PrivacyPolicy
+                                        onBack={() => setMoreSubView('main')}
+                                        isDarkMode={isDarkMode}
+                                    />
+                                )}
+                                {moreSubView === 'openSource' && (
+                                    <OpenSourceLicenses
+                                        onBack={() => setMoreSubView('main')}
+                                        isDarkMode={isDarkMode}
+                                    />
+                                )}
+
+                            </>
+                        )}
+
+                       {moreSubView === 'userGuide' && (
+    <UserGuideView
+        onBack={() => setMoreSubView('main')}
+        isDarkMode={isDarkMode}
+    />
+)}
+                          
+                 
+                    </>
+                )}
+            </div>
+
+            {/* 하단 내비게이션 바는 이제 userId 조건 없이 항상 표시 */}
+            {isAuthReady && ( // 인증 준비가 되면 하단 바 표시
+                <div className={`fixed bottom-0 left-0 right-0 w-full ${isDarkMode ? 'bg-gray-800 border-t border-gray-700' : 'bg-white border-t border-gray-200'} shadow-lg flex justify-around py-2 px-4 pb-[env(safe-area-inset-bottom)]`}>
+                    <button
+                        className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'data' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`}
+                        onClick={() => { setSelectedMainTab('data'); setActiveContentTab('dataEntry'); }}
+                    >
+                        <List size={24} />
+                        <span>데이터</span>
+                    </button>
+                    <button
+                        className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'statistics' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`}
+                        onClick={() => { setSelectedMainTab('statistics'); setActiveContentTab('statistics'); setStatisticsView('monthly'); setMonthlyStatsSubTab('overview'); }}
+                    >
+                        <BarChart2 size={24} />
+                        <span>통계</span>
+                    </button>
+                    <button
+                        className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'home' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`}
+                        onClick={() => { setSelectedMainTab('home'); setActiveContentTab('monthlyProfit'); }}
+                    >
+                        <Home size={24} />
+                        <span>홈</span>
+                    </button>
+<button
+    className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'ranking' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`}
+    onClick={() => { setSelectedMainTab('ranking'); setActiveContentTab('rankingView'); }}
+>
+    <BarChart2 size={24} />
+    <span>랭킹</span>
+</button>
+                     <button
+                        className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'more' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`}
+                        onClick={() => { setSelectedMainTab('more'); setActiveContentTab('adminSettings'); setMoreSubView('main'); }}
+                    >
+                        <MoreHorizontal size={24} />
+                        <span>더보기</span>
+                    </button>
+                </div>
+            )}
+
+{/* ✨ 로딩 팝업 UI ✨ */}
+    {isLoading && (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-70 flex flex-col items-center justify-center z-[99]">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-white mb-4"></div>
+            <p className="text-white text-xl font-semibold">{loadingMessage}</p>
+        </div>
+    )}
+
+            {/* Custom Modal for messages */}
+
+      {modalState.isOpen && (
+    <div className="fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
+        <div className={`p-6 rounded-lg shadow-xl max-w-sm w-full text-center ${isDarkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-800'}`}>
+
+            {modalState.type === 'confirm' && (
+                 <AlertTriangle size={48} className="mx-auto mb-4 text-red-500" />
+            )}
+
+            <p className="text-lg font-semibold mb-4 whitespace-pre-wrap">{modalState.content}</p>
+
+            {modalState.type === 'info' ? (
+                <button
+                    onClick={closeModal}
+                    className="bg-blue-600 text-white py-2 px-6 rounded-md hover:bg-blue-700 focus:outline-none"
+                >
+                    확인
+                </button>
+            ) : (
+                <div className="flex justify-center space-x-4">
+                    <button
+                        onClick={closeModal}
+                        className={`py-2 px-6 rounded-md focus:outline-none ${isDarkMode ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-200 hover:bg-gray-300'}`}
+                    >
+                        취소
+                    </button>
+                    <button
+                        onClick={handleConfirm}
+                        className="bg-red-600 text-white py-2 px-6 rounded-md hover:bg-red-700 focus:outline-none"
+                    >
+                        삭제
+                    </button>
+                </div>
+            )}
+        </div>
+    </div>
+)}
+
+</div>
+);
+}
+export default App;
