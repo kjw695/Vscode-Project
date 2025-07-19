@@ -53,7 +53,7 @@ export const useProfitCalculations = (entries, selectedMonth, selectedYear, mont
         });
         
         const netProfit = totalDeliveryRevenue + totalReturnRevenue + totalFreshBagRevenue + totalDeliveryInterruptionRevenue - totalPenaltyCost - totalIndustrialAccidentCost - totalFuelCost - totalMaintenanceCost - totalVatAmount - totalIncomeTaxAmount - totalTaxAccountantFee;
-        const totalVolume = filteredEntries.reduce((sum, entry) => sum + (entry.deliveryCount || 0) + (entry.returnCount || 0), 0);
+        const totalVolume = filteredEntries.reduce((sum, entry) => sum + (entry.deliveryCount || 0) + (entry.returnCount || 0) + (entry.deliveryInterruptionAmount || 0), 0);
         const totalFreshBag = filteredEntries.reduce((sum, entry) => sum + (entry.freshBagCount || 0), 0);
         const totalWorkingDays = uniqueDatesMonthly.size;
         const dailyAverageVolume = totalWorkingDays > 0 ? (totalVolume / totalWorkingDays) : 0;
@@ -231,7 +231,7 @@ export const useProfitCalculations = (entries, selectedMonth, selectedYear, mont
         });
         
         const netProfit = totalDeliveryRevenue + totalReturnRevenue + totalFreshBagRevenue + totalDeliveryInterruptionRevenue - totalPenaltyCost - totalIndustrialAccidentCost - totalFuelCost - totalMaintenanceCost - totalVatAmount - totalIncomeTaxAmount - totalTaxAccountantFee;
-        const totalVolume = filteredEntries.reduce((sum, entry) => sum + (entry.deliveryCount || 0) + (entry.returnCount || 0), 0);
+       const totalVolume = filteredEntries.reduce((sum, entry) => sum + (entry.deliveryCount || 0) + (entry.returnCount || 0) + (entry.deliveryInterruptionAmount || 0), 0);
         const totalFreshBag = filteredEntries.reduce((sum, entry) => sum + (entry.freshBagCount || 0), 0);
         const totalWorkingDays = uniqueDatesPrevMonth.size;
         const dailyAverageVolume = totalWorkingDays > 0 ? (totalVolume / totalWorkingDays) : 0;

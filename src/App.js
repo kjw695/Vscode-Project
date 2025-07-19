@@ -8,6 +8,7 @@ import { app, db, auth, appId, googleProvider, kakaoProvider, naverProvider } fr
 import { doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged, signOut, linkWithPopup, signInWithPopup } from 'firebase/auth';
 
+
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
@@ -16,9 +17,15 @@ import { formatDate } from './utils';
 import StatsDisplay from './StatsDisplay';
 import GoalProgressBar from './components/GoalProgressBar';
 import AdBanner from './AdBanner'; // 광고 배너 컴포넌트
+//기록 보기 편하게 만들기
+
+import FilterModal from './components/DataScreen/FilterModal';
+import EntriesList from './components/DataScreen/EntriesList.js';
+
+
 import DataEntryForm from './DataEntryForm';
 //import EntriesTable from './EntriesTable';
-import EntriesList from './components/EntriesList';
+
 import FilterControls from './components/FilterControls';
 import PrivacyPolicy from './components/PrivacyPolicy'; // 👈 추가
 import OpenSourceLicenses from './components/OpenSourceLicenses'; // 👈 추가
@@ -142,14 +149,27 @@ function App() {
     const [sortColumn, setSortColumn] = useState('date');
     /** @description 데이터 목록의 정렬 방향 ('asc': 오름차순, 'desc': 내림차순) */
     const [sortDirection, setSortDirection] = useState('desc');
-    /** @description 데이터 목록을 필터링할 날짜 범위 (시작일, 종료일) */
-    const [filterRange, setFilterRange] = useState({ start: null, end: null });
 
     // --- 캘린더 및 상세 보기 ---
     /** @description '홈' 탭의 캘린더가 보여주는 현재 월 */
     const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
     /** @description '홈' 탭에서 '상세보기'와 '캘린더 보기'를 전환하는 상태 */
     const [showMonthlyDetails, setShowMonthlyDetails] = useState(true);
+    // 필터 팝업(모달) 제어
+    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false); 
+
+    //데이터 필터만들기
+    const [filters, setFilters] = useState({
+    period: 'all', // '1m', '3m', '6m', 'custom', 'all'
+    startDate: '',
+    endDate: '',
+    type: 'all' // 'all', 'income', 'expense'
+});
+
+const handleApplyFilters = (newFilters) => {
+    setFilters(newFilters);
+    setIsFilterModalOpen(false);
+};
 
     // --- 팝업 (모달) ---
     /** @description 앱 전체에서 사용되는 팝업(모달)의 상태 (열림 여부, 내용, 종류 등) */
@@ -409,36 +429,17 @@ useEffect(() => {
     
     // 데이터 입력 핸들러
     const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (!userId) {
-            showMessage("로그인해야 데이터를 저장할 수 있습니다. Google 계정으로 로그인해주세요."); // 로그인 필요 메시지
-            return;
-        }
+    e.preventDefault();
+    if (!userId) {
+        showMessage("로그인해야 데이터를 저장할 수 있습니다.");
+        return;
+    }
 
-        if (!date) {
-            showMessage("날짜는 필수로 채워주세요.");
-            return;
-        }
-
-        // 모든 입력 필드의 현재 상태를 확인
-        const anyFieldHasData = unitPrice !== '' || deliveryCount !== '' || returnCount !== '' ||
-                                  deliveryInterruptionAmount !== '' || freshBagCount !== '' || penaltyAmount !== '' ||
-                                  industrialAccidentCost !== '' || fuelCost !== '' || maintenanceCost !== '' ||
-                                  vatAmount !== '' || incomeTaxAmount !== '' || taxAccountantFee !== '';
-
-        // 모든 필드가 비어있으면 데이터 저장 불가
-        if (!anyFieldHasData) {
-            showMessage("배송 데이터(단가, 배송 수량, 반품 수량, 배송중단), 프레시백 수량, 패널티, 산재, 유류비, 유지보수비, 부가세, 종합소득세 또는 세무사 비용 중 하나 이상은 입력해야 합니다.");
-            return;
-        }
-
-        // 배송 수량 또는 반품 수량이 입력되었을 경우, 단가도 필수로 입력되어야 함
-        if ((deliveryCount !== '' || returnCount !== '') && unitPrice === '') {
-            showMessage("배송 수량 또는 반품 수량을 입력하려면 단가를 입력해야 합니다.");
-            return;
-        }
-
-        const newEntry = {
+    // --- 🚨 중요: 수정 모드일 때는 기존처럼 하나의 항목으로 업데이트합니다. ---
+    // 수익/지출이 섞인 항목을 수정할 때 데이터가 나뉘는 혼란을 방지하기 위함입니다.
+    if (entryToEdit) {
+        const entryRef = doc(db, `artifacts/${appId}/users/${userId}/deliveryEntries`, entryToEdit.id);
+        const updatedEntry = {
             date,
             unitPrice: unitPrice === '' ? 0 : parseFloat(unitPrice),
             deliveryCount: deliveryCount === '' ? 0 : parseInt(deliveryCount),
@@ -454,39 +455,82 @@ useEffect(() => {
             taxAccountantFee: taxAccountantFee === '' ? 0 : parseFloat(taxAccountantFee),
             timestamp: new Date(),
         };
+        await updateDoc(entryRef, updatedEntry);
+        showMessage("항목이 성공적으로 업데이트되었습니다.");
+        setEntryToEdit(null);
+        
+        // 입력 필드 초기화
+        setUnitPrice(''); setDeliveryCount(''); setReturnCount('');
+        setDeliveryInterruptionAmount(''); setFreshBagCount('');
+        setPenaltyAmount(''); setIndustrialAccidentCost(''); setFuelCost('');
+        setMaintenanceCost(''); setVatAmount(''); setIncomeTaxAmount('');
+        setTaxAccountantFee('');
+        setFormType('income');
+        
+        setActiveDataTab('list');
+        return; // 업데이트 후 함수 종료
+    }
+    
+    // --- 👇 새로 추가되는 항목에 대한 분리 저장 로직 ---
+    const hasRevenueData = (unitPrice && (deliveryCount || returnCount || deliveryInterruptionAmount)) || freshBagCount;
+    const hasExpenseData = penaltyAmount || industrialAccidentCost || fuelCost || maintenanceCost || vatAmount || incomeTaxAmount || taxAccountantFee;
 
-        try {
-            if (entryToEdit) {
-                // 기존 항목 업데이트
-                const entryRef = doc(db, `artifacts/${appId}/users/${userId}/deliveryEntries`, entryToEdit.id);
-                await updateDoc(entryRef, newEntry);
-                showMessage("항목이 성공적으로 업데이트되었습니다.");
-                setEntryToEdit(null); // 편집 모드 종료
-            } else {
-                // 새 항목 추가
-                await addDoc(collection(db, `artifacts/${appId}/users/${userId}/deliveryEntries`), newEntry);
-                showMessage("항목이 성공적으로 추가되었습니다.");
-            }
-            // 입력 필드 초기화 (날짜는 오늘 날짜로 유지)
-            setUnitPrice('');
-            setDeliveryCount('');
-            setReturnCount('');
-            setDeliveryInterruptionAmount('');
-            setFreshBagCount('');
-            setPenaltyAmount('');
-            setIndustrialAccidentCost('');
-            setFuelCost('');
-            setMaintenanceCost('');
-            setVatAmount('');
-            setIncomeTaxAmount('');
-            setTaxAccountantFee('');
-            // 성공 후 수익 입력 폼으로 전환
-            setFormType('income'); 
-        } catch (e) {
-            console.error("Error adding/updating document: ", e);
-            showMessage("데이터 저장/업데이트에 실패했습니다. 로그인했는지 확인해주세요."); // 로그인 필요 메시지
+    if (!hasRevenueData && !hasExpenseData) {
+        showMessage("입력된 수익 또는 지출 정보가 없습니다.");
+        return;
+    }
+
+    try {
+        // 수익 데이터가 있으면 '수익 전용' 항목을 생성하여 저장
+        if (hasRevenueData) {
+            const revenueEntry = {
+                date,
+                unitPrice: unitPrice ? parseFloat(unitPrice) : 0,
+                deliveryCount: deliveryCount ? parseInt(deliveryCount) : 0,
+                returnCount: returnCount ? parseInt(returnCount) : 0,
+                deliveryInterruptionAmount: deliveryInterruptionAmount ? parseFloat(deliveryInterruptionAmount) : 0,
+                freshBagCount: freshBagCount ? parseInt(freshBagCount) : 0,
+                // 모든 지출 항목은 0으로 저장
+                penaltyAmount: 0, industrialAccidentCost: 0, fuelCost: 0, maintenanceCost: 0, vatAmount: 0, incomeTaxAmount: 0, taxAccountantFee: 0,
+                timestamp: new Date(),
+            };
+            await addDoc(collection(db, `artifacts/${appId}/users/${userId}/deliveryEntries`), revenueEntry);
         }
-    };
+
+        // 지출 데이터가 있으면 '지출 전용' 항목을 생성하여 저장
+        if (hasExpenseData) {
+            const expenseEntry = {
+                date,
+                // 모든 수익 항목은 0으로 저장
+                unitPrice: 0, deliveryCount: 0, returnCount: 0, deliveryInterruptionAmount: 0, freshBagCount: 0,
+                penaltyAmount: penaltyAmount ? parseFloat(penaltyAmount) : 0,
+                industrialAccidentCost: industrialAccidentCost ? parseFloat(industrialAccidentCost) : 0,
+                fuelCost: fuelCost ? parseFloat(fuelCost) : 0,
+                maintenanceCost: maintenanceCost ? parseFloat(maintenanceCost) : 0,
+                vatAmount: vatAmount ? parseFloat(vatAmount) : 0,
+                incomeTaxAmount: incomeTaxAmount ? parseFloat(incomeTaxAmount) : 0,
+                taxAccountantFee: taxAccountantFee ? parseFloat(taxAccountantFee) : 0,
+                timestamp: new Date(),
+            };
+            await addDoc(collection(db, `artifacts/${appId}/users/${userId}/deliveryEntries`), expenseEntry);
+        }
+
+        showMessage("항목이 성공적으로 저장되었습니다.");
+
+        // 모든 입력 필드 초기화
+        setUnitPrice(''); setDeliveryCount(''); setReturnCount('');
+        setDeliveryInterruptionAmount(''); setFreshBagCount('');
+        setPenaltyAmount(''); setIndustrialAccidentCost(''); setFuelCost('');
+        setMaintenanceCost(''); setVatAmount(''); setIncomeTaxAmount('');
+        setTaxAccountantFee('');
+        setFormType('income');
+        setActiveDataTab('list');
+
+    } catch (e) {
+        console.error("Error adding document: ", e);
+        showMessage("데이터 저장에 실패했습니다.");
+    }
+};
 
     // 항목 편집 모드 설정
     const handleEdit = (entry) => {
@@ -591,44 +635,41 @@ useEffect(() => {
         }
     }, [statisticsView, monthlyProfit, yearlyProfit, cumulativeProfit]);
 
-    // 필터링 및 정렬된 항목 계산 (필터링 제거로 인해 필터링 로직은 주석 처리)
-    const filteredAndSortedEntries = useMemo(() => {
-        let currentEntries = [...entries];
+ // 필터링과 정렬을 한 번에 처리하는 최종 데이터 목록
+ const finalFilteredEntries = useMemo(() => {
+    if (!userId) return [];
 
-        // userId가 없는 경우, 필터링 및 정렬된 항목을 빈 배열로 설정
-        if (!userId) {
-            return [];
+    const filtered = entries.filter(entry => {
+        // 거래구분 필터 로직
+        const dailyRevenue = (entry.unitPrice * entry.deliveryCount) + (entry.unitPrice * entry.returnCount) + (entry.unitPrice * (entry.deliveryInterruptionAmount || 0)) + ((entry.freshBagCount || 0) * 100);
+        const dailyExpenses = ((entry.penaltyAmount || 0) + (entry.industrialAccidentCost || 0) + (entry.fuelCost || 0) + (entry.maintenanceCost || 0) + (entry.vatAmount || 0) + (entry.incomeTaxAmount || 0) + (entry.taxAccountantFee || 0));
+
+        const typeMatch = filters.type === 'all' ||
+            (filters.type === 'income' && dailyRevenue > 0) ||
+            (filters.type === 'expense' && dailyExpenses > 0);
+        
+        if (!typeMatch) return false;
+
+        // 기간 필터 로직
+        if (filters.period === 'all' || !filters.startDate || !filters.endDate) {
+            return true;
         }
-
-        // 정렬 적용
-        currentEntries.sort((a, b) => {
-            let valA = a[sortColumn];
-            let valB = b[sortColumn];
-
-            // 날짜 정렬 처리
-            if (sortColumn === 'date') {
-                valA = new Date(valA);
-                valB = new Date(valB);
-            }
-
-            if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
-            if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-            return 0;
-        });
-
-        return currentEntries;
-    }, [entries, sortColumn, sortDirection, userId]); // userId 의존성 추가
-
-    // 👇 날짜 범위에 따라 한번 더 필터링된 최종 데이터 목록
-const finalFilteredEntries = useMemo(() => {
-    if (!filterRange.start || !filterRange.end) {
-        return filteredAndSortedEntries; // 기간이 설정되지 않으면 전체를 보여줌
-    }
-    return filteredAndSortedEntries.filter(entry => {
-        return entry.date >= filterRange.start && entry.date <= filterRange.end;
+        return entry.date >= filters.startDate && entry.date <= filters.endDate;
     });
-}, [filteredAndSortedEntries, filterRange]);
 
+    // 정렬 로직
+    return filtered.sort((a, b) => {
+        let valA = a[sortColumn];
+        let valB = b[sortColumn];
+        if (sortColumn === 'date') {
+            valA = new Date(valA);
+            valB = new Date(valB);
+        }
+        if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+        if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+    });
+}, [entries, filters, sortColumn, sortDirection, userId]);
 
     // 즐겨찾는 단가 저장 핸들러
     const handleSaveFavoritePrices = async () => {
@@ -1106,23 +1147,37 @@ return (
      {/* '데이터' 탭일 때 새로운 EntriesList를 보여줍니다. */}
 {activeDataTab === 'list' && (
     <EntriesList
-        entries={filteredAndSortedEntries}
+        entries={finalFilteredEntries} // 👈 수정: 필터링된 최종 데이터 전달
         summary={{
-            totalRevenue: filteredAndSortedEntries.reduce((sum, entry) => sum + (entry.unitPrice * entry.deliveryCount) + (entry.unitPrice * entry.returnCount) + (entry.deliveryInterruptionAmount || 0) + ((entry.freshBagCount || 0) * 100), 0),
-            totalExpenses: filteredAndSortedEntries.reduce((sum, entry) => sum + (entry.penaltyAmount || 0) + (entry.industrialAccidentCost || 0) + (entry.fuelCost || 0) + (entry.maintenanceCost || 0) + (entry.vatAmount || 0) + (entry.incomeTaxAmount || 0) + (entry.taxAccountantFee || 0), 0),
+            // 👇 수정: 필터링된 데이터를 기반으로 요약 정보 다시 계산
+         totalRevenue: finalFilteredEntries.reduce((sum, entry) => sum + (entry.unitPrice * entry.deliveryCount) + (entry.unitPrice * entry.returnCount) + (entry.unitPrice * (entry.deliveryInterruptionAmount || 0)) + ((entry.freshBagCount || 0) * 100), 0),
+            totalExpenses: finalFilteredEntries.reduce((sum, entry) => sum + (entry.penaltyAmount || 0) + (entry.industrialAccidentCost || 0) + (entry.fuelCost || 0) + (entry.maintenanceCost || 0) + (entry.vatAmount || 0) + (entry.incomeTaxAmount || 0) + (entry.taxAccountantFee || 0), 0),
             entryNetProfit: Object.fromEntries(
-                filteredAndSortedEntries.map(entry => [
+                finalFilteredEntries.map(entry => [
                     entry.id,
-                    ((entry.unitPrice * entry.deliveryCount) + (entry.unitPrice * entry.returnCount) + (entry.deliveryInterruptionAmount || 0) + ((entry.freshBagCount || 0) * 100)) - 
+                   ((entry.unitPrice * entry.deliveryCount) + (entry.unitPrice * entry.returnCount) + (entry.unitPrice * (entry.deliveryInterruptionAmount || 0)) + ((entry.freshBagCount || 0) * 100)) - 
                     ((entry.penaltyAmount || 0) + (entry.industrialAccidentCost || 0) + (entry.fuelCost || 0) + (entry.maintenanceCost || 0) + (entry.vatAmount || 0) + (entry.incomeTaxAmount || 0) + (entry.taxAccountantFee || 0))
-                ])
-            )
+            ])
+                ),
+            // 👇 추가: 필터 버튼 텍스트를 위한 라벨
+            filterLabel: (() => {
+                if (filters.period === '1m') return '최근 1개월';
+                if (filters.period === '3m') return '최근 3개월';
+                if (filters.period === '6m') return '최근 6개월';
+                if (filters.period === 'thisYear') return '올해'; // 👈 '올해' 추가
+                if (filters.period === 'lastYear') return '작년'; // 👈 '작년' 추가
+                if (filters.period === 'custom' && filters.startDate && filters.endDate) return `${filters.startDate} ~ ${filters.endDate}`;
+                return '전체';
+            })()
         }}
         handleEdit={handleEdit}
         handleDelete={handleDelete}
         isDarkMode={isDarkMode}
+        onOpenFilter={() => setIsFilterModalOpen(true)} // 👈 추가: 필터 팝업 여는 기능 전달
+        filterType={filters.type}
     />
 )}
+
     </>
 )}
                                 
@@ -1285,6 +1340,14 @@ return (
                     </button>
                 </div>
             )}
+<FilterModal
+          isOpen={isFilterModalOpen}
+          onClose={() => setIsFilterModalOpen(false)}
+          onApply={handleApplyFilters}
+          initialFilters={filters}
+          isDarkMode={isDarkMode}
+      />
+
 
 {/* ✨ 로딩 팝업 UI ✨ */}
     {isLoading && (
