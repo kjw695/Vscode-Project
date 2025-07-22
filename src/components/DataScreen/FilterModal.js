@@ -10,41 +10,80 @@ const FilterModal = ({ isOpen, onClose, onApply, initialFilters, isDarkMode }) =
     const lastYear = currentYear - 1;
 
     useEffect(() => {
+        // 모달이 열릴 때마다 전달받은 초기 필터 값으로 상태를 재설정합니다.
         setFilters(initialFilters);
     }, [isOpen, initialFilters]);
 
     if (!isOpen) return null;
 
-    const handlePeriodClick = (period) => {
-        const endDate = new Date();
-        let startDate = new Date();
-        let tempFilters = { ...filters, period: period };
+    /**
+     * Date 객체를 'YYYY-MM-DD' 형식의 문자열로 변환하는 헬퍼 함수입니다.
+     * toISOString()의 시간대 변환 문제를 해결합니다.
+     * @param {Date} date - 변환할 Date 객체
+     * @returns {string} 'YYYY-MM-DD' 형식의 문자열
+     */
+    const toYYYYMMDD = (date) => {
+        if (!date) return '';
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
 
-        if (period === '1m') startDate.setMonth(endDate.getMonth() - 1);
-        else if (period === '3m') startDate.setMonth(endDate.getMonth() - 3);
-        else if (period === '6m') startDate.setMonth(endDate.getMonth() - 6);
-        else if (period === 'thisYear') startDate = new Date(currentYear, 0, 1);
-        else if (period === 'lastYear') {
-            startDate = new Date(lastYear, 0, 1);
-            endDate = new Date(lastYear, 11, 31);
-        } else if (period === 'all') {
-            tempFilters.startDate = '';
-            tempFilters.endDate = '';
-        } else if (period === 'custom') {
-            // '직접 입력' 버튼을 누르면 기간(period) 상태만 변경하고 함수 종료
-            setFilters(tempFilters);
-            return;
+    /**
+     * 기간 버튼 클릭을 처리하는 함수입니다.
+     */
+    const handlePeriodClick = (period) => {
+        const newFilters = { ...filters, period: period };
+        let startDate, endDate;
+
+        switch (period) {
+            case '1m':
+                endDate = new Date();
+                startDate = new Date();
+                startDate.setMonth(endDate.getMonth() - 1);
+                break;
+            case '3m':
+                endDate = new Date();
+                startDate = new Date();
+                startDate.setMonth(endDate.getMonth() - 3);
+                break;
+            case '6m':
+                endDate = new Date();
+                startDate = new Date();
+                startDate.setMonth(endDate.getMonth() - 6);
+                break;
+            case 'thisYear':
+                startDate = new Date(currentYear, 0, 1); // 올해 1월 1일
+                endDate = new Date(currentYear, 11, 31); // 올해 12월 31일
+                break;
+            case 'lastYear':
+                startDate = new Date(lastYear, 0, 1); // 작년 1월 1일
+                endDate = new Date(lastYear, 11, 31); // 작년 12월 31일
+                break;
+            case 'all':
+                startDate = null; // '전체' 선택 시 날짜를 비웁니다.
+                endDate = null;
+                break;
+            case 'custom':
+                // '직접 입력'은 기간(period) 상태만 변경하고 날짜는 직접 입력받습니다.
+                setFilters(newFilters);
+                return;
+            default:
+                return; 
         }
 
-        // '직접 입력' 외 버튼 클릭 시 계산된 날짜를 상태에 저장
-        tempFilters.startDate = startDate.toISOString().slice(0, 10);
-        tempFilters.endDate = endDate.toISOString().slice(0, 10);
-        setFilters(tempFilters);
+        // 계산된 날짜를 YYYY-MM-DD 형식의 문자열로 변환합니다.
+        newFilters.startDate = toYYYYMMDD(startDate);
+        newFilters.endDate = toYYYYMMDD(endDate);
+
+        setFilters(newFilters);
     };
     
+    // input type="date"에 맞는 날짜 형식을 반환하는 함수
     const formatDateForInput = (dateString) => {
         if (!dateString) return '';
-        return new Date(dateString).toISOString().slice(0, 10);
+        return dateString.slice(0, 10);
     };
 
     return (
@@ -69,7 +108,7 @@ const FilterModal = ({ isOpen, onClose, onApply, initialFilters, isDarkMode }) =
                             </button>
                         ))}
                     </div>
-                    {/* 날짜 선택 창 (항상 보이도록 수정) */}
+                    {/* 날짜 선택 창 */}
                     <div className="space-y-2 mt-4">
                         <div className="flex items-center justify-between">
                             <label className="shrink-0 font-semibold">시작일</label>
