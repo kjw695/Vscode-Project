@@ -6,20 +6,17 @@
 //        ├── DataSettingsView.jsx (새 파일 - 데이터 관리)
 //        ├── PeriodView.jsx       (새 파일 - 월별 집계 기간)
 //        └── UnitPriceView.jsx    (새 파일 - 즐겨찾는 단가)
-// src/components/more/MoreView.js
 
 // src/components/more/MoreView.js
 
 import React from 'react';
-import { ChevronRight, User, CircleDollarSign, CalendarDays, Database, HelpCircle, FileText, Code, Sun, Moon } from 'lucide-react';
+import { ChevronRight, User, CircleDollarSign, CalendarDays, Database, HelpCircle, FileText, Sun, Moon, Bell, BookOpen, MessageSquare } from 'lucide-react';
 
-// 각 메뉴 아이템을 위한 컴포넌트
 const MenuItem = ({ icon, text, onClick, isDarkMode }) => (
     <button
         onClick={onClick}
         className={`w-full flex items-center justify-between p-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}
     >
-        {/* 👇 flex-shrink-0와 overflow-hidden을 추가하여 레이아웃을 고정합니다. */}
         <div className="flex items-center flex-shrink-0 overflow-hidden">
             {icon}
             <span className="ml-4 font-medium whitespace-nowrap">{text}</span>
@@ -40,13 +37,28 @@ function MoreView({ onNavigate, isDarkMode, toggleDarkMode }) {
                 <MenuItem icon={<Database size={24} />} text="데이터 관리" onClick={() => onNavigate('data')} isDarkMode={isDarkMode} />
             </div>
 
-            <div className="mt-6 space-y-1">
-                 <MenuItem icon={<HelpCircle size={24} />} text="사용자 가이드" onClick={() => onNavigate('userGuide')} isDarkMode={isDarkMode} />
-                 <MenuItem icon={<FileText size={24} />} text="개인정보처리방침" onClick={() => onNavigate('privacyPolicy')} isDarkMode={isDarkMode} />
-                 <MenuItem icon={<Code size={24} />} text="오픈소스 라이선스" onClick={() => onNavigate('openSource')} isDarkMode={isDarkMode} />
+            {/* '알림' 섹션 수정 */}
+            <hr className="my-4 border-gray-200 dark:border-gray-700" />
+            <p className="px-4 mb-1 text-sm text-gray-500 font-semibold">알림</p>
+            <div className="space-y-1">
+                <MenuItem icon={<Bell size={24} />} text="공지사항" onClick={() => onNavigate('announcements')} isDarkMode={isDarkMode} />
+                <MenuItem icon={<BookOpen size={24} />} text="배송 가이드" onClick={() => onNavigate('userGuide')} isDarkMode={isDarkMode} />
             </div>
 
-            {/* 다크 모드 토글 */}
+            {/* '이용정보' 섹션 수정 */}
+            <hr className="my-4 border-gray-200 dark:border-gray-700" />
+            <p className="px-4 mb-1 text-sm text-gray-500 font-semibold">이용정보</p>
+            <div className="space-y-1">
+                <MenuItem icon={<FileText size={24} />} text="이용약관 및 법적고지" onClick={() => onNavigate('legalInfo')} isDarkMode={isDarkMode} />
+            </div>
+            {/* 👇👇👇 '문의' 섹션 추가 👇👇👇 */}
+            <hr className="my-4 border-gray-200 dark:border-gray-700" />
+            <p className="px-4 mb-1 text-sm text-gray-500 font-semibold">문의</p>
+            <div className="space-y-1">
+                <MenuItem icon={<MessageSquare size={24} />} text="의견 보내기" onClick={() => onNavigate('contact')} isDarkMode={isDarkMode} />
+            </div>
+
+
             <div className="mt-6 p-4 flex items-center justify-between">
                 <div className={`flex items-center ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>
                     {isDarkMode ? <Moon size={24} /> : <Sun size={24} />}

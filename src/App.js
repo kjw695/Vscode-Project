@@ -27,8 +27,8 @@ import DataEntryForm from './DataEntryForm';
 //import EntriesTable from './EntriesTable';
 
 import FilterControls from './components/FilterControls';
-import PrivacyPolicy from './components/PrivacyPolicy'; // 👈 추가
-import OpenSourceLicenses from './components/OpenSourceLicenses'; // 👈 추가
+import PrivacyPolicy from './components/more/PrivacyPolicy'; // 👈 추가
+import OpenSourceLicenses from './components/more/OpenSourceLicenses.js'; // 👈 추가
 import { Pedometer } from '@hamjad/capacitor-pedometer'; //만보기
 
 //입력/데이터탭기능추가
@@ -48,6 +48,9 @@ import UnitPriceView from './components/more/UnitPriceView';
 import PeriodView from './components/more/PeriodView';
 import DataSettingsView from './components/more/DataSettingsView';
 import UserGuideView from './components/more/UserGuideView'; //사용자가이드
+import LegalInfoView from './components/more/LegalInfoView'; //약관및 법적조치
+import AnnouncementsView from './components/more/AnnouncementsView'; //알림
+import ContactView from './components/more/ContactView';//문의
 import { useProfitCalculations } from './hooks/useProfitCalculations';
 
 function App() {
@@ -454,7 +457,7 @@ useEffect(() => {
             setFormType('income');
         }
     }, [selectedMainTab, entryToEdit]);
-    
+
     // 데이터 입력 핸들러
     const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1338,22 +1341,17 @@ return (
     />
 )}
 
-  {moreSubView === 'privacyPolicy' && (
-                                    <PrivacyPolicy
-                                        onBack={() => setMoreSubView('main')}
-                                        isDarkMode={isDarkMode}
-                                    />
-                                )}
-                                {moreSubView === 'openSource' && (
-                                    <OpenSourceLicenses
-                                        onBack={() => setMoreSubView('main')}
-                                        isDarkMode={isDarkMode}
-                                    />
-                                )}
+                                {moreSubView === 'userGuide' && ( <UserGuideView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} /> )}
+                                 {moreSubView === 'legalInfo' && ( <LegalInfoView onBack={() => setMoreSubView('main')} onNavigate={setMoreSubView} isDarkMode={isDarkMode} /> )}
+                                {moreSubView === 'privacyPolicy' && ( <PrivacyPolicy onBack={() => setMoreSubView('legalInfo')} isDarkMode={isDarkMode} /> )}
+                                {moreSubView === 'openSource' && ( <OpenSourceLicenses onBack={() => setMoreSubView('legalInfo')} isDarkMode={isDarkMode} /> )}
+ {moreSubView === 'announcements' && ( <AnnouncementsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} /> )}                            
+{moreSubView === 'contact' && ( <ContactView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} /> )}
 
-                            </>
-                        )}
 
+
+</>
+                        )}
                        {moreSubView === 'userGuide' && (
     <UserGuideView
         onBack={() => setMoreSubView('main')}
