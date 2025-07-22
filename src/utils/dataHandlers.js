@@ -39,48 +39,47 @@ export const exportDataAsCsv = async (db, appId, userId, showMessage) => {
         const csvString = '\uFEFF' + [headers.join(','), ...csvRows].join('\n');
         const fileName = `delivery_data_${new Date().toISOString().slice(0, 10)}.csv`;
 
-        // 웹 브라우저 환경일 경우 (기존 방식 유지)
-      if (!Capacitor.isNativePlatform()) {
-          const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-          const link = document.createElement('a');
-          link.href = URL.createObjectURL(blob);
-          link.download = fileName;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(link.href);
-          showMessage("CSV 파일 다운로드가 완료되었습니다.");
-          return; // 여기서 함수 종료
-      }
-      
-      // 모바일(네이티브) 환경일 경우 (새로운 공유 방식)
-      // 1. 앱의 안전한 임시 공간(Cache)에 파일 저장
-      const result = await Filesystem.writeFile({
-          path: fileName,
-          data: csvString,
-          directory: Directory.Cache, // 저장 위치를 Cache로 변경
-          encoding: Encoding.UTF8,
-      });
+        if (!Capacitor.isNativePlatform()) {
+            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+            showMessage("CSV 파일 다운로드가 완료되었습니다.");
+            return;
+        }
+        
+        const result = await Filesystem.writeFile({
+            path: fileName,
+            data: csvString,
+            directory: Directory.Cache,
+            encoding: Encoding.UTF8,
+        });
 
-      // 2. 저장된 파일을 안드로이드 '공유' 메뉴로 전달
-      await Share.share({
-          title: fileName,
-          text: '배송 수익 데이터 내보내기',
-          url: result.uri, // 저장된 파일의 시스템 경로를 사용
-          dialogTitle: '파일 공유 또는 저장하기'
-      });
+        await Share.share({
+            title: fileName,
+            text: '배송 수익 데이터 내보내기',
+            url: result.uri,
+            dialogTitle: '파일 공유 또는 저장하기'
+        });
 
-    showMessage("파일 내보내기가 완료되었습니다.");
-
+        showMessage("파일 내보내기가 완료되었습니다.");
 
     } catch (error) {
+        if (error.message && error.message.includes('Share canceled')) {
+            console.log('사용자가 공유를 취소했습니다.');
+            return;
+        }
         showMessage(`내보내기 실패: ${error.message}`);
-        console.error(error);
+        console.error("내보내기 오류 상세:", error);
     }
 };
 
 /**
- * CSV 파일로부터 데이터를 가져오는 함수 (중복 방지 및 결과 카운트 기능 포함)
+ * CSV 파일로부터 데이터를 가져오는 함수 (중복 방지 및 수익/지출 분리 기능 포함)
  */
 export const importDataFromCsv = async (file, db, appId, userId, showMessage, setIsLoading) => {
     if (!userId || !file) {
@@ -98,7 +97,7 @@ export const importDataFromCsv = async (file, db, appId, userId, showMessage, se
             
             const existingEntries = new Set(querySnapshot.docs.map(d => {
                 const data = d.data();
-                return `${data.date}-${data.deliveryCount || 0}-${data.returnCount || 0}-${data.penaltyAmount || 0}`;
+                return `${data.date}-${data.deliveryCount || 0}-${data.returnCount || 0}-${data.deliveryInterruptionAmount || 0}-${data.freshBagCount || 0}-${data.penaltyAmount || 0}-${data.industrialAccidentCost || 0}-${data.fuelCost || 0}-${data.maintenanceCost || 0}-${data.vatAmount || 0}-${data.incomeTaxAmount || 0}-${data.taxAccountantFee || 0}`;
             }));
 
             const csvText = e.target.result;
@@ -109,7 +108,7 @@ export const importDataFromCsv = async (file, db, appId, userId, showMessage, se
             const headerMap = { "날짜": "date", "단가": "unitPrice", "배송 수량": "deliveryCount", "반품 수량": "returnCount", "배송중단": "deliveryInterruptionAmount", "프레시백 수량": "freshBagCount", "패널티": "penaltyAmount", "산재": "industrialAccidentCost", "유류비": "fuelCost", "유지보수비": "maintenanceCost", "부가세": "vatAmount", "종합소득세": "incomeTaxAmount", "세무사 비용": "taxAccountantFee" };
             
             const batch = writeBatch(db);
-            let newEntryCount = 0;
+            let addedCount = 0;
             let duplicateCount = 0;
 
             lines.slice(1).forEach(line => {
@@ -123,20 +122,50 @@ export const importDataFromCsv = async (file, db, appId, userId, showMessage, se
                         item[fieldName] = numFields.includes(fieldName) ? parseFloat(value) || 0 : value;
                     }
                 });
-                const entryIdentifier = `${item.date}-${item.deliveryCount || 0}-${item.returnCount || 0}-${item.penaltyAmount || 0}`;
-                if (item.date && !existingEntries.has(entryIdentifier)) {
-                    item.timestamp = new Date();
-                    batch.set(doc(entriesCollectionRef), item);
-                    newEntryCount++;
-                } else if (item.date) {
-                    duplicateCount++;
+
+                if (item.date) {
+                    const hasRevenueData = (item.unitPrice && (item.deliveryCount || item.returnCount || item.deliveryInterruptionAmount)) || item.freshBagCount;
+                    const hasExpenseData = item.penaltyAmount || item.industrialAccidentCost || item.fuelCost || item.maintenanceCost || item.vatAmount || item.incomeTaxAmount || item.taxAccountantFee;
+
+                    if (hasRevenueData) {
+                        const revenueEntry = {
+                            date: item.date, unitPrice: item.unitPrice || 0, deliveryCount: item.deliveryCount || 0, returnCount: item.returnCount || 0,
+                            deliveryInterruptionAmount: item.deliveryInterruptionAmount || 0, freshBagCount: item.freshBagCount || 0,
+                            penaltyAmount: 0, industrialAccidentCost: 0, fuelCost: 0, maintenanceCost: 0, vatAmount: 0, incomeTaxAmount: 0, taxAccountantFee: 0,
+                            timestamp: new Date(),
+                        };
+                        const revenueIdentifier = `${revenueEntry.date}-${revenueEntry.deliveryCount}-${revenueEntry.returnCount}-${revenueEntry.deliveryInterruptionAmount}-${revenueEntry.freshBagCount}-0-0-0-0-0-0-0`;
+                        if (!existingEntries.has(revenueIdentifier)) {
+                            batch.set(doc(entriesCollectionRef), revenueEntry);
+                            addedCount++;
+                        } else {
+                            duplicateCount++;
+                        }
+                    }
+
+                    if (hasExpenseData) {
+                        const expenseEntry = {
+                            date: item.date, unitPrice: 0, deliveryCount: 0, returnCount: 0, deliveryInterruptionAmount: 0, freshBagCount: 0,
+                            penaltyAmount: item.penaltyAmount || 0, industrialAccidentCost: item.industrialAccidentCost || 0, fuelCost: item.fuelCost || 0,
+                            maintenanceCost: item.maintenanceCost || 0, vatAmount: item.vatAmount || 0, incomeTaxAmount: item.incomeTaxAmount || 0,
+                            taxAccountantFee: item.taxAccountantFee || 0, timestamp: new Date(),
+                        };
+                        const expenseIdentifier = `${expenseEntry.date}-0-0-0-0-${expenseEntry.penaltyAmount}-${expenseEntry.industrialAccidentCost}-${expenseEntry.fuelCost}-${expenseEntry.maintenanceCost}-${expenseEntry.vatAmount}-${expenseEntry.incomeTaxAmount}-${expenseEntry.taxAccountantFee}`;
+                        if (!existingEntries.has(expenseIdentifier)) {
+                            batch.set(doc(entriesCollectionRef), expenseEntry);
+                            addedCount++;
+                        } else {
+                            duplicateCount++;
+                        }
+                    }
                 }
             });
 
-            if (newEntryCount > 0) {
+            if (addedCount > 0) {
                 await batch.commit();
             }
-            let resultMessage = `총 ${lines.length - 1}건 중 ${newEntryCount}개의 새 데이터를 추가했습니다.`;
+            
+            let resultMessage = `총 ${addedCount}개의 새 데이터를 추가했습니다.`;
             if (duplicateCount > 0) {
                 resultMessage += `\n(중복된 데이터 ${duplicateCount}건은 제외)`;
             }
