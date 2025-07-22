@@ -426,6 +426,34 @@ useEffect(() => {
         fetchSettings();
     }, [isAuthReady, userId]);
 
+    // 즐겨찾는 단가 및 월별 집계 기간 로드 및 초기 설정
+    useEffect(() => {
+        // ... (이 안의 내용은 그대로 둡니다) ...
+    }, [isAuthReady, userId]);
+
+    // 👇👇👇 바로 이 자리에 아래의 새로운 useEffect 코드 블록을 추가해주세요! 👇👇👇
+    useEffect(() => {
+        // '데이터' 탭을 벗어났을 때, 수정 모드를 자동으로 취소하고 입력 폼을 초기화합니다.
+        if (selectedMainTab !== 'data' && entryToEdit) {
+            setEntryToEdit(null); // 수정 모드 해제
+            
+            // 입력 필드 초기화
+            setDate(new Date().toISOString().slice(0, 10));
+            setUnitPrice('');
+            setDeliveryCount('');
+            setReturnCount('');
+            setDeliveryInterruptionAmount('');
+            setFreshBagCount('');
+            setPenaltyAmount('');
+            setIndustrialAccidentCost('');
+            setFuelCost('');
+            setMaintenanceCost('');
+            setVatAmount('');
+            setIncomeTaxAmount('');
+            setTaxAccountantFee('');
+            setFormType('income');
+        }
+    }, [selectedMainTab, entryToEdit]);
     
     // 데이터 입력 핸들러
     const handleSubmit = async (e) => {
@@ -434,6 +462,7 @@ useEffect(() => {
         showMessage("로그인해야 데이터를 저장할 수 있습니다.");
         return;
     }
+
 
     // --- 🚨 중요: 수정 모드일 때는 기존처럼 하나의 항목으로 업데이트합니다. ---
     // 수익/지출이 섞인 항목을 수정할 때 데이터가 나뉘는 혼란을 방지하기 위함입니다.
@@ -801,7 +830,44 @@ useEffect(() => {
         setCurrentCalendarDate(today);
         setSelectedMonth(today.toISOString().slice(0, 7));
     };
+// 👇👇👇 여기에 아래 새로운 함수를 추가해주세요! 👇👇👇
+    const handleCalendarDateClick = (clickedDate) => {
+        // 클릭한 날짜에 해당하는 모든 데이터 항목을 찾습니다.
+        const entriesForDate = entries.filter(entry => entry.date === clickedDate);
 
+        // 해당 날짜에 데이터가 1개만 있는 경우 -> 바로 '수정' 모드로 전환
+        if (entriesForDate.length === 1) {
+            handleEdit(entriesForDate[0]);
+        } 
+        // 해당 날짜에 데이터가 2개 이상 있는 경우  -> '데이터' 탭으로 이동하여 목록 보여주기
+      else if (entriesForDate.length > 1) {
+            // 👇 '데이터' 탭으로 이동하기 전에 필터를 먼저 적용합니다.
+            setFilters({
+                period: 'custom',
+                startDate: clickedDate,
+                endDate: clickedDate,
+                type: 'all'
+            });
+            setSelectedMainTab('data');
+            setActiveContentTab('dataEntry');
+            setActiveDataTab('list');
+        } 
+        // 해당 날짜에 데이터가 없는 경우 -> '입력' 탭으로 이동하여 새 데이터 입력 준비
+        else {
+            setSelectedMainTab('data');
+            setActiveContentTab('dataEntry');
+            setActiveDataTab('entry'); // '입력' 탭을 보여줌
+            setDate(clickedDate); // 클릭한 날짜를 입력 폼에 설정
+            
+            // 다른 입력 필드는 깨끗하게 초기화
+            setUnitPrice(''); setDeliveryCount(''); setReturnCount('');
+            setDeliveryInterruptionAmount(''); setFreshBagCount('');
+            setPenaltyAmount(''); setIndustrialAccidentCost(''); setFuelCost('');
+            setMaintenanceCost(''); setVatAmount(''); setIncomeTaxAmount('');
+            setTaxAccountantFee('');
+            setEntryToEdit(null); // 수정 모드 해제
+        }
+    };
     // 캘린더 날짜 생성
     // 👇 이 최종 버전의 함수로 기존 함수를 완전히 교체해주세요. 👇
 // App.js 파일 내부
@@ -963,14 +1029,14 @@ return (
                     <div className="py-2">금</div>
                     <div className="py-2 text-blue-500">토</div>
                 </div>
-                {/* 👇 이 코드 블록 전체를 복사해서 기존 코드를 대체해주세요 👇 */}
-<div className="grid grid-cols-7 gap-1">
+             <div className="grid grid-cols-7 gap-1">
     {calendarDays.map((dayInfo, index) => (
         <div
             key={index}
-            // ✨ 핵심 1: Flexbox를 사용해 내용물을 정렬합니다.
-            className={`aspect-square flex flex-col items-center justify-start p-1 rounded-md text-xs sm:text-sm
-                ${dayInfo.isCurrentMonth ? (isDarkMode ? 'bg-gray-700' : 'bg-white') : (isDarkMode ? 'bg-gray-800' : 'bg-gray-100')}
+            // 👇 cursor-pointer를 추가해 클릭 가능하다는 것을 알려주고, onClick 이벤트를 연결합니다.
+            onClick={() => handleCalendarDateClick(dayInfo.date)}
+            className={`cursor-pointer aspect-square flex flex-col items-center justify-start p-1 rounded-md text-xs sm:text-sm
+                ${dayInfo.isCurrentMonth ? (isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-white hover:bg-gray-100') : (isDarkMode ? 'bg-gray-800' : 'bg-gray-100')}
                 ${dayInfo.isToday && dayInfo.isCurrentMonth ? 'border-2 border-blue-500' : ''}
             `}
         >
@@ -988,13 +1054,13 @@ return (
                     
                     {/* 수익이 있을 때만 표시 */}
                     {dayInfo.revenue > 0 && (
-                        <span className="text-red-500 text-[10px] leading-tight">
+                        <span className="text-red-500 text-[3px] leading-tight">
                             {dayInfo.revenue.toLocaleString()}
                         </span>
                     )}
                     {/* 지출이 있을 때만 표시 */}
                     {dayInfo.expenses > 0 && (
-                        <span className="text-blue-500 text-[10px] leading-tight">
+                        <span className="text-blue-500 text-[3px] leading-tight">
                             {dayInfo.expenses.toLocaleString()}
                         </span>
                     )}
