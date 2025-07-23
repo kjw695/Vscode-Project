@@ -465,7 +465,45 @@ useEffect(() => {
         showMessage("로그인해야 데이터를 저장할 수 있습니다.");
         return;
     }
+const handleContactSubmit = async (category, message) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const userIdentifier = userId || 'anonymous'; // 로그인 사용자는 UID, 비로그인 사용자는 'anonymous'
 
+    // 1. 사용자의 하루 제출 횟수를 확인합니다.
+    const submissionCountRef = doc(db, 'submissionCounts', `${userIdentifier}_${today}`);
+    
+    try {
+        const docSnap = await getDoc(submissionCountRef);
+        if (docSnap.exists() && docSnap.data().count >= 5) {
+            showMessage("하루에 5번까지만 의견을 보낼 수 있습니다. 내일 다시 시도해주세요.");
+            return;
+        }
+
+        // 2. 의견을 Firestore에 저장합니다.
+        const inquiriesCollectionRef = collection(db, 'inquiries');
+        await addDoc(inquiriesCollectionRef, {
+            userId: userIdentifier,
+            category: category,
+            message: message,
+            timestamp: new Date(),
+            isResolved: false
+        });
+
+        // 3. 제출 횟수를 1 증가시킵니다.
+        if (docSnap.exists()) {
+            await updateDoc(submissionCountRef, { count: docSnap.data().count + 1 });
+        } else {
+            await setDoc(submissionCountRef, { count: 1 });
+        }
+
+        showMessage("소중한 의견 감사합니다! 성공적으로 전송되었습니다.");
+        setMoreSubView('main');
+
+    } catch (error) {
+        console.error("Error sending inquiry: ", error);
+        showMessage("의견 전송에 실패했습니다. 잠시 후 다시 시도해주세요.");
+    }
+};
 
     // --- 🚨 중요: 수정 모드일 때는 기존처럼 하나의 항목으로 업데이트합니다. ---
     // 수익/지출이 섞인 항목을 수정할 때 데이터가 나뉘는 혼란을 방지하기 위함입니다.
@@ -1347,6 +1385,7 @@ return (
                                 {moreSubView === 'openSource' && ( <OpenSourceLicenses onBack={() => setMoreSubView('legalInfo')} isDarkMode={isDarkMode} /> )}
  {moreSubView === 'announcements' && ( <AnnouncementsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} /> )}                            
 {moreSubView === 'contact' && ( <ContactView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} /> )}
+    
 
 
 

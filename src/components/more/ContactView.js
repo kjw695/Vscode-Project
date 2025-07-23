@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
 
-const ContactView = ({ onBack, isDarkMode }) => {
+// 👇 onBack과 isDarkMode 외에, onSend prop을 새로 받습니다.
+const ContactView = ({ onBack, onSend, isDarkMode }) => {
   const [message, setMessage] = useState('');
   const [category, setCategory] = useState(null);
 
@@ -22,10 +23,8 @@ const ContactView = ({ onBack, isDarkMode }) => {
       alert('문의 내용을 입력해주세요.');
       return;
     }
-    alert(`[${category}] 유형의 소중한 의견 감사합니다! 성공적으로 전송되었습니다.`);
-    setMessage('');
-    setCategory(null);
-    onBack();
+    // 👇 App.js로부터 받은 onSend 함수를 호출하여 데이터를 전달합니다.
+    onSend(category, message);
   };
 
   return (
@@ -67,7 +66,6 @@ const ContactView = ({ onBack, isDarkMode }) => {
           앱 사용 중 불편한 점이나 개선 아이디어가 있다면 언제든지 의견을 보내주세요. 더 나은 앱을 만드는 데 큰 도움이 됩니다.
         </p>
         
-        {/* 👇👇👇 여기에 placeholder 스타일을 추가했습니다. 👇👇👇 */}
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
