@@ -27,14 +27,15 @@ const CollapsibleStatCard = ({ title, value, valueColor, onToggle, showDetails, 
 );
 
 const DetailRow = ({ label, value, comparison }) => (
-    <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-2">
+    <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-1">
         <span className="text-base sm:text-lg font-semibold">{label}</span>
         <span className="text-base sm:text-lg font-bold">{value}</span>
-        <div className="w-20 flex justify-center">
+        <div className="w-16 flex justify-center">
             {comparison}
         </div>
     </div>
 );
+
 
 const SimpleDetailRow = ({ label, value }) => (
     <div className="grid grid-cols-2 items-center">

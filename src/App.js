@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo,useRef } from 'react';
-
 // Lucide React 아이콘 임포트
 // src/App.js
-import { Settings, Sun, Moon, Info, Download, Upload, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Home, BarChart2, List, MoreHorizontal, AlertTriangle } from 'lucide-react';
+// ✨ 변경점: Plus 아이콘을 추가로 임포트합니다.
+import { Settings, Sun, Moon, Info, Download, Upload, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Home, BarChart2, List, MoreHorizontal, AlertTriangle, Plus } from 'lucide-react';
 
 // Firebase 관련 임포트
 import { app, db, auth, appId, googleProvider, kakaoProvider, naverProvider } from './firebaseConfig';
@@ -59,10 +59,10 @@ import { useProfitCalculations } from './hooks/useProfitCalculations';
  * 상세 정보 카드에 사용되는 행(Row) 컴포넌트입니다. (비교 데이터 포함)
  */
 const DetailRow = ({ label, value, comparison }) => (
-    <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-2">
+    <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-1">
         <span className="text-base sm:text-lg font-semibold">{label}</span>
         <span className="text-base sm:text-lg font-bold">{value}</span>
-        <div className="w-20 flex justify-center">
+        <div className="w-16 flex justify-center">
             {comparison}
         </div>
     </div>
@@ -216,6 +216,11 @@ function App() {
     // --- DOM 직접 제어 ---
     /** @description 날짜 input 태그를 직접 제어하기 위한 Ref 객체 */
     const dateInputRef = useRef(null);
+    //스와이프&슬라이드 기능 추가
+const touchStartX = useRef(null);
+const touchEndX = useRef(null);
+const touchStartY = useRef(null);
+const touchEndY = useRef(null);
 
     /** @description 삭제/복원 등 시간이 걸리는 작업 진행 여부 (true/false) */
     const [isLoading, setIsLoading] = useState(false);
@@ -464,7 +469,7 @@ function App() {
         // ... (이 안의 내용은 그대로 둡니다) ...
     }, [isAuthReady, userId]);
 
-    // 👇👇👇 바로 이 자리에 아래의 새로운 useEffect 코드 블록을 추가해주세요! 👇�👇
+    // 👇👇👇 바로 이 자리에 아래의 새로운 useEffect 코드 블록을 추가해주세요! 👇👇👇
     useEffect(() => {
         // '데이터' 탭을 벗어났을 때, 수정 모드를 자동으로 취소하고 입력 폼을 초기화합니다.
         if (selectedMainTab !== 'data' && entryToEdit) {
@@ -938,6 +943,51 @@ const finalFilteredEntries = useMemo(() => {
             setEntryToEdit(null); // 수정 모드 해제
         }
     };
+ // ✨ 변경점: 아래 세 개의 스와이프 관련 함수를 추가합니다.
+    // ✨ 변경점: 아래 세 개의 스와이프 관련 함수를 이 코드로 완전히 교체해주세요.
+const handleTouchStart = (e) => {
+    // 첫 터치 지점의 X와 Y 좌표를 모두 저장합니다.
+    touchStartX.current = e.targetTouches[0].clientX;
+    touchStartY.current = e.targetTouches[0].clientY;
+    touchEndX.current = null;
+    touchEndY.current = null;
+};
+
+const handleTouchMove = (e) => {
+    // 손가락이 움직이는 동안 계속해서 끝 지점의 X와 Y 좌표를 업데이트합니다.
+    touchEndX.current = e.targetTouches[0].clientX;
+    touchEndY.current = e.targetTouches[0].clientY;
+};
+
+const handleTouchEnd = () => {
+    if (!touchStartX.current || !touchEndX.current || !touchStartY.current || !touchEndY.current) {
+        return;
+    }
+
+    const deltaX = touchStartX.current - touchEndX.current;
+    const deltaY = touchStartY.current - touchEndY.current;
+
+    // 수평 움직임이 수직 움직임(스크롤)보다 훨씬 클 때만 슬라이드로 간주합니다.
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        const isLeftSwipe = deltaX > 50;  // 손가락을 왼쪽으로 미는 동작
+        const isRightSwipe = deltaX < -50; // 손가락을 오른쪽으로 미는 동작
+
+        if (isLeftSwipe && activeDataTab === 'entry') {
+            // '입력' 화면에서 왼쪽으로 슬라이드 -> '데이터' 목록으로 이동
+            setActiveDataTab('list');
+        } else if (isRightSwipe && activeDataTab === 'list') {
+            // '데이터' 목록에서 오른쪽으로 슬라이드 -> '입력' 화면으로 이동
+            setActiveDataTab('entry');
+        }
+    }
+
+    // 다음 동작을 위해 모든 좌표를 초기화합니다.
+    touchStartX.current = null;
+    touchEndX.current = null;
+    touchStartY.current = null;
+    touchEndY.current = null;
+};
+
     // 캘린더 날짜 생성
     // 👇 이 최종 버전의 함수로 기존 함수를 완전히 교체해주세요. 👇
 // App.js 파일 내부
@@ -1031,6 +1081,29 @@ const cumulativePeriod = useMemo(() => {
     };
 }, [entries]);
 
+// ✨ 변경점: 데이터 입력 화면으로 바로 이동하는 함수를 추가합니다.
+const handleNavigateToDataEntry = () => {
+    setSelectedMainTab('data');
+    setActiveContentTab('dataEntry');
+    setActiveDataTab('entry');
+    // 새 입력을 위해 폼을 초기화합니다.
+    setEntryToEdit(null);
+    setDate(new Date().toISOString().slice(0, 10));
+    setUnitPrice('');
+    setDeliveryCount('');
+    setReturnCount('');
+    setDeliveryInterruptionAmount('');
+    setFreshBagCount('');
+    setPenaltyAmount('');
+    setIndustrialAccidentCost('');
+    setFuelCost('');
+    setMaintenanceCost('');
+    setVatAmount('');
+    setIncomeTaxAmount('');
+    setTaxAccountantFee('');
+    setFormType('income');
+};
+
 return (
     <div className={`min-h-screen font-sans flex flex-col items-center flex-grow ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-100 text-gray-800'} pb-20 px-4 sm:px-8 pt-[calc(0.5rem+env(safe-area-inset-top))]`}>
 
@@ -1091,27 +1164,27 @@ return (
                                     {!showMonthlyDetails ? (
                                         // 캘린더 뷰
                                         <div className="calendar-view">
-                                            <div className="flex justify-between items-center mb-4">
-                                                <button
-                                                    onClick={() => handleMonthChange(-1)}
-                                                    className={`p-2 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} transition duration-150 ease-in-out`}
-                                                >
-                                                    <ChevronLeft size={24} className={`${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`} />
-                                                </button>
-                                                <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>
-                                                    {currentCalendarDate.getFullYear()}년 {currentCalendarDate.getMonth() + 1}월
-                                                </h3>
-                                                <button
-                                                    onClick={() => handleMonthChange(1)}
-                                                    className={`p-2 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} transition duration-150 ease-in-out`}
-                                                >
-                                                    <ChevronRight size={24} className={`${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`} />
-                                                </button>
-                                            </div>
-                                            <p className={`text-sm text-center mb-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                                {monthlyProfit.periodStartDate ? new Date(monthlyProfit.periodStartDate).toLocaleDateString('ko-KR') : ''} ~ {monthlyProfit.periodEndDate ? new Date(monthlyProfit.periodEndDate).toLocaleDateString('ko-KR') : ''}
-                                                <button
-                                                    onClick={handleTodayClick}
+  <div className="flex justify-center items-center mb-4 space-x-3">
+    <button
+        onClick={() => handleMonthChange(-1)}
+        className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'}`}
+    >
+        <ChevronLeft size={20} className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`} />
+    </button>
+    <h3 className={`font-bold text-lg ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>
+        {currentCalendarDate.getFullYear()}년 {currentCalendarDate.getMonth() + 1}월
+    </h3>
+    <button
+        onClick={() => handleMonthChange(1)}
+        className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'}`}
+    >
+        <ChevronRight size={20} className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`} />
+    </button>
+</div>
+                                           <p className={`text-sm text-right mb-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+    {monthlyProfit.periodStartDate ? new Date(monthlyProfit.periodStartDate).toLocaleDateString('ko-KR') : ''} ~ {monthlyProfit.periodEndDate ? new Date(monthlyProfit.periodEndDate).toLocaleDateString('ko-KR') : ''}
+    <button
+        onClick={handleTodayClick}
                                                     className={`ml-4 py-1 px-3 rounded-md text-xs ${isDarkMode ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'} transition duration-150 ease-in-out`}
                                                 >
                                                     오늘
@@ -1130,33 +1203,33 @@ return (
                                         <div className="grid grid-cols-7 gap-1">
                                 {calendarDays.map((dayInfo, index) => (
                                     <div
-    key={index}
-    onClick={() => handleCalendarDateClick(dayInfo.date)}
-    className={`cursor-pointer aspect-square flex flex-col items-center justify-start p-1 rounded-md
-    ${dayInfo.isCurrentMonth ? (isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-white hover:bg-gray-100') : (isDarkMode ? 'bg-gray-800' : 'bg-white')}
-    ${dayInfo.isToday && dayInfo.isCurrentMonth ? 'border-2 border-blue-500' : ''}
-    `}
->
+                                        key={index}
+                                        onClick={() => handleCalendarDateClick(dayInfo.date)}
+                                        className={`cursor-pointer aspect-square flex flex-col items-center justify-start p-1 rounded-md
+                                        ${dayInfo.isCurrentMonth ? (isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-white hover:bg-gray-100') : (isDarkMode ? 'bg-gray-800' : 'bg-white')}
+                                        ${dayInfo.isToday && dayInfo.isCurrentMonth ? 'border-2 border-blue-500' : ''}
+                                        `}
+                                    >
                                         {dayInfo.isCurrentMonth && (
                                             <>
                                                 <span className={`font-semibold text-[clamp(0.75rem,3vw,0.875rem)]
-                                                     ${index % 7 === 0 ? 'text-red-500' : ''}
-                                                     ${index % 7 === 6 ? 'text-blue-500' : ''}
-                                                     ${dayInfo.isToday ? 'text-blue-500' : ''}
+                                                    ${index % 7 === 0 ? 'text-red-500' : ''}
+                                                    ${index % 7 === 6 ? 'text-blue-500' : ''}
+                                                    ${dayInfo.isToday ? 'text-blue-500' : ''}
                                                 `}>
-                                                   {dayInfo.day}
-                                                    </span>
+                                                    {dayInfo.day}
+                                                </span>
                                                 
                                                 {dayInfo.revenue > 0 && (
-    <span className="text-red-500 text-[clamp(0.5rem,2vw,0.625rem)] leading-tight">
-        {dayInfo.revenue.toLocaleString()}
-    </span>
-)}
-{dayInfo.expenses > 0 && (
-    <span className="text-blue-500 text-[clamp(0.5rem,2vw,0.625rem)] leading-tight">
-        {dayInfo.expenses.toLocaleString()}
-    </span>
-)}
+                                                    <span className="text-red-500 text-[clamp(0.5rem,2vw,0.625rem)] leading-tight">
+                                                        {dayInfo.revenue.toLocaleString()}
+                                                    </span>
+                                                )}
+                                                {dayInfo.expenses > 0 && (
+                                                    <span className="text-blue-500 text-[clamp(0.5rem,2vw,0.625rem)] leading-tight">
+                                                        {dayInfo.expenses.toLocaleString()}
+                                                    </span>
+                                                )}
                                             </> 
                                         )}
                                     </div>
@@ -1166,23 +1239,23 @@ return (
                                     ) : (
                                         // 상세 내역 뷰
                                         <div className="space-y-4">
-                                            <div className="flex justify-between items-center mb-4">
-                                                <button
-                                                    onClick={() => handleMonthChange(-1)}
-                                                    className={`p-2 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} transition duration-150 ease-in-out`}
-                                                >
-                                                    <ChevronLeft size={24} className={`${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`} />
-                                                </button>
-                                                <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>
-                                                    {currentCalendarDate.getFullYear()}년 {currentCalendarDate.getMonth() + 1}월
-                                                </h3>
-                                                <button
-                                                    onClick={() => handleMonthChange(1)}
-                                                    className={`p-2 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} transition duration-150 ease-in-out`}
-                                                >
-                                                    <ChevronRight size={24} className={`${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`} />
-                                                </button>
-                                            </div>
+    <div className="flex justify-center items-center mb-4 space-x-3">
+        <button
+            onClick={() => handleMonthChange(-1)}
+            className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'}`}
+        >
+            <ChevronLeft size={20} className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`} />
+        </button>
+        <h3 className={`font-bold text-lg ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>
+            {currentCalendarDate.getFullYear()}년 {currentCalendarDate.getMonth() + 1}월
+        </h3>
+        <button
+            onClick={() => handleMonthChange(1)}
+            className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'}`}
+        >
+            <ChevronRight size={20} className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`} />
+        </button>
+    </div>
                                             <div className="max-w-md mx-auto space-y-4">
                                                 {/* 집계 기간 및 목표 진행률 표시줄 */}
                                                 <div>
@@ -1243,7 +1316,7 @@ return (
                                                 </div>
 
                                                 {/* 상세 정보 카드 */}
-                                               <div className={`px-6 py-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-white'} space-y-3 shadow`}>
+                                                <div className={`pl-6 pr-[23px] py-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-white'} space-y-3 shadow`}>
                                                     <DetailRow
                                                         label="총 근무일"
                                                         value={`${monthlyProfit.totalWorkingDays.toLocaleString()} 일`}
@@ -1271,22 +1344,28 @@ return (
                                 </div>
                             )}
                             {activeContentTab === 'dataEntry' && (
-                                <div className={`p-4 sm:p-6 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-                                   {/* 입력 / 데이터 탭 버튼 (중앙 정렬 적용) */}
-<div className="flex justify-center border-b mb-4">
-    <button
-        onClick={() => setActiveDataTab('entry')}
-        className={`py-2 px-4 font-semibold ${activeDataTab === 'entry' ? (isDarkMode ? 'border-amber-400 text-amber-400' : 'border-amber-600 text-amber-700') : (isDarkMode ? 'border-transparent text-gray-400' : 'border-transparent text-gray-500')} border-b-2`}
+                                <div 
+        className={`p-4 sm:p-6 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
     >
-        입력
-    </button>
-    <button
-        onClick={() => setActiveDataTab('list')}
-        className={`py-2 px-4 font-semibold ${activeDataTab === 'list' ? (isDarkMode ? 'border-amber-400 text-amber-400' : 'border-amber-600 text-amber-700') : (isDarkMode ? 'border-transparent text-gray-400' : 'border-transparent text-gray-500')} border-b-2`}
-    >
-        데이터
-    </button>
-</div>
+                                    {/* 입력 / 데이터 탭 버튼 (중앙 정렬 적용) */}
+                                    <div className="flex justify-center border-b mb-4">
+                                        <button
+                                            onClick={() => setActiveDataTab('entry')}
+                                            className={`py-2 px-4 font-semibold ${activeDataTab === 'entry' ? (isDarkMode ? 'border-amber-400 text-amber-400' : 'border-amber-600 text-amber-700') : (isDarkMode ? 'border-transparent text-gray-400' : 'border-transparent text-gray-500')} border-b-2`}
+                                        >
+                                            입력
+                                        </button>
+                                        <button
+                                            onClick={() => setActiveDataTab('list')}
+                                            className={`py-2 px-4 font-semibold ${activeDataTab === 'list' ? (isDarkMode ? 'border-amber-400 text-amber-400' : 'border-amber-600 text-amber-700') : (isDarkMode ? 'border-transparent text-gray-400' : 'border-transparent text-gray-500')} border-b-2`}
+                                        >
+                                            데이터
+                                        </button>
+                                    </div>
+
                                     {/* '입력' 탭일 때 DataEntryForm을 보여줍니다. */}
                                     {activeDataTab === 'entry' && (
                                         <DataEntryForm
@@ -1368,7 +1447,7 @@ return (
                                         setMonthlyStatsSubTab={setMonthlyStatsSubTab}
                                         setSelectedYear={setSelectedYear}
                                         yearlyPeriod={yearlyPeriod} // ✨ 여기에 추가
-                                      cumulativePeriod={cumulativePeriod}
+                                        cumulativePeriod={cumulativePeriod}
 
                                     />
                                 )}
@@ -1460,6 +1539,20 @@ return (
                             >
                         )}
                     </div>
+
+{/* 홈 상세정보 화면에만 보이는 데이터 기록 바로가기 버튼 */}
+{activeContentTab === 'monthlyProfit' && showMonthlyDetails && (
+    <button
+        onClick={handleNavigateToDataEntry}
+        className="fixed bottom-28 right-6 z-40 p-4 transition-transform hover:scale-150"
+        aria-label="데이터 기록하기"
+    >
+        <Plus 
+            size={36} 
+            className={`${isDarkMode ? 'text-gray-200' : 'text-black'}`} 
+        />
+    </button>
+)}
 
                     {/* 하단 내비게이션 바는 이제 userId 조건 없이 항상 표시 */}
                     {isAuthReady && ( // 인증 준비가 되면 하단 바 표시
@@ -1559,4 +1652,4 @@ return (
                 </div>
             );
         }
-export default App;
+export default App

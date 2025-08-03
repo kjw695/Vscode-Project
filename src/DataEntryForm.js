@@ -111,6 +111,7 @@ function DataEntryForm({
             <input
               type="number" id="deliveryCount" value={deliveryCount} onChange={(e) => setDeliveryCount(e.target.value)}
               className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
+            step="0.01" placeholder="선택 사항"
             />
           </div>
           <div>
@@ -118,7 +119,7 @@ function DataEntryForm({
             <input
               type="number" id="deliveryInterruptionAmount" value={deliveryInterruptionAmount} onChange={(e) => setDeliveryInterruptionAmount(e.target.value)}
               className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-              step="0.01" placeholder="원, 선택 사항"
+              step="0.01" placeholder="선택 사항"
             />
           </div>
           <div>
@@ -126,6 +127,7 @@ function DataEntryForm({
             <input
               type="number" id="returnCount" value={returnCount} onChange={(e) => setReturnCount(e.target.value)}
               className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
+            step="0.01" placeholder="선택 사항"
             />
           </div>
           <div>
