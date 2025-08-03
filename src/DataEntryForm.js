@@ -31,15 +31,15 @@ function DataEntryForm({
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
       {/* 새로운 날짜 선택기 UI */}
-      <div className={`md:col-span-2 p-1 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-pink-100'}`}>
-        <div className="flex items-center justify-center space-x-3">
+      <div className={`md:col-span-2 p-1 rounded-lg ${isDarkMode ? 'bg-gray-700' : ''}`}>
+  <div className="flex items-center justify-center space-x-3">
           <button type="button" onClick={() => handleDateChange(-1)} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-600' : 'hover:bg-pink-200'}`}>
             <ChevronLeft size={20} className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`} />
           </button>
           <span
-            onClick={() => dateInputRef.current?.showPicker()}
-            className={`font-bold text-lg cursor-pointer select-none ${isDarkMode ? 'text-pink-300' : 'text-pink-700'}`}
-          >
+      onClick={() => dateInputRef.current?.showPicker()}
+      className={`font-bold text-lg cursor-pointer select-none ${isDarkMode ? 'text-pink-300' : 'text-pink-500'}`}
+    >
             {date}
           </span>
           <button type="button" onClick={() => handleDateChange(1)} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-600' : 'hover:bg-pink-200'}`}>
@@ -64,7 +64,8 @@ function DataEntryForm({
           onClick={() => setFormType('income')}
           className={`py-2 px-6 rounded-md font-semibold transition-colors duration-200 ${
             formType === 'income' 
-            ? (isDarkMode ? 'bg-blue-600 text-white' : 'bg-red-500 text-white')
+            // ✨ 변경점: 야간 모드일 때 수익 버튼 색상을 빨간색으로 변경
+            ? (isDarkMode ? 'bg-red-600 text-white' : 'bg-red-500 text-white')
             : (isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300')
           }`}
         >
@@ -75,7 +76,8 @@ function DataEntryForm({
           onClick={() => setFormType('expense')}
           className={`py-2 px-6 rounded-md font-semibold transition-colors duration-200 ${
             formType === 'expense' 
-            ? (isDarkMode ? 'bg-red-600 text-white' : 'bg-blue-500 text-white')
+            // ✨ 변경점: 야간 모드일 때 지출 버튼 색상을 파란색으로 변경
+            ? (isDarkMode ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white')
             : (isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300')
           }`}
         >
@@ -112,18 +114,18 @@ function DataEntryForm({
             />
           </div>
           <div>
-            <label htmlFor="returnCount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>반품 수량</label>
-            <input
-              type="number" id="returnCount" value={returnCount} onChange={(e) => setReturnCount(e.target.value)}
-              className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-            />
-          </div>
-          <div>
             <label htmlFor="deliveryInterruptionAmount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>배송중단</label>
             <input
               type="number" id="deliveryInterruptionAmount" value={deliveryInterruptionAmount} onChange={(e) => setDeliveryInterruptionAmount(e.target.value)}
               className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
               step="0.01" placeholder="원, 선택 사항"
+            />
+          </div>
+          <div>
+            <label htmlFor="returnCount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>반품 수량</label>
+            <input
+              type="number" id="returnCount" value={returnCount} onChange={(e) => setReturnCount(e.target.value)}
+              className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
             />
           </div>
           <div>
@@ -139,7 +141,7 @@ function DataEntryForm({
 
       {/* 지출 입력 필드 */}
       {formType === 'expense' && (
-        <div className="md:col-span-2 grid grid-cols-2 gap-4 mt-4">
+        <div className="md:col-span-2 grid grid-cols-2 gap-4">
           <div>
             <label htmlFor="penaltyAmount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>패널티</label>
             <input
