@@ -22,8 +22,8 @@ import AdBanner from './AdBanner'; // 광고 배너 컴포넌트
 
 import FilterModal from './components/DataScreen/FilterModal';
 import EntriesList from './components/DataScreen/EntriesList.js';
-
-
+//홈 매출데코
+import RevenueDistributionChart from './components/RevenueDistributionChart';
 import DataEntryForm from './DataEntryForm';
 //import EntriesTable from './EntriesTable';
 
@@ -1143,6 +1143,7 @@ return (
                     {isAuthReady && ( // 인증 초기화가 되면 모든 탭 콘텐츠를 보이게 함
                         <>
                             {activeContentTab === 'monthlyProfit' && (
+                                
                                 <div className={`p-4 sm:p-6 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
                                     <h2 className={`text-2xl font-bold text-center mb-4 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>
                                         {currentCalendarDate.getFullYear()}년 {currentCalendarDate.getMonth() + 1}월 순이익
@@ -1279,20 +1280,22 @@ return (
 
                                                     {/* ✨ 변경점: 작은 화면에서 글자 크기와 간격을 줄여 줄바꿈 문제를 해결합니다. */}
                                                     <div className="grid grid-cols-[1fr_auto_1fr] items-center text-sm sm:text-base mb-1 gap-x-1 sm:gap-x-2">
-                                                        {!isEditingGoal ? (
-                                                            <>
-                                                                <div className="flex items-center justify-end min-w-0">
-                                                                    <span className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} whitespace-nowrap truncate`}>
-                                                                        목표: {goalAmount.toLocaleString()}
-                                                                    </span>
-                                                                    <button onClick={() => { setIsEditingGoal(true); setNewGoalAmountInput(goalAmount.toString()); }} className="ml-1 sm:ml-2 flex-shrink-0">
-                                                                        <Settings size={14} className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />
-                                                                    </button>
-                                                                </div>
-                                                                <span className="font-bold text-red-500">VS</span>
-                                                                <span className={`${isDarkMode ? 'text-gray-200' : 'text-gray-800'} font-semibold text-left whitespace-nowrap truncate`}>
-                                                                    현재: {monthlyProfit.netProfit.toLocaleString()}
-                                                                </span>
+    {!isEditingGoal ? (
+        <>
+            <span className={`${isDarkMode ? 'text-gray-200' : 'text-gray-800'} font-semibold text-right whitespace-nowrap truncate`}>
+                현재: {monthlyProfit.netProfit.toLocaleString()}
+            </span>
+
+            <span className="font-bold text-red-500">VS</span>
+
+            <div className="flex items-center justify-start min-w-0">
+                <span className={`${isDarkMode ? 'text-gray-200' : 'text-gray-800'} font-semibold whitespace-nowrap truncate`}>
+                    목표: {goalAmount.toLocaleString()}
+                </span>
+                <button onClick={() => { setIsEditingGoal(true); setNewGoalAmountInput(goalAmount.toString()); }} className="ml-1 sm:ml-2 flex-shrink-0">
+                    <Settings size={14} className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+                </button>
+            </div>
                                                             </>
                                                         ) : (
                                                             <div className="col-span-3 flex justify-center items-center space-x-2">
