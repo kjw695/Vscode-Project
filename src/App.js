@@ -12,7 +12,7 @@ import { signInAnonymously, onAuthStateChanged, signOut, linkWithPopup, signInWi
 
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
-
+import { Preferences } from '@capacitor/preferences';
 // 유틸리티 및 커스텀 컴포넌트 임포트
 import { formatDate } from './utils';
 import StatsDisplay from './StatsDisplay';
@@ -89,8 +89,8 @@ function App() {
     /** @description 오늘 기록된 걸음 수 */
     const [dailySteps, setDailySteps] = useState(0);
 
-    // --- UI 테마 및 화면 제어 ---
-    const [isDarkMode, setIsDarkMode] = useState(false);
+// --- UI 테마 및 화면 제어 ---
+const [isDarkMode, setIsDarkMode] = useState(true);
 
     /** @description 만보기 센서 사용 가능 여부 */
     const [pedometerAvailable, setPedometerAvailable] = useState(false);
@@ -227,20 +227,47 @@ const touchEndY = useRef(null);
     const [loadingMessage, setLoadingMessage] = useState('');
 
 
-   useEffect(() => {
-    // ----- 테스트를 위해 임시로 추가하는 부분 -----
+  // 1. 앱이 처음 시작될 때 딱 한 번만 실행되어 저장된 테마 설정을 불러옵니다.
+useEffect(() => {
+    const loadDarkModeSetting = async () => {
+        try {
+            const { value } = await Preferences.get({ key: 'isDarkMode' });
+            // 저장된 값이 있으면 (null이 아니면) 그 값을 상태에 적용합니다.
+            if (value !== null) {
+                setIsDarkMode(JSON.parse(value));
+            }
+            // 저장된 값이 없으면, 맨 처음 useState(true)로 설정된 기본 다크모드가 유지됩니다.
+        } catch (error) {
+            console.error("테마 설정 불러오기 실패:", error);
+        }
+    };
 
-    // 1. 현재 isDarkMode 상태가 어떤 값인지 콘솔에 출력해봅니다.
-    console.log('현재 isDarkMode 상태:', isDarkMode); 
-    
-    // 2. isDarkMode 상태값과 상관없이 강제로 dark 클래스를 제거합니다.
-    document.documentElement.classList.remove('dark'); 
-    
-    // 3. 테스트 중에는 localStorage에 값을 저장하지 않도록 잠시 막아둡니다.
-    // localStorage.setItem('isDarkMode', JSON.stringify(isDarkMode));
-    
-    // ----- 여기까지가 테스트용 코드입니다 -----
-    }, [isDarkMode]);
+    loadDarkModeSetting();
+}, []); // 빈 배열: 앱 시작 시 딱 한 번만 실행
+
+// 2. isDarkMode 상태가 바뀔 때마다 실행되어, 선택을 저장하고 화면을 변경합니다.
+useEffect(() => {
+    const saveAndApplyTheme = async () => {
+        try {
+            // 선택 사항을 기기에 저장합니다.
+            await Preferences.set({
+                key: 'isDarkMode',
+                value: JSON.stringify(isDarkMode),
+            });
+
+            // <html> 태그에 dark 클래스를 적용/제거합니다.
+            if (isDarkMode) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        } catch (error) {
+            console.error("테마 설정 저장 실패:", error);
+        }
+    };
+
+    saveAndApplyTheme();
+}, [isDarkMode]);
 
     useEffect(() => {
         const fetchDailySteps = async () => {
