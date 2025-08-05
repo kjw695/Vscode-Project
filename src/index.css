@@ -1,8 +1,16 @@
+/* src/index.css */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-/* src/index.css 파일 맨 아래의 react-calendar-heatmap 스타일 부분을 교체 */
 
+/* 이 아래에는 .react-calendar-heatmap 이나
+  .react-tooltip 같이 꼭 필요한 스타일만 남겨둡니다.
+  body { ... } 나 code { ... } 같은 기본 태그 스타일은
+  @tailwind base가 모두 처리해주므로 삭제합니다.
+*/
+
+/* 기존에 있던 react-calendar-heatmap 스타일 부분 */
 .react-calendar-heatmap .color-empty {
   fill: #ebedf0;
 }
@@ -18,26 +26,20 @@
 .react-calendar-heatmap .color-scale-4 {
   fill: #216e39;
 }
+.react-calendar-heatmap .month-label {
+  font-size: 10px;
+  fill: #767676;
+}
+.react-calendar-heatmap .wday-label {
+  font-size: 10px;
+  fill: #767676;
+}
 
-/* 툴팁 스타일 (선택 사항) */
+/* 툴팁 스타일 */
 .react-tooltip {
   background-color: #222 !important;
   color: #fff !important;
   border-radius: 4px !important;
   padding: 8px 12px !important;
   font-size: 12px !important;
-}
-
-/* src/index.css 파일 맨 아래에 추가 */
-
-/* 히트맵의 월(Month) 글자 스타일 */
-.react-calendar-heatmap .month-label {
-  font-size: 10px; /* 글자 크기를 키웁니다 */
-  fill: #767676;  /* 글자 색상 */
-}
-
-/* 히트맵의 요일(Weekday) 글자 스타일 */
-.react-calendar-heatmap .wday-label {
-  font-size: 10px; /* 글자 크기를 키웁니다 */
-  fill: #767676;  /* 글자 색상 */
 }

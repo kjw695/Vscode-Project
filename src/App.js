@@ -18,12 +18,13 @@ import { formatDate } from './utils';
 import StatsDisplay from './StatsDisplay';
 import GoalProgressBar from './components/GoalProgressBar';
 import AdBanner from './AdBanner'; // 광고 배너 컴포넌트
+//홈화면 반원바
+import RevenueDistributionChart from './components/RevenueDistributionChart'; 
 //기록 보기 편하게 만들기
 
 import FilterModal from './components/DataScreen/FilterModal';
 import EntriesList from './components/DataScreen/EntriesList.js';
-//홈 매출데코
-import RevenueDistributionChart from './components/RevenueDistributionChart';
+
 import DataEntryForm from './DataEntryForm';
 //import EntriesTable from './EntriesTable';
 
@@ -87,15 +88,13 @@ function App() {
     // --- 만보기 기능 ---
     /** @description 오늘 기록된 걸음 수 */
     const [dailySteps, setDailySteps] = useState(0);
+
+    // --- UI 테마 및 화면 제어 ---
+    const [isDarkMode, setIsDarkMode] = useState(false);
+
     /** @description 만보기 센서 사용 가능 여부 */
     const [pedometerAvailable, setPedometerAvailable] = useState(false);
 
-    // --- UI 테마 및 화면 제어 ---
-    /** @description 다크 모드 활성화 여부 (앱 시작 시 기기에 저장된 값을 불러옴) */
-    const [isDarkMode, setIsDarkMode] = useState(() => {
-        const savedMode = localStorage.getItem('isDarkMode');
-        return savedMode ? JSON.parse(savedMode) : false; 
-    });
     /** @description 하단 탭 메뉴('홈', '데이터', '통계' 등) 중 현재 선택된 탭 */
     const [selectedMainTab, setSelectedMainTab] = useState('home');
     /** @description 하단 탭 선택 시, 화면에 보여줄 메인 콘텐츠 종류 */
@@ -228,15 +227,19 @@ const touchEndY = useRef(null);
     const [loadingMessage, setLoadingMessage] = useState('');
 
 
-    useEffect(() => {
-        // isDarkMode 상태가 변경될 때마다 그 값을 localStorage에 저장합니다.
-        localStorage.setItem('isDarkMode', JSON.stringify(isDarkMode));
-        // HTML body에 dark/light 클래스를 추가하여 Tailwind CSS가 테마를 적용하도록 합니다.
-        if (isDarkMode) {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
+   useEffect(() => {
+    // ----- 테스트를 위해 임시로 추가하는 부분 -----
+
+    // 1. 현재 isDarkMode 상태가 어떤 값인지 콘솔에 출력해봅니다.
+    console.log('현재 isDarkMode 상태:', isDarkMode); 
+    
+    // 2. isDarkMode 상태값과 상관없이 강제로 dark 클래스를 제거합니다.
+    document.documentElement.classList.remove('dark'); 
+    
+    // 3. 테스트 중에는 localStorage에 값을 저장하지 않도록 잠시 막아둡니다.
+    // localStorage.setItem('isDarkMode', JSON.stringify(isDarkMode));
+    
+    // ----- 여기까지가 테스트용 코드입니다 -----
     }, [isDarkMode]);
 
     useEffect(() => {
@@ -1143,14 +1146,11 @@ return (
                     {isAuthReady && ( // 인증 초기화가 되면 모든 탭 콘텐츠를 보이게 함
                         <>
                             {activeContentTab === 'monthlyProfit' && (
-                                
-                                <div className={`p-4 sm:p-6 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-                                    <h2 className={`text-2xl font-bold text-center mb-4 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>
-                                        {currentCalendarDate.getFullYear()}년 {currentCalendarDate.getMonth() + 1}월 순이익
-                                    </h2>
-                                    <p className={`text-4xl font-extrabold text-center mb-6 ${isDarkMode ? 'text-yellow-300' : 'text-amber-600'}`}>
-    {monthlyProfit.netProfit.toLocaleString()} 원
-</p>
+                                                                                            <div className={`p-4 sm:p-6 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                                    <RevenueDistributionChart monthlyProfit={monthlyProfit} />
+
+        <div className="text-center mb-6"></div>
+
                                     
                                 
                                     <div className="text-center mb-6">

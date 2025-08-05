@@ -149,7 +149,7 @@ function DataEntryForm({
             <input
               type="number" id="penaltyAmount" value={penaltyAmount} onChange={(e) => setPenaltyAmount(e.target.value)}
               className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-              step="0.01" placeholder="원, 지출"
+              step="0.01" placeholder="선택 사항"
             />
           </div>
           <div>
@@ -157,7 +157,7 @@ function DataEntryForm({
             <input
               type="number" id="industrialAccidentCost" value={industrialAccidentCost} onChange={(e) => setIndustrialAccidentCost(e.target.value)}
               className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-              step="0.01" placeholder="원, 선택 사항"
+              step="0.01" placeholder="선택 사항"
             />
           </div>
           <div>
@@ -165,7 +165,7 @@ function DataEntryForm({
             <input
               type="number" id="fuelCost" value={fuelCost} onChange={(e) => setFuelCost(e.target.value)}
               className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-              step="0.01" placeholder="원, 선택 사항"
+              step="0.01" placeholder="선택 사항"
             />
           </div>
           <div>
@@ -173,7 +173,7 @@ function DataEntryForm({
             <input
               type="number" id="maintenanceCost" value={maintenanceCost} onChange={(e) => setMaintenanceCost(e.target.value)}
               className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-              step="0.01" placeholder="원, 선택 사항"
+              step="0.01" placeholder="선택 사항"
             />
           </div>
           <div>
@@ -181,7 +181,7 @@ function DataEntryForm({
             <input
               type="number" id="vatAmount" value={vatAmount} onChange={(e) => setVatAmount(e.target.value)}
               className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-              step="0.01" placeholder="원, 선택 사항"
+              step="0.01" placeholder="선택 사항"
             />
           </div>
           <div>
@@ -189,7 +189,7 @@ function DataEntryForm({
             <input
               type="number" id="incomeTaxAmount" value={incomeTaxAmount} onChange={(e) => setIncomeTaxAmount(e.target.value)}
               className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-              step="0.01" placeholder="원, 선택 사항"
+              step="0.01" placeholder="선택 사항"
             />
           </div>
           <div className="md:col-span-2">
@@ -197,7 +197,7 @@ function DataEntryForm({
             <input
               type="number" id="taxAccountantFee" value={taxAccountantFee} onChange={(e) => setTaxAccountantFee(e.target.value)}
               className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-              step="0.01" placeholder="원, 선택 사항"
+              step="0.01" placeholder="선택 사항"
             />
           </div>
         </div>

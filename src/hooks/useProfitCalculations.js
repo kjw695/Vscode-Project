@@ -1,13 +1,10 @@
-// src/hooks/useProfitCalculations.js
+import { useMemo } from 'react';
+import { formatDate } from '../utils';
 
-import { useCallback, useMemo } from 'react';
-import { formatDate } from '../utils'; // 유틸리티 함수도 그대로 사용합니다.
-
-// 계산 로직을 담당하는 커스텀 훅
 export const useProfitCalculations = (entries, selectedMonth, selectedYear, monthlyStartDay, monthlyEndDay, userId) => {
 
     // 월별 수익 계산
-    const calculateMonthlyProfit = useCallback(() => {
+    const monthlyProfit = useMemo(() => {
         const [year, month] = selectedMonth.split('-').map(Number);
         const periodEndDate = new Date(year, month - 1, monthlyEndDay);
         let periodStartDate;
@@ -18,7 +15,6 @@ export const useProfitCalculations = (entries, selectedMonth, selectedYear, mont
         }
         const formattedPeriodStartDate = formatDate(periodStartDate);
         const formattedPeriodEndDate = formatDate(periodEndDate);
-
         const filteredEntries = userId ? entries.filter(entry => entry.date >= formattedPeriodStartDate && entry.date <= formattedPeriodEndDate) : [];
 
         let totalDeliveryRevenue = 0, totalReturnRevenue = 0, totalFreshBagRevenue = 0, totalDeliveryInterruptionRevenue = 0;
@@ -26,170 +22,201 @@ export const useProfitCalculations = (entries, selectedMonth, selectedYear, mont
         let totalVatAmount = 0, totalIncomeTaxAmount = 0, totalTaxAccountantFee = 0;
         const dailyBreakdown = {};
         const uniqueDatesMonthly = new Set();
+        const unitPriceBreakdown = {};
+        let totalDeliveryCount = 0, totalReturnCount = 0, totalInterruptionCount = 0;
 
         filteredEntries.forEach(entry => {
-            if (entry.deliveryCount > 0 || entry.returnCount > 0 || entry.freshBagCount > 0 || entry.deliveryInterruptionAmount > 0 || entry.penaltyAmount > 0 || entry.industrialAccidentCost > 0 || entry.fuelCost > 0 || entry.maintenanceCost > 0 || entry.vatAmount > 0 || entry.incomeTaxAmount > 0 || entry.taxAccountantFee > 0) {
+            const unitPrice = entry.unitPrice || 0;
+            const deliveryCount = entry.deliveryCount || 0;
+            const returnCount = entry.returnCount || 0;
+            const deliveryInterruptionAmount = entry.deliveryInterruptionAmount || 0;
+            const freshBagCount = entry.freshBagCount || 0;
+            const penaltyAmount = entry.penaltyAmount || 0;
+            const industrialAccidentCost = entry.industrialAccidentCost || 0;
+            const fuelCost = entry.fuelCost || 0;
+            const maintenanceCost = entry.maintenanceCost || 0;
+            const vatAmount = entry.vatAmount || 0;
+            const incomeTaxAmount = entry.incomeTaxAmount || 0;
+            const taxAccountantFee = entry.taxAccountantFee || 0;
+            if (deliveryCount || returnCount || freshBagCount || deliveryInterruptionAmount || penaltyAmount || industrialAccidentCost || fuelCost || maintenanceCost || vatAmount || incomeTaxAmount || taxAccountantFee) {
                 uniqueDatesMonthly.add(entry.date);
             }
-            const deliveryInterruptionCalculated = (entry.unitPrice || 0) * (entry.deliveryInterruptionAmount || 0);
-            const dailyRevenue = (entry.unitPrice * entry.deliveryCount) + (entry.unitPrice * entry.returnCount) + deliveryInterruptionCalculated + ((entry.freshBagCount || 0) * 100);
-            const dailyExpenses = (entry.penaltyAmount || 0) + (entry.industrialAccidentCost || 0) + (entry.fuelCost || 0) + (entry.maintenanceCost || 0) + (entry.vatAmount || 0) + (entry.incomeTaxAmount || 0) + (entry.taxAccountantFee || 0);
-            
+            const deliveryInterruptionCalculated = unitPrice * deliveryInterruptionAmount;
             if (!dailyBreakdown[entry.date]) dailyBreakdown[entry.date] = { revenue: 0, expenses: 0 };
-            dailyBreakdown[entry.date].revenue += dailyRevenue;
-            dailyBreakdown[entry.date].expenses += dailyExpenses;
-
-            totalDeliveryRevenue += entry.unitPrice * entry.deliveryCount;
-            totalReturnRevenue += entry.unitPrice * entry.returnCount;
+            dailyBreakdown[entry.date].revenue += (unitPrice * deliveryCount) + (unitPrice * returnCount) + deliveryInterruptionCalculated + (freshBagCount * 100);
+            dailyBreakdown[entry.date].expenses += penaltyAmount + industrialAccidentCost + fuelCost + maintenanceCost + vatAmount + incomeTaxAmount + taxAccountantFee;
+            totalDeliveryRevenue += unitPrice * deliveryCount;
+            totalReturnRevenue += unitPrice * returnCount;
             totalDeliveryInterruptionRevenue += deliveryInterruptionCalculated;
-            totalFreshBagRevenue += (entry.freshBagCount || 0) * 100;
-            totalPenaltyCost += (entry.penaltyAmount || 0);
-            totalIndustrialAccidentCost += (entry.industrialAccidentCost || 0);
-            totalFuelCost += (entry.fuelCost || 0);
-            totalMaintenanceCost += (entry.maintenanceCost || 0);
-            totalVatAmount += (entry.vatAmount || 0);
-            totalIncomeTaxAmount += (entry.incomeTaxAmount || 0);
-            totalTaxAccountantFee += (entry.taxAccountantFee || 0);
+            totalFreshBagRevenue += freshBagCount * 100;
+            totalPenaltyCost += penaltyAmount;
+            totalIndustrialAccidentCost += industrialAccidentCost;
+            totalFuelCost += fuelCost;
+            totalMaintenanceCost += maintenanceCost;
+            totalVatAmount += vatAmount;
+            totalIncomeTaxAmount += incomeTaxAmount;
+            totalTaxAccountantFee += taxAccountantFee;
+            totalDeliveryCount += deliveryCount;
+            totalReturnCount += returnCount;
+            totalInterruptionCount += deliveryInterruptionAmount;
+           if (unitPrice > 0) {
+    if (!unitPriceBreakdown[unitPrice]) {
+        // ✨ 변경점 1: 각 항목별 수익을 저장할 공간 추가
+        unitPriceBreakdown[unitPrice] = {
+            deliveryCount: 0, deliveryRevenue: 0,
+            interruptionCount: 0, interruptionRevenue: 0,
+            returnCount: 0, returnRevenue: 0,
+            totalRevenue: 0
+        };
+    }
+    
+    // ✨ 변경점 2: 각 항목별 수익을 개별적으로 계산
+    const deliveryRevenueForEntry = unitPrice * deliveryCount;
+    const returnRevenueForEntry = unitPrice * returnCount;
+    const interruptionRevenueForEntry = deliveryInterruptionCalculated;
+
+    // ✨ 변경점 3: 계산된 값을 각각 해당하는 곳에 더해줌
+    unitPriceBreakdown[unitPrice].deliveryCount += deliveryCount;
+    unitPriceBreakdown[unitPrice].deliveryRevenue += deliveryRevenueForEntry;
+    unitPriceBreakdown[unitPrice].returnCount += returnCount;
+    unitPriceBreakdown[unitPrice].returnRevenue += returnRevenueForEntry;
+    unitPriceBreakdown[unitPrice].interruptionCount += deliveryInterruptionAmount;
+    unitPriceBreakdown[unitPrice].interruptionRevenue += interruptionRevenueForEntry;
+    unitPriceBreakdown[unitPrice].totalRevenue += deliveryRevenueForEntry + returnRevenueForEntry + interruptionRevenueForEntry;
+}
         });
-        
         const netProfit = totalDeliveryRevenue + totalReturnRevenue + totalFreshBagRevenue + totalDeliveryInterruptionRevenue - totalPenaltyCost - totalIndustrialAccidentCost - totalFuelCost - totalMaintenanceCost - totalVatAmount - totalIncomeTaxAmount - totalTaxAccountantFee;
-        const totalVolume = filteredEntries.reduce((sum, entry) => sum + (entry.deliveryCount || 0) + (entry.returnCount || 0) + (entry.deliveryInterruptionAmount || 0), 0);
+        const totalVolume = totalDeliveryCount + totalReturnCount + totalInterruptionCount;
         const totalFreshBag = filteredEntries.reduce((sum, entry) => sum + (entry.freshBagCount || 0), 0);
         const totalWorkingDays = uniqueDatesMonthly.size;
         const dailyAverageVolume = totalWorkingDays > 0 ? (totalVolume / totalWorkingDays) : 0;
         const totalExpensesSum = totalPenaltyCost + totalIndustrialAccidentCost + totalFuelCost + totalMaintenanceCost + totalVatAmount + totalIncomeTaxAmount + totalTaxAccountantFee;
-
-        return {
-            totalDeliveryRevenue, totalReturnRevenue, totalFreshBagRevenue, totalDeliveryInterruptionRevenue,
-            totalPenaltyCost, totalIndustrialAccidentCost, totalFuelCost, totalMaintenanceCost, totalVatAmount, totalIncomeTaxAmount, totalTaxAccountantFee,
-            netProfit, periodStartDate, periodEndDate, dailyBreakdown,
-            totalVolume, totalExpensesSum, totalFreshBag, totalWorkingDays, dailyAverageVolume
-        };
+        return { totalDeliveryRevenue, totalReturnRevenue, totalFreshBagRevenue, totalDeliveryInterruptionRevenue, totalPenaltyCost, totalIndustrialAccidentCost, totalFuelCost, totalMaintenanceCost, totalVatAmount, totalIncomeTaxAmount, totalTaxAccountantFee, netProfit, periodStartDate, periodEndDate, dailyBreakdown, totalVolume, totalExpensesSum, totalFreshBag, totalWorkingDays, dailyAverageVolume, unitPriceBreakdown, totalDeliveryCount, totalReturnCount, totalInterruptionCount };
     }, [entries, selectedMonth, monthlyStartDay, monthlyEndDay, userId]);
 
-    // 연간 수익 계산
-    const calculateYearlyProfit = useCallback(() => {
-        const year = parseInt(selectedYear);
-        
-        // ✨ 변경점: 사용자가 설정한 집계 기간을 기준으로 연간 시작일과 종료일을 계산합니다.
-        let yearlyStartDate, yearlyEndDate;
-        if (monthlyStartDay > monthlyEndDay) {
-            // 기간이 해를 넘기는 경우 (예: 26일 ~ 25일)
-            yearlyStartDate = new Date(year - 1, 11, monthlyStartDay);
-            yearlyEndDate = new Date(year, 11, monthlyEndDay);
-        } else {
-            // 기간이 같은 달 안에 있는 경우 (예: 1일 ~ 31일)
-            yearlyStartDate = new Date(year, 0, 1);
-            yearlyEndDate = new Date(year, 11, 31);
-        }
-        
-        const formattedYearlyStartDate = formatDate(yearlyStartDate);
-        const formattedYearlyEndDate = formatDate(yearlyEndDate);
+   // 연간 수익 계산
+const yearlyProfit = useMemo(() => {
+    const year = parseInt(selectedYear);
+    const filteredEntriesForYear = userId ? entries.filter(entry => new Date(entry.date).getFullYear() === year) : [];
 
-        // ✨ 변경점: 달력 기준이 아닌, 계산된 연간 집계 기간으로 데이터를 필터링합니다.
-        const filteredEntriesForYear = userId ? entries.filter(entry => entry.date >= formattedYearlyStartDate && entry.date <= formattedYearlyEndDate) : [];
-        
-        let totalDeliveryRevenue = 0, totalReturnRevenue = 0, totalFreshBagRevenue = 0, totalDeliveryInterruptionRevenue = 0;
-        let totalPenaltyCost = 0, totalIndustrialAccidentCost = 0, totalFuelCost = 0, totalMaintenanceCost = 0;
-        let totalVatAmount = 0, totalIncomeTaxAmount = 0, totalTaxAccountantFee = 0;
-        const monthlyBreakdown = Array.from({ length: 12 }, (_, i) => ({ month: i + 1, netProfit: 0 }));
-        const uniqueDatesYearly = new Set();
-        
-        filteredEntriesForYear.forEach(entry => {
+    let totalDeliveryRevenue = 0, totalReturnRevenue = 0, totalFreshBagRevenue = 0, totalDeliveryInterruptionRevenue = 0;
+    let totalPenaltyCost = 0, totalIndustrialAccidentCost = 0, totalFuelCost = 0, totalMaintenanceCost = 0;
+    let totalVatAmount = 0, totalIncomeTaxAmount = 0, totalTaxAccountantFee = 0;
+    let totalDeliveryCount = 0, totalReturnCount = 0, totalInterruptionCount = 0;
+    
+    const monthlyBreakdown = [];
+    const uniqueDatesYearly = new Set();
+    
+    // 연간 전체 데이터에 대해 먼저 모든 합계를 계산합니다.
+    filteredEntriesForYear.forEach(entry => {
+        if (entry.deliveryCount > 0 || entry.returnCount > 0 || entry.freshBagCount > 0 || entry.deliveryInterruptionAmount > 0 || entry.penaltyAmount > 0 || entry.industrialAccidentCost > 0 || entry.fuelCost > 0 || entry.maintenanceCost > 0 || entry.vatAmount > 0 || entry.incomeTaxAmount > 0 || entry.taxAccountantFee > 0) {
             uniqueDatesYearly.add(entry.date);
-            const deliveryInterruptionCalculated = (entry.unitPrice || 0) * (entry.deliveryInterruptionAmount || 0);
-            totalDeliveryRevenue += entry.unitPrice * entry.deliveryCount;
-            totalReturnRevenue += entry.unitPrice * entry.returnCount;
-            totalDeliveryInterruptionRevenue += deliveryInterruptionCalculated;
-            totalFreshBagRevenue += (entry.freshBagCount || 0) * 100;
-            totalPenaltyCost += (entry.penaltyAmount || 0);
-            totalIndustrialAccidentCost += (entry.industrialAccidentCost || 0);
-            totalFuelCost += (entry.fuelCost || 0);
-            totalMaintenanceCost += (entry.maintenanceCost || 0);
-            totalVatAmount += (entry.vatAmount || 0);
-            totalIncomeTaxAmount += (entry.incomeTaxAmount || 0);
-            totalTaxAccountantFee += (entry.taxAccountantFee || 0);
-
-            // 월별 상세 내역 계산
-            const entryMonth = new Date(entry.date).getMonth(); // 0 = 1월, 11 = 12월
-            const entryNetProfit = (entry.unitPrice * entry.deliveryCount) + (entry.unitPrice * entry.returnCount) + deliveryInterruptionCalculated + ((entry.freshBagCount || 0) * 100) - ((entry.penaltyAmount || 0) + (entry.industrialAccidentCost || 0) + (entry.fuelCost || 0) + (entry.maintenanceCost || 0) + (entry.vatAmount || 0) + (entry.incomeTaxAmount || 0) + (entry.taxAccountantFee || 0));
-            monthlyBreakdown[entryMonth].netProfit += entryNetProfit;
-        });
-        
-        const netProfit = totalDeliveryRevenue + totalReturnRevenue + totalFreshBagRevenue + totalDeliveryInterruptionRevenue - totalPenaltyCost - totalIndustrialAccidentCost - totalFuelCost - totalMaintenanceCost - totalVatAmount - totalIncomeTaxAmount - totalTaxAccountantFee;
-        const totalVolume = filteredEntriesForYear.reduce((sum, entry) => sum + (entry.deliveryCount || 0) + (entry.returnCount || 0), 0);
-        const totalFreshBag = filteredEntriesForYear.reduce((sum, entry) => sum + (entry.freshBagCount || 0), 0);
-        const totalWorkingDays = uniqueDatesYearly.size;
-        const dailyAverageVolume = totalWorkingDays > 0 ? (totalVolume / totalWorkingDays) : 0;
-        const totalExpensesSum = totalPenaltyCost + totalIndustrialAccidentCost + totalFuelCost + totalMaintenanceCost + totalVatAmount + totalIncomeTaxAmount + totalTaxAccountantFee;
-
-        return {
-            totalDeliveryRevenue, totalReturnRevenue, totalFreshBagRevenue, totalDeliveryInterruptionRevenue,
-            totalPenaltyCost, totalIndustrialAccidentCost, totalFuelCost, totalMaintenanceCost, totalVatAmount, totalIncomeTaxAmount, totalTaxAccountantFee,
-            netProfit, monthlyBreakdown,
-            totalVolume, totalExpensesSum, totalFreshBag, totalWorkingDays, dailyAverageVolume,
-            periodStartDate: yearlyStartDate, // ✨ 변경점: 계산된 기간을 반환 객체에 추가
-            periodEndDate: yearlyEndDate      // ✨ 변경점: 계산된 기간을 반환 객체에 추가
-        };
-    }, [entries, selectedYear, monthlyStartDay, monthlyEndDay, userId]);
-
-    // 누적 수익 계산
-    const calculateCumulativeProfit = useCallback(() => {
-        const entriesForCumulative = userId ? entries : [];
-        if (entriesForCumulative.length === 0) {
-            return { netProfit: 0, totalWorkingDays: 0, totalVolume: 0, totalFreshBag: 0, dailyAverageVolume: 0, totalExpensesSum: 0, totalDeliveryRevenue: 0, totalReturnRevenue: 0, totalFreshBagRevenue: 0, totalDeliveryInterruptionRevenue: 0, totalPenaltyCost: 0, totalIndustrialAccidentCost: 0, totalFuelCost: 0, totalMaintenanceCost: 0, totalVatAmount: 0, totalIncomeTaxAmount: 0, totalTaxAccountantFee: 0, periodStartDate: null, periodEndDate: null };
         }
+        const deliveryInterruptionCalculated = (entry.unitPrice || 0) * (entry.deliveryInterruptionAmount || 0);
+        totalDeliveryRevenue += (entry.unitPrice || 0) * (entry.deliveryCount || 0);
+        totalReturnRevenue += (entry.unitPrice || 0) * (entry.returnCount || 0);
+        totalDeliveryInterruptionRevenue += deliveryInterruptionCalculated;
+        totalFreshBagRevenue += (entry.freshBagCount || 0) * 100;
+        totalPenaltyCost += (entry.penaltyAmount || 0);
+        totalIndustrialAccidentCost += (entry.industrialAccidentCost || 0);
+        totalFuelCost += (entry.fuelCost || 0);
+        totalMaintenanceCost += (entry.maintenanceCost || 0);
+        totalVatAmount += (entry.vatAmount || 0);
+        totalIncomeTaxAmount += (entry.incomeTaxAmount || 0);
+        totalTaxAccountantFee += (entry.taxAccountantFee || 0);
+        totalDeliveryCount += entry.deliveryCount || 0;
+        totalReturnCount += entry.returnCount || 0;
+        totalInterruptionCount += entry.deliveryInterruptionAmount || 0;
+    });
 
-        let totalDeliveryRevenue = 0, totalReturnRevenue = 0, totalFreshBagRevenue = 0, totalDeliveryInterruptionRevenue = 0;
-        let totalPenaltyCost = 0, totalIndustrialAccidentCost = 0, totalFuelCost = 0, totalMaintenanceCost = 0;
-        let totalVatAmount = 0, totalIncomeTaxAmount = 0, totalTaxAccountantFee = 0;
-        const uniqueDatesCumulative = new Set();
+    // 월별 순이익 계산은 그래프를 위해 별도로 계산합니다.
+    for (let month = 1; month <= 12; month++) {
+        const periodEndDate = new Date(year, month - 1, monthlyEndDay);
+        let periodStartDate;
+        if (monthlyStartDay <= monthlyEndDay) {
+            periodStartDate = new Date(year, month - 1, monthlyStartDay);
+        } else {
+            periodStartDate = new Date(year, month - 2, monthlyStartDay);
+        }
+        const formattedPeriodStartDate = formatDate(periodStartDate);
+        const formattedPeriodEndDate = formatDate(periodEndDate);
+        const filteredEntriesForMonth = filteredEntriesForYear.filter(entry => entry.date >= formattedPeriodStartDate && entry.date <= formattedPeriodEndDate);
         
-        entriesForCumulative.forEach(entry => {
-            if (entry.deliveryCount > 0 || entry.returnCount > 0 || entry.freshBagCount > 0 || entry.deliveryInterruptionAmount > 0 || entry.penaltyAmount > 0 || entry.industrialAccidentCost > 0 || entry.fuelCost > 0 || entry.maintenanceCost > 0 || entry.vatAmount > 0 || entry.incomeTaxAmount > 0 || entry.taxAccountantFee > 0) {
-                uniqueDatesCumulative.add(entry.date);
-            }
-            const deliveryInterruptionCalculated = (entry.unitPrice || 0) * (entry.deliveryInterruptionAmount || 0);
-            totalDeliveryRevenue += entry.unitPrice * entry.deliveryCount;
-            totalReturnRevenue += entry.unitPrice * entry.returnCount;
-            totalDeliveryInterruptionRevenue += deliveryInterruptionCalculated;
-            totalFreshBagRevenue += (entry.freshBagCount || 0) * 100;
-            totalPenaltyCost += (entry.penaltyAmount || 0);
-            totalIndustrialAccidentCost += (entry.industrialAccidentCost || 0);
-            totalFuelCost += (entry.fuelCost || 0);
-            totalMaintenanceCost += (entry.maintenanceCost || 0);
-            totalVatAmount += (entry.vatAmount || 0);
-            totalIncomeTaxAmount += (entry.incomeTaxAmount || 0);
-            totalTaxAccountantFee += (entry.taxAccountantFee || 0);
-        });
-
-        const netProfit = totalDeliveryRevenue + totalReturnRevenue + totalFreshBagRevenue + totalDeliveryInterruptionRevenue - totalPenaltyCost - totalIndustrialAccidentCost - totalFuelCost - totalMaintenanceCost - totalVatAmount - totalIncomeTaxAmount - totalTaxAccountantFee;
-        const totalWorkingDays = uniqueDatesCumulative.size;
-        const totalVolume = entriesForCumulative.reduce((sum, entry) => sum + (entry.deliveryCount || 0) + (entry.returnCount || 0), 0);
-        const totalFreshBag = entriesForCumulative.reduce((sum, entry) => sum + (entry.freshBagCount || 0), 0);
-        const dailyAverageVolume = totalWorkingDays > 0 ? (totalVolume / totalWorkingDays) : 0;
-        const totalExpensesSum = totalPenaltyCost + totalIndustrialAccidentCost + totalFuelCost + totalMaintenanceCost + totalVatAmount + totalIncomeTaxAmount + totalTaxAccountantFee;
+        const monthNetProfit = filteredEntriesForMonth.reduce((sum, entry) => {
+            const revenue = ((entry.unitPrice || 0) * (entry.deliveryCount || 0)) + ((entry.unitPrice || 0) * (entry.returnCount || 0)) + ((entry.unitPrice || 0) * (entry.deliveryInterruptionAmount || 0)) + ((entry.freshBagCount || 0) * 100);
+            const expenses = (entry.penaltyAmount || 0) + (entry.industrialAccidentCost || 0) + (entry.fuelCost || 0) + (entry.maintenanceCost || 0) + (entry.vatAmount || 0) + (entry.incomeTaxAmount || 0) + (entry.taxAccountantFee || 0);
+            return sum + revenue - expenses;
+        }, 0);
         
-        // ✨ 변경점: 누적 기간을 계산합니다.
-        const dates = entriesForCumulative.map(e => new Date(e.date));
-        const minDate = new Date(Math.min.apply(null, dates));
-        const maxDate = new Date(Math.max.apply(null, dates));
+        monthlyBreakdown.push({ month: month, netProfit: monthNetProfit });
+    }
+    
+    const totalExpensesSum = totalPenaltyCost + totalIndustrialAccidentCost + totalFuelCost + totalMaintenanceCost + totalVatAmount + totalIncomeTaxAmount + totalTaxAccountantFee;
+    const netProfit = totalDeliveryRevenue + totalReturnRevenue + totalFreshBagRevenue + totalDeliveryInterruptionRevenue - totalExpensesSum;
+    const totalVolume = totalDeliveryCount + totalReturnCount + totalInterruptionCount;
+    const totalFreshBag = filteredEntriesForYear.reduce((sum, entry) => sum + (entry.freshBagCount || 0), 0);
+    const totalWorkingDays = uniqueDatesYearly.size;
+    const dailyAverageVolume = totalWorkingDays > 0 ? (totalVolume / totalWorkingDays) : 0;
 
-        return {
-            totalDeliveryRevenue, totalReturnRevenue, totalFreshBagRevenue, totalDeliveryInterruptionRevenue,
-            totalPenaltyCost, totalIndustrialAccidentCost, totalFuelCost, totalMaintenanceCost, totalVatAmount, totalIncomeTaxAmount, totalTaxAccountantFee,
-            netProfit, totalWorkingDays, totalVolume, totalFreshBag, dailyAverageVolume, totalExpensesSum,
-            periodStartDate: minDate, // ✨ 변경점: 계산된 기간을 반환 객체에 추가
-            periodEndDate: maxDate    // ✨ 변경점: 계산된 기간을 반환 객체에 추가
-        };
-    }, [entries, userId]);
+    return {
+        totalDeliveryRevenue, totalReturnRevenue, totalFreshBagRevenue, totalDeliveryInterruptionRevenue,
+        totalPenaltyCost, totalIndustrialAccidentCost, totalFuelCost, totalMaintenanceCost, totalVatAmount, totalIncomeTaxAmount, totalTaxAccountantFee,
+        netProfit, monthlyBreakdown,
+        totalVolume, totalExpensesSum, totalFreshBag, totalWorkingDays, dailyAverageVolume,
+        totalDeliveryCount, totalReturnCount, totalInterruptionCount
+    };
+}, [entries, selectedYear, monthlyStartDay, monthlyEndDay, userId]);
+
+   // 누적 수익 계산
+const cumulativeProfit = useMemo(() => {
+    const entriesForCumulative = userId ? entries : [];
+    let totalDeliveryRevenue = 0, totalReturnRevenue = 0, totalFreshBagRevenue = 0, totalDeliveryInterruptionRevenue = 0;
+    let totalPenaltyCost = 0, totalIndustrialAccidentCost = 0, totalFuelCost = 0, totalMaintenanceCost = 0;
+    let totalVatAmount = 0, totalIncomeTaxAmount = 0, totalTaxAccountantFee = 0;
+    let totalDeliveryCount = 0, totalReturnCount = 0, totalInterruptionCount = 0;
+    const uniqueDatesCumulative = new Set();
+    
+    entriesForCumulative.forEach(entry => {
+        if (entry.deliveryCount > 0 || entry.returnCount > 0 || entry.freshBagCount > 0 || entry.deliveryInterruptionAmount > 0 || entry.penaltyAmount > 0 || entry.industrialAccidentCost > 0 || entry.fuelCost > 0 || entry.maintenanceCost > 0 || entry.vatAmount > 0 || entry.incomeTaxAmount > 0 || entry.taxAccountantFee > 0) {
+            uniqueDatesCumulative.add(entry.date);
+        }
+        const deliveryInterruptionCalculated = (entry.unitPrice || 0) * (entry.deliveryInterruptionAmount || 0);
+        totalDeliveryRevenue += (entry.unitPrice || 0) * (entry.deliveryCount || 0);
+        totalReturnRevenue += (entry.unitPrice || 0) * (entry.returnCount || 0);
+        totalDeliveryInterruptionRevenue += deliveryInterruptionCalculated;
+        totalFreshBagRevenue += (entry.freshBagCount || 0) * 100;
+        totalPenaltyCost += (entry.penaltyAmount || 0);
+        totalIndustrialAccidentCost += (entry.industrialAccidentCost || 0);
+        totalFuelCost += (entry.fuelCost || 0);
+        totalMaintenanceCost += (entry.maintenanceCost || 0);
+        totalVatAmount += (entry.vatAmount || 0);
+        totalIncomeTaxAmount += (entry.incomeTaxAmount || 0);
+        totalTaxAccountantFee += (entry.taxAccountantFee || 0);
+        totalDeliveryCount += entry.deliveryCount || 0;
+        totalReturnCount += entry.returnCount || 0;
+        totalInterruptionCount += entry.deliveryInterruptionAmount || 0;
+    });
+
+    const totalExpensesSum = totalPenaltyCost + totalIndustrialAccidentCost + totalFuelCost + totalMaintenanceCost + totalVatAmount + totalIncomeTaxAmount + totalTaxAccountantFee;
+    const netProfit = totalDeliveryRevenue + totalReturnRevenue + totalFreshBagRevenue + totalDeliveryInterruptionRevenue - totalExpensesSum;
+    const totalWorkingDays = uniqueDatesCumulative.size;
+    const totalVolume = totalDeliveryCount + totalReturnCount + totalInterruptionCount;
+    const totalFreshBag = entriesForCumulative.reduce((sum, entry) => sum + (entry.freshBagCount || 0), 0);
+    const dailyAverageVolume = totalWorkingDays > 0 ? (totalVolume / totalWorkingDays) : 0;
+
+    return {
+        totalDeliveryRevenue, totalReturnRevenue, totalFreshBagRevenue, totalDeliveryInterruptionRevenue,
+        totalPenaltyCost, totalIndustrialAccidentCost, totalFuelCost, totalMaintenanceCost, totalVatAmount, totalIncomeTaxAmount, totalTaxAccountantFee,
+        netProfit, totalWorkingDays, totalVolume, totalFreshBag, dailyAverageVolume, totalExpensesSum,
+        totalDeliveryCount, totalReturnCount, totalInterruptionCount
+    };
+}, [entries, userId]);
 
     // 이전 달 수익 계산
-    const calculatePreviousMonthlyProfit = useCallback(() => {
+    const previousMonthlyProfit = useMemo(() => {
         const [year, month] = selectedMonth.split('-').map(Number);
         let prevMonth = month - 1, prevYear = year;
         if (prevMonth === 0) { prevMonth = 12; prevYear -= 1; }
-
         const prevPeriodEndDate = new Date(prevYear, prevMonth - 1, monthlyEndDay);
         let prevPeriodStartDate;
         if (monthlyStartDay <= monthlyEndDay) {
@@ -197,23 +224,19 @@ export const useProfitCalculations = (entries, selectedMonth, selectedYear, mont
         } else {
             prevPeriodStartDate = new Date(prevYear, prevMonth - 2, monthlyStartDay);
         }
-
         const formattedPrevPeriodStartDate = formatDate(prevPeriodStartDate);
         const formattedPrevPeriodEndDate = formatDate(prevPeriodEndDate);
         const filteredEntries = userId ? entries.filter(entry => entry.date >= formattedPrevPeriodStartDate && entry.date <= formattedPrevPeriodEndDate) : [];
-
+        
         let totalDeliveryRevenue = 0, totalReturnRevenue = 0, totalFreshBagRevenue = 0, totalDeliveryInterruptionRevenue = 0;
         let totalPenaltyCost = 0, totalIndustrialAccidentCost = 0, totalFuelCost = 0, totalMaintenanceCost = 0;
         let totalVatAmount = 0, totalIncomeTaxAmount = 0, totalTaxAccountantFee = 0;
-        const uniqueDatesPrevMonth = new Set();
+        let totalDeliveryCount = 0, totalReturnCount = 0, totalInterruptionCount = 0;
 
         filteredEntries.forEach(entry => {
-             if (entry.deliveryCount > 0 || entry.returnCount > 0 || entry.freshBagCount > 0 || entry.deliveryInterruptionAmount > 0 || entry.penaltyAmount > 0 || entry.industrialAccidentCost > 0 || entry.fuelCost > 0 || entry.maintenanceCost > 0 || entry.vatAmount > 0 || entry.incomeTaxAmount > 0 || entry.taxAccountantFee > 0) {
-                uniqueDatesPrevMonth.add(entry.date);
-            }
             const deliveryInterruptionCalculated = (entry.unitPrice || 0) * (entry.deliveryInterruptionAmount || 0);
-            totalDeliveryRevenue += entry.unitPrice * entry.deliveryCount;
-            totalReturnRevenue += entry.unitPrice * entry.returnCount;
+            totalDeliveryRevenue += (entry.unitPrice || 0) * (entry.deliveryCount || 0);
+            totalReturnRevenue += (entry.unitPrice || 0) * (entry.returnCount || 0);
             totalDeliveryInterruptionRevenue += deliveryInterruptionCalculated;
             totalFreshBagRevenue += (entry.freshBagCount || 0) * 100;
             totalPenaltyCost += (entry.penaltyAmount || 0);
@@ -223,28 +246,21 @@ export const useProfitCalculations = (entries, selectedMonth, selectedYear, mont
             totalVatAmount += (entry.vatAmount || 0);
             totalIncomeTaxAmount += (entry.incomeTaxAmount || 0);
             totalTaxAccountantFee += (entry.taxAccountantFee || 0);
+            totalDeliveryCount += entry.deliveryCount || 0;
+            totalReturnCount += entry.returnCount || 0;
+            totalInterruptionCount += entry.deliveryInterruptionAmount || 0;
         });
         
         const netProfit = totalDeliveryRevenue + totalReturnRevenue + totalFreshBagRevenue + totalDeliveryInterruptionRevenue - totalPenaltyCost - totalIndustrialAccidentCost - totalFuelCost - totalMaintenanceCost - totalVatAmount - totalIncomeTaxAmount - totalTaxAccountantFee;
-       const totalVolume = filteredEntries.reduce((sum, entry) => sum + (entry.deliveryCount || 0) + (entry.returnCount || 0) + (entry.deliveryInterruptionAmount || 0), 0);
+        const totalVolume = totalDeliveryCount + totalReturnCount + totalInterruptionCount;
         const totalFreshBag = filteredEntries.reduce((sum, entry) => sum + (entry.freshBagCount || 0), 0);
-        const totalWorkingDays = uniqueDatesPrevMonth.size;
+        const totalWorkingDays = filteredEntries.reduce((acc, entry) => acc.add(entry.date), new Set()).size;
         const dailyAverageVolume = totalWorkingDays > 0 ? (totalVolume / totalWorkingDays) : 0;
         const totalExpensesSum = totalPenaltyCost + totalIndustrialAccidentCost + totalFuelCost + totalMaintenanceCost + totalVatAmount + totalIncomeTaxAmount + totalTaxAccountantFee;
 
-        return {
-            totalDeliveryRevenue, totalReturnRevenue, totalFreshBagRevenue, totalDeliveryInterruptionRevenue,
-            totalPenaltyCost, totalIndustrialAccidentCost, totalFuelCost, totalMaintenanceCost, totalVatAmount, totalIncomeTaxAmount, totalTaxAccountantFee,
-            netProfit, totalVolume, totalFreshBag, totalWorkingDays, dailyAverageVolume, totalExpensesSum
-        };
+        return { totalDeliveryRevenue, totalReturnRevenue, totalFreshBagRevenue, totalDeliveryInterruptionRevenue, totalPenaltyCost, totalIndustrialAccidentCost, totalFuelCost, totalMaintenanceCost, totalVatAmount, totalIncomeTaxAmount, totalTaxAccountantFee, netProfit, totalVolume, totalFreshBag, totalWorkingDays, dailyAverageVolume, totalExpensesSum, totalDeliveryCount, totalReturnCount, totalInterruptionCount };
     }, [entries, selectedMonth, monthlyStartDay, monthlyEndDay, userId]);
     
-    // ✨ 변경점: useMemo를 사용하여 계산 함수들이 필요할 때만 다시 실행되도록 최적화합니다.
-    const monthlyProfit = useMemo(() => calculateMonthlyProfit(), [calculateMonthlyProfit]);
-    const yearlyProfit = useMemo(() => calculateYearlyProfit(), [calculateYearlyProfit]);
-    const cumulativeProfit = useMemo(() => calculateCumulativeProfit(), [calculateCumulativeProfit]);
-    const previousMonthlyProfit = useMemo(() => calculatePreviousMonthlyProfit(), [calculatePreviousMonthlyProfit]);
-
     return {
         monthlyProfit,
         yearlyProfit,

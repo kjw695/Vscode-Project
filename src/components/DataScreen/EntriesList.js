@@ -32,7 +32,7 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                 {summary.totalRevenue > 0 && (
                     <div className="flex justify-between items-center py-1">
                         {/* ✨ 변경점: 글자 크기를 키우고 더 진하게 만들었습니다. */}
-                        <span className="font-bold text-lg text-gray-800 dark:text-gray-200">수익</span>
+                        <span className="font-bold text-lg text-black dark:text-gray-200">수익</span>
                         <span className="font-bold text-red-500 text-lg">{summary.totalRevenue.toLocaleString()}원</span>
                     </div>
                 )}
@@ -42,7 +42,7 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                 {summary.totalExpenses > 0 && (
                     <div className="flex justify-between items-center py-1">
                          {/* ✨ 변경점: 글자 크기를 키우고 더 진하게 만들었습니다. */}
-                        <span className="font-bold text-lg text-gray-800 dark:text-gray-200">지출</span>
+                        <span className="font-bold text-lg text-black dark:text-gray-200">지출</span>
                         <span className="font-bold text-blue-500 text-lg">{summary.totalExpenses.toLocaleString()}원</span>
                     </div>
                 )}
@@ -97,8 +97,8 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                                         {filterType !== 'expense' && dailyRevenue > 0 && (
                                                             <>
                                                                 {/* ✨ 변경점: 글자색을 더 진하게 만들었습니다. */}
-                                                                <p className="text-sm text-gray-800 dark:text-gray-200">총 물량: <span className="font-bold">{totalVolume}</span> 건</p>
-                                                                <p className="text-sm text-gray-800 dark:text-gray-200">프레시백: <span className="font-bold">{entry.freshBagCount || 0}</span> 개</p>
+                                                                <p className="text-sm text-black dark:text-gray-200">총 물량: <span className="font-bold">{totalVolume}</span> 건</p>
+                                                            <p className="text-sm text-black dark:text-gray-200">프레시백: <span className="font-bold">{entry.freshBagCount || 0}</span> 개</p>
                                                             </>
                                                         )}
                                                         {filterType !== 'income' && dailyExpenses > 0 && (
