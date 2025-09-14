@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+
+        <!-- (수정 1) 상단 상태바 배경을 투명하게 만듦 -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+
+        <!-- (수정 2) 하단 네비게이션 바 배경을 항상 어둡게 고정 -->
+        <item name="android:navigationBarColor">#111827</item>
+
+        <!-- (수정 3) 시스템이 배경 밝기에 따라 아이콘 색을 자동 조절하도록 함 -->
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+    </style>
+</resources>
