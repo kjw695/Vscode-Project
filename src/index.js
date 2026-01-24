@@ -4,14 +4,17 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
+// 🔥 [필수] 관리자 파일 임포트 (이 줄이 꼭 있어야 합니다!)
+import { DeliveryProvider } from './contexts/DeliveryContext'; 
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <App />
+    {/* 🔥 [필수] App을 DeliveryProvider로 감싸야 에러가 안 납니다! */}
+    <DeliveryProvider>
+      <App />
+    </DeliveryProvider>
   </React.StrictMode>
 );
 
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
 reportWebVitals();

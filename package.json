@@ -25,6 +25,7 @@
     "react": "^19.2.3",
     "react-calendar-heatmap": "^1.10.0",
     "react-dom": "^19.2.3",
+    "react-router-dom": "^7.13.0",
     "react-scripts": "^5.0.1",
     "react-tooltip": "^5.29.1",
     "tailwind-merge": "^3.3.0",

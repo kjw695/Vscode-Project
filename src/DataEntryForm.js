@@ -1,234 +1,385 @@
-import React from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Save, Plus, ChevronDown, ChevronUp, Check, Calculator, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import CalculatorPage from './CalculatorPage'; 
+import { useNavigate } from 'react-router-dom';
 
-function DataEntryForm({
-  handleSubmit,
-  date,
-  setDate,
-  handleDateChange,
-  dateInputRef,
-  formType,
-  setFormType,
-  isDarkMode,
-  entryToEdit,
-  
-  unitPrice, setUnitPrice,
-  deliveryCount, setDeliveryCount,
-  returnCount, setReturnCount,
-  deliveryInterruptionAmount, setDeliveryInterruptionAmount,
-  freshBagCount, setFreshBagCount,
-  penaltyAmount, setPenaltyAmount,
-  industrialAccidentCost, setIndustrialAccidentCost,
-  fuelCost, setFuelCost,
-  maintenanceCost, setMaintenanceCost,
-  vatAmount, setVatAmount,
-  incomeTaxAmount, setIncomeTaxAmount,
-  taxAccountantFee, setTaxAccountantFee,
-  favoriteUnitPrices,
-}) {
+// 🔥 위에서 내려오는 탑 시트 달력 컴포넌트
+const TopSheetCalendar = ({ currentDate, onClose, onSelect, isDarkMode }) => {
+    const [viewDate, setViewDate] = useState(new Date(currentDate));
 
-  // ✨ [핵심 기능] 입력창을 터치하면 화면 상단으로 부드럽게 스크롤 이동
-  // (block: 'start'로 설정하여 입력창이 화면 위쪽에 붙도록 함)
-  const handleInputFocus = (e) => {
-    // 모바일 키보드가 올라오는 시간을 고려해 0.3초 뒤에 실행
-    setTimeout(() => {
-      e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 200);
-  };
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDay = new Date(year, month, 1).getDay();
+    const todayStr = new Date().toISOString().slice(0, 10);
 
-  return (
-    <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-      <div className={`md:col-span-2 p-1 rounded-lg ${isDarkMode ? 'bg-gray-700' : ''}`}>
-        <div className="flex items-center justify-center space-x-3">
-          <button type="button" onClick={() => handleDateChange(-1)} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-600' : 'hover:bg-pink-200'}`}>
-            <ChevronLeft size={20} className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`} />
-          </button>
-          <span
-            onClick={() => dateInputRef.current?.showPicker()}
-            className={`font-bold text-lg cursor-pointer select-none ${isDarkMode ? 'text-pink-300' : 'text-pink-500'}`}
-          >
-            {date}
-          </span>
-          <button type="button" onClick={() => handleDateChange(1)} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-600' : 'hover:bg-pink-200'}`}>
-            <ChevronRight size={20} className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`} />
-          </button>
-          <input
-            ref={dateInputRef}
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="opacity-0 w-0 h-0 absolute"
-            required
-          />
-        </div>
-      </div>
-      
-      <div className="md:col-span-2 flex justify-center space-x-4 my-4">
-        <button
-          type="button"
-          onClick={() => setFormType('income')}
-          className={`py-2 px-6 rounded-md font-semibold transition-colors duration-200 ${
-            formType === 'income' 
-            ? (isDarkMode ? 'bg-red-600 text-white' : 'bg-red-500 text-white')
-            : (isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300')
-          }`}
-        >
-          수익
-        </button>
-        <button
-          type="button"
-          onClick={() => setFormType('expense')}
-          className={`py-2 px-6 rounded-md font-semibold transition-colors duration-200 ${
-            formType === 'expense' 
-            ? (isDarkMode ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white')
-            : (isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300')
-          }`}
-        >
-          지출
-        </button>
-      </div>
+    const handlePrevMonth = () => setViewDate(new Date(year, month - 1, 1));
+    const handleNextMonth = () => setViewDate(new Date(year, month + 1, 1));
 
-      {formType === 'income' && (
-        <div className="md:col-span-2 grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <label htmlFor="unitPrice" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>단가 (원)</label>
-            <input
-              type="number" id="unitPrice" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)}
-              onFocus={handleInputFocus}
-              className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-              step="0.01"
-            />
-            <div className="mt-2 flex space-x-2">
-              {favoriteUnitPrices.map((price) => (
-                <button
-                  key={price} type="button" onClick={() => setUnitPrice(price.toString())}
-                  className={`${isDarkMode ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} text-xs py-1 px-3 rounded-full transition duration-150 ease-in-out`}
-                >
-                  {price.toLocaleString()}원
-                </button>
-              ))}
+    const days = [];
+    for (let i = 0; i < firstDay; i++) days.push(<div key={`empty-${i}`} />);
+    for (let day = 1; day <= daysInMonth; day++) {
+        const d = new Date(year, month, day);
+        d.setHours(d.getHours() + 9); 
+        const dateStr = d.toISOString().slice(0, 10);
+        const isSelected = dateStr === currentDate;
+        const isToday = dateStr === todayStr;
+        const isSunday = d.getDay() === 0; // 일요일 확인
+
+        days.push(
+            <button
+                key={day}
+                type="button"
+                onClick={() => onSelect(dateStr)}
+                className={`h-12 w-full flex items-center justify-center rounded-xl text-lg font-bold transition-all
+                    ${isSelected 
+                        ? 'bg-blue-600 text-white shadow-lg' 
+                        : isToday 
+                            ? (isDarkMode ? 'bg-gray-700 text-blue-400 border border-blue-500' : 'bg-blue-50 text-blue-600 border border-blue-200')
+                            : isSunday
+                                ? 'text-red-500 hover:bg-red-50' // 일요일 빨간색 처리
+                                : (isDarkMode ? 'text-white hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100')
+                    }`}
+            >
+                {day}
+            </button>
+        );
+    }
+
+    return (
+        <div className="fixed inset-0 z-[9999] flex items-start justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
+            <div 
+                className={`w-full max-w-md p-6 rounded-b-3xl shadow-2xl animate-in slide-in-from-top duration-300 ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`} 
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between mb-6">
+                    <button type="button" onClick={handlePrevMonth} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"><ChevronLeft size={24} /></button>
+                    <h2 className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{year}년 {month + 1}월</h2>
+                    <button type="button" onClick={handleNextMonth} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"><ChevronRight size={24} /></button>
+                </div>
+                <div className="grid grid-cols-7 mb-2 text-center text-xs font-bold uppercase tracking-widest">
+                    {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
+                        <span key={d} className={i === 0 ? 'text-red-500' : 'opacity-40'}>{d}</span>
+                    ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1 mb-4">{days}</div>
+                <button type="button" onClick={onClose} className={`w-full py-4 rounded-xl font-bold text-lg ${isDarkMode ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-500'}`}>닫기</button>
+                <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mt-6 opacity-50" />
             </div>
-          </div>
-          <div>
-            <label htmlFor="deliveryCount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>배송 수량</label>
-            <input
-              type="number" id="deliveryCount" value={deliveryCount} onChange={(e) => setDeliveryCount(e.target.value)}
-              onFocus={handleInputFocus}
-              className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-            step="0.01" placeholder="선택 사항"
-            />
-          </div>
-          <div>
-            <label htmlFor="deliveryInterruptionAmount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>배송중단</label>
-            <input
-              type="number" id="deliveryInterruptionAmount" value={deliveryInterruptionAmount} onChange={(e) => setDeliveryInterruptionAmount(e.target.value)}
-              onFocus={handleInputFocus}
-              className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-              step="0.01" placeholder="선택 사항"
-            />
-          </div>
-          <div>
-            <label htmlFor="returnCount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>반품 수량</label>
-            <input
-              type="number" id="returnCount" value={returnCount} onChange={(e) => setReturnCount(e.target.value)}
-              onFocus={handleInputFocus}
-              className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-            step="0.01" placeholder="선택 사항"
-            />
-          </div>
-          <div>
-            <label htmlFor="freshBagCount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>프레시백 수량</label>
-            <input
-              type="number" id="freshBagCount" value={freshBagCount} onChange={(e) => setFreshBagCount(e.target.value)}
-              onFocus={handleInputFocus}
-              className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-              placeholder="선택 사항"
-            />
-          </div>
         </div>
-      )}
+    );
+};
 
-      {formType === 'expense' && (
-        <div className="md:col-span-2 grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="penaltyAmount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>패널티</label>
-            <input
-              type="number" id="penaltyAmount" value={penaltyAmount} onChange={(e) => setPenaltyAmount(e.target.value)}
-              onFocus={handleInputFocus}
-              className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-              step="0.01" placeholder="선택 사항"
-            />
-          </div>
-          <div>
-            <label htmlFor="industrialAccidentCost" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>산재</label>
-            <input
-              type="number" id="industrialAccidentCost" value={industrialAccidentCost} onChange={(e) => setIndustrialAccidentCost(e.target.value)}
-              onFocus={handleInputFocus}
-              className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-              step="0.01" placeholder="선택 사항"
-            />
-          </div>
-          <div>
-            <label htmlFor="fuelCost" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>유류비</label>
-            <input
-              type="number" id="fuelCost" value={fuelCost} onChange={(e) => setFuelCost(e.target.value)}
-              onFocus={handleInputFocus}
-              className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-              step="0.01" placeholder="선택 사항"
-            />
-          </div>
-          <div>
-            <label htmlFor="maintenanceCost" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>유지보수비</label>
-            <input
-              type="number" id="maintenanceCost" value={maintenanceCost} onChange={(e) => setMaintenanceCost(e.target.value)}
-              onFocus={handleInputFocus}
-              className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-              step="0.01" placeholder="선택 사항"
-            />
-          </div>
-          <div>
-            <label htmlFor="vatAmount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>부가세</label>
-            <input
-              type="number" id="vatAmount" value={vatAmount} onChange={(e) => setVatAmount(e.target.value)}
-              onFocus={handleInputFocus}
-              className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-              step="0.01" placeholder="선택 사항"
-            />
-          </div>
-          <div>
-            <label htmlFor="incomeTaxAmount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>종합소득세</label>
-            <input
-              type="number" id="incomeTaxAmount" value={incomeTaxAmount} onChange={(e) => setIncomeTaxAmount(e.target.value)}
-              onFocus={handleInputFocus}
-              className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-              step="0.01" placeholder="선택 사항"
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label htmlFor="taxAccountantFee" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>세무사 비용</label>
-            <input
-              type="number" id="taxAccountantFee" value={taxAccountantFee} onChange={(e) => setTaxAccountantFee(e.target.value)}
-              onFocus={handleInputFocus}
-              className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
-              step="0.01" placeholder="선택 사항"
-            />
-          </div>
-        </div>
-      )}
+const DataEntryForm = ({ 
+    handleSubmit, 
+    date, setDate, handleDateChange, dateInputRef, 
+    formType, setFormType, isDarkMode, entryToEdit,
+    unitPrice, setUnitPrice, 
+    formData, handleInputChange, 
+    incomeConfig, expenseConfig,
+    favoriteUnitPrices,
+    onNavigate 
+}) => {
+    const navigate = useNavigate();
+    const [selectedExtraKeys, setSelectedExtraKeys] = useState([]);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [selectedItemPrices, setSelectedItemPrices] = useState({});
+    const [openDropdownKey, setOpenDropdownKey] = useState(null);
+    const [currentRound, setCurrentRound] = useState(null);
+    const [viewMode, setViewMode] = useState('form'); 
+    const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
-      <div className="md:col-span-2 mt-4">
-        <button
-          type="submit"
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150 ease-in-out"
-        >
-          {entryToEdit ? '수정' : '저장'}
-        </button>
-      </div>
-      
-      {/* ✨ [방법 2] 하단 여백 추가 (키보드가 올라와도 스크롤 할 수 있는 공간 확보) */}
-      <div className="h-64 md:h-20 w-full" aria-hidden="true"></div>
-    </form>
-  );
-}
+    const touchStartX = useRef(null);
+    const touchEndX = useRef(null);
+    const minSwipeDistance = 50;
+
+    const boxBottomLineClass = formType === 'income' 
+        ? 'focus-within:border-b-red-500' 
+        : 'focus-within:border-b-blue-500';
+
+    const handleBoxClick = (key) => {
+        const input = document.getElementById(`input-${key}`);
+        if (input) input.focus();
+    };
+
+    useEffect(() => {
+        if (!entryToEdit) {
+            setDate(new Date().toISOString().slice(0, 10));
+            setUnitPrice('');
+            setTimeout(() => {
+                if (handleInputChange) {
+                    Object.keys(formData).forEach(key => handleInputChange(key, 0));
+                    const allConfigItems = [...(incomeConfig||[]), ...(expenseConfig||[])];
+                    allConfigItems.forEach(item => handleInputChange(item.key, 0));
+                }
+            }, 0);
+        }
+    }, []);
+
+    useEffect(() => {
+        const handleAndroidBack = () => setViewMode('form');
+        window.addEventListener('popstate', handleAndroidBack);
+        return () => window.removeEventListener('popstate', handleAndroidBack);
+    }, []);
+
+    useEffect(() => {
+        setCurrentRound(null); 
+    }, [formType, date]);
+
+    useEffect(() => {
+        const initialPrices = {};
+        const items = incomeConfig || [];
+        if (formType === 'income') {
+            items.forEach(item => {
+                if (item.useCustomPrice && Array.isArray(item.customPrice) && item.customPrice.length > 0) {
+                    if (item.customPrice.length === 1) initialPrices[item.key] = item.customPrice[0];
+                    else initialPrices[item.key] = 0; 
+                }
+            });
+        }
+        setSelectedItemPrices(prev => ({ ...prev, ...initialPrices }));
+    }, [incomeConfig, formType]);
+
+    useEffect(() => {
+        if (entryToEdit) {
+            const keysWithValues = Object.keys(formData).filter(key => formData[key] > 0);
+            setSelectedExtraKeys(keysWithValues);
+        }
+    }, [entryToEdit, formData]);
+
+    const handleFocus = (e) => {
+        const target = e.target;
+        setTimeout(() => { 
+            const rect = target.getBoundingClientRect();
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            const absoluteTop = rect.top + scrollTop;
+            const offset = window.innerHeight * 0.35; 
+            window.scrollTo({ top: absoluteTop - offset, behavior: 'smooth' });
+        }, 300);
+    };
+
+    const toggleExtraItem = (key) => {
+        setSelectedExtraKeys(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+    };
+
+    const handleItemPriceSelect = (key, price) => {
+        setSelectedItemPrices(prev => ({ ...prev, [key]: price }));
+        setOpenDropdownKey(null); 
+    };
+
+    const handleRoundClick = (round) => {
+        if (currentRound === round) setCurrentRound(null); 
+        else setCurrentRound(round);
+    };
+
+    const handleOpenCalculator = () => {
+        if (!currentRound || currentRound === 1) {
+            alert("계산기는 2회전 이상부터 사용할 수 있습니다.");
+            return;
+        }
+        window.history.pushState({ page: 'calculator' }, '', '#calculator'); 
+        setViewMode('calculator');
+    };
+
+    const handleCalculatorBack = useCallback(() => {
+        window.history.back(); 
+    }, []);
+
+    const handleCalculatorApply = (results) => {
+        const newExtraKeys = [...selectedExtraKeys];
+        Object.keys(results).forEach(key => {
+            if (handleInputChange) handleInputChange(key, results[key]);
+            const item = incomeConfig.find(i => i.key === key);
+            if (item && !item.isVisible && !newExtraKeys.includes(key)) {
+                newExtraKeys.push(key);
+            }
+        });
+        setSelectedExtraKeys(newExtraKeys);
+        window.history.back(); 
+    };
+
+    const onFormSubmit = (e) => {
+        e.preventDefault();
+        handleSubmit(e, currentRound); 
+    };
+
+    const calculatedTotal = useMemo(() => {
+        let total = 0;
+        if (incomeConfig) {
+            incomeConfig.forEach(item => {
+                const qty = parseFloat(formData[item.key] || 0);
+                if (qty > 0) {
+                    let appliedPrice = item.useCustomPrice ? (selectedItemPrices[item.key] || 0) : parseFloat(unitPrice || 0);
+                    total += qty * appliedPrice;
+                }
+            });
+        }
+        if (expenseConfig) {
+            expenseConfig.forEach(item => {
+                total -= parseFloat(formData[item.key] || 0); 
+            });
+        }
+        return total;
+    }, [formData, incomeConfig, expenseConfig, unitPrice, selectedItemPrices]);
+
+    const renderItemBox = (item, isHiddenItem = false) => {
+        const inputId = `input-${item.key}`;
+        let priceBadge = null;
+        
+        if (formType === 'income') {
+            if (item.useCustomPrice && Array.isArray(item.customPrice) && item.customPrice.length > 0) {
+                if (item.customPrice.length === 1) {
+                    priceBadge = <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600 border border-red-200 whitespace-nowrap">{item.customPrice[0]}</span>;
+                } else {
+                    const selected = selectedItemPrices[item.key];
+                    priceBadge = (
+                        <div className="relative inline-block">
+                            <button type="button" onClick={(e) => { e.stopPropagation(); setOpenDropdownKey(openDropdownKey === item.key ? null : item.key); }} className={`px-1.5 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap flex items-center gap-0.5 transition-colors ${selected > 0 ? 'bg-red-100 text-red-600 border-red-200' : 'bg-yellow-100 text-yellow-600 border-yellow-200 animate-pulse'}`}>
+                                {selected > 0 ? `${selected}` : '단가선택'} <ChevronDown size={10} />
+                            </button>
+                            {openDropdownKey === item.key && (
+                                <div className={`absolute right-0 top-full mt-1 min-w-[80px] rounded shadow-xl border overflow-hidden z-[999] animate-in zoom-in-95 duration-100 ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}>
+                                    {item.customPrice.map((p, idx) => (
+                                        <button key={idx} type="button" onClick={() => handleItemPriceSelect(item.key, p)} className={`w-full text-right px-3 py-1.5 text-xs font-bold transition-colors ${selectedItemPrices[item.key] === p ? 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400' : (isDarkMode ? 'text-gray-200 hover:bg-gray-600' : 'text-gray-700 hover:bg-white')}`}>{p}</button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    );
+                }
+            } else {
+                priceBadge = <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${isDarkMode ? 'bg-gray-700 text-gray-400 border-gray-600' : 'bg-white text-gray-500 border-gray-200'}`}>{unitPrice || 0}</span>;
+            }
+        }
+
+        const containerClass = isHiddenItem 
+            ? `p-2 rounded-lg border border-red-400 border-b-4 border-b-transparent animate-in zoom-in duration-200 cursor-pointer ${isDarkMode ? 'bg-red-900/20' : 'bg-red-50'} ${boxBottomLineClass}`
+            : `relative p-2 rounded-lg border border-gray-300 border-b-4 border-b-transparent cursor-pointer transition-colors duration-200 ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-white shadow-sm'} ${boxBottomLineClass}`;
+
+        return (
+            <div key={item.key} className={containerClass} onClick={() => handleBoxClick(item.key)} style={{ zIndex: openDropdownKey === item.key ? 50 : 1 }}>
+                <div className="flex justify-between items-center mb-0.5">
+                    <label className={`text-[11px] font-bold truncate flex-1 text-left ${isDarkMode ? (isHiddenItem ? 'text-red-300' : 'text-white') : (isHiddenItem ? 'text-red-600' : 'text-black')}`}>{item.label}</label>
+                    <div className="flex-none ml-1">{priceBadge}</div>
+                </div>
+                <input id={inputId} type="number" inputMode="numeric" value={formData[item.key] || ''} onChange={(e) => handleInputChange(item.key, e.target.value)} onFocus={handleFocus} className={`w-full h-8 text-xl font-bold bg-transparent outline-none text-right ${isDarkMode ? 'text-white' : 'text-black'}`} placeholder="0" />
+            </div>
+        );
+    };
+
+    const onTouchStart = (e) => { touchEndX.current = null; touchStartX.current = e.targetTouches[0].clientX; };
+    const onTouchMove = (e) => { touchEndX.current = e.targetTouches[0].clientX; };
+    const onTouchEnd = () => {
+        if (!touchStartX.current || !touchEndX.current) return;
+        const distance = touchStartX.current - touchEndX.current;
+        if (distance > minSwipeDistance) { 
+            if (formType === 'income') setFormType('expense'); 
+            else if (formType === 'expense' && onNavigate) onNavigate('list'); 
+        } else if (distance < -minSwipeDistance) {
+            if (formType === 'expense') setFormType('income'); 
+        }
+    };
+
+    const bgThemeSelected = formType === 'income' ? 'bg-red-600 text-white shadow-md border-transparent' : 'bg-blue-600 text-white shadow-md border-transparent';
+    const bgThemeUnselected = isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700' : `bg-white ${formType === 'income' ? 'text-red-600 border-red-200' : 'text-blue-600 border-blue-200'} hover:bg-gray-50`;
+
+    const primaryItems = (formType === 'income' ? (incomeConfig || []) : (expenseConfig || [])).filter(item => item.isVisible !== false);
+    const hiddenItems = (formType === 'income' ? (incomeConfig || []) : (expenseConfig || [])).filter(item => item.isVisible === false);
+
+    if (viewMode === 'calculator') return <CalculatorPage onBack={handleCalculatorBack} onApply={handleCalculatorApply} date={date} currentRound={currentRound} incomeConfig={incomeConfig} isDarkMode={isDarkMode} />;
+
+    return (
+        <form onSubmit={onFormSubmit} className={`w-full h-full flex flex-col pb-20 ${isDarkMode ? 'bg-slate-900' : 'bg-slate-50'}`} onClick={() => setOpenDropdownKey(null)} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+            
+            {isCalendarOpen && (
+                <TopSheetCalendar 
+                    currentDate={date} 
+                    onClose={() => setIsCalendarOpen(false)} 
+                    onSelect={(newDate) => { setDate(newDate); setIsCalendarOpen(false); }}
+                    isDarkMode={isDarkMode}
+                />
+            )}
+
+            <div className={`relative py-1 px-1 ${isDarkMode ? 'bg-slate-900' : 'bg-white'}`}>
+                <div className="flex items-center justify-center space-x-6 mb-1">
+                    <button type="button" onClick={() => handleDateChange(-1)} className={`p-2 rounded-full ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}>◀</button>
+                    <div className="relative group cursor-pointer" onClick={() => setIsCalendarOpen(true)}>
+                        <div className={`text-2xl font-extrabold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{date}</div>
+                    </div>
+                    <button type="button" onClick={() => handleDateChange(1)} className={`p-2 rounded-full ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}>▶</button>
+                </div>
+
+                <div className={`flex p-1 mb-2 rounded-lg mx-2 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`}>
+                    <button type="button" onClick={() => { setFormType('income'); setSelectedExtraKeys([]); setIsMenuOpen(false); setOpenDropdownKey(null); }} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${formType === 'income' ? 'bg-red-600 text-white shadow' : (isDarkMode ? 'text-slate-400' : 'text-slate-600')}`}>수익</button>
+                    <button type="button" onClick={() => { setFormType('expense'); setSelectedExtraKeys([]); setIsMenuOpen(false); setOpenDropdownKey(null); }} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${formType === 'expense' ? 'bg-blue-600 text-white shadow' : (isDarkMode ? 'text-slate-400' : 'text-slate-600')}`}>지출</button>
+                </div>
+
+                {formType === 'income' ? (
+                    <div className="flex justify-between items-center px-2 mb-2">
+                        <div className="flex gap-1.5">
+                            {[1, 2, 3].map(round => (
+                                <button key={round} type="button" onClick={() => handleRoundClick(round)} className={`px-3 py-1 text-xs font-bold rounded-full border transition-all ${currentRound === round ? bgThemeSelected : bgThemeUnselected}`}>{round}회전</button>
+                            ))}
+                        </div>
+                        <button type="button" onClick={handleOpenCalculator} className="px-3 py-1 text-xs font-bold rounded-full border border-black bg-black text-yellow-400 animate-pulse shadow-md">계산하기</button>
+                    </div>
+                ) : <div className="h-[34px] mb-2" />}
+
+                {formType === 'income' && (
+                    <div className={`mx-2 p-2 rounded-xl border mb-1 border-b-4 border-b-transparent transition-colors duration-200 ${boxBottomLineClass} ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-300 shadow-sm'}`} onClick={() => document.getElementById('unit-price-input').focus()}>
+                        <div className="flex justify-between items-center mb-1">
+                            <label className={`text-xs font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>공통 단가 (원)</label>
+                            <div className="flex gap-1">
+                                {(favoriteUnitPrices || []).map((price) => (
+                                    <button key={price} type="button" onClick={(e) => {e.stopPropagation(); setUnitPrice(price.toString());}} className={`px-2 py-0.5 text-[10px] rounded border font-extrabold ${unitPrice === price.toString() ? 'bg-black !text-yellow-400 border-yellow-400' : isDarkMode ? 'bg-gray-700 text-white border-gray-500' : 'bg-gray-100 text-black border-gray-400'}`}>{price}</button>
+                                ))}
+                            </div>
+                        </div>
+                        <input id="unit-price-input" type="number" inputMode="numeric" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} onFocus={handleFocus} className={`w-full h-10 text-xl font-bold bg-transparent outline-none ${isDarkMode ? 'text-white' : 'text-black'}`} placeholder="0" />
+                    </div>
+                )}
+            </div>
+
+            <div className={`flex-1 overflow-y-auto px-2 space-y-1 pt-2 ${isDarkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
+                <div className="grid grid-cols-2 gap-3">
+                    {primaryItems.map((item) => renderItemBox(item, false))}
+                    {hiddenItems.map((item) => (selectedExtraKeys.includes(item.key) && renderItemBox(item, true)))}
+                </div>
+                {hiddenItems.length > 0 && (
+                    <div className="mt-4 pb-24">
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }} className={`w-full py-2.5 rounded-xl border-2 border-dashed flex items-center justify-center gap-2 font-bold text-sm transition-all ${isDarkMode ? 'border-slate-700 text-slate-400 bg-slate-800/40 hover:bg-slate-800' : 'border-slate-300 text-slate-500 bg-white hover:bg-white'}`}>
+                            {isMenuOpen ? <ChevronUp size={18} /> : <Plus size={18} />} {isMenuOpen ? '항목 선택 닫기' : '기타 항목 입력하기'}
+                        </button>
+                        {isMenuOpen && (
+                            <div className={`mt-2 p-3 rounded-xl border animate-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-gray-800 border-gray-700 shadow-2xl' : 'bg-white border-gray-200 shadow-lg'}`}>
+                                <div className="flex flex-wrap gap-2">
+                                    {hiddenItems.map(item => (
+                                        <button key={item.key} type="button" onClick={() => toggleExtraItem(item.key)} className={`px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${selectedExtraKeys.includes(item.key) ? (formType === 'income' ? 'bg-red-600 text-white shadow-md' : 'bg-blue-600 text-white shadow-md') : isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-white text-gray-600'}`}>
+                                            {selectedExtraKeys.includes(item.key) && <Check size={14} />} {item.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            <div className={`fixed bottom-[70px] left-0 right-0 p-2 px-4 ${isDarkMode ? 'bg-slate-900/95 border-t border-slate-800' : 'bg-white/95 border-t border-slate-200'} backdrop-blur-sm z-30`}>
+                <div className="max-w-md mx-auto flex items-center justify-between gap-3">
+                    <div className="flex flex-col ml-2">
+                        <span className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>예상 합계</span>
+                        <div className={`text-lg font-black flex items-center gap-1 ${calculatedTotal > 0 ? 'text-red-500' : (calculatedTotal < 0 ? 'text-blue-500' : 'text-gray-400')}`}>
+                            <Calculator size={16} /> {calculatedTotal.toLocaleString()}원
+                        </div>
+                    </div>
+                    <button type="submit" className={`px-6 py-2.5 rounded-xl font-bold text-white shadow-md active:scale-95 transition-transform flex items-center gap-2 text-sm ${formType === 'income' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                        <Save size={18} /> {entryToEdit ? '수정 완료' : '저장하기'}
+                    </button>
+                </div>
+            </div>
+        </form>
+    );
+};
 
 export default DataEntryForm;

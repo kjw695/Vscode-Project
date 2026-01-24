@@ -2,7 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
-// ... (normalizeDate, getMappedField 헬퍼 함수들은 그대로 유지) ...
+// 날짜 정규화 헬퍼
 const normalizeDate = (dateStr) => {
     if (!dateStr) return "";
     const str = String(dateStr).replace(/["']/g, '').trim();
@@ -16,10 +16,12 @@ const normalizeDate = (dateStr) => {
     return `${y}-${m}-${d}`;
 };
 
+// 한글 헤더 매핑 (🔥 회전 추가됨)
 const getMappedField = (headerName) => {
     const normHeader = String(headerName).replace(/\s/g, '').toLowerCase();
     const mapping = {
         'date': ['날짜', '일자', 'date', 'day'],
+        'round': ['회전', '회차', 'round', 'turn'], // 🔥 [필수] 회전 필드 추가
         'unitPrice': ['단가', '가격', 'price', 'unit'],
         'deliveryCount': ['배송수량', '배송', 'count', 'delivery'],
         'returnCount': ['반품수량', '반품', 'return'],
@@ -40,17 +42,20 @@ const getMappedField = (headerName) => {
     return null;
 };
 
-// ... (exportDataAsCsv 함수는 그대로 유지) ...
+// 📤 CSV 내보내기 함수 (🔥 회전 정보 포함)
 export const exportDataAsCsv = async (entries, showMessage) => {
     if (!entries || entries.length === 0) {
         showMessage("내보낼 데이터가 없습니다.");
         return;
     }
     try {
-        const headers = ["날짜", "단가", "배송 수량", "반품 수량", "배송중단", "프레시백 수량", "패널티", "산재", "유류비", "유지보수비", "부가세", "종합소득세", "세무사 비용", "타임스탬프"];
+        // 🔥 헤더에 '회전' 추가
+        const headers = ["날짜", "회전", "단가", "배송 수량", "반품 수량", "배송중단", "프레시백 수량", "패널티", "산재", "유류비", "유지보수비", "부가세", "종합소득세", "세무사 비용", "타임스탬프"];
+        
         const csvRows = entries.map(entry => {
             const row = [
                 entry.date, 
+                entry.round || 0, // 🔥 회전 데이터 저장 (매우 중요)
                 entry.unitPrice || 0, 
                 entry.deliveryCount || 0, 
                 entry.returnCount || 0,
@@ -107,12 +112,7 @@ export const exportDataAsCsv = async (entries, showMessage) => {
     }
 };
 
-/**
- * CSV 파일을 읽어서 기존 데이터와 병합하는 함수 (중복 제거 로직 포함)
- * @param {File} file - 업로드된 파일
- * @param {Array} existingEntries - 기존 데이터 배열 (중복 검사용)
- * @param {Function} onSuccess - 성공 시 병합된 데이터를 반환하는 콜백
- */
+// 📥 CSV 불러오기 함수 (🔥 회전 정보 포함 & 중복 제거)
 export const importDataFromCsv = async (file, existingEntries, onSuccess, showMessage, setIsLoading) => {
     if (!file) {
         showMessage("파일을 선택해주세요.");
@@ -147,8 +147,9 @@ export const importDataFromCsv = async (file, existingEntries, onSuccess, showMe
             const mappedFields = rawHeaders.map(h => getMappedField(h));
             const hasValidMapping = mappedFields.some(f => f !== null);
             
+            // 🔥 round 필드 포함
             const fallbackFields = [
-                "date", "unitPrice", "deliveryCount", "returnCount", 
+                "date", "round", "unitPrice", "deliveryCount", "returnCount", 
                 "deliveryInterruptionAmount", "freshBagCount", "penaltyAmount", 
                 "industrialAccidentCost", "fuelCost", "maintenanceCost", 
                 "vatAmount", "incomeTaxAmount", "taxAccountantFee", "timestamp"
@@ -157,7 +158,6 @@ export const importDataFromCsv = async (file, existingEntries, onSuccess, showMe
             const finalFields = hasValidMapping ? mappedFields : fallbackFields;
             const parsedData = [];
 
-            // 데이터 파싱
             lines.slice(1).forEach(line => {
                 const regex = /("((?:[^"]|"")*)"|([^,]*))(,|$)/g;
                 let match;
@@ -176,7 +176,8 @@ export const importDataFromCsv = async (file, existingEntries, onSuccess, showMe
                 finalFields.forEach((field, index) => {
                     if (field && index < values.length) {
                         const val = values[index];
-                        const numFields = ['unitPrice', 'deliveryCount', 'returnCount', 'deliveryInterruptionAmount', 'freshBagCount', 'penaltyAmount', 'industrialAccidentCost', 'fuelCost', 'maintenanceCost', 'vatAmount', 'incomeTaxAmount', 'taxAccountantFee'];
+                        // 🔥 round도 숫자로 처리
+                        const numFields = ['round', 'unitPrice', 'deliveryCount', 'returnCount', 'deliveryInterruptionAmount', 'freshBagCount', 'penaltyAmount', 'industrialAccidentCost', 'fuelCost', 'maintenanceCost', 'vatAmount', 'incomeTaxAmount', 'taxAccountantFee'];
                         if (numFields.includes(field)) {
                             item[field] = parseFloat(String(val).replace(/,/g, '')) || 0;
                         } else {
@@ -198,28 +199,18 @@ export const importDataFromCsv = async (file, existingEntries, onSuccess, showMe
 
             if (parsedData.length === 0) throw new Error("파싱 가능한 데이터가 없습니다.");
 
-            // -----------------------------------------------------
-            // 🧠 여기서 중복 검사를 수행합니다 (모듈 내부)
-            // -----------------------------------------------------
+            // 🔥 중복 검사 (날짜 + 회전이 같으면 중복)
             let duplicateCount = 0;
             const uniqueEntries = parsedData.filter(newEntry => {
                 const isDuplicate = existingEntries.some(existingEntry => {
-                    // 모든 주요 필드 비교 (타임스탬프 제외)
-                    return (
-                        existingEntry.date === newEntry.date &&
-                        existingEntry.unitPrice === newEntry.unitPrice &&
-                        existingEntry.deliveryCount === newEntry.deliveryCount &&
-                        existingEntry.returnCount === newEntry.returnCount &&
-                        existingEntry.deliveryInterruptionAmount === newEntry.deliveryInterruptionAmount &&
-                        existingEntry.freshBagCount === newEntry.freshBagCount &&
-                        existingEntry.penaltyAmount === newEntry.penaltyAmount &&
-                        existingEntry.industrialAccidentCost === newEntry.industrialAccidentCost &&
-                        existingEntry.fuelCost === newEntry.fuelCost &&
-                        existingEntry.maintenanceCost === newEntry.maintenanceCost &&
-                        existingEntry.vatAmount === newEntry.vatAmount &&
-                        existingEntry.incomeTaxAmount === newEntry.incomeTaxAmount &&
-                        existingEntry.taxAccountantFee === newEntry.taxAccountantFee
-                    );
+                    const existingRound = existingEntry.round || 0;
+                    const newRound = newEntry.round || 0;
+                    
+                    // 날짜와 회전이 같으면 중복으로 간주
+                    if (existingEntry.date === newEntry.date && existingRound === newRound) {
+                        return true; 
+                    }
+                    return false;
                 });
 
                 if (isDuplicate) {
@@ -230,14 +221,11 @@ export const importDataFromCsv = async (file, existingEntries, onSuccess, showMe
             });
 
             const mergedEntries = [...existingEntries, ...uniqueEntries];
-            // 날짜순 정렬까지 여기서 처리
             mergedEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-            // 결과 메시지 생성
-            const resultMsg = `복원 완료!\n총 ${parsedData.length}개 중 ${uniqueEntries.length}개 추가.\n(${duplicateCount}개 중복 제외)`;
+            const resultMsg = `복원 완료!\n총 ${parsedData.length}개 중 ${uniqueEntries.length}개가 추가되었습니다.\n(${duplicateCount}개 중복 제외)`;
             showMessage(resultMsg);
 
-            // 최종 병합된 데이터를 콜백으로 전달
             onSuccess(mergedEntries);
 
         } catch (error) {
