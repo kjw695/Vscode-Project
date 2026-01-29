@@ -1,75 +1,118 @@
 import React from 'react';
 
-const ChartItem = ({ color, label }) => (
-    <div className="flex items-center space-x-2">
-        <span className={`w-3 h-3 rounded-full flex-shrink-0 ${color}`}></span>
-        <span className="text-gray-700 dark:text-gray-300 whitespace-nowrap text-[clamp(0.75rem,2.5vw,0.875rem)]">
-            {label}
-        </span>
-    </div>
-);
-
 const RevenueDistributionChart = ({ monthlyProfit }) => {
-    const totalRevenue = 
-        (monthlyProfit.totalDeliveryRevenue || 0) +
-        (monthlyProfit.totalReturnRevenue || 0) +
-        (monthlyProfit.totalDeliveryInterruptionRevenue || 0) +
-        (monthlyProfit.totalFreshBagRevenue || 0);
+    // [안전장치] 데이터 없으면 숨김
+    if (!monthlyProfit) return null;
 
-    const totalExpenses = monthlyProfit.totalExpensesSum || 0;
-
-    const items = [
-        { label: '배송', value: monthlyProfit.totalDeliveryRevenue, color: '#06b6d4', legendClass: 'bg-cyan-500' },
-        { label: '중단', value: monthlyProfit.totalDeliveryInterruptionRevenue, color: '#8b5cf6', legendClass: 'bg-purple-500' },
-        { label: '반품', value: monthlyProfit.totalReturnRevenue, color: '#ec4899', legendClass: 'bg-pink-500' },
-        { label: '프레시백', value: monthlyProfit.totalFreshBagRevenue, color: '#22c55e', legendClass: 'bg-green-500' },
-            ];
-
-    const totalForChart = items.reduce((sum, item) => sum + (item.value || 0), 0);
-
-    const getArcPath = (startAngle, endAngle, radius) => {
-        const start = {
-            x: 100 + radius * Math.cos(startAngle),
-            y: 100 + radius * Math.sin(startAngle)
-        };
-        const end = {
-            x: 100 + radius * Math.cos(endAngle),
-            y: 100 + radius * Math.sin(endAngle)
-        };
-        const largeArcFlag = endAngle - startAngle <= Math.PI ? "0" : "1";
-        return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`;
+    // 1. 데이터 준비
+    const data = {
+        delivery: monthlyProfit.totalDeliveryRevenue || 0,
+        stop: monthlyProfit.totalDeliveryInterruptionRevenue || 0,
+        return: monthlyProfit.totalReturnRevenue || 0,
+        freshBag: monthlyProfit.totalFreshBagRevenue || 0
     };
 
-    let currentAngle = -Math.PI;
+    const totalRevenue = Object.values(data).reduce((acc, curr) => acc + curr, 0);
+
+    const categories = [
+        { key: 'delivery', label: '배송', color: 'bg-cyan-500' },
+        { key: 'stop', label: '중단', color: 'bg-purple-500' },
+        { key: 'return', label: '반품', color: 'bg-pink-500' },
+        { key: 'freshBag', label: '프레시백', color: 'bg-green-500' }
+    ];
+
+    // 매출 0원일 때
+    if (totalRevenue === 0) {
+        return (
+            <div className="w-full mt-2 mb-2 py-3 px-4 rounded-xl shadow-sm bg-white dark:bg-gray-800">
+                <div className="mb-2">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-0.5">총 매출 현황</span>
+                    <div className="text-lg font-bold text-gray-900 dark:text-white leading-none">0원</div>
+                </div>
+                <div className="w-full h-5 rounded-full bg-gray-100 dark:bg-gray-700"></div>
+            </div>
+        );
+    }
+
+    // 4. 퍼센트 계산
+    let items = categories.map(cat => {
+        const value = data[cat.key];
+        const rawPercent = (value / totalRevenue) * 100;
+        return {
+            ...cat,
+            value,
+            percent: Math.floor(rawPercent), 
+            remainder: rawPercent - Math.floor(rawPercent) 
+        };
+    });
+
+    // 100% 맞추기 로직
+    const currentSum = items.reduce((acc, item) => acc + item.percent, 0);
+    const missing = 100 - currentSum;
+    if (missing > 0) {
+        const sortedIndices = items
+            .map((item, index) => ({ index, remainder: item.remainder }))
+            .sort((a, b) => b.remainder - a.remainder)
+            .map(item => item.index);
+        for (let i = 0; i < missing; i++) {
+            if (items[sortedIndices[i]]) items[sortedIndices[i]].percent += 1;
+        }
+    }
 
     return (
-        <div className="w-full">
-            <div className="relative w-full max-w-xs mx-auto">
-                <svg viewBox="0 0 200 100" className="w-full">
-                    {items.map((item, index) => {
-                        if (!item.value || item.value <= 0 || totalForChart === 0) return null;
-                        const angle = (item.value / totalForChart) * Math.PI;
-                        const path = getArcPath(currentAngle, currentAngle + angle, 90);
-                        currentAngle += angle;
-                        return <path key={index} d={path} stroke={item.color} strokeWidth="20" fill="none" />;
-                    })}
-                </svg>
-                {/* 👇 변경점: 텍스트와 범례를 모두 이 div 안에 넣습니다. */}
-                 <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-end pb-0">
-                    <h3 className="text-lg font-semibold text-black dark:text-gray-400">총 매출</h3>
-                    <p className="font-bold text-black dark:text-gray-100 text-[clamp(1.75rem,5vw,2.25rem)] leading-tight">
-                        {totalRevenue.toLocaleString()}원
-                    </p>
-
-                    {/* 👇 기존에 밖에 있던 범례 div를 이곳으로 옮겼습니다. */}
-                    <div className="flex justify-center flex-nowrap gap-x-3 mt-2 overflow-x-auto">
-                        {items.filter(item => item.value > 0).map((item, index) => (
-                            <ChartItem key={index} color={item.legendClass} label={item.label} />
-                        ))}
-                    </div>
+        // 🔥 [수정 1] 박스 크기 줄임: py-4 -> py-3, 위아래 마진 최소화
+        <div className="w-full my-2 py-3 px-4 rounded-xl shadow-sm bg-white dark:bg-gray-800">
+            
+            {/* [상단] 제목 & 금액 */}
+            <div className="mb-2">
+                <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 block mb-0.5">
+                    총 매출 현황
+                </span>
+                <div className="text-lg font-bold text-gray-900 dark:text-white leading-none">
+                    {totalRevenue.toLocaleString()}원
                 </div>
             </div>
-            {/* 👆 원래 범례가 있던 자리는 이제 비어있게 됩니다. */}
+
+            {/* [메인] 막대 그래프 */}
+            <div className="flex w-full h-5 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 mb-2.5">
+                {items.map((item) => {
+                    if (item.value <= 0) return null;
+                    return (
+                        <div 
+                            key={item.key}
+                            className={`${item.color} h-full transition-all duration-500`}
+                            style={{ width: `${item.percent}%` }}
+                        />
+                    );
+                })}
+            </div>
+
+            {/* 🔥 [수정 2] 하단 범례: 한 줄 강제 (flex-nowrap) + 양끝 정렬 (justify-between) */}
+            <div className="flex flex-nowrap justify-between items-center w-full">
+                {items.map((item) => {
+                    // 0%라도 표시는 하고 싶다면 if문 제거, 아니면 유지
+                    // 예시 사진처럼 0%도 자리를 차지하게 하려면 아래 if문을 지우세요.
+                    // 현재는 0보다 클 때만 표시
+                    if (item.value <= 0) return null; 
+
+                    return (
+                        <div key={item.key} className="flex items-center gap-1">
+                            {/* 색상 점 (약간 작게 w-1.5) */}
+                            <div className={`w-1.5 h-1.5 rounded-full ${item.color} flex-shrink-0`}></div>
+                            
+                            {/* 글자 (더 작게 text-[10px] 또는 text-xs) */}
+                            <div className="flex items-baseline gap-0.5 text-gray-500 dark:text-gray-400">
+                                <span className="text-[11px] font-medium whitespace-nowrap">
+                                    {item.label}
+                                </span>
+                                <span className="text-[10px]">
+                                    {item.percent}%
+                                </span>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 };

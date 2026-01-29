@@ -1,88 +1,216 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback, useMemo, useRef } from 'react';
 
-// 데이터 관리 전용 저장소 생성
 const DeliveryContext = createContext();
 
 export function DeliveryProvider({ children }) {
     const [entries, setEntries] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const lastSRef = useRef(0);
+    const lastZRef = useRef(0);
 
-    // 1. 앱 켜질 때 데이터 불러오기
+    // ✨ 원칙 2: 핸드폰 시스템 언어 확인
+    const isKoreanSystem = navigator.language?.startsWith('ko');
+
+    // 필드명 매핑
+    const fieldMapping = {
+        date: { ko: '날짜', en: 'Date' },
+        type: { ko: '구분', en: 'Type' }, 
+        unitPrice: { ko: '단가', en: 'UnitPrice' },
+        deliveryCount: { ko: '배송건수', en: 'DeliveryCount' },
+        returnCount: { ko: '반품건수', en: 'ReturnCount' },
+        freshBagCount: { ko: '프레시백', en: 'FreshBagCount' },
+        deliveryInterruptionAmount: { ko: '중단금액', en: 'InterruptionAmount' },
+        timestamp: { ko: '기록시간', en: 'Timestamp' }
+    };
+
+    // 초기 로딩: 마지막 번호 파악
     useEffect(() => {
-        const savedEntries = localStorage.getItem('deliveryEntries');
-        if (savedEntries) {
-            try {
-                const parsed = JSON.parse(savedEntries);
-                // 날짜 내림차순 정렬 (최신순)
-                parsed.sort((a, b) => new Date(b.date) - new Date(a.date));
-                setEntries(parsed);
-            } catch (e) {
-                console.error("데이터 로드 실패:", e);
-            }
+        const saved = localStorage.getItem('deliveryEntries');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            updateLastIdRefs(parsed);
+            setEntries(parsed);
         }
     }, []);
 
-    // 2. 내부 저장 함수 (localStorage 동기화)
-    const saveToLocalStorage = (newEntries) => {
-        // 날짜순 정렬
-        newEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
-        setEntries(newEntries);
-        localStorage.setItem('deliveryEntries', JSON.stringify(newEntries));
+    const updateLastIdRefs = (data) => {
+        const sNums = data.filter(e => e.id?.startsWith('s')).map(e => parseInt(e.id.slice(1)) || 0);
+        const zNums = data.filter(e => e.id?.startsWith('z')).map(e => parseInt(e.id.slice(1)) || 0);
+        lastSRef.current = sNums.length > 0 ? Math.max(...sNums) : 0;
+        lastZRef.current = zNums.length > 0 ? Math.max(...zNums) : 0;
     };
 
-    // 3. 데이터 추가/수정 함수 (🔥 핵심 수정 완료)
-    const saveEntry = (entryData) => {
-        let newEntries = [...entries];
-        const targetRound = entryData.round || 0;
-        
-        // 🔥 [수정된 로직]
-        // 날짜나 회전이 같아도 신경 쓰지 않습니다.
-        // 오직 'ID(주민번호)'가 일치할 때만 "수정"으로 처리합니다.
-        // ID가 없으면 무조건 "새로운 데이터"로 추가합니다. (단가가 달라도 따로 저장됨)
-        
-        const existingIndex = entryData.id 
-            ? newEntries.findIndex(e => e.id === entryData.id)
-            : -1;
-
-        if (existingIndex !== -1) {
-            // 수정 (ID가 있어서 찾았을 때만)
-            newEntries[existingIndex] = { 
-                ...newEntries[existingIndex], 
-                ...entryData, 
-                round: targetRound 
-            };
-        } else {
-            // 신규 추가 (ID가 없으면 무조건 여기로 옴)
-            // 1회전 1개 입력 후 또 1회전 1개 입력해도, 따로 저장됩니다.
-            newEntries.push({
-                id: crypto.randomUUID(), // 새 ID 발급
-                timestamp: new Date().toISOString(),
-                ...entryData,
-                round: targetRound
-            });
+    const translateToSystemKey = (fileKey) => {
+        for (const [sysKey, labels] of Object.entries(fieldMapping)) {
+            if (fileKey === labels.ko || fileKey === labels.en || fileKey === sysKey) return sysKey;
         }
-
-        saveToLocalStorage(newEntries);
+        return fileKey;
     };
 
-    // 4. 삭제 함수
+    const translateToSystemValue = (val) => {
+        if (val === '수익' || val === 'income') return 'income';
+        if (val === '지출' || val === 'expense') return 'expense';
+        return val;
+    };
+
+    // ✨ 원칙 3: 빈칸을 0으로 간주하는 변환기 추가
+    const zeroIfEmpty = (val) => (val === null || val === undefined || val === '') ? 0 : Number(val);
+
+    // ✨ 원칙 3: 모든 데이터 값이 일치할 때만 중복 (빈칸=0 포함)
+    const isDuplicate = (existing, incoming) => {
+        const incomingType = translateToSystemValue(incoming.type);
+        return existing.date === incoming.date &&
+               existing.type === incomingType &&
+               zeroIfEmpty(existing.unitPrice) === zeroIfEmpty(incoming.unitPrice) &&
+               zeroIfEmpty(existing.deliveryCount) === zeroIfEmpty(incoming.deliveryCount) &&
+               zeroIfEmpty(existing.returnCount) === zeroIfEmpty(incoming.returnCount) &&
+               zeroIfEmpty(existing.freshBagCount) === zeroIfEmpty(incoming.freshBagCount) &&
+               zeroIfEmpty(existing.deliveryInterruptionAmount) === zeroIfEmpty(incoming.deliveryInterruptionAmount);
+    };
+
+    const saveEntry = useCallback((entryData) => {
+        setIsLoading(true);
+        try {
+            // ✨ 원칙 4: 숫자가 필요한 칸에 글자 유입 시 즉시 중단
+            const numericFields = ['unitPrice', 'deliveryCount', 'returnCount', 'freshBagCount', 'deliveryInterruptionAmount'];
+            numericFields.forEach(field => {
+                if (entryData[field] && isNaN(Number(entryData[field]))) {
+                    throw new Error(`${fieldMapping[field]?.ko || field} 항목에 숫자가 아닌 값이 들어있습니다.`);
+                }
+            });
+
+            setEntries(prev => {
+                let nextEntries = [...prev];
+
+                // 수정 시 ID 유지
+                if (entryData.id) {
+                    const idx = nextEntries.findIndex(e => e.id === entryData.id);
+                    if (idx !== -1) {
+                        nextEntries[idx] = { ...nextEntries[idx], ...entryData };
+                        syncToStorage(nextEntries);
+                        return nextEntries;
+                    }
+                }
+
+                if (nextEntries.some(e => isDuplicate(e, entryData))) {
+                    throw new Error("이미 동일한 내용의 데이터가 존재합니다.");
+                }
+
+                // 신규 ID 발급
+                const prefix = entryData.type === 'income' ? 's' : 'z';
+                const nextNum = (entryData.type === 'income' ? ++lastSRef.current : ++lastZRef.current);
+                const finalEntry = { ...entryData, id: `${prefix}${nextNum}`, timestamp: new Date().toISOString() };
+                
+                const updated = [...nextEntries, finalEntry];
+                syncToStorage(updated);
+                return updated;
+            });
+        } catch (error) {
+            alert(error.message);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    // ✨ 원칙 1: 복원 시 무조건 새 ID 지급 및 중복 검사
+    const importStrictly = (incomingData) => {
+        setIsLoading(true);
+        try {
+            setEntries(prev => {
+                let currentEntries = [...prev];
+                let addedCount = 0;
+                let skippedCount = 0;
+
+                incomingData.forEach((row) => {
+                    const sanitizedRow = {};
+                    Object.keys(row).forEach(fileKey => {
+                        const sysKey = translateToSystemKey(fileKey);
+                        let val = row[fileKey];
+                        if (sysKey === 'type') val = translateToSystemValue(val);
+                        sanitizedRow[sysKey] = val;
+                    });
+
+                    if (currentEntries.some(e => isDuplicate(e, sanitizedRow))) {
+                        skippedCount++;
+                        return;
+                    }
+
+                    // 무조건 현재 장부 기준 새 ID 부여
+                    const prefix = sanitizedRow.type === 'income' ? 's' : 'z';
+                    const nextNum = (sanitizedRow.type === 'income' ? ++lastSRef.current : ++lastZRef.current);
+                    
+                    currentEntries.push({
+                        ...sanitizedRow,
+                        id: `${prefix}${nextNum}`,
+                        timestamp: sanitizedRow.timestamp || new Date().toISOString()
+                    });
+                    addedCount++;
+                });
+
+                syncToStorage(currentEntries);
+                alert(`복원 완료: ${addedCount}건 추가 (중복 ${skippedCount}건 제외)`);
+                return currentEntries;
+            });
+        } catch (error) {
+            alert("복원 중 오류가 발생했습니다.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // ✨ 원칙 2: 언어 설정에 따른 필드명 한글/영어 변환 (ID 삭제 포함)
+    const getExportData = () => {
+        const lang = isKoreanSystem ? 'ko' : 'en';
+        return entries.map(({ id, ...rest }) => {
+            const exportedRow = {};
+            Object.keys(rest).forEach(sysKey => {
+                const label = fieldMapping[sysKey] ? fieldMapping[sysKey][lang] : sysKey;
+                let value = rest[sysKey];
+                
+                if (sysKey === 'type') {
+                    value = value === 'income' ? (lang === 'ko' ? '수익' : 'income') : (lang === 'ko' ? '지출' : 'expense');
+                }
+                exportedRow[label] = value;
+            });
+            return exportedRow;
+        });
+    };
+
+    const syncToStorage = (data) => {
+        const sorted = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
+        localStorage.setItem('deliveryEntries', JSON.stringify(sorted));
+    };
+
     const deleteEntry = (id) => {
-        const newEntries = entries.filter(e => e.id !== id);
-        saveToLocalStorage(newEntries);
+        const filtered = entries.filter(e => e.id !== id);
+        setEntries(filtered);
+        syncToStorage(filtered);
     };
 
-    // 5. 전체 삭제 (초기화)
     const clearAllEntries = () => {
-        saveToLocalStorage([]);
+        if (window.confirm("장부를 새로 만드시겠습니까?")) {
+            lastSRef.current = 0;
+            lastZRef.current = 0;
+            setEntries([]);
+            localStorage.removeItem('deliveryEntries');
+        }
     };
+
+    const memoizedValue = useMemo(() => ({
+        entries,
+        saveEntry,
+        deleteEntry,
+        clearAllEntries,
+        importStrictly,
+        getExportData,
+        isLoading
+    }), [entries, saveEntry, isLoading]);
 
     return (
-        <DeliveryContext.Provider value={{ entries, saveEntry, deleteEntry, clearAllEntries, saveToLocalStorage }}>
+        <DeliveryContext.Provider value={memoizedValue}>
             {children}
         </DeliveryContext.Provider>
     );
 }
 
-// 다른 파일에서 쉽게 쓰기 위한 커스텀 훅
-export function useDelivery() {
-    return useContext(DeliveryContext);
-}
+export function useDelivery() { return useContext(DeliveryContext); }

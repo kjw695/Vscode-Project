@@ -3,42 +3,96 @@ import { Save, Plus, ChevronDown, ChevronUp, Check, Calculator, ChevronLeft, Che
 import CalculatorPage from './CalculatorPage'; 
 import { useNavigate } from 'react-router-dom';
 
-// 🔥 위에서 내려오는 탑 시트 달력 컴포넌트
+// ✨ [추가] 숫자에 실시간 콤마를 넣어주고 빼주는 도구 함수
+const formatNumber = (num) => {
+    if (!num && num !== 0) return '';
+    const stringNum = String(num).replace(/,/g, '');
+    return stringNum.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+};
+
+const unformatNumber = (str) => {
+    return str.replace(/,/g, '');
+};
+
+// 🔥 위에서 내려오는 탑 시트 달력 컴포넌트 (사장님 원본 코드 100% 유지)
 const TopSheetCalendar = ({ currentDate, onClose, onSelect, isDarkMode }) => {
     const [viewDate, setViewDate] = useState(new Date(currentDate));
+    const [dragY, setDragY] = useState(0); 
+    const [touchStart, setTouchStart] = useState(null);
+    const [touchStartY, setTouchStartY] = useState(null); 
+
+    useEffect(() => {
+        document.body.style.overflow = 'hidden';
+        return () => { document.body.style.overflow = 'auto'; };
+    }, []);
+
+    const getTodayStr = () => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    };
+    const todayStr = getTodayStr();
 
     const year = viewDate.getFullYear();
     const month = viewDate.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const firstDay = new Date(year, month, 1).getDay();
-    const todayStr = new Date().toISOString().slice(0, 10);
 
     const handlePrevMonth = () => setViewDate(new Date(year, month - 1, 1));
     const handleNextMonth = () => setViewDate(new Date(year, month + 1, 1));
 
+    const handleTouchStart = (e) => {
+        e.stopPropagation(); 
+        setTouchStart(e.targetTouches[0].clientX);
+        setTouchStartY(e.targetTouches[0].clientY);
+    };
+
+    const handleTouchMove = (e) => {
+        e.stopPropagation(); 
+        const currentY = e.targetTouches[0].clientY;
+        const diffY = currentY - touchStartY;
+        
+        if (diffY < 0) {
+            setDragY(diffY);
+        }
+    };
+
+    const handleTouchEnd = (e) => {
+        e.stopPropagation();
+        const touchEnd = e.changedTouches[0].clientX;
+        const distanceX = touchStart - touchEnd;
+
+        if (Math.abs(distanceX) > 70 && Math.abs(dragY) < 30) {
+            if (distanceX > 0) handleNextMonth();
+            else handlePrevMonth();
+        } 
+        else if (dragY < -50) {
+            onClose();
+        }
+
+        setDragY(0); 
+        setTouchStart(null);
+        setTouchStartY(null);
+    };
+
     const days = [];
     for (let i = 0; i < firstDay; i++) days.push(<div key={`empty-${i}`} />);
     for (let day = 1; day <= daysInMonth; day++) {
-        const d = new Date(year, month, day);
-        d.setHours(d.getHours() + 9); 
-        const dateStr = d.toISOString().slice(0, 10);
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const isSelected = dateStr === currentDate;
         const isToday = dateStr === todayStr;
-        const isSunday = d.getDay() === 0; // 일요일 확인
+        const dayOfWeek = new Date(year, month, day).getDay();
 
         days.push(
             <button
                 key={day}
                 type="button"
                 onClick={() => onSelect(dateStr)}
-                className={`h-12 w-full flex items-center justify-center rounded-xl text-lg font-bold transition-all
+                className={`h-12 w-full flex items-center justify-center rounded-xl text-lg font-bold
                     ${isSelected 
                         ? 'bg-blue-600 text-white shadow-lg' 
                         : isToday 
-                            ? (isDarkMode ? 'bg-gray-700 text-blue-400 border border-blue-500' : 'bg-blue-50 text-blue-600 border border-blue-200')
-                            : isSunday
-                                ? 'text-red-500 hover:bg-red-50' // 일요일 빨간색 처리
-                                : (isDarkMode ? 'text-white hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100')
+                            ? (isDarkMode ? 'bg-blue-900/40 text-blue-400 border-2 border-blue-500' : 'bg-amber-100 text-amber-700 border-2 border-amber-400')
+                            : (dayOfWeek === 0 ? 'text-red-500' : (dayOfWeek === 6 ? 'text-blue-500' : (isDarkMode ? 'text-white' : 'text-gray-700')))
                     }`}
             >
                 {day}
@@ -47,24 +101,50 @@ const TopSheetCalendar = ({ currentDate, onClose, onSelect, isDarkMode }) => {
     }
 
     return (
-        <div className="fixed inset-0 z-[9999] flex items-start justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
+        <div className="fixed inset-0 z-[9999] flex items-start justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
             <div 
-                className={`w-full max-w-md p-6 rounded-b-3xl shadow-2xl animate-in slide-in-from-top duration-300 ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`} 
+                className={`w-full max-w-md p-6 rounded-b-3xl shadow-2xl ${isDarkMode ? 'bg-gray-900' : 'bg-white'} ${dragY === 0 ? 'transition-all duration-300 ease-out' : ''}`} 
+                style={{ 
+                    transform: `translateY(${dragY}px)`,
+                    touchAction: 'none' 
+                }} 
                 onClick={(e) => e.stopPropagation()}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
             >
-                <div className="flex items-center justify-between mb-6">
-                    <button type="button" onClick={handlePrevMonth} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"><ChevronLeft size={24} /></button>
-                    <h2 className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{year}년 {month + 1}월</h2>
-                    <button type="button" onClick={handleNextMonth} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"><ChevronRight size={24} /></button>
+                <div className="flex items-center mb-6 relative px-1">
+                    <div className="flex items-center justify-center flex-1 space-x-6">
+                        <button type="button" onClick={handlePrevMonth} className="p-2 rounded-full active:bg-gray-200 dark:active:bg-gray-700"><ChevronLeft size={24} /></button>
+                        <div className="relative font-black text-xl cursor-pointer">
+                            {year}년 {month + 1}월
+                            <input type="month" className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" onChange={(e) => {
+                                const [y, m] = e.target.value.split('-');
+                                setViewDate(new Date(parseInt(y), parseInt(m) - 1, 1));
+                            }}/>
+                        </div>
+                        <button type="button" onClick={handleNextMonth} className="p-2 rounded-full active:bg-gray-200 dark:active:bg-gray-700"><ChevronRight size={24} /></button>
+                    </div>
+                    
+                    <button 
+                        type="button" 
+                        onClick={(e) => { e.stopPropagation(); setViewDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1)); }} 
+                        className={`absolute right-0 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm active:scale-90 transition-transform ${isDarkMode ? 'bg-blue-900/40 text-blue-400 border border-blue-800' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}
+                    >
+                        오늘
+                    </button>
                 </div>
+                
                 <div className="grid grid-cols-7 mb-2 text-center text-xs font-bold uppercase tracking-widest">
                     {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
-                        <span key={d} className={i === 0 ? 'text-red-500' : 'opacity-40'}>{d}</span>
+                        <span key={d} className={i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'opacity-40'}>{d}</span>
                     ))}
                 </div>
                 <div className="grid grid-cols-7 gap-1 mb-4">{days}</div>
-                <button type="button" onClick={onClose} className={`w-full py-4 rounded-xl font-bold text-lg ${isDarkMode ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-500'}`}>닫기</button>
-                <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mt-6 opacity-50" />
+                
+                <button type="button" onClick={onClose} className={`w-full py-4 rounded-xl font-bold text-lg mb-2 ${isDarkMode ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-500'}`}>닫기</button>
+                
+                <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto opacity-50" />
             </div>
         </div>
     );
@@ -93,6 +173,20 @@ const DataEntryForm = ({
     const touchEndX = useRef(null);
     const minSwipeDistance = 50;
 
+    const safeNum = (val) => {
+        if (!val) return 0;
+        const num = Number(String(val).replace(/,/g, '').trim());
+        return isNaN(num) ? 0 : num;
+    };
+
+    const getTodayLocal = () => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
     const boxBottomLineClass = formType === 'income' 
         ? 'focus-within:border-b-red-500' 
         : 'focus-within:border-b-blue-500';
@@ -103,18 +197,19 @@ const DataEntryForm = ({
     };
 
     useEffect(() => {
-        if (!entryToEdit) {
-            setDate(new Date().toISOString().slice(0, 10));
-            setUnitPrice('');
-            setTimeout(() => {
-                if (handleInputChange) {
-                    Object.keys(formData).forEach(key => handleInputChange(key, 0));
-                    const allConfigItems = [...(incomeConfig||[]), ...(expenseConfig||[])];
-                    allConfigItems.forEach(item => handleInputChange(item.key, 0));
-                }
-            }, 0);
-        }
-    }, []);
+    if (!entryToEdit) {
+      
+        setUnitPrice('');
+        setFormType('income'); // ✨ 화면에 들어올 때 '수익'으로 초기화
+
+        setTimeout(() => {
+            if (handleInputChange) {
+                const allConfigItems = [...(incomeConfig||[]), ...(expenseConfig||[])];
+                allConfigItems.forEach(item => handleInputChange(item.key, 0));
+            }
+        }, 0);
+    }
+}, [entryToEdit]);
 
     useEffect(() => {
         const handleAndroidBack = () => setViewMode('form');
@@ -200,14 +295,42 @@ const DataEntryForm = ({
 
     const onFormSubmit = (e) => {
         e.preventDefault();
-        handleSubmit(e, currentRound); 
+        const customItems = [];
+        if (incomeConfig) {
+            const coreFields = ['deliveryCount', 'returnCount', 'deliveryInterruptionAmount', 'freshBagCount'];
+            incomeConfig.forEach(item => {
+                const val = safeNum(formData[item.key]);
+                if (val > 0 && !coreFields.includes(item.key)) {
+                    customItems.push({
+                        name: item.label,
+                        amount: val,
+                        type: 'income', 
+                        unitPrice: item.useCustomPrice ? (selectedItemPrices[item.key] || 0) : 0,
+                        count: 1
+                    });
+                }
+            });
+        }
+        if (expenseConfig) {
+            expenseConfig.forEach(item => {
+                const val = safeNum(formData[item.key]);
+                if (val > 0) {
+                    customItems.push({
+                        name: item.label,
+                        amount: val,
+                        type: 'expense' 
+                    });
+                }
+            });
+        }
+        handleSubmit(e, currentRound, customItems); 
     };
 
     const calculatedTotal = useMemo(() => {
         let total = 0;
         if (incomeConfig) {
             incomeConfig.forEach(item => {
-                const qty = parseFloat(formData[item.key] || 0);
+                const qty = safeNum(formData[item.key]);
                 if (qty > 0) {
                     let appliedPrice = item.useCustomPrice ? (selectedItemPrices[item.key] || 0) : parseFloat(unitPrice || 0);
                     total += qty * appliedPrice;
@@ -216,7 +339,7 @@ const DataEntryForm = ({
         }
         if (expenseConfig) {
             expenseConfig.forEach(item => {
-                total -= parseFloat(formData[item.key] || 0); 
+                total -= safeNum(formData[item.key]); 
             });
         }
         return total;
@@ -262,7 +385,8 @@ const DataEntryForm = ({
                     <label className={`text-[11px] font-bold truncate flex-1 text-left ${isDarkMode ? (isHiddenItem ? 'text-red-300' : 'text-white') : (isHiddenItem ? 'text-red-600' : 'text-black')}`}>{item.label}</label>
                     <div className="flex-none ml-1">{priceBadge}</div>
                 </div>
-                <input id={inputId} type="number" inputMode="numeric" value={formData[item.key] || ''} onChange={(e) => handleInputChange(item.key, e.target.value)} onFocus={handleFocus} className={`w-full h-8 text-xl font-bold bg-transparent outline-none text-right ${isDarkMode ? 'text-white' : 'text-black'}`} placeholder="0" />
+                {/* ✨ [수정] type="text"와 실시간 콤마(formatNumber) 적용 */}
+                <input id={inputId} type="text" inputMode="numeric" value={formatNumber(formData[item.key])} onChange={(e) => handleInputChange(item.key, unformatNumber(e.target.value))} onFocus={handleFocus} className={`w-full h-8 text-xl font-bold bg-transparent outline-none text-right ${isDarkMode ? 'text-white' : 'text-black'}`} placeholder="0" />
             </div>
         );
     };
@@ -335,7 +459,8 @@ const DataEntryForm = ({
                                 ))}
                             </div>
                         </div>
-                        <input id="unit-price-input" type="number" inputMode="numeric" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} onFocus={handleFocus} className={`w-full h-10 text-xl font-bold bg-transparent outline-none ${isDarkMode ? 'text-white' : 'text-black'}`} placeholder="0" />
+                        {/* ✨ [수정] 단가 입력창 실시간 콤마(formatNumber) 적용 */}
+                        <input id="unit-price-input" type="text" inputMode="numeric" value={formatNumber(unitPrice)} onChange={(e) => setUnitPrice(unformatNumber(e.target.value))} onFocus={handleFocus} className={`w-full h-10 text-xl font-bold bg-transparent outline-none ${isDarkMode ? 'text-white' : 'text-black'}`} placeholder="0" />
                     </div>
                 )}
             </div>

@@ -13,7 +13,7 @@ const ExpenseSettingsView = ({ onBack, onNavigate, isDarkMode, expenseConfig, se
     const [linkModalOpen, setLinkModalOpen] = useState(false);
     const [selectedItemKey, setSelectedItemKey] = useState(null);
 
-    // ✨ [추가] 순서 이동을 위한 상태 (현재 집어든 항목의 인덱스)
+    // 순서 이동을 위한 상태
     const [movingIndex, setMovingIndex] = useState(null);
 
     const touchStartX = useRef(null);
@@ -51,30 +51,24 @@ const ExpenseSettingsView = ({ onBack, onNavigate, isDarkMode, expenseConfig, se
         localStorage.setItem('appSettings', JSON.stringify(updatedSettings));
     };
 
-    // ✨ [핵심 기능] 핸들 클릭 시 순서 변경 로직 (집기 -> 놓기)
     const handleMoveClick = (index) => {
-        // 1. 이미 무언가를 집고 있는데, 같은 걸 또 누르면 -> 취소
         if (movingIndex === index) {
             setMovingIndex(null);
             return;
         }
 
-        // 2. 아무것도 안 집은 상태면 -> 집기 (선택)
         if (movingIndex === null) {
             setMovingIndex(index);
             return;
         }
 
-        // 3. 무언가를 집은 상태로 다른 걸 누르면 -> 위치 교환 (이동)
         const currentList = activeTab === 'expense' ? [...localExpense] : [...localIncome];
-        
-        // 배열에서 항목 이동 (Splice 활용)
         const itemToMove = currentList[movingIndex];
-        currentList.splice(movingIndex, 1); // 원래 위치에서 빼고
-        currentList.splice(index, 0, itemToMove); // 새 위치에 넣음
+        currentList.splice(movingIndex, 1);
+        currentList.splice(index, 0, itemToMove);
 
         updateAndSave(currentList);
-        setMovingIndex(null); // 이동 완료 후 선택 해제
+        setMovingIndex(null);
     };
 
     const toggleVisibility = (key) => {
@@ -83,10 +77,13 @@ const ExpenseSettingsView = ({ onBack, onNavigate, isDarkMode, expenseConfig, se
         updateAndSave(newList);
     };
 
+    // ✨ [수정] 클릭 즉시 상태를 변경하고, 팝업은 이동 의사만 묻습니다.
     const handleToggleClick = (item) => {
-        if (item.useCustomPrice) {
-            toggleCustomPrice(item.key, false);
-        } else {
+        const nextValue = !item.useCustomPrice;
+        toggleCustomPrice(item.key, nextValue); // 1. 즉시 상태 변경 (버튼 표시됨)
+
+        if (nextValue) {
+            // 2. '버튼 표시됨'으로 바뀐 경우에만 이동 여부 팝업 실행
             setSelectedItemKey(item.key);
             setLinkModalOpen(true);
         }
@@ -102,7 +99,6 @@ const ExpenseSettingsView = ({ onBack, onNavigate, isDarkMode, expenseConfig, se
 
     const confirmMoveToUnitPrice = () => {
         if (selectedItemKey) {
-            toggleCustomPrice(selectedItemKey, true);
             setLinkModalOpen(false);
             if (onNavigate) {
                 onNavigate('unitPrice', selectedItemKey); 
@@ -127,7 +123,8 @@ const ExpenseSettingsView = ({ onBack, onNavigate, isDarkMode, expenseConfig, se
             key: label, 
             label, 
             isVisible: true,
-            useCustomPrice: activeTab === 'income' ? useCustomPrice : false 
+            useCustomPrice: activeTab === 'income' ? useCustomPrice : false,
+            type: activeTab 
         };
 
         const newList = [...currentList, newItem];
@@ -149,19 +146,19 @@ const ExpenseSettingsView = ({ onBack, onNavigate, isDarkMode, expenseConfig, se
         
         if (window.confirm(`현재 보고 계신 [${targetLabel}] 항목 설정을 초기화하시겠습니까?\n(추가한 항목과 단가 설정이 모두 사라집니다)`)) {
             const defaultIncome = [
-                { key: 'deliveryCount', label: '배송 수량', isVisible: true },
-                { key: 'deliveryInterruptionAmount', label: '배송중단', isVisible: true },
-                { key: 'returnCount', label: '반품 수량', isVisible: true },
-                { key: 'freshBagCount', label: '프레시백 수량', isVisible: true },
+                { key: 'deliveryCount', label: '배송 수량', isVisible: true, type: 'income' },
+                { key: 'deliveryInterruptionAmount', label: '배송중단', isVisible: true, type: 'income' },
+                { key: 'returnCount', label: '반품 수량', isVisible: true, type: 'income' },
+                { key: 'freshBagCount', label: '프레시백 수량', isVisible: true, type: 'income' },
             ];
             
             const defaultExpense = [
-                { key: 'penaltyAmount', label: '패널티', isVisible: true },
-                { key: 'fuelCost', label: '유류비', isVisible: true },
-                { key: 'maintenanceCost', label: '유지보수비', isVisible: true },
-                { key: 'vatAmount', label: '부가세', isVisible: true },
-                { key: 'incomeTaxAmount', label: '종합소득세', isVisible: true },
-                { key: 'taxAccountantFee', label: '세무사 비용', isVisible: true },
+                { key: 'penaltyAmount', label: '패널티', isVisible: true, type: 'expense' },
+                { key: 'fuelCost', label: '유류비', isVisible: true, type: 'expense' },
+                { key: 'maintenanceCost', label: '유지보수비', isVisible: true, type: 'expense' },
+                { key: 'vatAmount', label: '부가세', isVisible: true, type: 'expense' },
+                { key: 'incomeTaxAmount', label: '종합소득세', isVisible: true, type: 'expense' },
+                { key: 'taxAccountantFee', label: '세무사 비용', isVisible: true, type: 'expense' },
             ];
 
             const currentSettings = JSON.parse(localStorage.getItem('appSettings') || '{}');
@@ -225,7 +222,6 @@ const ExpenseSettingsView = ({ onBack, onNavigate, isDarkMode, expenseConfig, se
                 )}
             </div>
 
-            {/* 안내 문구 (이동 중일 때만 표시) */}
             {movingIndex !== null && (
                 <div className="mx-2 mb-3 p-3 rounded-lg bg-blue-100 text-blue-800 text-sm font-bold text-center border border-blue-200 animate-pulse">
                     <ArrowUpDown className="inline-block mr-1" size={16}/>
@@ -235,7 +231,6 @@ const ExpenseSettingsView = ({ onBack, onNavigate, isDarkMode, expenseConfig, se
 
             <div className="flex-1 overflow-y-auto px-1 space-y-2 pb-32">
                 {displayList.map((item, index) => {
-                    // 현재 항목이 이동 중인 항목인지 확인
                     const isMoving = movingIndex === index;
                     
                     return (
@@ -248,7 +243,6 @@ const ExpenseSettingsView = ({ onBack, onNavigate, isDarkMode, expenseConfig, se
                             }`}
                         >
                             <div className="flex items-center gap-3 flex-1 min-w-0">
-                                {/* ✨ [수정] 드래그 핸들 버튼 (좌측) */}
                                 <button 
                                     onClick={() => handleMoveClick(index)}
                                     className={`p-1.5 rounded cursor-pointer touch-manipulation ${
@@ -308,7 +302,10 @@ const ExpenseSettingsView = ({ onBack, onNavigate, isDarkMode, expenseConfig, se
                         </p>
                         <div className="flex gap-3">
                             <button 
-                                onClick={() => setLinkModalOpen(false)}
+                                onClick={() => {
+                                    setLinkModalOpen(false);
+                                    setSelectedItemKey(null);
+                                }}
                                 className={`flex-1 py-3 rounded-lg font-bold ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}
                             >
                                 아니요

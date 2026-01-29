@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Edit, Trash2, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import { Edit, Trash2, ChevronDown, ChevronUp, AlertCircle, Clock } from 'lucide-react';
 
 const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, onOpenFilter, filterType }) => {
     const [expandedId, setExpandedId] = useState(null);
@@ -8,175 +8,230 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
     const toggleExpand = (id) => setExpandedId(expandedId === id ? null : id);
     const toggleMonthCollapse = (month) => setCollapsedMonths(prev => ({ ...prev, [month]: !prev[month] }));
 
-    // 1. 데이터 그룹화 (안전장치 포함)
     const groupedEntries = useMemo(() => {
         if (!entries || !Array.isArray(entries)) return {};
         return entries.reduce((acc, entry) => {
             if (!entry || !entry.date) return acc;
-            try {
-                const dateStr = String(entry.date);
-                const month = dateStr.length >= 7 ? dateStr.slice(0, 7) : 'Unknown';
-                if (!acc[month]) acc[month] = [];
-                acc[month].push(entry);
-            } catch { /* 무시 */ }
+            const d = new Date(entry.date);
+            const key = isNaN(d.getTime()) ? 'Unknown' : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(entry);
             return acc;
         }, {});
     }, [entries]);
 
     const sortedMonths = Object.keys(groupedEntries).sort((a, b) => b.localeCompare(a));
 
-    // 헬퍼 함수
-    const safeFormatDate = (dateStr) => {
-        try {
-            const date = new Date(dateStr);
-            return isNaN(date.getTime()) ? String(dateStr) : date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
-        } catch { return String(dateStr); }
-    };
     const safeNum = (val) => {
+        if (!val) return 0;
         const num = Number(String(val).replace(/,/g, '').trim());
         return isNaN(num) ? 0 : num;
     };
 
-    // ✨ [핵심] 동적 지출 항목 자동 계산기
-    // 사용자가 '식대'를 추가했든 '비품'을 추가했든, 여기서 알아서 찾아서 계산합니다.
-    const calculateDynamicExpenses = (entry) => {
-        // 수익 관련 필드와 기본 필드는 제외하고 나머지를 '지출'로 간주
-        const excludeKeys = ['id', 'date', 'timestamp', 'unitPrice', 'deliveryCount', 'returnCount', 'deliveryInterruptionAmount', 'freshBagCount'];
-        
-        let total = 0;
-        const details = [];
-
-        Object.keys(entry).forEach(key => {
-            if (!excludeKeys.includes(key)) {
-                const val = safeNum(entry[key]);
-                if (val > 0) { // 0보다 큰 값만 지출로 집계
-                    total += val;
-                    // key(변수명)를 한글 라벨로 변환하여 보여주기
-                    let label = key;
-                    if (key === 'penaltyAmount') label = '패널티';
-                    else if (key === 'industrialAccidentCost') label = '산재';
-                    else if (key === 'fuelCost') label = '유류비';
-                    else if (key === 'maintenanceCost') label = '유지보수비';
-                    else if (key === 'vatAmount') label = '부가세';
-                    else if (key === 'incomeTaxAmount') label = '종합소득세';
-                    else if (key === 'taxAccountantFee') label = '세무사 비용';
-                    
-                    details.push({ label, amount: val });
-                }
-            }
-        });
-        return { total, details };
+    const safeFormatDate = (dateStr) => {
+        const date = new Date(dateStr);
+        return isNaN(date.getTime()) ? String(dateStr) : date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
     };
 
-    if (!entries || entries.length === 0) {
-        return (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-                <AlertCircle size={48} className={`mb-4 ${isDarkMode ? 'text-gray-600' : 'text-gray-300'}`} />
-                <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>저장된 데이터가 없습니다.</p>
-            </div>
-        );
-    }
+    const processFinancials = (entry) => {
+        const unitPrice = safeNum(entry.unitPrice);
+        const delivery = safeNum(entry.deliveryCount);
+        const returns = safeNum(entry.returnCount);
+        const interruption = safeNum(entry.deliveryInterruptionAmount);
+        const freshBag = safeNum(entry.freshBagCount);
+
+        let totalRevenue = (unitPrice * delivery) + (unitPrice * returns) + (unitPrice * interruption) + (freshBag * 100);
+        let totalExpense = 0;
+        
+        const revenueGroups = {};
+        if (unitPrice > 0) {
+            const commonSum = (unitPrice * delivery) + (unitPrice * returns) + (unitPrice * interruption);
+            if (commonSum > 0) {
+                revenueGroups[unitPrice] = [
+                    { label: '배송', val: unitPrice * delivery, count: delivery, unit: '건' },
+                    { label: '반품', val: unitPrice * returns, count: returns, unit: '건' },
+                    { label: '중단', val: unitPrice * interruption, count: interruption, unit: '건' }
+                ].filter(d => d.val > 0);
+            }
+        }
+
+        if (freshBag > 0) {
+            if (!revenueGroups[100]) revenueGroups[100] = [];
+            revenueGroups[100].push({ label: '프레시백', val: freshBag * 100, count: freshBag, unit: '개' });
+        }
+
+        const expenseDetails = [];
+        let extraIncomeCount = 0;
+        let extraIncomeTotalCount = 0;
+
+        if (entry.customItems && Array.isArray(entry.customItems)) {
+            entry.customItems.forEach(item => {
+                const amount = safeNum(item.amount);
+                const itemPrice = item.unitPrice ? safeNum(item.unitPrice) : amount;
+                const itemCount = item.count ? safeNum(item.count) : 1;
+                const finalAmount = item.unitPrice ? (itemPrice * itemCount) : amount;
+
+                if (item.type === 'income') {
+                    totalRevenue += finalAmount;
+                    extraIncomeCount++;
+                    extraIncomeTotalCount += itemCount;
+                    if (!revenueGroups[itemPrice]) revenueGroups[itemPrice] = [];
+                    revenueGroups[itemPrice].push({ label: item.name, val: finalAmount, count: item.count, unit: '건' });
+                } else if (item.type === 'expense') {
+                    totalExpense += finalAmount;
+                    expenseDetails.push({ label: item.name, val: finalAmount, count: item.count, unit: '건', price: itemPrice });
+                }
+            });
+        }
+
+        return { 
+            totalRevenue, 
+            totalExpense, 
+            revenueGroups,
+            expenseDetails: expenseDetails.filter(d => Number(d.val) !== 0),
+            totalVolume: delivery + returns + interruption,
+            extraIncomeCount,
+            extraIncomeTotalCount
+        };
+    };
 
     return (
         <div className="w-full space-y-4">
-            {/* 요약 카드 */}
+            {/* ✨ 해결 2: 데이터 유무와 상관없이 상단 요약/필터는 항상 노출 */}
             {summary && (
                 <div className={`p-4 rounded-lg border ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                    {(summary.totalRevenue || 0) > 0 && (
-                        <div className="flex justify-between items-center py-1">
-                            <span className="font-bold text-lg text-black dark:text-gray-200">수익</span>
-                            <span className="font-bold text-red-500 text-lg">{safeNum(summary.totalRevenue).toLocaleString()}원</span>
-                        </div>
-                    )}
-                    {(summary.totalRevenue || 0) > 0 && (summary.totalExpenses || 0) > 0 && <hr className="border-gray-200 dark:border-gray-700 my-1"/>}
-                    {(summary.totalExpenses || 0) > 0 && (
-                        <div className="flex justify-between items-center py-1">
-                            <span className="font-bold text-lg text-black dark:text-gray-200">지출</span>
-                            <span className="font-bold text-blue-500 text-lg">{safeNum(summary.totalExpenses).toLocaleString()}원</span>
-                        </div>
-                    )}
+                    <div className="flex justify-between items-center py-1">
+                        <span className="font-bold text-lg dark:text-gray-200">총 수익</span>
+                        <span className="font-bold text-red-500 text-lg">{safeNum(summary.totalRevenue).toLocaleString()}원</span>
+                    </div>
+                    <hr className="border-gray-200 dark:border-gray-700 my-1"/>
+                    <div className="flex justify-between items-center py-1">
+                        <span className="font-bold text-lg dark:text-gray-200">총 지출</span>
+                        <span className="font-bold text-blue-500 text-lg">{safeNum(summary.totalExpenses).toLocaleString()}원</span>
+                    </div>
                 </div>
             )}
             
-            <div className="flex justify-end items-center">
-                <button onClick={onOpenFilter} className={`flex items-center px-3 py-1 rounded-lg text-xs font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
-                    현재 기간: {summary?.filterLabel || '전체'}<ChevronDown size={16} className="ml-2" />
+            <div className="flex justify-end px-1">
+                {/* ✨ 해결 1: summary.filterLabel이 있으면 최우선으로 보여줌 */}
+                <button onClick={onOpenFilter} className="flex items-center text-xs font-semibold text-gray-500">
+                    현재 기간: {summary?.filterLabel || (filterType === 'income' ? '수익' : filterType === 'expense' ? '지출' : '전체')}<ChevronDown size={14} className="ml-1" />
                 </button>
             </div>
 
-            {sortedMonths.map(month => {
-                const displayMonth = month === 'Unknown' ? "날짜 확인 필요" : `${parseInt(month.split('-')[0])}년 ${parseInt(month.split('-')[1])}월`;
-                const isCollapsed = collapsedMonths[month];
-
-                return (
-                    <div key={month}>
+            {/* ✨ 해결 2: 데이터가 없을 때의 화면 처리 위치 변경 */}
+            {(!entries || entries.length === 0) ? (
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                    <AlertCircle size={48} className={`mb-4 ${isDarkMode ? 'text-gray-600' : 'text-gray-300'}`} />
+                    <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>저장된 데이터가 없습니다.</p>
+                </div>
+            ) : (
+                sortedMonths.map(month => (
+                    <div key={month} className="mb-4">
                         <div className="flex items-center justify-between mb-2 pl-2 cursor-pointer" onClick={() => toggleMonthCollapse(month)}>
-                            <h2 className={`text-lg font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{displayMonth}</h2>
-                            {isCollapsed ? <ChevronDown size={20} className="text-gray-500 dark:text-gray-400" /> : <ChevronUp size={20} className="text-gray-500 dark:text-gray-400" />}
+                            <h2 className={`text-lg font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                {month === 'Unknown' ? "날짜 확인 필요" : `${month.split('-')[0]}년 ${parseInt(month.split('-')[1])}월`}
+                            </h2>
+                            {collapsedMonths[month] ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
                         </div>
 
-                        {!isCollapsed && (
-                            <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-md`}>
+                        {!collapsedMonths[month] && (
+                            <div className="space-y-3">
                                 {groupedEntries[month].map((entry, index) => {
-                                    // 수익 계산
-                                    const unitPrice = safeNum(entry.unitPrice);
-                                    const dailyRevenue = (unitPrice * safeNum(entry.deliveryCount)) + (unitPrice * safeNum(entry.returnCount)) + (unitPrice * safeNum(entry.deliveryInterruptionAmount)) + (safeNum(entry.freshBagCount) * 100);
+                                    const { totalRevenue, totalExpense, revenueGroups, expenseDetails, totalVolume, extraIncomeCount, extraIncomeTotalCount } = processFinancials(entry);
+                                    const netProfit = totalRevenue - totalExpense;
+                                    const inputTime = entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : null;
+                                    const currentId = entry.id || `${entry.date}-${index}`;
                                     
-                                    // ✨ 동적 지출 계산 (여기가 핵심 변경 사항)
-                                    const { total: dailyExpenses, details: expenseDetails } = calculateDynamicExpenses(entry);
-                                    
-                                    // 순수익 (summary 값이 없으면 직접 계산)
-                                    const netProfit = summary?.entryNetProfit?.[entry.id] ?? (dailyRevenue - dailyExpenses);
-                                    const totalVolume = safeNum(entry.deliveryCount) + safeNum(entry.returnCount) + safeNum(entry.deliveryInterruptionAmount);
-                                    
+                                    const borderClass = netProfit >= 0 
+                                        ? (isDarkMode ? 'border-red-900/40' : 'border-red-100') 
+                                        : (isDarkMode ? 'border-blue-900/40' : 'border-blue-100');
+
                                     return (
-                                        <div key={entry.id || index} className={`${index < groupedEntries[month].length - 1 ? (isDarkMode ? 'border-b border-gray-700' : 'border-b border-gray-200') : ''}`}>
-                                            <div className="p-4 flex flex-col">
-                                                <div className="flex justify-between items-start cursor-pointer" onClick={() => toggleExpand(entry.id)}>
-                                                    <span className="font-semibold text-sm">{safeFormatDate(entry.date)}</span>
-                                                    <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">상세 {expandedId === entry.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</div>
+                                        <div key={currentId} className={`rounded-xl border-2 ${borderClass} shadow-sm overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                                            <div className="p-4 cursor-pointer" onClick={() => toggleExpand(currentId)}>
+                                                <div className="flex justify-between items-start mb-3">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-bold text-base dark:text-gray-100">{safeFormatDate(entry.date)}</span>
+                                                        {inputTime && <span className="text-[11px] text-gray-400 flex items-center mt-1"><Clock size={12} className="mr-1"/>{inputTime} 기록됨</span>}
+                                                    </div>
+                                                    <div className="text-xs text-gray-400 flex items-center bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">
+                                                        {expandedId === currentId ? '닫기' : '상세'} {expandedId === currentId ? <ChevronUp size={14} className="ml-1" /> : <ChevronDown size={14} className="ml-1" />}
+                                                    </div>
                                                 </div>
-                                                <div className="flex justify-between items-end mt-2">
-                                                    <div>
-                                                        {filterType !== 'expense' && dailyRevenue > 0 && (
-                                                            <><p className="text-sm text-black dark:text-gray-200">총 물량: <span className="font-bold">{totalVolume}</span> 건</p><p className="text-sm text-black dark:text-gray-200">프레시백: <span className="font-bold">{safeNum(entry.freshBagCount)}</span> 개</p></>
-                                                        )}
-                                                        {filterType !== 'income' && dailyExpenses > 0 && (
-                                                            <p className="text-sm text-gray-800 dark:text-gray-200">지출: <span className="font-bold">{dailyExpenses.toLocaleString()}</span> 원</p>
+
+                                                <div className="flex justify-between items-center">
+                                                    <div className={`text-[14px] leading-relaxed ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                        {totalRevenue === 0 && totalExpense > 0 ? (
+                                                            <>
+                                                                {expenseDetails.slice(0, 2).map((item, i) => (
+                                                                    <p key={i}>{item.label} : {item.val.toLocaleString()}원</p>
+                                                                ))}
+                                                                {expenseDetails.length > 2 && (
+                                                                    <p>기타 지출 {expenseDetails.length - 2}건 : {(totalExpense - expenseDetails.slice(0, 2).reduce((s, i) => s + i.val, 0)).toLocaleString()}원</p>
+                                                                )}
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <p>총 물량 : {totalVolume}건</p>
+                                                                <p>프레시백 : {safeNum(entry.freshBagCount)}개</p>
+                                                                {extraIncomeCount > 0 && (
+                                                                    <p>기타 수익 {extraIncomeCount}건 : {extraIncomeTotalCount}개</p>
+                                                                )}
+                                                            </>
                                                         )}
                                                     </div>
-                                                    <p className={`font-bold text-xl ${filterType === 'expense' || netProfit < 0 ? 'text-blue-500' : 'text-red-500'}`}>
-                                                        {filterType === 'income' ? `+${dailyRevenue.toLocaleString()}` : filterType === 'expense' ? `-${dailyExpenses.toLocaleString()}` : (netProfit >= 0 ? `+${netProfit.toLocaleString()}` : netProfit.toLocaleString())}
-                                                    </p>
+                                                    <div className="text-right">
+                                                        {/* ✨ 해결 3: 글자 크기를 2xl에서 xl로 한 단계 낮춤 */}
+                                                        <p className={`font-black text-xl ${netProfit >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                                                            {netProfit >= 0 ? `+${netProfit.toLocaleString()}` : netProfit.toLocaleString()}
+                                                        </p>
+                                                    </div>
                                                 </div>
                                             </div>
                                             
-                                            {expandedId === entry.id && (
-                                                <div className="bg-gray-50 dark:bg-gray-700 p-3 mx-2 mb-2 rounded-md text-sm space-y-2">
-                                                    {dailyRevenue > 0 && (
-                                                        <>
-                                                            <p><strong>적용 단가:</strong> <span className="font-mono">{unitPrice.toLocaleString()}</span> 원</p>
-                                                            <hr className="border-gray-200 dark:border-gray-600" />
-                                                            <h5 className="font-bold pt-1">수익 상세</h5>
-                                                            <p>• 배송: <strong>{safeNum(entry.deliveryCount)}</strong> 건</p>
-                                                            <p>• 반품: <strong>{safeNum(entry.returnCount)}</strong> 건</p>
-                                                            <p>• 배송중단: <strong>{safeNum(entry.deliveryInterruptionAmount)}</strong> 건</p>
-                                                            <p>• 프레시백: <strong>{safeNum(entry.freshBagCount)}</strong> 개</p>
-                                                        </>
+                                            {expandedId === currentId && (
+                                                <div className={`mx-3 mb-3 p-4 rounded-lg ${isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'} text-sm space-y-4 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                                                    {totalRevenue > 0 && (
+                                                        <div>
+                                                            <h5 className="font-bold text-red-500 border-b border-red-200 dark:border-red-800 pb-1 mb-2 text-xs uppercase tracking-wider">수익 상세 내역</h5>
+                                                            {Object.entries(revenueGroups).sort((a,b) => b[0] - a[0]).map(([price, items]) => {
+                                                                const groupSum = items.reduce((s, item) => s + item.val, 0);
+                                                                return (
+                                                                    <div key={price} className="mb-4 last:mb-0">
+                                                                        <div className="flex justify-between items-center bg-red-100/50 dark:bg-red-900/30 p-2 rounded-md mb-2">
+                                                                            <span className="font-bold text-xs text-red-700 dark:text-red-300">적용단가 : {Number(price).toLocaleString()}원</span>
+                                                                            <span className="font-bold text-red-700 dark:text-red-300">{groupSum.toLocaleString()}원</span>
+                                                                        </div>
+                                                                        <div className="pl-2 space-y-1.5">
+                                                                            {items.map((item, i) => (
+                                                                                <div key={i} className="flex justify-between text-[12px] text-gray-600 dark:text-gray-400">
+                                                                                    <span>• {item.label} ({item.count}{item.unit})</span>
+                                                                                    <span className="font-medium">{item.val.toLocaleString()}원</span>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
                                                     )}
-                                                    {dailyExpenses > 0 && (
-                                                        <>
-                                                            {dailyRevenue > 0 && <hr className="border-gray-200 dark:border-gray-600" />}
-                                                            <h5 className="font-bold pt-1">지출 상세</h5>
-                                                            {/* ✨ 반복문으로 모든 지출 항목 표시 (추가된 항목 포함) */}
-                                                            {expenseDetails.map((exp, idx) => (
-                                                                <p key={idx}>• {exp.label}: <strong>{exp.amount.toLocaleString()}</strong> 원</p>
+                                                    
+                                                    {totalExpense > 0 && (
+                                                        <div>
+                                                            <h5 className="font-bold text-blue-500 border-b border-blue-200 dark:border-blue-800 pb-1 mb-2 text-xs uppercase tracking-wider">지출 상세 내역</h5>
+                                                            {expenseDetails.map((item, i) => (
+                                                                <div key={i} className="flex justify-between py-1.5 text-[12px]">
+                                                                    <span className="text-gray-600 dark:text-gray-400">• {item.label} ({item.count}{item.unit})</span>
+                                                                    <span className="font-bold text-blue-500">{item.val.toLocaleString()} 원</span>
+                                                                </div>
                                                             ))}
-                                                        </>
+                                                        </div>
                                                     )}
-                                                    <div className="flex justify-end pt-2">
-                                                        <button onClick={() => handleEdit(entry)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full"><Edit size={18} className="text-gray-500" /></button>
-                                                        <button onClick={() => handleDelete(entry.id)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full"><Trash2 size={18} className="text-red-500" /></button>
+                                                    
+                                                    <div className="flex justify-end pt-3 border-t border-gray-200 dark:border-gray-600 space-x-3">
+                                                        <button onClick={(e) => { e.stopPropagation(); handleEdit(entry); }} className="flex items-center space-x-1 px-3 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded-md text-gray-600 dark:text-gray-200 text-xs font-bold shadow-sm active:scale-95 transition-transform"><Edit size={14} /><span>수정</span></button>
+                                                        <button onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }} className="flex items-center space-x-1 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-md text-red-500 text-xs font-bold shadow-sm active:scale-95 transition-transform"><Trash2 size={14} /><span>삭제</span></button>
                                                     </div>
                                                 </div>
                                             )}
@@ -186,8 +241,8 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                             </div>
                         )}
                     </div>
-                );
-            })}
+                ))
+            )}
         </div>
     );
 };

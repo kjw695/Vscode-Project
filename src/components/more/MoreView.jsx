@@ -34,7 +34,7 @@ function MoreView({ onNavigate, isDarkMode, toggleDarkMode }) {
                 <MenuItem icon={<User size={24} />} text="계정 관리" onClick={() => onNavigate('account')} isDarkMode={isDarkMode} />
                 <MenuItem icon={<CircleDollarSign size={24} />} text="단가 설정" onClick={() => onNavigate('unitPrice')} isDarkMode={isDarkMode} />
                 {/* 👇 지출 항목 관리 메뉴 추가 */}
-                <MenuItem icon={<CreditCard size={24} />} text="지출 항목 관리" onClick={() => onNavigate('expenseSettings')} isDarkMode={isDarkMode} />
+                <MenuItem icon={<CreditCard size={24} />} text="항목 관리" onClick={() => onNavigate('expenseSettings')} isDarkMode={isDarkMode} />
                 <MenuItem icon={<CalendarDays size={24} />} text="월별 집계 기간 설정" onClick={() => onNavigate('period')} isDarkMode={isDarkMode} />
                 <MenuItem icon={<Database size={24} />} text="데이터 관리" onClick={() => onNavigate('data')} isDarkMode={isDarkMode} />
             </div>

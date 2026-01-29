@@ -4,7 +4,6 @@
 
 //사장님(App.js): 손님 응대(화면 표시)만 함.
 
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Home, BarChart2, List, MoreHorizontal, Plus } from 'lucide-react';
 import { backupToDrive, restoreFromDrive } from './utils/googleDrive';
@@ -32,7 +31,7 @@ import ContactView from './components/more/ContactView';
 import { useProfitCalculations } from './hooks/useProfitCalculations';
 import ExpenseSettingsView from './components/more/ExpenseSettingsView';
 import useAppBackButton from './hooks/useAppBackButton';
-
+import SystemThemeManager from './components/common/SystemThemeManager';
 // 🔥 [핵심 1] 데이터 관리자(Context)와 CSV 처리기(Handler) 임포트
 import { useDelivery } from './contexts/DeliveryContext';
 import { exportDataAsCsv, importDataFromCsv } from './utils/dataHandlers.js';
@@ -44,6 +43,14 @@ const DetailRow = ({ label, value, comparison }) => (
         <div className="w-16 flex justify-center">{comparison}</div>
     </div>
 );
+
+const getTodayLocal = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
 
 function AppContent() {
     const navigate = useNavigate();
@@ -67,7 +74,9 @@ function AppContent() {
     const [moreSubView, setMoreSubView] = useState('main');
 
     // --- 데이터 입력 폼 상태 ---
-    const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+    const [date, setDate] = useState(getTodayLocal());
+    
+    
     const [unitPrice, setUnitPrice] = useState('');
     const [formData, setFormData] = useState({});
     const [formType, setFormType] = useState('income');
@@ -160,6 +169,18 @@ function AppContent() {
         };
         loadSettings();
     }, []);
+useEffect(() => {
+        const now = new Date();
+        // 오늘(26일)이 마감일(25일)보다 크면? -> 참(True)
+        if (now.getDate() > monthlyEndDay) {
+            // 다음 달 1일로 설정 (예: 2월 1일)
+            const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+            
+            // 달력과 데이터를 2월로 바꿈
+            setCurrentCalendarDate(nextMonth);
+            setSelectedMonth(nextMonth.toISOString().slice(0, 7));
+        }
+    }, [monthlyEndDay]);
 
     const saveSettingsToLocal = (newSettings) => {
         const currentSettings = JSON.parse(localStorage.getItem('appSettings') || '{}');
@@ -178,7 +199,7 @@ function AppContent() {
         );
     };
 
-    // --- 테마 설정 ---
+    
     useEffect(() => {
         const savedView = localStorage.getItem('homeView');
         if (savedView !== null) setShowMonthlyDetails(JSON.parse(savedView));
@@ -200,6 +221,8 @@ function AppContent() {
         saveAndApplyTheme();
     }, [isDarkMode]);
 
+
+
     useEffect(() => {
         if (selectedMainTab !== 'data' && entryToEdit) {
             setEntryToEdit(null);
@@ -208,7 +231,7 @@ function AppContent() {
     }, [selectedMainTab, entryToEdit]);
 
     const resetForm = () => {
-        setDate(new Date().toISOString().slice(0, 10));
+        setDate(getTodayLocal());
         setUnitPrice('');
         setFormData({});
         setFormType('income');
@@ -234,45 +257,35 @@ function AppContent() {
     };
 
     // 🔥 [핵심 4] 저장 로직 (Context의 saveEntry 사용)
-   const handleSubmit = async (e, round) => {
-        e.preventDefault();
-        
-        // 1. 단가 확인
-        if (formType === 'income' && (!unitPrice || parseFloat(unitPrice) <= 0)) {
-            showMessage("❗ 단가를 입력해주세요.");
-            return;
-        }
+  const handleSubmit = async (e, round, customItems = []) => {
+    e.preventDefault();
+    
+    // ✨ [수정] 개별 항목(customItems)의 총 금액 합계 계산
+    const customTotal = customItems?.reduce((sum, item) => sum + (Number(item.amount) || 0), 0) || 0;
+
+    // ✨ [수정] 공통 단가도 0이고, 개별 항목 합계도 0일 때만 차단
+    if (formType === 'income' && (!unitPrice || parseFloat(unitPrice) <= 0) && customTotal <= 0) {
+        showMessage("❗ 단가 또는 개별 항목 금액을 입력해주세요.");
+        return;
+    }
 
         const parsedFormData = {};
         Object.keys(formData).forEach(key => {
             parsedFormData[key] = formData[key] ? parseFloat(formData[key]) : 0;
         });
 
-        // 🔥 [핵심 수정] 덮어쓰기 방지 로직
-        // entryToEdit(수정모드)일 때, 현재 저장하려는 회전(round)과 기존 데이터의 회전이 다르면
-        // ID를 없애서(undefined) "새로운 데이터"로 저장하게 만듭니다.
-        let targetId = undefined;
-        let targetTimestamp = new Date().toISOString();
+  const newEntryData = {
+    id: entryToEdit?.id, // 수정이면 기존 ID 넘기고, 신규면 비워서 보냄
+    type: formType,      // 주방장에게 수익(s)인지 지출(z)인지 알려줌
+    date,
+    unitPrice: unitPrice ? parseFloat(unitPrice) : 0,
+    ...parsedFormData,
+    round: round || 0,
+    customItems
+};
 
-        if (entryToEdit) {
-            const editingRound = entryToEdit.round || 0;
-            const savingRound = round || 0;
 
-            // 회전이 같을 때만 ID를 유지(수정)합니다.
-            if (editingRound === savingRound) {
-                targetId = entryToEdit.id;
-                targetTimestamp = entryToEdit.timestamp;
-            }
-        }
 
-        const newEntryData = {
-            id: targetId, // 위에서 계산한 ID 사용
-            date,
-            unitPrice: unitPrice ? parseFloat(unitPrice) : 0,
-            timestamp: targetTimestamp,
-            ...parsedFormData,
-            round: round || 0 
-        };
 
         // 값 유무 체크
         const hasValue = Object.values(parsedFormData).some(val => val > 0) || (formType === 'income' && newEntryData.unitPrice > 0);
@@ -280,17 +293,17 @@ function AppContent() {
             showMessage("❗ 입력된 정보가 없습니다.");
             return;
         }
+// 저장 요청 (주방장에게 데이터 전달)
+saveEntry(newEntryData);
 
-        // 저장 요청
-        saveEntry(newEntryData);
+// ✨ targetId 대신 entryToEdit이 있는지 확인하면 됩니다.
+showMessage(entryToEdit ? "✅ 수정되었습니다." : "✅ 저장되었습니다."); 
 
-        showMessage(targetId ? "✅ 수정되었습니다." : "✅ 저장되었습니다.");
-        
-        // 폼 초기화
-        setEntryToEdit(null);
-        resetForm();
-    };
-
+// 폼 초기화
+setEntryToEdit(null);
+resetForm();
+};
+  
     const handleEdit = (entry) => {
         setEntryToEdit(entry);
         setDate(entry.date);
@@ -306,18 +319,17 @@ function AppContent() {
         setActiveDataTab('entry');
         setSelectedMainTab('data');
         setActiveContentTab('dataEntry');
+        setActiveDataTab('entry'); // ✨ 무조건 '입력' 탭으로 가도록 강제 고정
+        setEntryToEdit(null);      // ✨ 수정 중이었다면 수정 모드 해제
     };
 
-    // 🔥 [핵심 5] 삭제 로직 (Context의 deleteEntry 사용)
-    const handleDelete = async (id) => {
-        try {
-            deleteEntry(id);
-            showMessage("항목이 성공적으로 삭제되었습니다.");
-        } catch (e) { 
-            console.error("Error deleting: ", e); 
-            showMessage("데이터 삭제에 실패했습니다."); 
-        }
-    };
+  const handleDelete = (id) => {
+    if (!id) return;
+    showConfirmation("정말로 삭제하시겠습니까?", () => {
+        deleteEntry(id);
+        showMessage("✅ 삭제되었습니다.");
+    });
+};
 
     const handleDeleteAllDataRequest = () => {
         showConfirmation("정말로 모든 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.", () => {
@@ -326,12 +338,17 @@ function AppContent() {
         });
     };
 
-    const handleDateChange = (days) => {
-        if (!date) return;
-        const currentDate = new Date(date);
-        currentDate.setDate(currentDate.getDate() + days);
-        setDate(currentDate.toISOString().slice(0, 10));
-    };
+   const handleDateChange = (days) => {
+    if (!date) return;
+    const [y, m, d] = date.split('-').map(Number);
+    const currentDate = new Date(y, m - 1, d); 
+    currentDate.setDate(currentDate.getDate() + days);
+    
+    const nextY = currentDate.getFullYear();
+    const nextM = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const nextD = String(currentDate.getDate()).padStart(2, '0');
+    setDate(`${nextY}-${nextM}-${nextD}`);
+};
 
     const { monthlyProfit, yearlyProfit, cumulativeProfit, previousMonthlyProfit } = useProfitCalculations(
         entries, selectedMonth, selectedYear, monthlyStartDay, monthlyEndDay, "local-user"
@@ -348,8 +365,15 @@ function AppContent() {
 
     const finalFilteredEntries = useMemo(() => {
         const filtered = entries.filter(entry => {
-            const dailyRevenue = (entry.unitPrice * (entry.deliveryCount || 0)) + (entry.unitPrice * (entry.returnCount || 0)) + (entry.unitPrice * (entry.deliveryInterruptionAmount || 0)) + ((entry.freshBagCount || 0) * 100);
-            const dailyExpenses = ((entry.penaltyAmount || 0) + (entry.industrialAccidentCost || 0) + (entry.fuelCost || 0) + (entry.maintenanceCost || 0) + (entry.vatAmount || 0) + (entry.incomeTaxAmount || 0) + (entry.taxAccountantFee || 0));
+           const extraRevenue = (entry.customItems || []).filter(i => i.type === 'income').reduce((s, i) => s + (Number(i.amount) || 0), 0);
+const extraExpense = (entry.customItems || []).filter(i => i.type === 'expense').reduce((s, i) => s + (Number(i.amount) || 0), 0);
+
+const dailyRevenue = (entry.unitPrice * (entry.deliveryCount || 0)) + (entry.unitPrice * (entry.returnCount || 0)) + (entry.unitPrice * (entry.deliveryInterruptionAmount || 0)) + ((entry.freshBagCount || 0) * 100) + extraRevenue;
+// ✨ [수정] 꼬리표가 달린 지출이 있다면 그것을 우선적으로 믿고 계산합니다.
+const dailyExpenses = (entry.customItems && entry.customItems.length > 0)
+    ? entry.customItems.filter(i => i.type === 'expense').reduce((s, i) => s + (Number(i.amount) || 0), 0)
+    : ((entry.penaltyAmount || 0) + (entry.industrialAccidentCost || 0) + (entry.fuelCost || 0) + (entry.maintenanceCost || 0) + (entry.vatAmount || 0) + (entry.incomeTaxAmount || 0) + (entry.taxAccountantFee || 0));
+
             const typeMatch = filters.type === 'all' || (filters.type === 'income' && dailyRevenue > 0) || (filters.type === 'expense' && dailyExpenses > 0);
             if (!typeMatch) return false;
             if (filters.period === 'all' || !filters.startDate || !filters.endDate) return true;
@@ -381,6 +405,28 @@ function AppContent() {
     const handleLogout = () => { showMessage("로컬 모드입니다."); };
     const toggleDarkMode = () => { setIsDarkMode(prevMode => !prevMode); };
     const handleMonthChange = (direction) => { setCurrentCalendarDate(prevDate => { const newDate = new Date(prevDate); newDate.setMonth(newDate.getMonth() + direction); setSelectedMonth(newDate.toISOString().slice(0, 7)); return newDate; }); };
+    
+    // --- 달력 스와이프 기능 추가 ---
+    const onCalendarTouchStart = (e) => {
+        touchStartX.current = e.targetTouches[0].clientX;
+        touchEndX.current = null;
+    };
+    const onCalendarTouchMove = (e) => {
+        touchEndX.current = e.targetTouches[0].clientX;
+    };
+    const onCalendarTouchEnd = () => {
+        if (!touchStartX.current || !touchEndX.current) return;
+        const distance = touchStartX.current - touchEndX.current;
+        const isLeftSwipe = distance > 50; // 오른쪽에서 왼쪽으로 밈 (다음달)
+        const isRightSwipe = distance < -50; // 왼쪽에서 오른쪽으로 밈 (이전달)
+
+        if (isLeftSwipe) {
+            handleMonthChange(1);
+        } else if (isRightSwipe) {
+            handleMonthChange(-1);
+        }
+    };
+    // -------------------------
     const handleTodayClick = () => { const today = new Date(); setCurrentCalendarDate(today); setSelectedMonth(today.toISOString().slice(0, 7)); };
     const handleCalendarDateClick = (clickedDate) => {
         const entriesForDate = entries.filter(entry => entry.date === clickedDate);
@@ -404,30 +450,67 @@ function AppContent() {
         touchStartX.current = null; touchEndX.current = null; touchStartY.current = null; touchEndY.current = null;
     };
 
-    const generateCalendarDays = useCallback(() => {
-        const year = currentCalendarDate.getFullYear();
-        const month = currentCalendarDate.getMonth();
-        let periodStartDate, periodEndDate;
-        if (monthlyStartDay > monthlyEndDay) { periodStartDate = new Date(year, month - 1, monthlyStartDay); periodEndDate = new Date(year, month, monthlyEndDay); }
-        else { periodStartDate = new Date(year, month, monthlyStartDay); periodEndDate = new Date(year, month, monthlyEndDay); }
-        periodEndDate.setHours(23, 59, 59, 999);
-        const calendarStartDate = new Date(periodStartDate);
-        calendarStartDate.setDate(calendarStartDate.getDate() - calendarStartDate.getDay());
-        const calendarEndDate = new Date(periodEndDate);
-        if (calendarEndDate.getDay() !== 6) calendarEndDate.setDate(calendarEndDate.getDate() + (6 - calendarEndDate.getDay()));
-        const days = [];
-        let dayIterator = new Date(calendarStartDate);
-        const todayString = formatDate(new Date());
-        while (dayIterator <= calendarEndDate) {
-            const formattedDate = formatDate(dayIterator);
-            const isToday = formattedDate === todayString;
-            const isWithinPeriod = dayIterator >= periodStartDate && dayIterator <= periodEndDate;
-            const dailyData = monthlyProfit.dailyBreakdown[formattedDate] || { revenue: 0, expenses: 0 };
-            days.push({ date: formattedDate, day: dayIterator.getDate(), isCurrentMonth: isWithinPeriod, isToday: isToday, revenue: dailyData.revenue, expenses: dailyData.expenses });
-            dayIterator.setDate(dayIterator.getDate() + 1);
-        }
-        return days;
-    }, [currentCalendarDate, monthlyStartDay, monthlyEndDay, monthlyProfit.dailyBreakdown]);
+const generateCalendarDays = useCallback(() => {
+    const year = currentCalendarDate.getFullYear();
+    const month = currentCalendarDate.getMonth();
+    let periodStartDate, periodEndDate;
+
+    // 1. 정산 주기 시작일/종료일 계산
+    if (monthlyStartDay > monthlyEndDay) { 
+        periodStartDate = new Date(year, month - 1, monthlyStartDay); 
+        periodEndDate = new Date(year, month, monthlyEndDay); 
+    } else { 
+        periodStartDate = new Date(year, month, monthlyStartDay); 
+        periodEndDate = new Date(year, month, monthlyEndDay); 
+    }
+
+    // 2. [핵심 수정] 날짜 비교를 위해 'YYYY-MM-DD' 문자열로 변환 (가장 정확함)
+    const toDateStr = (d) => {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+
+    const pStartStr = toDateStr(periodStartDate);
+    const pEndStr = toDateStr(periodEndDate);
+
+    // 3. 달력 그리드용 시작/종료일 계산 (일요일 시작 ~ 토요일 끝)
+    const calendarStartDate = new Date(periodStartDate);
+    calendarStartDate.setDate(calendarStartDate.getDate() - calendarStartDate.getDay());
+    
+    const calendarEndDate = new Date(periodEndDate);
+    if (calendarEndDate.getDay() !== 6) {
+        calendarEndDate.setDate(calendarEndDate.getDate() + (6 - calendarEndDate.getDay()));
+    }
+
+    const days = [];
+    let dayIterator = new Date(calendarStartDate);
+    const todayStr = toDateStr(new Date());
+
+    while (dayIterator <= calendarEndDate) {
+        const formattedDate = toDateStr(dayIterator);
+        
+        // 4. [핵심 수정] 문자열끼리 비교하여 주기 내 포함 여부 판단 (오차 없음)
+        const isWithinPeriod = formattedDate >= pStartStr && formattedDate <= pEndStr;
+        const isToday = formattedDate === todayStr;
+        
+        // 데이터 가져오기
+        const dailyData = monthlyProfit.dailyBreakdown[formattedDate] || { revenue: 0, expenses: 0 };
+        
+        days.push({ 
+            date: formattedDate, 
+            day: dayIterator.getDate(), 
+            isCurrentMonth: isWithinPeriod, // false면 회색 처리됨
+            isToday: isToday, 
+            
+            // 5. 주기 안(isWithinPeriod)이면 데이터를 보여주고, 밖이면 0으로 숨김
+            revenue: isWithinPeriod ? dailyData.revenue : 0, 
+            expenses: isWithinPeriod ? dailyData.expenses : 0 
+        });
+
+        // 하루 증가
+        dayIterator.setDate(dayIterator.getDate() + 1);
+    }
+    return days;
+}, [currentCalendarDate, monthlyStartDay, monthlyEndDay, monthlyProfit.dailyBreakdown]);
 
     const calendarDays = generateCalendarDays();
     const yearlyPeriod = useMemo(() => {
@@ -440,51 +523,169 @@ function AppContent() {
 
     const handleNavigateToDataEntry = () => {
         setSelectedMainTab('data'); setActiveContentTab('dataEntry'); setActiveDataTab('entry'); setEntryToEdit(null);
-        setDate(new Date().toISOString().slice(0, 10)); setUnitPrice(''); setFormData({}); setFormType('income');
+        setDate(getTodayLocal()); setUnitPrice(''); setFormData({}); setFormType('income');
     };
 
     useAppBackButton({
         modalState, closeModal, showConfirmation, isFilterModalOpen, setIsFilterModalOpen,
         moreSubView, setMoreSubView, selectedMainTab, setSelectedMainTab, activeContentTab, setActiveContentTab
     });
+return (
+    <div 
+        className={`fixed inset-0 w-full h-full font-sans flex flex-col items-center 
+            ${isDarkMode ? 'bg-[#111827] text-gray-100' : 'bg-white text-gray-800'}`}
+// App.js
+style={{ 
+    position: 'fixed',
+    top: 0, 
+    left: 0, 
+    right: 0, 
+    bottom: 0,
 
-    return (
-        <div className={`min-h-screen font-sans flex flex-col items-center flex-grow ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-100 text-gray-800'} pb-20 px-4 sm:px-8 pt-[calc(0.5rem+env(safe-area-inset-top))]`}>
-            <div className={`w-full mb-6 relative ${isDarkMode ? 'bg-transparent' : 'bg-transparent'}`}>
+    // ✅ [상단 수동] env() 대신 고정값 25.5px을 줍니다. (원하시는 대로 임의 공간)
+    paddingTop: '25.5px', 
+
+    // ✅ [하단 0] Java에서 이미 공간을 확보했으니 여기는 0입니다.
+    paddingBottom: '0px',
+
+    marginTop: '0px !important', 
+    marginBottom: '0px !important',
+    
+    // 배경색 통일
+    backgroundColor: isDarkMode ? '#111827' : '#ffffff',
+    zIndex: 0
+}}
+    >
+        <SystemThemeManager isDarkMode={isDarkMode} />
+
+        {/* 🔴 내부 콘텐츠가 스크롤되도록 감싸는 영역 */}
+        <div className="w-full h-full overflow-y-auto pb-20">
                 {isAuthReady && (
                     <>
-                        {activeContentTab === 'monthlyProfit' && (
-                            <div className={`p-4 sm:p-6 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-                                <RevenueDistributionChart monthlyProfit={monthlyProfit} />
-                                <div className="text-center mb-6"><button onClick={() => setShowMonthlyDetails(!showMonthlyDetails)} className={`py-2 px-4 rounded-md transition duration-150 ease-in-out ${isDarkMode ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} text-sm`}>{showMonthlyDetails ? '캘린더 보기' : '상세보기'}</button></div>
-                                {!showMonthlyDetails ? (
-                                    <div className="calendar-view">
-                                        <div className="flex justify-center items-center mb-4 space-x-3">
-                                            <button onClick={() => handleMonthChange(-1)} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'}`}><ChevronLeft size={20} /></button>
-                                            <h3 className="font-bold text-lg">{currentCalendarDate.getFullYear()}년 {currentCalendarDate.getMonth() + 1}월</h3>
-                                            <button onClick={() => handleMonthChange(1)} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'}`}><ChevronRight size={20} /></button>
-                                        </div>
-                                        <div className="grid grid-cols-7 gap-1">
-                                            {calendarDays.map((dayInfo, index) => (
-                                                <div key={index} onClick={() => handleCalendarDateClick(dayInfo.date)} className={`cursor-pointer aspect-square flex flex-col items-center justify-start p-1 rounded-md ${dayInfo.isCurrentMonth ? (isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-white hover:bg-gray-100') : (isDarkMode ? 'bg-gray-800' : 'bg-white')} ${dayInfo.isToday && dayInfo.isCurrentMonth ? 'border-2 border-blue-500' : ''}`}>
-                                                    {dayInfo.isCurrentMonth && (<><span className={`font-semibold text-[clamp(0.75rem,3vw,0.875rem)] ${index % 7 === 0 ? 'text-red-500' : ''} ${index % 7 === 6 ? 'text-blue-500' : ''} ${dayInfo.isToday ? 'text-blue-500' : ''}`}>{dayInfo.day}</span>{dayInfo.revenue > 0 && <span className="text-red-500 text-[clamp(0.5rem,2vw,0.625rem)] leading-tight">{dayInfo.revenue.toLocaleString()}</span>}{dayInfo.expenses > 0 && <span className="text-blue-500 text-[clamp(0.5rem,2vw,0.625rem)] leading-tight">{dayInfo.expenses.toLocaleString()}</span>}</>)}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        <GoalProgressBar current={monthlyProfit.netProfit} goal={goalAmount} isDarkMode={isDarkMode} />
-                                        <div className={`pl-6 pr-[23px] py-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-white'} space-y-3 shadow`}>
-                                            <DetailRow label="총 근무일" value={`${monthlyProfit.totalWorkingDays.toLocaleString()} 일`} comparison={renderComparison(monthlyProfit.totalWorkingDays, previousMonthlyProfit.totalWorkingDays)} />
-                                            <DetailRow label="총 물량" value={`${monthlyProfit.totalVolume.toLocaleString()} 건`} comparison={renderComparison(monthlyProfit.totalVolume, previousMonthlyProfit.totalVolume)} />
-                                            <DetailRow label="총 프레시백" value={`${monthlyProfit.totalFreshBag.toLocaleString()} 개`} comparison={renderComparison(monthlyProfit.totalFreshBag, previousMonthlyProfit.totalFreshBag)} />
-                                            <DetailRow label="일 평균 물량" value={`${Math.round(monthlyProfit.dailyAverageVolume)} 건`} comparison={renderComparison(Math.round(monthlyProfit.dailyAverageVolume), Math.round(previousMonthlyProfit.dailyAverageVolume))} />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                       {activeContentTab === 'monthlyProfit' && (
+<>
+    <RevenueDistributionChart monthlyProfit={monthlyProfit} />
+    <div className="h-3"></div>
+    <div className={`p-4 sm:p-6 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+    
+        <div className="flex items-center justify-between mb-4 px-1">
+            <div className="w-16"></div>
+            <div className="flex items-center space-x-1"> 
+                <button onClick={() => handleMonthChange(-1)} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'}`}>
+                    <ChevronLeft size={20} />
+                </button>
+                <h3 className="font-bold text-lg min-w-fit text-center">
+                    {currentCalendarDate.getFullYear()}년 {currentCalendarDate.getMonth() + 1}월
+                </h3>
+                <button onClick={() => handleMonthChange(1)} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'}`}>
+                    <ChevronRight size={20} />
+                </button>
+            </div>
+            <div className="w-16 flex justify-end">
+                <button 
+                    onClick={() => setShowMonthlyDetails(!showMonthlyDetails)} 
+                    className={`py-1.5 px-3 rounded-lg font-bold text-xs transition duration-150 ease-in-out ${isDarkMode ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                >
+                    {showMonthlyDetails ? '달력' : '상세'} 
+                </button>
+            </div>
+        </div>
+
+     {/* [최종 해결] 구역 분리 (1층: 날짜 / 2층: 금액) - 절대 안 움직임 */}
+{!showMonthlyDetails ? (
+    <div 
+        className="calendar-view touch-pan-y"
+        onTouchStart={onCalendarTouchStart}
+        onTouchMove={onCalendarTouchMove}
+        onTouchEnd={onCalendarTouchEnd}
+    >
+        {/* 1. 요일 헤더 */}
+        <div className="grid grid-cols-7 text-center mb-1"> 
+            {['일', '월', '화', '수', '목', '금', '토'].map((day, i) => (
+                <div key={day} className={`text-xs sm:text-sm font-bold ${
+                    i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : (isDarkMode ? 'text-gray-400' : 'text-gray-500')
+                }`}>
+                    {day}
+                </div>
+            ))}
+        </div>
+
+        {/* 2. 달력 그리드 */}
+        <div className="grid grid-cols-7 gap-x-0 gap-y-0"> 
+            {calendarDays.map((dayInfo, index) => (
+                <div 
+                    key={index} 
+                    onClick={() => handleCalendarDateClick(dayInfo.date)} 
+                    className={`
+                        cursor-pointer 
+                        h-[55px] /* 전체 높이 고정 (변하지 않음) */
+                        flex flex-col /* 위아래 층으로 쌓기 */
+                        rounded-md 
+                        ${isDarkMode ? 'bg-gray-800' : 'bg-white'}
+                    `}
+                >
+                    {/* [1층] 날짜 전용 구역 (높이 34px 고정) */}
+                    {/* 내용물이 변해도 이 구역 높이는 절대 변하지 않으므로 날짜가 고정됨 */}
+                    <div className="h-[35px] w-full flex items-center justify-center pb-0.5"> 
+                        <span className={`
+                            flex items-center justify-center 
+                            w-8 h-8 rounded-full text-sm font-semibold
+                            ${!dayInfo.isCurrentMonth ? 'text-gray-300' : ''} 
+                            ${dayInfo.isCurrentMonth && index % 7 === 0 ? 'text-red-500' : ''} 
+                            ${dayInfo.isCurrentMonth && index % 7 === 6 ? 'text-blue-500' : ''} 
+                            ${dayInfo.isToday ? 'border-4 border-yellow-400 shadow-sm' : ''} 
+                        `}>
+                            {dayInfo.day}
+                        </span>
+                    </div>
+
+                    {/* [2층] 금액 구역 */}
+                    {/* 금액이 남은 공간의 한가운데 위치함 */}
+                    <div className="flex-1 w-full flex flex-col items-center justify-start -mt-0.5">
+                        {dayInfo.isCurrentMonth && dayInfo.revenue > 0 && (
+                            <span className="text-red-500 text-[8px] font-medium leading-none mb-0.5">
+                                {dayInfo.revenue.toLocaleString()}
+                            </span>
                         )}
+                        {dayInfo.isCurrentMonth && dayInfo.expenses > 0 && (
+                            <span className="text-blue-500 text-[8px] font-medium leading-none">
+                                {dayInfo.expenses.toLocaleString()}
+                            </span>
+                        )}
+                    </div>
+                </div>
+            ))}
+        </div>
+    </div>
+) : (
+    <div className="space-y-4">
+        {/* 상세 보기 내용은 원본 유지 */}
+
+        <div className="progress-container">
+            <div className="progress-bar">
+                <div 
+                    className="fill" 
+                    style={{ 
+                        width: `${goalAmount > 0 ? Math.min(100, Math.max(0, (monthlyProfit.netProfit / goalAmount) * 100)) : 0}%` 
+                    }}
+                ></div>
+            </div>
+            <span className="percent-text">
+                {goalAmount > 0 ? Math.round((monthlyProfit.netProfit / goalAmount) * 100) : 0}%
+            </span>
+        </div>
+       
+        <div className={`pl-6 pr-[23px] py-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-white'} space-y-3 shadow`}>
+            <DetailRow label="총 근무일" value={`${monthlyProfit.totalWorkingDays.toLocaleString()} 일`} comparison={renderComparison(monthlyProfit.totalWorkingDays, previousMonthlyProfit.totalWorkingDays)} />
+            <DetailRow label="총 물량" value={`${monthlyProfit.totalVolume.toLocaleString()} 건`} comparison={renderComparison(monthlyProfit.totalVolume, previousMonthlyProfit.totalVolume)} />
+            <DetailRow label="총 프레시백" value={`${monthlyProfit.totalFreshBag.toLocaleString()} 개`} comparison={renderComparison(monthlyProfit.totalFreshBag, previousMonthlyProfit.totalFreshBag)} />
+            <DetailRow label="일 평균 물량" value={`${Math.round(monthlyProfit.dailyAverageVolume)} 건`} comparison={renderComparison(Math.round(monthlyProfit.dailyAverageVolume), Math.round(previousMonthlyProfit.dailyAverageVolume))} />
+        </div>
+    </div>
+)}
+    </div>
+    </>
+)}
 
                         {activeContentTab === 'dataEntry' && (
                             <div className={`p-4 sm:p-6 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
@@ -508,10 +709,21 @@ function AppContent() {
                                     <EntriesList
                                         entries={finalFilteredEntries}
                                         summary={{
-                                            totalRevenue: finalFilteredEntries.reduce((sum, entry) => sum + (entry.unitPrice * (entry.deliveryCount||0)) + (entry.unitPrice * (entry.returnCount||0)) + (entry.unitPrice * (entry.deliveryInterruptionAmount||0)) + ((entry.freshBagCount||0) * 100), 0),
-                                            totalExpenses: finalFilteredEntries.reduce((sum, entry) => sum + (entry.penaltyAmount||0) + (entry.industrialAccidentCost||0) + (entry.fuelCost||0) + (entry.maintenanceCost||0) + (entry.vatAmount||0) + (entry.incomeTaxAmount||0) + (entry.taxAccountantFee||0), 0),
+                                           totalRevenue: finalFilteredEntries.reduce((sum, entry) => {
+    const basicRevenue = (entry.unitPrice * (entry.deliveryCount||0)) + (entry.unitPrice * (entry.returnCount||0)) + (entry.unitPrice * (entry.deliveryInterruptionAmount||0)) + ((entry.freshBagCount||0) * 100);
+    const extraRevenue = (entry.customItems || []).filter(i => i.type === 'income').reduce((s, i) => s + (Number(i.amount) || 0), 0);
+    return sum + basicRevenue + extraRevenue;
+}, 0),
+// ✨ [수정] 중복 합산을 방지하고 꼬리표 데이터를 정확히 반영합니다.
+totalExpenses: finalFilteredEntries.reduce((sum, entry) => {
+    const hasCustomItems = entry.customItems && entry.customItems.length > 0;
+    const expenseSum = hasCustomItems
+        ? entry.customItems.filter(i => i.type === 'expense').reduce((s, i) => s + (Number(i.amount) || 0), 0)
+        : ((entry.penaltyAmount || 0) + (entry.industrialAccidentCost || 0) + (entry.fuelCost || 0) + (entry.maintenanceCost || 0) + (entry.vatAmount || 0) + (entry.incomeTaxAmount || 0) + (entry.taxAccountantFee || 0));
+    return sum + expenseSum;
+}, 0),
                                             entryNetProfit: Object.fromEntries(finalFilteredEntries.map(entry => [entry.id, 0])),
-                                            filterLabel: '전체'
+                                            filterLabel: filters.label || '전체'
                                         }}
                                         handleEdit={handleEdit} handleDelete={handleDelete} isDarkMode={isDarkMode} onOpenFilter={() => setIsFilterModalOpen(true)} filterType={filters.type}
                                     />
@@ -550,9 +762,28 @@ function AppContent() {
 
             {isAuthReady && (
                 <div className={`fixed bottom-0 left-0 right-0 w-full ${isDarkMode ? 'bg-gray-800 border-t border-gray-700' : 'bg-white border-t border-gray-200'} shadow-lg flex justify-around py-2 px-4 pb-[env(safe-area-inset-bottom)] z-50`}>
-                    <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'data' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} onClick={() => { setSelectedMainTab('data'); setActiveContentTab('dataEntry'); }}>
-                        <List size={24} /> <span>데이터</span>
-                    </button>
+                    <button 
+    className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'data' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} 
+    onClick={() => { 
+        // 1. 이미 데이터 탭인 상태에서 한 번 더 눌렀을 때 (새로고침)
+        if (selectedMainTab === 'data') {
+            setEntryToEdit(null);      // 수정 모드 취소
+            setActiveDataTab('entry'); // '입력' 화면으로 이동
+            setFormType('income');     // '수익' 탭으로 초기화
+            setDate(getTodayLocal());  // 오늘 날짜로 강제 복귀!
+        } else {
+            // 2. 다른 탭(홈, 통계 등)에서 데이터 탭으로 들어올 때
+            setSelectedMainTab('data'); 
+            setActiveContentTab('dataEntry'); 
+            setActiveDataTab('entry'); // 무조건 '입력' 화면 먼저
+            setFormType('income');     // 무조건 '수익' 탭 먼저
+            setEntryToEdit(null);      // 수정 모드 취소
+            setDate(getTodayLocal()); // ✨ 여기도 오늘 날짜로 강제 복귀!
+        }
+    }}
+>
+    <List size={24} /> <span>데이터</span>
+</button>
                     <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'statistics' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} onClick={() => { setSelectedMainTab('statistics'); setActiveContentTab('statistics'); setStatisticsView('monthly'); setMonthlyStatsSubTab('overview'); }}>
                         <BarChart2 size={24} /> <span>통계</span>
                     </button>
@@ -565,7 +796,7 @@ function AppContent() {
                 </div>
             )}
 
-            <FilterModal isOpen={isFilterModalOpen} onClose={() => setIsFilterModalOpen(false)} onApply={handleApplyFilters} initialFilters={filters} isDarkMode={isDarkMode} />
+            <FilterModal isOpen={isFilterModalOpen} onClose={() => setIsFilterModalOpen(false)} onApply={handleApplyFilters} initialFilters={filters} isDarkMode={isDarkMode} entries={entries} />
             {isLoading && (
                 <div className="fixed inset-0 bg-gray-900 bg-opacity-70 flex flex-col items-center justify-center z-[99]">
                     <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-white mb-4"></div>
@@ -599,18 +830,15 @@ function CalculatorPageWrapper() {
     // 2. 🔥 Context의 저장 함수 사용 (localStorage 직접 수정 X)
     const { saveEntry } = useDelivery(); 
 
-    const handleApply = (results) => {
-        // 복잡한 로직 없이 Context에 데이터 전달만 하면 끝!
-        // 날짜, 회전, 계산 결과만 던져주면 Context가 알아서 기존 데이터를 찾아 업데이트하거나 새로 만듭니다.
-        const dataToSave = {
-            date: date,
-            round: currentRound || 0, // 회전 정보 필수
-            ...results
-        };
-
-        saveEntry(dataToSave); // 저장 요청
-        navigate(-1); // 뒤로가기
-    };
+   const handleApply = (results) => {
+    saveEntry({
+        type: 'income', // 계산기는 수익용
+        date: date,
+        round: currentRound || 0,
+        ...results
+    });
+    navigate(-1);
+};
 
     return (
         <CalculatorPage 
