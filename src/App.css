@@ -1,0 +1,92 @@
+/* 추가할 내용 */
+/* src/index.css */
+html, body {
+  /* 상단바 뒤에 비치는 속살을 강제로 남색으로 고정 */
+  background-color: #111827 !important; 
+  margin: 0;
+  padding: 0;
+  /* 스크롤 튕길 때 흰색 보이는 것 방지 */
+  overscroll-behavior-y: none; 
+}
+
+/* 폰이 다크모드일 때 앱 전체 배경색을 어둡게 강제 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    background-color: #111827 !important; /* 강제로 어두운 색 적용 */
+  }
+  body {
+    background-color: #111827 !important;
+  }
+}
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: inherit; 
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: inherit;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+/* --- 프로그레스 바 (다크/라이트 모드 공용) --- */
+
+.progress-container {
+  display: flex;             /* 한 줄 정렬 */
+  align-items: center;       /* 세로 중앙 정렬 */
+  width: 80%;                /* 너비 (필요에 따라 조절) */
+  margin: 10px auto;         /* 중앙 정렬 */
+  gap: 15px;                 /* 바와 글자 사이 간격 */
+}
+
+.progress-bar {
+  flex-grow: 1;              /* 남은 공간 채우기 */
+  height: 20px;
+  background-color: rgba(128, 128, 128, 0.3); /* 반투명 회색 (다크/라이트 모두 잘 보임) */
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  background-color: #4caf50; /* 초록색 */
+  transition: width 0.3s ease;
+}
+
+.percent-text {
+  font-size: clamp(14px, 2.5vw, 20px); /* 반응형 폰트 크기 */
+  font-weight: bold;
+  white-space: nowrap;       /* 줄바꿈 금지 */
+  
+  /* 핵심: 색상을 고정하지 않고 현재 테마의 글자색을 따라감 */
+  color: inherit;            
+}

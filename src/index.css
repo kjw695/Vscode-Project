@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+    /* 👇 [수정] 흰색(#ffffff)이 아니라 은은한 회색(#f3f4f6)으로 칠해서 뒤를 가립니다! */
+    background-color: #f3f4f6 !important; 
+    transition: background-color 0.3s ease;
+  }
+
+  /* 다크모드는 그대로 남색 유지 */
+  html.dark body, body.dark {
+    background-color: #111827 !important;
+  }
+}
+
+/* 툴팁 스타일 (유지) */
+.react-tooltip {
+  background-color: #222 !important;
+  color: #fff !important;
+  border-radius: 4px !important;
+  padding: 8px 12px !important;
+  font-size: 12px !important;
+}

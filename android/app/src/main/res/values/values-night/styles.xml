@@ -1,0 +1,9 @@
+<style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    ...
+    <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    
+    <item name="android:windowTranslucentStatus">true</item>
+    
+    <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+    ...
+</style>
