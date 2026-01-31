@@ -1,270 +1,250 @@
-import { useMemo } from 'react';
-import { formatDate } from '../utils';
+import { useMemo, useCallback } from 'react';
 
-export const useProfitCalculations = (entries, selectedMonth, selectedYear, monthlyStartDay, monthlyEndDay, userId) => {
+// [1] 날짜 조립기
+const makeDateString = (year, month, day) => {
+    let y = year;
+    let m = month;
+    if (m < 1) { m += 12; y -= 1; } 
+    else if (m > 12) { m -= 12; y += 1; }
+    return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+};
 
-    // 월별 수익 계산
-    const monthlyProfit = useMemo(() => {
-        const [year, month] = selectedMonth.split('-').map(Number);
-        const periodEndDate = new Date(year, month - 1, monthlyEndDay);
-        let periodStartDate;
-        if (monthlyStartDay <= monthlyEndDay) {
-            periodStartDate = new Date(year, month - 1, monthlyStartDay);
-        } else {
-            periodStartDate = new Date(year, month - 2, monthlyStartDay);
-        }
-        const formattedPeriodStartDate = formatDate(periodStartDate);
-        const formattedPeriodEndDate = formatDate(periodEndDate);
-        const filteredEntries = userId ? entries.filter(entry => entry.date >= formattedPeriodStartDate && entry.date <= formattedPeriodEndDate) : [];
+export const useProfitCalculations = (entries, selectedMonth, selectedYear, monthlyStartDay, monthlyEndDay, userId, itemLabels = {}) => {
 
-        let totalDeliveryRevenue = 0, totalReturnRevenue = 0, totalFreshBagRevenue = 0, totalDeliveryInterruptionRevenue = 0;
-        let totalPenaltyCost = 0, totalIndustrialAccidentCost = 0, totalFuelCost = 0, totalMaintenanceCost = 0;
-        let totalVatAmount = 0, totalIncomeTaxAmount = 0, totalTaxAccountantFee = 0;
+    const isKo = typeof navigator !== 'undefined' && navigator.language.includes('ko');
+
+    const calculateData = useCallback((filteredEntries) => {
+        let totalRevenue = 0;
+        let totalExpensesSum = 0;
+        let totalVolume = 0; 
+        let totalFreshBag = 0;
+        
         const dailyBreakdown = {};
-        const uniqueDatesMonthly = new Set();
+        const rawRevenueMap = {};
+        const rawExpenseMap = {};
+        
+        // [핵심] 단가별 내역을 담을 그릇 (여기에 700원 따로, 100원 따로 담습니다)
         const unitPriceBreakdown = {};
-        let totalDeliveryCount = 0, totalReturnCount = 0, totalInterruptionCount = 0;
 
-        filteredEntries.forEach(entry => {
-            const unitPrice = entry.unitPrice || 0;
-            const deliveryCount = entry.deliveryCount || 0;
-            const returnCount = entry.returnCount || 0;
-            const deliveryInterruptionAmount = entry.deliveryInterruptionAmount || 0;
-            const freshBagCount = entry.freshBagCount || 0;
-            const penaltyAmount = entry.penaltyAmount || 0;
-            const industrialAccidentCost = entry.industrialAccidentCost || 0;
-            const fuelCost = entry.fuelCost || 0;
-            const maintenanceCost = entry.maintenanceCost || 0;
-            const vatAmount = entry.vatAmount || 0;
-            const incomeTaxAmount = entry.incomeTaxAmount || 0;
-            const taxAccountantFee = entry.taxAccountantFee || 0;
-            if (deliveryCount || returnCount || freshBagCount || deliveryInterruptionAmount || penaltyAmount || industrialAccidentCost || fuelCost || maintenanceCost || vatAmount || incomeTaxAmount || taxAccountantFee) {
-                uniqueDatesMonthly.add(entry.date);
+        // [도우미] 단가별 저장 함수
+        const addToUnitPriceBreakdown = (unitPrice, name, value, count) => {
+            if (!name || value <= 0 || count <= 0) return;
+            
+            // 데이터에 적힌 단가 그대로 키(Key)로 사용 (예: "700", "100")
+            const priceKey = String(unitPrice || 0);
+            const itemName = name.trim();
+
+            if (!unitPriceBreakdown[priceKey]) {
+                unitPriceBreakdown[priceKey] = { items: {}, totalRevenue: 0 };
             }
-            const deliveryInterruptionCalculated = unitPrice * deliveryInterruptionAmount;
-            if (!dailyBreakdown[entry.date]) dailyBreakdown[entry.date] = { revenue: 0, expenses: 0 };
-            dailyBreakdown[entry.date].revenue += (unitPrice * deliveryCount) + (unitPrice * returnCount) + deliveryInterruptionCalculated + (freshBagCount * 100);
-            dailyBreakdown[entry.date].expenses += penaltyAmount + industrialAccidentCost + fuelCost + maintenanceCost + vatAmount + incomeTaxAmount + taxAccountantFee;
-            totalDeliveryRevenue += unitPrice * deliveryCount;
-            totalReturnRevenue += unitPrice * returnCount;
-            totalDeliveryInterruptionRevenue += deliveryInterruptionCalculated;
-            totalFreshBagRevenue += freshBagCount * 100;
-            totalPenaltyCost += penaltyAmount;
-            totalIndustrialAccidentCost += industrialAccidentCost;
-            totalFuelCost += fuelCost;
-            totalMaintenanceCost += maintenanceCost;
-            totalVatAmount += vatAmount;
-            totalIncomeTaxAmount += incomeTaxAmount;
-            totalTaxAccountantFee += taxAccountantFee;
-            totalDeliveryCount += deliveryCount;
-            totalReturnCount += returnCount;
-            totalInterruptionCount += deliveryInterruptionAmount;
-           if (unitPrice > 0) {
-    if (!unitPriceBreakdown[unitPrice]) {
-        // ✨ 변경점 1: 각 항목별 수익을 저장할 공간 추가
-        unitPriceBreakdown[unitPrice] = {
-            deliveryCount: 0, deliveryRevenue: 0,
-            interruptionCount: 0, interruptionRevenue: 0,
-            returnCount: 0, returnRevenue: 0,
-            totalRevenue: 0
+            if (!unitPriceBreakdown[priceKey].items[itemName]) {
+                unitPriceBreakdown[priceKey].items[itemName] = { count: 0, amount: 0 };
+            }
+
+            // 해당 단가 그룹에 쏙 넣기
+            unitPriceBreakdown[priceKey].items[itemName].count += count;
+            unitPriceBreakdown[priceKey].items[itemName].amount += value;
+            unitPriceBreakdown[priceKey].totalRevenue += value;
         };
-    }
-    
-    // ✨ 변경점 2: 각 항목별 수익을 개별적으로 계산
-    const deliveryRevenueForEntry = unitPrice * deliveryCount;
-    const returnRevenueForEntry = unitPrice * returnCount;
-    const interruptionRevenueForEntry = deliveryInterruptionCalculated;
 
-    // ✨ 변경점 3: 계산된 값을 각각 해당하는 곳에 더해줌
-    unitPriceBreakdown[unitPrice].deliveryCount += deliveryCount;
-    unitPriceBreakdown[unitPrice].deliveryRevenue += deliveryRevenueForEntry;
-    unitPriceBreakdown[unitPrice].returnCount += returnCount;
-    unitPriceBreakdown[unitPrice].returnRevenue += returnRevenueForEntry;
-    unitPriceBreakdown[unitPrice].interruptionCount += deliveryInterruptionAmount;
-    unitPriceBreakdown[unitPrice].interruptionRevenue += interruptionRevenueForEntry;
-    unitPriceBreakdown[unitPrice].totalRevenue += deliveryRevenueForEntry + returnRevenueForEntry + interruptionRevenueForEntry;
-}
-        });
-        const netProfit = totalDeliveryRevenue + totalReturnRevenue + totalFreshBagRevenue + totalDeliveryInterruptionRevenue - totalPenaltyCost - totalIndustrialAccidentCost - totalFuelCost - totalMaintenanceCost - totalVatAmount - totalIncomeTaxAmount - totalTaxAccountantFee;
-        const totalVolume = totalDeliveryCount + totalReturnCount + totalInterruptionCount;
-        const totalFreshBag = filteredEntries.reduce((sum, entry) => sum + (entry.freshBagCount || 0), 0);
-        const totalWorkingDays = uniqueDatesMonthly.size;
-        const dailyAverageVolume = totalWorkingDays > 0 ? (totalVolume / totalWorkingDays) : 0;
-        const totalExpensesSum = totalPenaltyCost + totalIndustrialAccidentCost + totalFuelCost + totalMaintenanceCost + totalVatAmount + totalIncomeTaxAmount + totalTaxAccountantFee;
-        return { totalDeliveryRevenue, totalReturnRevenue, totalFreshBagRevenue, totalDeliveryInterruptionRevenue, totalPenaltyCost, totalIndustrialAccidentCost, totalFuelCost, totalMaintenanceCost, totalVatAmount, totalIncomeTaxAmount, totalTaxAccountantFee, netProfit, periodStartDate, periodEndDate, dailyBreakdown, totalVolume, totalExpensesSum, totalFreshBag, totalWorkingDays, dailyAverageVolume, unitPriceBreakdown, totalDeliveryCount, totalReturnCount, totalInterruptionCount };
-    }, [entries, selectedMonth, monthlyStartDay, monthlyEndDay, userId]);
+        const addToTopRanking = (map, name, value, count) => {
+            if (!name || value <= 0) return;
+            const key = name.trim();
+            if (!map[key]) map[key] = { amount: 0, count: 0 };
+            map[key].amount += value;
+            map[key].count += count;
+        };
 
-   // 연간 수익 계산
-const yearlyProfit = useMemo(() => {
-    const year = parseInt(selectedYear);
-    const filteredEntriesForYear = userId ? entries.filter(entry => new Date(entry.date).getFullYear() === year) : [];
-
-    let totalDeliveryRevenue = 0, totalReturnRevenue = 0, totalFreshBagRevenue = 0, totalDeliveryInterruptionRevenue = 0;
-    let totalPenaltyCost = 0, totalIndustrialAccidentCost = 0, totalFuelCost = 0, totalMaintenanceCost = 0;
-    let totalVatAmount = 0, totalIncomeTaxAmount = 0, totalTaxAccountantFee = 0;
-    let totalDeliveryCount = 0, totalReturnCount = 0, totalInterruptionCount = 0;
-    
-    const monthlyBreakdown = [];
-    const uniqueDatesYearly = new Set();
-    
-    // 연간 전체 데이터에 대해 먼저 모든 합계를 계산합니다.
-    filteredEntriesForYear.forEach(entry => {
-        if (entry.deliveryCount > 0 || entry.returnCount > 0 || entry.freshBagCount > 0 || entry.deliveryInterruptionAmount > 0 || entry.penaltyAmount > 0 || entry.industrialAccidentCost > 0 || entry.fuelCost > 0 || entry.maintenanceCost > 0 || entry.vatAmount > 0 || entry.incomeTaxAmount > 0 || entry.taxAccountantFee > 0) {
-            uniqueDatesYearly.add(entry.date);
-        }
-        const deliveryInterruptionCalculated = (entry.unitPrice || 0) * (entry.deliveryInterruptionAmount || 0);
-        totalDeliveryRevenue += (entry.unitPrice || 0) * (entry.deliveryCount || 0);
-        totalReturnRevenue += (entry.unitPrice || 0) * (entry.returnCount || 0);
-        totalDeliveryInterruptionRevenue += deliveryInterruptionCalculated;
-        totalFreshBagRevenue += (entry.freshBagCount || 0) * 100;
-        totalPenaltyCost += (entry.penaltyAmount || 0);
-        totalIndustrialAccidentCost += (entry.industrialAccidentCost || 0);
-        totalFuelCost += (entry.fuelCost || 0);
-        totalMaintenanceCost += (entry.maintenanceCost || 0);
-        totalVatAmount += (entry.vatAmount || 0);
-        totalIncomeTaxAmount += (entry.incomeTaxAmount || 0);
-        totalTaxAccountantFee += (entry.taxAccountantFee || 0);
-        totalDeliveryCount += entry.deliveryCount || 0;
-        totalReturnCount += entry.returnCount || 0;
-        totalInterruptionCount += entry.deliveryInterruptionAmount || 0;
-    });
-
-    // 월별 순이익 계산은 그래프를 위해 별도로 계산합니다.
-    for (let month = 1; month <= 12; month++) {
-        const periodEndDate = new Date(year, month - 1, monthlyEndDay);
-        let periodStartDate;
-        if (monthlyStartDay <= monthlyEndDay) {
-            periodStartDate = new Date(year, month - 1, monthlyStartDay);
-        } else {
-            periodStartDate = new Date(year, month - 2, monthlyStartDay);
-        }
-        const formattedPeriodStartDate = formatDate(periodStartDate);
-        const formattedPeriodEndDate = formatDate(periodEndDate);
-        const filteredEntriesForMonth = filteredEntriesForYear.filter(entry => entry.date >= formattedPeriodStartDate && entry.date <= formattedPeriodEndDate);
+        const systemKeys = new Set(['id', 'date', 'type', 'round', 'timestamp', 'unitPrice', 'customItems']);
         
-        const monthNetProfit = filteredEntriesForMonth.reduce((sum, entry) => {
-            const revenue = ((entry.unitPrice || 0) * (entry.deliveryCount || 0)) + ((entry.unitPrice || 0) * (entry.returnCount || 0)) + ((entry.unitPrice || 0) * (entry.deliveryInterruptionAmount || 0)) + ((entry.freshBagCount || 0) * 100);
-            const expenses = (entry.penaltyAmount || 0) + (entry.industrialAccidentCost || 0) + (entry.fuelCost || 0) + (entry.maintenanceCost || 0) + (entry.vatAmount || 0) + (entry.incomeTaxAmount || 0) + (entry.taxAccountantFee || 0);
-            return sum + revenue - expenses;
-        }, 0);
-        
-        monthlyBreakdown.push({ month: month, netProfit: monthNetProfit });
-    }
-    
-    const totalExpensesSum = totalPenaltyCost + totalIndustrialAccidentCost + totalFuelCost + totalMaintenanceCost + totalVatAmount + totalIncomeTaxAmount + totalTaxAccountantFee;
-    const netProfit = totalDeliveryRevenue + totalReturnRevenue + totalFreshBagRevenue + totalDeliveryInterruptionRevenue - totalExpensesSum;
-    const totalVolume = totalDeliveryCount + totalReturnCount + totalInterruptionCount;
-    const totalFreshBag = filteredEntriesForYear.reduce((sum, entry) => sum + (entry.freshBagCount || 0), 0);
-    const totalWorkingDays = uniqueDatesYearly.size;
-    const dailyAverageVolume = totalWorkingDays > 0 ? (totalVolume / totalWorkingDays) : 0;
+        const defaultNames = isKo ? {
+            'deliveryCount': '배송', 'returnCount': '반품', 'deliveryInterruptionAmount': '배송중단',
+            'freshBagCount': '프레시백', 'penaltyAmount': '패널티', 'industrialAccidentCost': '산재보험',
+            'fuelCost': '유류비', 'maintenanceCost': '경정비', 'vatAmount': '부가세',
+            'incomeTaxAmount': '소득세', 'taxAccountantFee': '세무기장'
+        } : {
+            'deliveryCount': 'Delivery', 'returnCount': 'Return', 'deliveryInterruptionAmount': 'Stop',
+            'freshBagCount': 'Fresh Bag', 'penaltyAmount': 'Penalty', 'industrialAccidentCost': 'Insurance',
+            'fuelCost': 'Fuel', 'maintenanceCost': 'Maintenance', 'vatAmount': 'VAT',
+            'incomeTaxAmount': 'Income Tax', 'taxAccountantFee': 'Tax Fee'
+        };
 
-    return {
-        totalDeliveryRevenue, totalReturnRevenue, totalFreshBagRevenue, totalDeliveryInterruptionRevenue,
-        totalPenaltyCost, totalIndustrialAccidentCost, totalFuelCost, totalMaintenanceCost, totalVatAmount, totalIncomeTaxAmount, totalTaxAccountantFee,
-        netProfit, monthlyBreakdown,
-        totalVolume, totalExpensesSum, totalFreshBag, totalWorkingDays, dailyAverageVolume,
-        totalDeliveryCount, totalReturnCount, totalInterruptionCount
-    };
-}, [entries, selectedYear, monthlyStartDay, monthlyEndDay, userId]);
+        const getDisplayName = (key) => {
+            if (itemLabels[key]) return itemLabels[key];
+            if (defaultNames[key]) return defaultNames[key];
+            return key;
+        };
 
-   // 누적 수익 계산
-const cumulativeProfit = useMemo(() => {
-    const entriesForCumulative = userId ? entries : [];
-    let totalDeliveryRevenue = 0, totalReturnRevenue = 0, totalFreshBagRevenue = 0, totalDeliveryInterruptionRevenue = 0;
-    let totalPenaltyCost = 0, totalIndustrialAccidentCost = 0, totalFuelCost = 0, totalMaintenanceCost = 0;
-    let totalVatAmount = 0, totalIncomeTaxAmount = 0, totalTaxAccountantFee = 0;
-    let totalDeliveryCount = 0, totalReturnCount = 0, totalInterruptionCount = 0;
-    const uniqueDatesCumulative = new Set();
-    
-    entriesForCumulative.forEach(entry => {
-        if (entry.deliveryCount > 0 || entry.returnCount > 0 || entry.freshBagCount > 0 || entry.deliveryInterruptionAmount > 0 || entry.penaltyAmount > 0 || entry.industrialAccidentCost > 0 || entry.fuelCost > 0 || entry.maintenanceCost > 0 || entry.vatAmount > 0 || entry.incomeTaxAmount > 0 || entry.taxAccountantFee > 0) {
-            uniqueDatesCumulative.add(entry.date);
-        }
-        const deliveryInterruptionCalculated = (entry.unitPrice || 0) * (entry.deliveryInterruptionAmount || 0);
-        totalDeliveryRevenue += (entry.unitPrice || 0) * (entry.deliveryCount || 0);
-        totalReturnRevenue += (entry.unitPrice || 0) * (entry.returnCount || 0);
-        totalDeliveryInterruptionRevenue += deliveryInterruptionCalculated;
-        totalFreshBagRevenue += (entry.freshBagCount || 0) * 100;
-        totalPenaltyCost += (entry.penaltyAmount || 0);
-        totalIndustrialAccidentCost += (entry.industrialAccidentCost || 0);
-        totalFuelCost += (entry.fuelCost || 0);
-        totalMaintenanceCost += (entry.maintenanceCost || 0);
-        totalVatAmount += (entry.vatAmount || 0);
-        totalIncomeTaxAmount += (entry.incomeTaxAmount || 0);
-        totalTaxAccountantFee += (entry.taxAccountantFee || 0);
-        totalDeliveryCount += entry.deliveryCount || 0;
-        totalReturnCount += entry.returnCount || 0;
-        totalInterruptionCount += entry.deliveryInterruptionAmount || 0;
-    });
-
-    const totalExpensesSum = totalPenaltyCost + totalIndustrialAccidentCost + totalFuelCost + totalMaintenanceCost + totalVatAmount + totalIncomeTaxAmount + totalTaxAccountantFee;
-    const netProfit = totalDeliveryRevenue + totalReturnRevenue + totalFreshBagRevenue + totalDeliveryInterruptionRevenue - totalExpensesSum;
-    const totalWorkingDays = uniqueDatesCumulative.size;
-    const totalVolume = totalDeliveryCount + totalReturnCount + totalInterruptionCount;
-    const totalFreshBag = entriesForCumulative.reduce((sum, entry) => sum + (entry.freshBagCount || 0), 0);
-    const dailyAverageVolume = totalWorkingDays > 0 ? (totalVolume / totalWorkingDays) : 0;
-
-    return {
-        totalDeliveryRevenue, totalReturnRevenue, totalFreshBagRevenue, totalDeliveryInterruptionRevenue,
-        totalPenaltyCost, totalIndustrialAccidentCost, totalFuelCost, totalMaintenanceCost, totalVatAmount, totalIncomeTaxAmount, totalTaxAccountantFee,
-        netProfit, totalWorkingDays, totalVolume, totalFreshBag, dailyAverageVolume, totalExpensesSum,
-        totalDeliveryCount, totalReturnCount, totalInterruptionCount
-    };
-}, [entries, userId]);
-
-    // 이전 달 수익 계산
-    const previousMonthlyProfit = useMemo(() => {
-        const [year, month] = selectedMonth.split('-').map(Number);
-        let prevMonth = month - 1, prevYear = year;
-        if (prevMonth === 0) { prevMonth = 12; prevYear -= 1; }
-        const prevPeriodEndDate = new Date(prevYear, prevMonth - 1, monthlyEndDay);
-        let prevPeriodStartDate;
-        if (monthlyStartDay <= monthlyEndDay) {
-            prevPeriodStartDate = new Date(prevYear, prevMonth - 1, monthlyStartDay);
-        } else {
-            prevPeriodStartDate = new Date(prevYear, prevMonth - 2, monthlyStartDay);
-        }
-        const formattedPrevPeriodStartDate = formatDate(prevPeriodStartDate);
-        const formattedPrevPeriodEndDate = formatDate(prevPeriodEndDate);
-        const filteredEntries = userId ? entries.filter(entry => entry.date >= formattedPrevPeriodStartDate && entry.date <= formattedPrevPeriodEndDate) : [];
-        
-        let totalDeliveryRevenue = 0, totalReturnRevenue = 0, totalFreshBagRevenue = 0, totalDeliveryInterruptionRevenue = 0;
-        let totalPenaltyCost = 0, totalIndustrialAccidentCost = 0, totalFuelCost = 0, totalMaintenanceCost = 0;
-        let totalVatAmount = 0, totalIncomeTaxAmount = 0, totalTaxAccountantFee = 0;
-        let totalDeliveryCount = 0, totalReturnCount = 0, totalInterruptionCount = 0;
+        const uniqueDates = new Set();
 
         filteredEntries.forEach(entry => {
-            const deliveryInterruptionCalculated = (entry.unitPrice || 0) * (entry.deliveryInterruptionAmount || 0);
-            totalDeliveryRevenue += (entry.unitPrice || 0) * (entry.deliveryCount || 0);
-            totalReturnRevenue += (entry.unitPrice || 0) * (entry.returnCount || 0);
-            totalDeliveryInterruptionRevenue += deliveryInterruptionCalculated;
-            totalFreshBagRevenue += (entry.freshBagCount || 0) * 100;
-            totalPenaltyCost += (entry.penaltyAmount || 0);
-            totalIndustrialAccidentCost += (entry.industrialAccidentCost || 0);
-            totalFuelCost += (entry.fuelCost || 0);
-            totalMaintenanceCost += (entry.maintenanceCost || 0);
-            totalVatAmount += (entry.vatAmount || 0);
-            totalIncomeTaxAmount += (entry.incomeTaxAmount || 0);
-            totalTaxAccountantFee += (entry.taxAccountantFee || 0);
-            totalDeliveryCount += entry.deliveryCount || 0;
-            totalReturnCount += entry.returnCount || 0;
-            totalInterruptionCount += entry.deliveryInterruptionAmount || 0;
-        });
-        
-        const netProfit = totalDeliveryRevenue + totalReturnRevenue + totalFreshBagRevenue + totalDeliveryInterruptionRevenue - totalPenaltyCost - totalIndustrialAccidentCost - totalFuelCost - totalMaintenanceCost - totalVatAmount - totalIncomeTaxAmount - totalTaxAccountantFee;
-        const totalVolume = totalDeliveryCount + totalReturnCount + totalInterruptionCount;
-        const totalFreshBag = filteredEntries.reduce((sum, entry) => sum + (entry.freshBagCount || 0), 0);
-        const totalWorkingDays = filteredEntries.reduce((acc, entry) => acc.add(entry.date), new Set()).size;
-        const dailyAverageVolume = totalWorkingDays > 0 ? (totalVolume / totalWorkingDays) : 0;
-        const totalExpensesSum = totalPenaltyCost + totalIndustrialAccidentCost + totalFuelCost + totalMaintenanceCost + totalVatAmount + totalIncomeTaxAmount + totalTaxAccountantFee;
+            if (!entry.date || !entry.type) return;
+            uniqueDates.add(entry.date);
 
-        return { totalDeliveryRevenue, totalReturnRevenue, totalFreshBagRevenue, totalDeliveryInterruptionRevenue, totalPenaltyCost, totalIndustrialAccidentCost, totalFuelCost, totalMaintenanceCost, totalVatAmount, totalIncomeTaxAmount, totalTaxAccountantFee, netProfit, totalVolume, totalFreshBag, totalWorkingDays, dailyAverageVolume, totalExpensesSum, totalDeliveryCount, totalReturnCount, totalInterruptionCount };
-    }, [entries, selectedMonth, monthlyStartDay, monthlyEndDay, userId]);
-    
-    return {
-        monthlyProfit,
-        yearlyProfit,
-        cumulativeProfit,
-        previousMonthlyProfit,
-    };
+            if (!dailyBreakdown[entry.date]) dailyBreakdown[entry.date] = { revenue: 0, expenses: 0 };
+            
+            // 그날의 '공통 단가' (예: 700원)
+            const dailyUnitPrice = Number(entry.unitPrice || 0);
+
+            // 1. 수익(Income) 계산 - 단가별 정리는 '수익'만 합니다.
+            if (entry.type === 'income') {
+                let rowRevenue = 0;
+                
+                // (A) 기본 항목들 (배송, 프레시백 등)
+                Object.keys(entry).forEach(key => {
+                    if (systemKeys.has(key)) return;
+                    const rawValue = Number(entry[key] || 0);
+                    if (rawValue <= 0) return; 
+
+                    const label = getDisplayName(key);
+                    const val = dailyUnitPrice * rawValue;
+
+                    // [데이터 원칙] 기본 항목은 '공통 단가'로 저장된 것이므로 700원 그룹에 넣습니다.
+                    addToUnitPriceBreakdown(dailyUnitPrice, label, val, rawValue);
+                    addToTopRanking(rawRevenueMap, label, val, rawValue);
+
+                    rowRevenue += val;
+                    if (key.toLowerCase().includes('delivery') || key.includes('배송')) totalVolume += rawValue;
+                    if (key.toLowerCase().includes('fresh') || key.includes('프레시')) totalFreshBag += rawValue;
+                });
+
+                // (B) 개별 항목들 (Custom Items)
+                if (entry.customItems && Array.isArray(entry.customItems)) {
+                    entry.customItems.forEach(item => {
+                        if (item.type === 'income') {
+                            // [데이터 원칙] 여기에 100원이라고 적혀 있으면 100원 그룹에 넣습니다.
+                            const p = Number(item.unitPrice || item.price || 0);
+                            const q = Number(item.quantity || item.qty || 0);
+                            
+                            if (q > 0) {
+                                const val = p * q;
+                                const label = item.item || '기타'; 
+                                
+                                addToUnitPriceBreakdown(p, label, val, q);
+                                addToTopRanking(rawRevenueMap, label, val, q);
+                                
+                                rowRevenue += val;
+                                if (item.key === 'freshBagCount' || label.includes('프레시')) totalFreshBag += q;
+                            }
+                        }
+                    });
+                }
+                totalRevenue += rowRevenue;
+                dailyBreakdown[entry.date].revenue += rowRevenue;
+            } 
+            
+            // 2. 지출(Expense) 계산 - 단가별 내역에는 포함하지 않습니다.
+            else if (entry.type === 'expense') {
+                let rowExpense = 0;
+                Object.keys(entry).forEach(key => {
+                    if (systemKeys.has(key)) return;
+                    const val = Number(entry[key] || 0);
+                    if (val <= 0) return;
+                    const label = getDisplayName(key);
+                    addToTopRanking(rawExpenseMap, label, val, 1);
+                    rowExpense += val;
+                });
+                if (entry.customItems && Array.isArray(entry.customItems)) {
+                    entry.customItems.forEach(item => {
+                        if (item.type === 'expense') {
+                            let val = Number(item.amount || 0);
+                            let q = Number(item.quantity || item.qty || 1);
+                            if (val === 0) val = Number(item.unitPrice || item.price || 0) * q;
+                            if (val > 0) {
+                                addToTopRanking(rawExpenseMap, item.item || '기타지출', val, q);
+                                rowExpense += val;
+                            }
+                        }
+                    });
+                }
+                totalExpensesSum += rowExpense;
+                dailyBreakdown[entry.date].expenses += rowExpense;
+            }
+        });
+
+        // 랭킹 정렬
+        const processTopRanking = (sourceMap, limit = 6) => {
+            const sortedItems = Object.entries(sourceMap).sort(([, dataA], [, dataB]) => dataB.amount - dataA.amount);
+            const topItems = sortedItems.slice(0, limit);
+            const otherItems = sortedItems.slice(limit);
+            const finalDetails = {};
+            topItems.forEach(([key, data]) => finalDetails[key] = data);
+            if (otherItems.length > 0) {
+                const othersData = otherItems.reduce((acc, [, data]) => { acc.amount += data.amount; acc.count += data.count; return acc; }, { amount: 0, count: 0 });
+                const otherKey = isKo ? '기타 (그 외)' : 'Others';
+                finalDetails[otherKey] = othersData;
+            }
+            return finalDetails;
+        };
+
+        return {
+            netProfit: totalRevenue - totalExpensesSum,
+            totalRevenue,
+            totalExpenses: totalExpensesSum,
+            totalVolume,
+            totalFreshBag,
+            totalWorkingDays: uniqueDates.size,
+            dailyBreakdown,
+            dailyAverageVolume: uniqueDates.size > 0 ? (totalVolume / uniqueDates.size) : 0,
+            revenueDetails: processTopRanking(rawRevenueMap, 6),
+            expenseDetails: processTopRanking(rawExpenseMap, 6),
+            unitPriceBreakdown // 완성된 단가별 내역
+        };
+    }, [isKo, itemLabels]); 
+
+    // 날짜 필터링 로직 (변동 없음)
+    const monthlyProfit = useMemo(() => {
+        if (!selectedMonth) return {};
+        const [year, month] = selectedMonth.split('-').map(Number);
+        
+        let startStr, endStr;
+        if (monthlyStartDay <= monthlyEndDay) {
+            startStr = makeDateString(year, month, monthlyStartDay);
+            endStr = makeDateString(year, month, monthlyEndDay);
+        } else {
+            startStr = makeDateString(year, month - 1, monthlyStartDay);
+            endStr = makeDateString(year, month, monthlyEndDay);
+        }
+
+        const filtered = entries.filter(e => e.date >= startStr && e.date <= endStr);
+        const stats = calculateData(filtered);
+        return { ...stats, periodStartDate: startStr, periodEndDate: endStr };
+
+    }, [entries, selectedMonth, monthlyStartDay, monthlyEndDay, calculateData]);
+
+    const yearlyProfit = useMemo(() => {
+        if (!selectedYear) return {};
+        const filtered = entries.filter(e => e.date.startsWith(String(selectedYear)));
+        const stats = calculateData(filtered);
+        const monthlyBreakdown = [];
+        for (let m = 1; m <= 12; m++) {
+            const mStr = String(m).padStart(2, '0');
+            const targetMonth = `${selectedYear}-${mStr}`;
+            const mData = filtered.filter(e => e.date.startsWith(targetMonth));
+            const mStats = calculateData(mData);
+            monthlyBreakdown.push({ month: m, netProfit: mStats.netProfit, revenue: mStats.totalRevenue, expenses: mStats.totalExpenses });
+        }
+        return { ...stats, monthlyBreakdown };
+    }, [entries, selectedYear, calculateData]);
+
+    const cumulativeProfit = useMemo(() => calculateData(entries), [entries, calculateData]);
+
+    const previousMonthlyProfit = useMemo(() => {
+        if (!selectedMonth) return {};
+        const [year, month] = selectedMonth.split('-').map(Number);
+        let prevYear = year; let prevMonth = month - 1;
+        if (prevMonth === 0) { prevMonth = 12; prevYear -= 1; }
+        let startStr, endStr;
+        if (monthlyStartDay <= monthlyEndDay) {
+            startStr = makeDateString(prevYear, prevMonth, monthlyStartDay);
+            endStr = makeDateString(prevYear, prevMonth, monthlyEndDay);
+        } else {
+            startStr = makeDateString(prevYear, prevMonth - 1, monthlyStartDay);
+            endStr = makeDateString(prevYear, prevMonth, monthlyEndDay);
+        }
+        const filtered = entries.filter(e => e.date >= startStr && e.date <= endStr);
+        return calculateData(filtered);
+    }, [entries, selectedMonth, monthlyStartDay, monthlyEndDay, calculateData]);
+
+    return { monthlyProfit, yearlyProfit, cumulativeProfit, previousMonthlyProfit };
 };

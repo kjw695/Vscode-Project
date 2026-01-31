@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
 
-// 재사용 가능한 통계 카드 컴포넌트들
 const CollapsibleStatCard = ({ title, value, valueColor, onToggle, showDetails, children, isDarkMode, t }) => (
     <div className={`px-6 py-4 rounded-lg ${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-black'} shadow`}>
         <div className="flex justify-between items-center gap-2 overflow-hidden">
@@ -56,7 +55,6 @@ function StatsDisplay({
     const [showRevenueDetails, setShowRevenueDetails] = useState(false);
     const [showExpensesDetails, setShowExpensesDetails] = useState(false);
 
-    // 🔥 [원칙 준수] 시스템 언어 감지
     const isKo = useMemo(() => navigator.language.toLowerCase().includes('ko'), []);
     const t = {
         loading: isKo ? "통계 데이터를 불러오는 중입니다..." : "Loading stats...",
@@ -69,23 +67,7 @@ function StatsDisplay({
         item: isKo ? "항목" : "Item",
         count: isKo ? "건수" : "Count",
         revenue: isKo ? "수익" : "Revenue",
-        delivery: isKo ? "배송" : "Delivery",
-        return: isKo ? "반품" : "Return",
-        stop: isKo ? "중단" : "Stop",
-        freshbag: isKo ? "프레시백" : "Fresh Bag",
-        otherRevenue: isKo ? "기타 수익" : "Other Revenue",
-        otherExpense: isKo ? "기타 지출" : "Other Expenses",
-        penalty: isKo ? "패널티 비용" : "Penalty",
-        accident: isKo ? "산재 비용" : "Ind. Accident",
-        fuel: isKo ? "유류비" : "Fuel Cost",
-        maintenance: isKo ? "유지보수비" : "Maintenance",
-        vat: isKo ? "부가세" : "VAT",
-        tax: isKo ? "종합소득세" : "Income Tax",
-        accountant: isKo ? "세무사 비용" : "Accountant Fee",
-        totalDays: isKo ? "총 근무일" : "Total Days",
-        totalVolume: isKo ? "총 물량" : "Total Volume",
-        totalFreshbag: isKo ? "총 프레시백" : "Total Fresh Bags",
-        dailyAvg: isKo ? "일 평균 물량" : "Daily Avg Vol.",
+        expense: isKo ? "지출" : "Expense",
         unit: isKo ? "건" : "",
         piece: isKo ? "개" : "pcs",
         day: isKo ? "일" : "d",
@@ -98,6 +80,10 @@ function StatsDisplay({
         monthlyDetail: isKo ? "월별 상세 내역" : "Monthly Details",
         month: isKo ? "월" : "Month",
         profit: isKo ? "순이익" : "Net Profit",
+        totalDays: isKo ? "총 근무일" : "Total Days",
+        totalVolume: isKo ? "총 물량" : "Total Volume",
+        totalFreshbag: isKo ? "총 프레시백" : "Total Fresh Bags",
+        dailyAvg: isKo ? "일 평균 물량" : "Daily Avg Vol.",
         unitPriceList: isKo ? "단가별 매출 내역" : "Revenue by Unit Price",
         unitPrice: isKo ? "단가" : "Unit Price",
         totalAmount: isKo ? "총 금액" : "Total Amount"
@@ -130,22 +116,8 @@ function StatsDisplay({
     const isMonthly = statisticsView === 'monthly';
 
     const StatsCard = ({ profitData }) => {
-        // 🔥 [개선] 하드코딩된 합계 대신, useProfitCalculations에서 계산된 'totalRevenue'(커스텀 포함) 사용
-        const totalRevenue = profitData.totalRevenue || (
-            (profitData.totalDeliveryRevenue || 0) + 
-            (profitData.totalReturnRevenue || 0) + 
-            (profitData.totalFreshBagRevenue || 0) + 
-            (profitData.totalDeliveryInterruptionRevenue || 0)
-        );
-
-        // 기존 항목들의 합계 (기타 수익 계산용)
-        const legacyRevenueSum = (profitData.totalDeliveryRevenue || 0) + (profitData.totalReturnRevenue || 0) + (profitData.totalFreshBagRevenue || 0) + (profitData.totalDeliveryInterruptionRevenue || 0);
-        const otherRevenue = totalRevenue - legacyRevenueSum;
-
-        // 🔥 [개선] 지출도 동일하게 처리
-        const totalExpenses = profitData.totalExpensesSum || 0;
-        const legacyExpenseSum = (profitData.totalPenaltyCost || 0) + (profitData.totalIndustrialAccidentCost || 0) + (profitData.totalFuelCost || 0) + (profitData.totalMaintenanceCost || 0) + (profitData.totalVatAmount || 0) + (profitData.totalIncomeTaxAmount || 0) + (profitData.totalTaxAccountantFee || 0);
-        const otherExpense = totalExpenses - legacyExpenseSum;
+        const revenueRows = profitData.revenueDetails ? Object.entries(profitData.revenueDetails) : [];
+        const expenseRows = profitData.expenseDetails ? Object.entries(profitData.expenseDetails) : [];
 
         return (
             <div className="space-y-3">
@@ -160,7 +132,7 @@ function StatsDisplay({
 
                 <CollapsibleStatCard
                     title={t.totalRevenue}
-                    value={totalRevenue}
+                    value={profitData.totalRevenue || 0}
                     valueColor="text-red-500"
                     onToggle={() => toggleDetails('revenue')}
                     showDetails={showRevenueDetails}
@@ -173,59 +145,49 @@ function StatsDisplay({
                             <span className="text-right">{t.count}</span>
                             <div className="w-28 text-right"><span>{t.revenue}</span></div>
                         </div>
-                        <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 text-sm sm:text-base">
-                            <span className="whitespace-nowrap">{t.delivery}</span>
-                            <span className="text-right whitespace-nowrap">{(profitData.totalDeliveryCount || 0).toLocaleString()} {t.unit}</span>
-                            <div className="w-28 text-right"><span className="font-bold whitespace-nowrap">{(profitData.totalDeliveryRevenue || 0).toLocaleString()} 원</span></div>
-                        </div>
-                        <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 text-sm sm:text-base">
-                            <span className="whitespace-nowrap">{t.return}</span>
-                            <span className="text-right whitespace-nowrap">{(profitData.totalReturnCount || 0).toLocaleString()} {t.unit}</span>
-                            <div className="w-28 text-right"><span className="font-bold whitespace-nowrap">{(profitData.totalReturnRevenue || 0).toLocaleString()} 원</span></div>
-                        </div>
-                        <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 text-sm sm:text-base">
-                            <span className="whitespace-nowrap">{t.stop}</span>
-                            <span className="text-right whitespace-nowrap">{(profitData.totalInterruptionCount || 0).toLocaleString()} {t.unit}</span>
-                            <div className="w-28 text-right"><span className="font-bold whitespace-nowrap">{(profitData.totalDeliveryInterruptionRevenue || 0).toLocaleString()} 원</span></div>
-                        </div>
-                        <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 text-sm sm:text-base">
-                            <span className="whitespace-nowrap">{t.freshbag}</span>
-                            <span className="text-right whitespace-nowrap">{(profitData.totalFreshBag || 0).toLocaleString()} {t.piece}</span>
-                            <div className="w-28 text-right"><span className="font-bold whitespace-nowrap">{(profitData.totalFreshBagRevenue || 0).toLocaleString()} 원</span></div>
-                        </div>
-                        {/* 🔥 [개선] 기타(커스텀) 수익 표시 */}
-                        {otherRevenue > 0 && (
-                            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 text-sm sm:text-base text-blue-600 dark:text-blue-400">
-                                <span className="whitespace-nowrap font-bold">{t.otherRevenue}</span>
-                                <span className="text-right whitespace-nowrap">-</span>
-                                <div className="w-28 text-right"><span className="font-bold whitespace-nowrap">{otherRevenue.toLocaleString()} 원</span></div>
-                            </div>
+                        {revenueRows.length > 0 ? (
+                            revenueRows.map(([name, data]) => (
+                                <div key={name} className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 text-sm sm:text-base">
+                                    <span className="whitespace-nowrap overflow-hidden text-ellipsis">{name}</span>
+                                    <span className="text-right whitespace-nowrap">{(data.count || 0).toLocaleString()} {t.unit}</span>
+                                    <div className="w-28 text-right">
+                                        <span className="font-bold whitespace-nowrap">{(data.amount || 0).toLocaleString()} 원</span>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-center py-2 text-gray-500">-</div>
                         )}
                     </div>
                 </CollapsibleStatCard>
 
                 <CollapsibleStatCard
                     title={t.totalExpense}
-                    value={totalExpenses}
+                    value={profitData.totalExpenses || 0}
                     valueColor="text-blue-500"
                     onToggle={() => toggleDetails('expenses')}
                     showDetails={showExpensesDetails}
                     isDarkMode={isDarkMode}
                     t={t}
                 >
-                    <div className="space-y-1">
-                        <div className="flex justify-between"><strong>{t.penalty}:</strong> <span>{(profitData.totalPenaltyCost || 0).toLocaleString()}</span></div>
-                        <div className="flex justify-between"><strong>{t.accident}:</strong> <span>{(profitData.totalIndustrialAccidentCost || 0).toLocaleString()}</span></div>
-                        <div className="flex justify-between"><strong>{t.fuel}:</strong> <span>{(profitData.totalFuelCost || 0).toLocaleString()}</span></div>
-                        <div className="flex justify-between"><strong>{t.maintenance}:</strong> <span>{(profitData.totalMaintenanceCost || 0).toLocaleString()}</span></div>
-                        <div className="flex justify-between"><strong>{t.vat}:</strong> <span>{(profitData.totalVatAmount || 0).toLocaleString()}</span></div>
-                        <div className="flex justify-between"><strong>{t.tax}:</strong> <span>{(profitData.totalIncomeTaxAmount || 0).toLocaleString()}</span></div>
-                        <div className="flex justify-between"><strong>{t.accountant}:</strong> <span>{(profitData.totalTaxAccountantFee || 0).toLocaleString()}</span></div>
-                        {/* 🔥 [개선] 기타(커스텀) 지출 표시 */}
-                        {otherExpense > 0 && (
-                            <div className="flex justify-between text-red-500 font-bold border-t border-gray-200 dark:border-gray-600 pt-1 mt-1">
-                                <strong>{t.otherExpense}:</strong> <span>{otherExpense.toLocaleString()}</span>
-                            </div>
+                    <div className="space-y-2">
+                         <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 text-xs font-semibold border-b border-gray-200 dark:border-gray-600 pb-1">
+                            <span>{t.item}</span>
+                            <span className="text-right">{t.count}</span>
+                            <div className="w-28 text-right"><span>{t.expense}</span></div>
+                        </div>
+                        {expenseRows.length > 0 ? (
+                            expenseRows.map(([name, data]) => (
+                                <div key={name} className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 text-sm sm:text-base">
+                                    <span className="whitespace-nowrap overflow-hidden text-ellipsis">{name}</span>
+                                    <span className="text-right whitespace-nowrap">{(data.count || 0).toLocaleString()} {t.unit}</span>
+                                    <div className="w-28 text-right">
+                                        <span className="font-bold whitespace-nowrap">{(data.amount || 0).toLocaleString()} 원</span>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-center py-2 text-gray-500">-</div>
                         )}
                     </div>
                 </CollapsibleStatCard>
@@ -250,14 +212,16 @@ function StatsDisplay({
                     </div>
                 </div>
 
-                {statisticsView === 'monthly' && monthlyProfit.unitPriceBreakdown && Object.keys(monthlyProfit.unitPriceBreakdown).length > 0 && (
+                {/* [하단] 단가별 매출 내역 */}
+                {isMonthly && profitData.unitPriceBreakdown && Object.keys(profitData.unitPriceBreakdown).length > 0 && (
                     <div className="mt-4">
                         <h3 className={`text-lg font-bold mb-3 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>
                             {t.unitPriceList}
                         </h3>
                         <div className="space-y-3">
-                            {Object.entries(monthlyProfit.unitPriceBreakdown)
-                                .sort(([priceA], [priceB]) => priceB - priceA)
+                            {/* 단가 높은 순으로 정렬 */}
+                            {Object.entries(profitData.unitPriceBreakdown)
+                                .sort(([priceA], [priceB]) => Number(priceB) - Number(priceA))
                                 .map(([unitPrice, data]) => (
                                     <div key={unitPrice} className={`p-4 rounded-lg shadow ${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-black'}`}>
                                         <div className="flex justify-between items-center pb-2 mb-2 border-b border-gray-200 dark:border-gray-600">
@@ -265,22 +229,15 @@ function StatsDisplay({
                                             <span className="font-bold text-lg">{Number(unitPrice).toLocaleString()}원</span>
                                         </div>
                                         
+                                        {/* 해당 단가 그룹에 포함된 모든 항목 출력 */}
                                         <div className="space-y-1 text-sm">
-                                            <div className="grid grid-cols-[auto_1fr_1fr] items-center gap-x-4">
-                                                <span className="font-medium">{t.delivery}</span>
-                                                <span className="text-right">{(data.deliveryCount || 0).toLocaleString()} {t.unit}</span>
-                                                <span className="text-right font-semibold">{(data.deliveryRevenue || 0).toLocaleString()} 원</span>
-                                            </div>
-                                            <div className="grid grid-cols-[auto_1fr_1fr] items-center gap-x-4">
-                                                <span className="font-medium">{t.return}</span>
-                                                <span className="text-right">{(data.returnCount || 0).toLocaleString()} {t.unit}</span>
-                                                <span className="text-right font-semibold">{(data.returnRevenue || 0).toLocaleString()} 원</span>
-                                            </div>
-                                            <div className="grid grid-cols-[auto_1fr_1fr] items-center gap-x-4">
-                                                <span className="font-medium">{t.stop}</span>
-                                                <span className="text-right">{(data.interruptionCount || 0).toLocaleString()} {t.unit}</span>
-                                                <span className="text-right font-semibold">{(data.interruptionRevenue || 0).toLocaleString()} 원</span>
-                                            </div>
+                                            {Object.entries(data.items).map(([itemName, itemData]) => (
+                                                <div key={itemName} className="grid grid-cols-[auto_1fr_1fr] items-center gap-x-4">
+                                                    <span className="font-medium">{itemName}</span>
+                                                    <span className="text-right">{(itemData.count || 0).toLocaleString()} {t.unit}</span>
+                                                    <span className="text-right font-semibold">{(itemData.amount || 0).toLocaleString()} 원</span>
+                                                </div>
+                                            ))}
                                         </div>
 
                                         <div className="flex justify-between items-center pt-3 mt-3 border-t border-gray-200 dark:border-gray-600">
@@ -305,11 +262,13 @@ function StatsDisplay({
                 <button onClick={() => setStatisticsView('yearly')} className={`py-2 px-4 font-semibold ${statisticsView === 'yearly' ? (isDarkMode ? 'border-yellow-400 text-yellow-400' : 'border-yellow-500 text-yellow-600') : (isDarkMode ? 'border-transparent text-gray-300' : 'border-transparent text-gray-500')} border-b-2`}>{t.yearly}</button>
                 <button onClick={() => setStatisticsView('cumulative')} className={`py-2 px-4 font-semibold ${statisticsView === 'cumulative' ? (isDarkMode ? 'border-yellow-400 text-yellow-400' : 'border-yellow-500 text-yellow-600') : (isDarkMode ? 'border-transparent text-gray-300' : 'border-transparent text-gray-500')} border-b-2`}>{t.cumulative}</button>
             </div>
+            
             <h3 className={`text-xl sm:text-2xl font-bold text-center mb-1 ${isDarkMode ? 'text-gray-200' : 'text-black'}`}>
                 {isMonthly && ( <div className="flex items-center justify-center space-x-2 sm:space-x-4"><button onClick={() => handleMonthChange(-1)} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`}><ArrowLeft size={20} /></button><span className="font-bold text-xl sm:text-2xl">{currentCalendarDate.getFullYear()}{isKo ? "년 " : "."}{currentCalendarDate.getMonth() + 1}{isKo ? "월" : ""}</span><button onClick={() => handleMonthChange(1)} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`}><ArrowRight size={20} /></button></div>)}
                 {statisticsView === 'yearly' && ( <div className="flex items-center justify-center space-x-2 sm:space-x-4"><button onClick={() => setSelectedYear(String(parseInt(selectedYear) - 1))} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`}><ArrowLeft size={20} /></button><span className="font-bold text-xl sm:text-2xl">{selectedYear}{t.yearStat}</span><button onClick={() => setSelectedYear(String(parseInt(selectedYear) + 1))} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`}><ArrowRight size={20} /></button></div>)}
                 {statisticsView === 'cumulative' && t.cumulativeStat}
             </h3>
+            
             {statisticsView === 'monthly' && monthlyProfit.periodStartDate && ( <p className={`text-sm text-center mb-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{t.period}: {new Date(monthlyProfit.periodStartDate).toLocaleDateString('ko-KR')} ~ {new Date(monthlyProfit.periodEndDate).toLocaleDateString('ko-KR')}</p>)}
             {statisticsView === 'yearly' && yearlyPeriod && ( <p className={`text-sm text-center mb-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{t.period}: {yearlyPeriod.startDate} ~ {yearlyPeriod.endDate}</p>)}
             {statisticsView === 'cumulative' && cumulativePeriod && ( <p className={`text-sm text-center mb-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{t.period}: {cumulativePeriod.startDate} ~ {cumulativePeriod.endDate}</p>)}
