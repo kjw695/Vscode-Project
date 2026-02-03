@@ -90,27 +90,6 @@ const CalculatorPage = ({
         onApply(calculatedResults);
     };
 
-    // 3. 포커스 시 위치 조정
-    const handleFocus = (e) => {
-        const target = e.target;
-        if (!scrollContainerRef.current) return;
-
-        setTimeout(() => { 
-            const container = scrollContainerRef.current;
-            const targetTop = target.getBoundingClientRect().top;
-            const containerTop = container.getBoundingClientRect().top; 
-            const currentScroll = container.scrollTop;
-            
-            const relativeTop = targetTop - containerTop + currentScroll;
-            const offset = window.innerHeight * 0.3; 
-
-            container.scrollTo({
-                top: relativeTop - offset,
-                behavior: 'smooth'
-            });
-        }, 100);
-    };
-
     const handleBoxClick = (key) => {
         const inputElement = document.getElementById(`calc-input-${key}`);
         if (inputElement) {
@@ -170,10 +149,10 @@ const CalculatorPage = ({
                                     ${isDarkMode 
                                         ? `bg-gray-800 ${hasInput 
                                             ? (isZero ? 'ring-1 ring-gray-500' : isNegative ? 'ring-1 ring-blue-500' : 'ring-1 ring-red-500') 
-                                            : 'border border-gray-700 focus-within:border-transparent focus-within:ring-2 focus-within:ring-indigo-400'}` // 🔥 작성전 포커스: 인디고
+                                            : 'border border-gray-700 focus-within:border-transparent focus-within:ring-2 focus-within:ring-indigo-400'}` 
                                         : `bg-white ${hasInput 
                                             ? (isZero ? 'ring-2 ring-gray-400 shadow-lg scale-[1.02]' : isNegative ? 'ring-2 ring-blue-500 shadow-lg scale-[1.02]' : 'ring-2 ring-red-500 shadow-lg scale-[1.02]') 
-                                            : 'shadow-sm border border-slate-100 focus-within:border-transparent focus-within:ring-2 focus-within:ring-indigo-500'}` // 🔥 작성전 포커스: 인디고
+                                            : 'shadow-sm border border-slate-100 focus-within:border-transparent focus-within:ring-2 focus-within:ring-indigo-500'}` 
                                     }`}
                                 >
                                     {/* 상단: 라벨 */}
@@ -210,8 +189,7 @@ const CalculatorPage = ({
                                             inputMode="numeric" 
                                             value={totalInputs[item.key] || ''} 
                                             onChange={(e) => setTotalInputs({...totalInputs, [item.key]: e.target.value})} 
-                                            onFocus={handleFocus} 
-                                            // 텍스트 색상: 입력 없으면 기본, 입력 있으면 결과에 따라 변함
+                                            // 🔥 onFocus 제거 (화면 움직임 방지)
                                             className={`w-full h-10 text-2xl font-black bg-transparent outline-none text-right tracking-tight
                                                 ${!hasInput ? (isDarkMode ? 'text-white' : 'text-slate-900') : ''}
                                                 ${hasInput ? (isZero ? (isDarkMode ? 'text-gray-400' : 'text-gray-500') : isNegative ? 'text-blue-500' : 'text-red-500') : ''} 
@@ -229,7 +207,7 @@ const CalculatorPage = ({
                                                 : isNegative 
                                                     ? (isDarkMode ? 'bg-blue-900/40 text-blue-200' : 'bg-blue-50 text-blue-700') 
                                                     : (isDarkMode ? 'bg-red-900/40 text-red-200' : 'bg-red-50 text-red-600')
-                                              )
+                                            )
                                             : 'bg-transparent'
                                         }`
                                     }>

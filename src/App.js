@@ -140,10 +140,11 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
         const savedSettings = localStorage.getItem('appSettings');
         const parsedSettings = savedSettings ? JSON.parse(savedSettings) : {};
         return parsedSettings.incomeConfig || [
-            { key: 'deliveryCount', label: '배송 수량', isVisible: true },
-            { key: 'deliveryInterruptionAmount', label: '배송중단', isVisible: true },
-            { key: 'returnCount', label: '반품 수량', isVisible: true },
-            { key: 'freshBagCount', label: '프레시백 수량', isVisible: true },
+            { key: 'deliveryCount', label: '배송', isVisible: true },
+            { key: 'deliveryInterruptionAmount', label: '중단', isVisible: true },
+            { key: 'returnCount', label: '반품', isVisible: true },
+            { key: 'freshBagCount', label: '프레시백', isVisible: true },
+            { key: 'promotionAmount', label: '프로모션', isVisible: false, useCustomPrice: false }
         ];
     });
 
@@ -209,7 +210,18 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
         const updatedSettings = { ...currentSettings, ...newSettings };
         localStorage.setItem('appSettings', JSON.stringify(updatedSettings));
     };
-
+const handleCloudRestore = async () => {
+        try {
+            const restoredData = await restoreFromDrive(); // 구글 드라이브에서 데이터 가져오기
+            if (restoredData) {
+                const result = await importStrictly(restoredData); // 데이터 덮어쓰기/병합
+                showMessage(`✅ 복원 완료!\n총 ${result.added}건이 복구되었습니다.`);
+            }
+        } catch (error) {
+            showMessage(`❌ 복원 실패: ${error.message}`);
+        }
+    };
+    
     const handleLocalCsvImport = async (file) => {
         try {
             const parsedData = await parseCsvData(file);
@@ -277,9 +289,14 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const handleSubmit = async (e, round, customItems = []) => {
         e.preventDefault();
         
-        const customTotal = customItems?.reduce((sum, item) => sum + (Number(item.amount) || 0), 0) || 0;
+       const totalRevenue = customItems?.reduce((sum, item) => {
+            const amount = Number(item.amount) || 0;     // 직접 입력한 금액 (지출 등)
+            const calculated = (Number(item.count) || 0) * (Number(item.unitPrice) || 0); // 수량 * 단가
+            return sum + amount + calculated;
+        }, 0) || 0;
 
-        if (formType === 'income' && (!unitPrice || parseFloat(unitPrice) <= 0) && customTotal <= 0) {
+        // 규칙 변경: "공통 단가가 비어있더라도(0원), 계산된 총 수익(totalRevenue)이 0보다 크면 통과시켜라"
+        if (formType === 'income' && (!unitPrice || parseFloat(unitPrice) <= 0) && totalRevenue <= 0) {
             showMessage("❗ 단가 또는 개별 항목 금액을 입력해주세요.");
             return;
         }
@@ -367,28 +384,17 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const itemLabels = useMemo(() => {
         const labels = {};
         
-        // 앱이 번역할 줄 아는 기본 키 목록
-        const systemKeys = new Set([
-            'deliveryCount', 'returnCount', 'deliveryInterruptionAmount', 'freshBagCount', // 수익
-            'penaltyAmount', 'industrialAccidentCost', 'fuelCost', 'maintenanceCost', 
-            'vatAmount', 'incomeTaxAmount', 'taxAccountantFee' // 지출
-        ]);
-
-        // 수익 항목 중 '커스텀 항목'만 담기
+        // 수익 설정의 모든 이름표 저장 (시스템 키 여부 상관없이 덮어씀)
         if (incomeConfig) {
             incomeConfig.forEach(item => {
-                if (!systemKeys.has(item.key)) {
-                    labels[item.key] = item.label;
-                }
+                labels[item.key] = item.label;
             });
         }
 
-        // 지출 항목 중 '커스텀 항목'만 담기
+        // 지출 설정의 모든 이름표 저장
         if (expenseConfig) {
             expenseConfig.forEach(item => {
-                if (!systemKeys.has(item.key)) {
-                    labels[item.key] = item.label;
-                }
+                labels[item.key] = item.label;
             });
         }
         return labels;
@@ -634,9 +640,12 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
                 {isAuthReady && (
                     <>
                        {activeContentTab === 'monthlyProfit' && (
-                        <>
-                            <RevenueDistributionChart monthlyProfit={monthlyProfit} />
-                            {/* ... 기존 내용 동일 ... */}
+    <>
+        <RevenueDistributionChart 
+            monthlyProfit={monthlyProfit} 
+            incomeConfig={incomeConfig} 
+        />
+                          
                             <div className="h-3"></div>
                             <div className={`p-4 sm:p-6 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
                             
@@ -754,38 +763,69 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
                                 </div>
                                 {activeDataTab === 'entry' && (
                                     <DataEntryForm
-                                        handleSubmit={handleSubmit} date={date} setDate={setDate} handleDateChange={handleDateChange} dateInputRef={dateInputRef}
-                                        formType={formType} setFormType={setFormType} isDarkMode={isDarkMode} entryToEdit={entryToEdit}
-                                        unitPrice={unitPrice} setUnitPrice={setUnitPrice}
-                                        formData={formData} handleInputChange={handleInputChange}
-                                        incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} expenseConfig={expenseConfig}
-                                        favoriteUnitPrices={favoriteUnitPrices}
-                                        onOpenCalculator={(d, r) => navigate('/calculator', { state: { date: d, currentRound: r, incomeConfig, isDarkMode } })}
-                                        onNavigate={(tab) => { setActiveDataTab(tab); }}
-                                    />
+    handleSubmit={handleSubmit} 
+    date={date} 
+    setDate={setDate} 
+    handleDateChange={handleDateChange} 
+    dateInputRef={dateInputRef}
+    formType={formType} 
+    setFormType={setFormType} 
+    isDarkMode={isDarkMode} 
+    entryToEdit={entryToEdit}
+    unitPrice={unitPrice} 
+    setUnitPrice={setUnitPrice}
+    formData={formData} 
+    setFormData={setFormData}  
+    handleInputChange={handleInputChange}
+
+    incomeConfig={incomeConfig} 
+    expenseConfig={expenseConfig}
+    favoriteUnitPrices={favoriteUnitPrices}
+    
+    onNavigate={(tab) => { setActiveDataTab(tab); }}
+/>
                                 )}
                                 {activeDataTab === 'list' && (
-                                    <EntriesList
-                                        entries={finalFilteredEntries}
-                                        summary={{
-                                            totalRevenue: finalFilteredEntries.reduce((sum, entry) => {
-                                                const basicRevenue = (entry.unitPrice * (entry.deliveryCount||0)) + (entry.unitPrice * (entry.returnCount||0)) + (entry.unitPrice * (entry.deliveryInterruptionAmount||0)) + (entry.unitPrice * (entry.freshBagCount || 0))
-                                                const extraRevenue = (entry.customItems || []).filter(i => i.type === 'income').reduce((s, i) => s + (Number(i.amount) || 0), 0);
-                                                return sum + basicRevenue + extraRevenue;
-                                            }, 0),
-                                            totalExpenses: finalFilteredEntries.reduce((sum, entry) => {
-                                                const hasCustomItems = entry.customItems && entry.customItems.length > 0;
-                                                const expenseSum = hasCustomItems
-                                                    ? entry.customItems.filter(i => i.type === 'expense').reduce((s, i) => s + (Number(i.amount) || 0), 0)
-                                                    : ((entry.penaltyAmount || 0) + (entry.industrialAccidentCost || 0) + (entry.fuelCost || 0) + (entry.maintenanceCost || 0) + (entry.vatAmount || 0) + (entry.incomeTaxAmount || 0) + (entry.taxAccountantFee || 0));
-                                                return sum + expenseSum;
-                                            }, 0),
-                                            entryNetProfit: Object.fromEntries(finalFilteredEntries.map(entry => [entry.id, 0])),
-                                            filterLabel: filters.label || '전체'
-                                        }}
-                                        handleEdit={handleEdit} handleDelete={handleDelete} isDarkMode={isDarkMode} onOpenFilter={() => setIsFilterModalOpen(true)} filterType={filters.type}
-                                    />
-                                )}
+    <EntriesList
+        entries={finalFilteredEntries}
+        summary={{
+            totalRevenue: finalFilteredEntries.reduce((sum, entry) => {
+                // 1. 옛날 데이터 호환용 (기본 항목)
+                const basicRevenue = (entry.unitPrice * (entry.deliveryCount||0)) + 
+                                     (entry.unitPrice * (entry.returnCount||0)) + 
+                                     (entry.unitPrice * (entry.deliveryInterruptionAmount||0)) + 
+                                     (entry.unitPrice * (entry.freshBagCount || 0));
+                
+                // 2. [수정됨] 커스텀 항목: (금액) + (수량 × 단가) 모두 합산
+                const extraRevenue = (entry.customItems || [])
+                    .filter(i => i.type === 'income')
+                    .reduce((s, i) => {
+                        const amount = Number(i.amount) || 0;
+                        const calculated = (Number(i.count) || 0) * (Number(i.unitPrice) || 0);
+                        return s + amount + calculated;
+                    }, 0);
+
+                return sum + basicRevenue + extraRevenue;
+            }, 0),
+            
+            // 지출 부분은 기존과 동일하게 유지
+            totalExpenses: finalFilteredEntries.reduce((sum, entry) => {
+                const hasCustomItems = entry.customItems && entry.customItems.length > 0;
+                const expenseSum = hasCustomItems
+                    ? entry.customItems.filter(i => i.type === 'expense').reduce((s, i) => s + (Number(i.amount) || 0), 0)
+                    : ((entry.penaltyAmount || 0) + (entry.industrialAccidentCost || 0) + (entry.fuelCost || 0) + (entry.maintenanceCost || 0) + (entry.vatAmount || 0) + (entry.incomeTaxAmount || 0) + (entry.taxAccountantFee || 0));
+                return sum + expenseSum;
+            }, 0),
+            entryNetProfit: Object.fromEntries(finalFilteredEntries.map(entry => [entry.id, 0])),
+            filterLabel: filters.label || '전체'
+        }}
+        handleEdit={handleEdit} 
+        handleDelete={handleDelete} 
+        isDarkMode={isDarkMode} 
+        onOpenFilter={() => setIsFilterModalOpen(true)} 
+        filterType={filters.type}
+    />
+)}
                             </div>
                         )}
 
@@ -799,7 +839,7 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
                                 {moreSubView === 'account' && <AccountView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} handleLogout={handleLogout} />}
                                 {moreSubView === 'unitPrice' && <UnitPriceView onBack={() => { setMoreSubView('main'); setTargetItemKey(null); }} isDarkMode={isDarkMode} adminFavoritePricesInput={adminFavoritePricesInput} setAdminFavoritePricesInput={setAdminFavoritePricesInput} handleSaveFavoritePrices={handleSaveFavoritePrices} favoriteUnitPrices={favoriteUnitPrices} targetItemKey={targetItemKey} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} />}
                                 {moreSubView === 'period' && <PeriodView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} adminMonthlyStartDayInput={adminMonthlyStartDayInput} setAdminMonthlyStartDayInput={setAdminMonthlyStartDayInput} adminMonthlyEndDayInput={adminMonthlyEndDayInput} setAdminMonthlyEndDayInput={setAdminMonthlyEndDayInput} handleSaveMonthlyPeriodSettings={handleSaveMonthlyPeriodSettings} monthlyStartDay={monthlyStartDay} monthlyEndDay={monthlyEndDay} />}
-                                {moreSubView === 'data' && <DataSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} handleExportCsv={() => exportDataAsCsv(entries, showMessage)} handleImportCsv={(e) => handleLocalCsvImport(e.target.files[0])} handleDeleteAllData={handleDeleteAllDataRequest} handleBackupToDrive={() => backupToDrive(entries)} />}
+                                {moreSubView === 'data' && <DataSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} handleExportCsv={() => exportDataAsCsv(entries, showMessage)} handleImportCsv={(e) => handleLocalCsvImport(e.target.files[0])} handleDeleteAllData={handleDeleteAllDataRequest} handleBackupToDrive={() => backupToDrive(entries)} handleRestoreFromDrive={handleCloudRestore} />}
                                 {moreSubView === 'expenseSettings' && <ExpenseSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} expenseConfig={expenseConfig} setExpenseConfig={setExpenseConfig} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} onNavigate={(view, key) => { setMoreSubView(view); if (key) setTargetItemKey(key); }} />}
                                 {moreSubView === 'userGuide' && <UserGuideView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} />}
                                 {moreSubView === 'legalInfo' && <LegalInfoView onBack={() => setMoreSubView('main')} onNavigate={setMoreSubView} isDarkMode={isDarkMode} />}

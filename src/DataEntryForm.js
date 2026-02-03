@@ -19,6 +19,9 @@ const unformatNumber = (str) => {
     return str.replace(/,/g, '');
 };
 
+// ----------------------------------------------------------------------
+// 달력 컴포넌트
+// ----------------------------------------------------------------------
 const TopSheetCalendar = ({ currentDate, onClose, onSelect, isDarkMode }) => {
     const [viewDate, setViewDate] = useState(new Date(currentDate));
     const [dragY, setDragY] = useState(0); 
@@ -154,6 +157,9 @@ const TopSheetCalendar = ({ currentDate, onClose, onSelect, isDarkMode }) => {
     );
 };
 
+// ----------------------------------------------------------------------
+// 메인 입력 폼 컴포넌트
+// ----------------------------------------------------------------------
 const DataEntryForm = ({ 
     handleSubmit, 
     date, setDate, handleDateChange, dateInputRef, 
@@ -163,7 +169,7 @@ const DataEntryForm = ({
     incomeConfig, expenseConfig,
     favoriteUnitPrices,
     onNavigate,
-    setFormData // 🔥 App.js에서 전달받은 setFormData 사용
+    setFormData 
 }) => {
     const navigate = useNavigate();
     const [selectedExtraKeys, setSelectedExtraKeys] = useState([]);
@@ -173,6 +179,9 @@ const DataEntryForm = ({
     const [currentRound, setCurrentRound] = useState(null);
     const [viewMode, setViewMode] = useState('form'); 
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+    
+    // 스크롤 컨테이너 참조
+    const listContainerRef = useRef(null);
 
     const touchStartX = useRef(null);
     const touchEndX = useRef(null);
@@ -184,23 +193,49 @@ const DataEntryForm = ({
         return isNaN(num) ? 0 : num;
     };
 
-    const getTodayLocal = () => {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+    const handleBoxClick = (key) => {
+        const input = document.getElementById(`input-${key}`);
+        if (input) input.focus();
     };
 
     const boxBottomLineClass = formType === 'income' 
         ? 'focus-within:border-b-red-500' 
         : 'focus-within:border-b-blue-500';
 
-    const handleBoxClick = (key) => {
-        const input = document.getElementById(`input-${key}`);
-        if (input) input.focus();
-    };
+ const handleFocus = (e) => {
+    const target = e.target;
+    if (!listContainerRef.current) return;
 
+    // 대기 시간을 600ms로 늘려 키보드가 완전히 올라온 후 동작하게 함
+    setTimeout(() => {
+        const container = listContainerRef.current;
+        const row = target.closest('.relative.py-2') || target.closest('.mx-2.p-2') || target.closest('.mt-2.mx-2.p-3') || target;
+        
+        if (!row) return;
+
+        // getBoundingClientRect를 다시 호출하여 실시간 위치를 정확히 파악
+        const containerRect = container.getBoundingClientRect();
+        const rowRect = row.getBoundingClientRect();
+
+        // 컨테이너 상단으로부터의 상대적 거리 계산
+        const relativeTop = rowRect.top - containerRect.top;
+        
+        // 상단 25% 지점 (0.25)
+        const targetPos = container.scrollTop + relativeTop - (container.clientHeight * 0.25);
+
+        // behavior: 'smooth'가 안 먹는 경우를 대비해 시도
+        try {
+            container.scrollTo({ 
+                top: targetPos, 
+                behavior: 'smooth' 
+            });
+        } catch (err) {
+            container.scrollTop = targetPos; // 부드러운 효과가 안되면 즉시 이동
+        }
+    }, 600); 
+};
+
+    // [초기화] 값이 없으면 ''(빈칸)으로 설정
     useEffect(() => {
         if (!entryToEdit) {
             setUnitPrice('');
@@ -208,7 +243,7 @@ const DataEntryForm = ({
             setTimeout(() => {
                 if (handleInputChange) {
                     const allConfigItems = [...(incomeConfig||[]), ...(expenseConfig||[])];
-                    allConfigItems.forEach(item => handleInputChange(item.key, 0));
+                    allConfigItems.forEach(item => handleInputChange(item.key, ''));
                 }
             }, 0);
         }
@@ -229,13 +264,21 @@ const DataEntryForm = ({
         const items = incomeConfig || [];
         if (formType === 'income') {
             items.forEach(item => {
-                if (item.useCustomPrice && Array.isArray(item.customPrice) && item.customPrice.length > 0) {
-                    if (item.customPrice.length === 1) initialPrices[item.key] = item.customPrice[0];
-                    else initialPrices[item.key] = 0; 
+                if (item.useCustomPrice && Array.isArray(item.customPrice) && item.customPrice.length === 1) {
+                    initialPrices[item.key] = item.customPrice[0];
                 }
             });
         }
-        setSelectedItemPrices(prev => ({ ...prev, ...initialPrices }));
+        
+        setSelectedItemPrices(prev => {
+            const next = { ...prev };
+            Object.keys(initialPrices).forEach(key => {
+                if (next[key] === undefined || next[key] === '') {
+                    next[key] = initialPrices[key];
+                }
+            });
+            return next;
+        });
     }, [incomeConfig, formType]);
 
     useEffect(() => {
@@ -245,29 +288,13 @@ const DataEntryForm = ({
         }
     }, [entryToEdit, formData]);
 
-    const handleFocus = (e) => {
-    const target = e.target;
-    
-    // 🔥 [추가] 입력칸을 누르면 기존 숫자를 '전체 선택' 상태로 만듦
-    // 이러면 사용자가 숫자를 누르는 순간 기존 값이 덮어씌워짐 (0을 지울 필요 없음)
-    target.select(); 
-
-    setTimeout(() => { 
-        const rect = target.getBoundingClientRect();
-        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-        const absoluteTop = rect.top + scrollTop;
-        const offset = window.innerHeight * 0.35; 
-        window.scrollTo({ top: absoluteTop - offset, behavior: 'smooth' });
-    }, 300);
-};
-
     const toggleExtraItem = (key) => {
         setSelectedExtraKeys(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
     };
 
-    const handleItemPriceSelect = (key, price) => {
-        setSelectedItemPrices(prev => ({ ...prev, [key]: price }));
-        setOpenDropdownKey(null); 
+    const handleItemPriceChange = (key, value) => {
+        const numValue = unformatNumber(value);
+        setSelectedItemPrices(prev => ({ ...prev, [key]: numValue }));
     };
 
     const handleRoundClick = (round) => {
@@ -305,22 +332,34 @@ const DataEntryForm = ({
         e.preventDefault();
         const customItems = [];
         
-        // 🔥 [혼합 방지] 현재 탭(formType)에 해당하는 Config만 순회하여 저장
         if (formType === 'income' && incomeConfig) {
-            incomeConfig.forEach(item => {
+            for (const item of incomeConfig) {
                 const qty = safeNum(formData[item.key]); 
-                if (qty > 0 && !LEGACY_KEYS.includes(item.key)) {
+                const isLegacy = LEGACY_KEYS.includes(item.key);
+                const hasGlobalPrice = unitPrice && parseFloat(unitPrice) > 0;
+
+                if (qty > 0 && (!isLegacy || !hasGlobalPrice)) {
                     let finalUnitPrice = 0;
-                    if (item.useCustomPrice) {
-                        finalUnitPrice = selectedItemPrices[item.key] || 0;
-                    } else {
+                    if (selectedItemPrices[item.key] !== undefined && selectedItemPrices[item.key] !== '') {
+                        finalUnitPrice = parseFloat(selectedItemPrices[item.key]);
+                    } 
+                    else if (item.useCustomPrice && item.customPrice && item.customPrice.length === 1) {
+                        finalUnitPrice = item.customPrice[0];
+                    } 
+                    else {
                         finalUnitPrice = parseFloat(unitPrice) || 0;
                     }
+                    
+                    if (finalUnitPrice <= 0) {
+                        alert(`'${item.label}' 항목의 단가가 0원입니다.\n단가를 입력해주세요.`);
+                        return;
+                    }
+                    
                     customItems.push({
                         key: item.key, name: item.label, amount: 0, type: 'income', unitPrice: finalUnitPrice, count: qty 
                     });
                 }
-            });
+            }
         } 
         else if (formType === 'expense' && expenseConfig) {
             expenseConfig.forEach(item => {
@@ -338,28 +377,33 @@ const DataEntryForm = ({
 
     const calculatedTotal = useMemo(() => {
         let total = 0;
-        // 계산 시에도 현재 탭만 계산 (미리보기 혼동 방지)
         if (formType === 'income' && incomeConfig) {
             incomeConfig.forEach(item => {
                 const qty = safeNum(formData[item.key]);
                 if (qty > 0) {
-                    let appliedPrice = item.useCustomPrice ? (selectedItemPrices[item.key] || 0) : parseFloat(unitPrice || 0);
+                    let appliedPrice = 0;
+                    if (selectedItemPrices[item.key] !== undefined && selectedItemPrices[item.key] !== '') {
+                        appliedPrice = parseFloat(selectedItemPrices[item.key]);
+                    } else if (item.useCustomPrice && item.customPrice && item.customPrice.length === 1) {
+                        appliedPrice = item.customPrice[0];
+                    } else {
+                        appliedPrice = parseFloat(unitPrice) || 0;
+                    }
                     total += qty * appliedPrice;
                 }
             });
         } else if (formType === 'expense' && expenseConfig) {
             expenseConfig.forEach(item => {
                 const cost = safeNum(formData[item.key]);
-                total -= cost; // 지출은 마이너스로 표기
+                total -= cost; 
             });
         }
         return total;
-    }, [formData, incomeConfig, expenseConfig, unitPrice, selectedItemPrices, formType]); // formType 의존성 추가
+    }, [formData, incomeConfig, expenseConfig, unitPrice, selectedItemPrices, formType]);
 
-    // 🔥 [초기화 로직] 탭 전환 핸들러
     const handleTabSwitch = (type) => {
         setFormType(type);
-        setFormData({}); // 입력값 초기화
+        setFormData({}); 
         setSelectedExtraKeys([]); 
         setIsMenuOpen(false); 
         setOpenDropdownKey(null);
@@ -367,45 +411,95 @@ const DataEntryForm = ({
 
     const renderItemBox = (item, isHiddenItem = false) => {
         const inputId = `input-${item.key}`;
-        let priceBadge = null;
         
-        if (formType === 'income') {
-            if (item.useCustomPrice && Array.isArray(item.customPrice) && item.customPrice.length > 0) {
-                if (item.customPrice.length === 1) {
-                    priceBadge = <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600 border border-red-200 whitespace-nowrap">{item.customPrice[0]}</span>;
-                } else {
-                    const selected = selectedItemPrices[item.key];
-                    priceBadge = (
-                        <div className="relative inline-block">
-                            <button type="button" onClick={(e) => { e.stopPropagation(); setOpenDropdownKey(openDropdownKey === item.key ? null : item.key); }} className={`px-1.5 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap flex items-center gap-0.5 transition-colors ${selected > 0 ? 'bg-red-100 text-red-600 border-red-200' : 'bg-yellow-100 text-yellow-600 border-yellow-200 animate-pulse'}`}>
-                                {selected > 0 ? `${selected}` : '단가선택'} <ChevronDown size={10} />
-                            </button>
-                            {openDropdownKey === item.key && (
-                                <div className={`absolute right-0 top-full mt-1 min-w-[80px] rounded shadow-xl border overflow-hidden z-[999] animate-in zoom-in-95 duration-100 ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}>
-                                    {item.customPrice.map((p, idx) => (
-                                        <button key={idx} type="button" onClick={() => handleItemPriceSelect(item.key, p)} className={`w-full text-right px-3 py-1.5 text-xs font-bold transition-colors ${selectedItemPrices[item.key] === p ? 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400' : (isDarkMode ? 'text-gray-200 hover:bg-gray-600' : 'text-gray-700 hover:bg-white')}`}>{p}</button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    );
-                }
-            } else {
-                priceBadge = <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${isDarkMode ? 'bg-gray-700 text-gray-400 border-gray-600' : 'bg-white text-gray-500 border-gray-200'}`}>{unitPrice || 0}</span>;
-            }
+        let currentPriceValue = '';
+        let isCustom = false; 
+
+        if (selectedItemPrices[item.key] !== undefined) {
+            currentPriceValue = selectedItemPrices[item.key];
+            isCustom = true;
+        } 
+        else if (item.useCustomPrice && item.customPrice && item.customPrice.length === 1) {
+            currentPriceValue = item.customPrice[0];
+            isCustom = true;
+        } 
+        else {
+            currentPriceValue = unitPrice; 
+            isCustom = false;
         }
 
+        const hasOptions = item.customPrice && item.customPrice.length > 1;
+
+        const priceComponent = (
+            <div className="flex flex-col w-full gap-1 justify-end h-full">
+                 {hasOptions && (
+                    <div className="flex gap-1 overflow-x-auto no-scrollbar justify-center mb-0.5">
+                        {item.customPrice.map((p, idx) => (
+                            <button
+                                key={idx}
+                                type="button"
+                                onClick={(e) => {
+                                    e.preventDefault(); e.stopPropagation();
+                                    handleItemPriceChange(item.key, p.toString());
+                                }}
+                                className={`flex-none px-2 py-0.5 rounded text-[10px] font-bold border transition-colors whitespace-nowrap
+                                    ${Number(currentPriceValue) === p
+                                        ? (isDarkMode ? 'bg-blue-600 text-white border-blue-500' : 'bg-blue-600 text-white border-blue-600') 
+                                        : (isDarkMode ? 'bg-gray-700 text-gray-300 border-gray-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50') 
+                                    }`}
+                            >
+                                {p}
+                            </button>
+                        ))}
+                    </div>
+                )}
+                
+                <input 
+                    type="text" 
+                    inputMode="numeric"
+                    tabIndex={-1} 
+                    value={formatNumber(currentPriceValue)}
+                    onChange={(e) => handleItemPriceChange(item.key, e.target.value)}
+                    onClick={(e) => e.stopPropagation()} 
+                    onFocus={handleFocus}
+                    placeholder="단가"
+                    className={`w-full h-8 text-center text-xs font-bold rounded outline-none focus:ring-1 focus:ring-blue-500 transition-colors
+                        ${isDarkMode 
+                            ? (isCustom ? 'bg-gray-700 text-blue-400 border border-blue-500/50' : 'bg-gray-700 text-gray-400 border border-gray-600') 
+                            : (isCustom ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-slate-100 text-gray-500 border border-transparent')
+                        }`}
+                />
+            </div>
+        );
+
         const containerClass = isHiddenItem 
-            ? `p-2 rounded-lg border border-red-400 border-b-4 border-b-transparent animate-in zoom-in duration-200 cursor-pointer ${isDarkMode ? 'bg-red-900/20' : 'bg-red-50'} ${boxBottomLineClass}`
-            : `relative p-2 rounded-lg border border-gray-300 border-b-4 border-b-transparent cursor-pointer transition-colors duration-200 ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-white shadow-sm'} ${boxBottomLineClass}`;
+            ? `relative py-2 px-1 flex flex-row items-center gap-2 border-b border-dashed border-red-200 dark:border-red-900/50 min-h-[3.5rem] h-auto cursor-pointer ${isDarkMode ? 'bg-red-900/10' : 'bg-red-50/50'} ${boxBottomLineClass}`
+            : `relative py-2 px-1 flex flex-row items-center gap-2 border-b border-dashed border-gray-200 dark:border-gray-800 transition-colors min-h-[3.5rem] h-auto cursor-pointer ${isDarkMode ? 'bg-slate-900' : 'bg-white'} ${boxBottomLineClass}`;
 
         return (
-            <div key={item.key} className={containerClass} onClick={() => handleBoxClick(item.key)} style={{ zIndex: openDropdownKey === item.key ? 50 : 1 }}>
-                <div className="flex justify-between items-center mb-0.5">
-                    <label className={`text-[11px] font-bold truncate flex-1 text-left ${isDarkMode ? (isHiddenItem ? 'text-red-300' : 'text-white') : (isHiddenItem ? 'text-red-600' : 'text-black')}`}>{item.label}</label>
-                    <div className="flex-none ml-1">{priceBadge}</div>
+            <div key={item.key} className={containerClass} onClick={() => handleBoxClick(item.key)}>
+                <div className="w-[30%] flex items-center overflow-hidden pl-1">
+                    <label className={`text-[13px] font-bold truncate ${isDarkMode ? (isHiddenItem ? 'text-red-300' : 'text-white') : (isHiddenItem ? 'text-red-600' : 'text-black')}`}>
+                        {item.label}
+                    </label>
                 </div>
-                <input id={inputId} type="text" inputMode="numeric" value={formatNumber(formData[item.key])} onChange={(e) => handleInputChange(item.key, unformatNumber(e.target.value))} onFocus={handleFocus} className={`w-full h-8 text-xl font-bold bg-transparent outline-none text-right ${isDarkMode ? 'text-white' : 'text-black'}`} placeholder="0" />
+
+                <div className="w-[30%] flex justify-center px-1">
+                    {formType === 'income' ? priceComponent : <div className="w-full" />}
+                </div>
+
+                <div className="w-[40%]">
+                    <input 
+    id={inputId} 
+    type="text" 
+    inputMode="numeric" 
+    value={formatNumber(formData[item.key])} 
+    onChange={(e) => handleInputChange(item.key, unformatNumber(e.target.value))} 
+    onFocus={handleFocus}  // 이 줄을 꼭 넣어주세요!
+    className={`w-full h-10 text-xl font-bold bg-transparent outline-none text-right ${isDarkMode ? 'text-white' : 'text-black'}`} 
+    placeholder="0" 
+/>
+                </div>
             </div>
         );
     };
@@ -432,7 +526,7 @@ const DataEntryForm = ({
     if (viewMode === 'calculator') return <CalculatorPage onBack={handleCalculatorBack} onApply={handleCalculatorApply} date={date} currentRound={currentRound} incomeConfig={incomeConfig} isDarkMode={isDarkMode} />;
 
     return (
-        <form onSubmit={onFormSubmit} className={`w-full h-full flex flex-col pb-20 ${isDarkMode ? 'bg-slate-900' : 'bg-slate-50'}`} onClick={() => setOpenDropdownKey(null)} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+        <form onSubmit={onFormSubmit} className={`w-full h-full flex flex-col pb-20 font-sans ${isDarkMode ? 'bg-slate-900' : 'bg-slate-50'}`} onClick={() => setOpenDropdownKey(null)} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
             
             {isCalendarOpen && (
                 <TopSheetCalendar 
@@ -453,12 +547,12 @@ const DataEntryForm = ({
                 </div>
 
                 <div className={`flex p-1 mb-2 rounded-lg mx-2 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`}>
-                    {/* 🔥 [수정] 탭 버튼 클릭 시 handleTabSwitch 호출 */}
                     <button type="button" onClick={() => handleTabSwitch('income')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${formType === 'income' ? 'bg-red-600 text-white shadow' : (isDarkMode ? 'text-slate-400' : 'text-slate-600')}`}>수익</button>
                     <button type="button" onClick={() => handleTabSwitch('expense')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${formType === 'expense' ? 'bg-blue-600 text-white shadow' : (isDarkMode ? 'text-slate-400' : 'text-slate-600')}`}>지출</button>
                 </div>
 
                 {formType === 'income' ? (
+                    <>
                     <div className="flex justify-between items-center px-2 mb-2">
                         <div className="flex gap-1.5">
                             {[1, 2, 3].map(round => (
@@ -467,69 +561,89 @@ const DataEntryForm = ({
                         </div>
                         <button type="button" onClick={handleOpenCalculator} className="px-3 py-1 text-xs font-bold rounded-full border border-black bg-black text-yellow-400 animate-pulse shadow-md">계산하기</button>
                     </div>
-                ) : <div className="h-[34px] mb-2" />}
 
-                {formType === 'income' && (
-                    <div className={`mx-2 p-2 rounded-xl border mb-1 border-b-4 border-b-transparent transition-colors duration-200 ${boxBottomLineClass} ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-300 shadow-sm'}`} onClick={() => document.getElementById('unit-price-input').focus()}>
+                    <div className={`mx-2 p-2 rounded-xl border mb-1 border-b-4 border-b-transparent transition-colors duration-200 ${boxBottomLineClass} ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-300 shadow-sm'}`} 
+                        onClick={() => {
+                            const input = document.getElementById('unit-price-input');
+                            if(input) input.focus();
+                        }}
+                    >
                         <div className="flex justify-between items-center mb-1">
                             <label className={`text-xs font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>공통 단가 (원)</label>
                             <div className="flex gap-1">
                                 {(favoriteUnitPrices || []).map((price) => (
-                                    <button key={price} type="button" onClick={(e) => {e.stopPropagation(); setUnitPrice(price.toString());}} className={`px-2 py-0.5 text-[10px] rounded border font-extrabold ${unitPrice === price.toString() ? 'bg-black !text-yellow-400 border-yellow-400' : isDarkMode ? 'bg-gray-700 text-white border-gray-500' : 'bg-gray-100 text-black border-gray-400'}`}>{price}</button>
+                                    <button 
+                                        key={price} 
+                                        type="button" 
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation(); 
+                                            if (unitPrice === price.toString()) setUnitPrice('');
+                                            else setUnitPrice(price.toString());
+                                        }} 
+                                        className={`px-2 py-0.5 text-[10px] rounded border font-extrabold ${unitPrice === price.toString() ? 'bg-black !text-yellow-400 border-yellow-400' : isDarkMode ? 'bg-gray-700 text-white border-gray-500' : 'bg-gray-100 text-black border-gray-400'}`}
+                                    >
+                                        {price}
+                                    </button>
                                 ))}
                             </div>
                         </div>
                         <input id="unit-price-input" type="text" inputMode="numeric" value={formatNumber(unitPrice)} onChange={(e) => setUnitPrice(unformatNumber(e.target.value))} onFocus={handleFocus} className={`w-full h-10 text-xl font-bold bg-transparent outline-none ${isDarkMode ? 'text-white' : 'text-black'}`} placeholder="0" />
                     </div>
-                )}
+                    </>
+                ) : <div className="h-[34px] mb-2" />}
             </div>
 
-            <div className={`flex-1 overflow-y-auto px-2 space-y-1 pt-2 ${isDarkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
-                <div className="grid grid-cols-2 gap-3">
+            <div ref={listContainerRef} className={`flex-1 overflow-y-auto px-2 space-y-1 pt-2 ${isDarkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
+                <div className="flex flex-col gap-0">
                     {primaryItems.map((item) => renderItemBox(item, false))}
                     {hiddenItems.map((item) => (selectedExtraKeys.includes(item.key) && renderItemBox(item, true)))}
                 </div>
+                
                 {hiddenItems.length > 0 && (
-                    <div className="mt-4 pb-24">
-                        <button type="button" onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }} className={`w-full py-2.5 rounded-xl border-2 border-dashed flex items-center justify-center gap-2 font-bold text-sm transition-all ${isDarkMode ? 'border-slate-700 text-slate-400 bg-slate-800/40 hover:bg-slate-800' : 'border-slate-300 text-slate-500 bg-white hover:bg-white'}`}>
+                    <div className="mt-4 pb-0">
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }} className={`w-full py-2.5 rounded-xl border-2 border-dashed flex items-center justify-center gap-2 font-bold text-sm transition-all 
+                            ${!isMenuOpen 
+                                ? (isDarkMode ? 'bg-gray-800 text-white border-amber-200 shadow-sm' : 'bg-white text-gray-600 border-amber-200 shadow-sm') 
+                                : (isDarkMode ? 'border-slate-700 text-slate-400 bg-slate-800/40 hover:bg-slate-800' : 'border-slate-300 text-slate-500 bg-white hover:bg-white')
+                            }`}>
                             {isMenuOpen ? <ChevronUp size={18} /> : <Plus size={18} />} 
                             {isMenuOpen ? '항목 선택 닫기' : '기타 항목 입력하기'}
-                    </button>
-                    {isMenuOpen && (
-                        <div className={`mt-2 p-3 rounded-xl border animate-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-gray-800 border-gray-700 shadow-2xl' : 'bg-white border-gray-200 shadow-lg'}`}>
-                            <div className="flex flex-wrap gap-2">
-                                {hiddenItems.map(item => (
-                                    <button key={item.key} type="button" onClick={() => toggleExtraItem(item.key)} className={`px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${selectedExtraKeys.includes(item.key) ? (formType === 'income' ? 'bg-red-600 text-white shadow-md' : 'bg-blue-600 text-white shadow-md') : isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-white text-gray-600'}`}>
-                                        {selectedExtraKeys.includes(item.key) && <Check size={14} />} {item.label}
-                                    </button>
-                                ))}
+                        </button>
+                        {isMenuOpen && (
+                            <div className={`mt-2 p-3 rounded-xl border animate-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-gray-800 border-gray-700 shadow-2xl' : 'bg-white border-gray-200 shadow-lg'}`}>
+                                <div className="flex flex-wrap gap-2">
+                                    {hiddenItems.map(item => (
+                                        <button key={item.key} type="button" onClick={() => toggleExtraItem(item.key)} className={`px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${selectedExtraKeys.includes(item.key) ? (formType === 'income' ? 'bg-red-600 text-white shadow-md' : 'bg-blue-600 text-white shadow-md') : (isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-white text-gray-600 border border-amber-200')}`}>
+                                            {selectedExtraKeys.includes(item.key) && <Check size={14} />} {item.label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
+                )}
+
+              <div className={`mt-2 mx-2 p-3 mb-4 rounded-xl border-2 ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-green-200 shadow-sm'}`}>
+                    <label className="block text-xs font-bold mb-1 opacity-50">📝 특이사항 / 메모</label>
+                    <textarea 
+                        value={formData['memo'] || ''} 
+                        onChange={(e) => handleInputChange('memo', e.target.value)} 
+                        onFocus={handleFocus} 
+                        placeholder="메모를 입력하세요" 
+                        rows={2} 
+                        className={`w-full bg-transparent outline-none resize-none text-sm font-medium ${isDarkMode ? 'text-white' : 'text-black'}`} 
+                    
+                    />
+                    
                 </div>
-            )}
-
-            {/* 🔥 [추가] 특이사항 메모 입력창 */}
-            <div className={`mt-4 mx-2 p-3 rounded-xl border mb-24 ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-300 shadow-sm'}`}>
-                <label className={`block text-xs font-bold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    📝 특이사항 / 메모
-                </label>
-                <textarea
-                    value={formData['memo'] || ''}
-                    onChange={(e) => handleInputChange('memo', e.target.value)}
-                    placeholder="예: 비가 많이 와서 지연됨, 차량 정비 등"
-                    rows={2}
-                    className={`w-full bg-transparent outline-none resize-none text-sm font-medium leading-relaxed ${isDarkMode ? 'text-white placeholder-gray-600' : 'text-black placeholder-gray-400'}`}
-                />
+                <div className="h-[40vh]" />
             </div>
-
-        </div>
 
             <div className={`fixed bottom-[70px] left-0 right-0 p-2 px-4 ${isDarkMode ? 'bg-slate-900/95 border-t border-slate-800' : 'bg-white/95 border-t border-slate-200'} backdrop-blur-sm z-30`}>
                 <div className="max-w-md mx-auto flex items-center justify-between gap-3">
                     <div className="flex flex-col ml-2">
                         <span className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>예상 합계</span>
-                        {/* 🔥 [수정] 예상 합계 계산된 값 표시 (마이너스 포함) */}
                         <div className={`text-lg font-black flex items-center gap-1 ${calculatedTotal > 0 ? 'text-red-500' : (calculatedTotal < 0 ? 'text-blue-500' : 'text-gray-400')}`}>
                             <Calculator size={16} /> {calculatedTotal.toLocaleString()}원
                         </div>

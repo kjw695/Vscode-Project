@@ -168,10 +168,10 @@ const ExpenseSettingsView = ({ onBack, onNavigate, isDarkMode, expenseConfig, se
         
         if (window.confirm(t.resetConfirm(targetLabel))) {
             const defaultIncome = [
-                { key: 'deliveryCount', label: isKo ? '배송 수량' : 'Delivery Count', isVisible: true, type: 'income' },
-                { key: 'deliveryInterruptionAmount', label: isKo ? '배송중단' : 'Interruption', isVisible: true, type: 'income' },
-                { key: 'returnCount', label: isKo ? '반품 수량' : 'Return Count', isVisible: true, type: 'income' },
-                { key: 'freshBagCount', label: isKo ? '프레시백 수량' : 'Fresh Bag', isVisible: true, type: 'income' },
+                { key: 'deliveryCount', label: isKo ? '배송' : 'Delivery Count', isVisible: true, type: 'income' },
+                { key: 'deliveryInterruptionAmount', label: isKo ? '중단' : 'Interruption', isVisible: true, type: 'income' },
+                { key: 'returnCount', label: isKo ? '반품' : 'Return Count', isVisible: true, type: 'income' },
+                { key: 'freshBagCount', label: isKo ? '프레시백' : 'Fresh Bag', isVisible: true, type: 'income' },
             ];
             
             const defaultExpense = [

@@ -21,10 +21,10 @@ function UserGuideView({ onBack, isDarkMode }) {
           <ul>
             <li><strong>날짜:</strong> 데이터 입력 날짜를 선택합니다.</li>
             <li><strong>단가:</strong> 배송 건당 단가를 입력합니다.</li>
-            <li><strong>배송 수량:</strong> 해당 날짜의 배송 완료 건수를 입력합니다.</li>
-            <li><strong>반품 수량:</strong> 해당 날짜의 반품 건수를 입력합니다. (수익으로 계산됩니다)</li>
-            <li><strong>배송중단:</strong> 배송 중단으로 인한 수익 금액을 입력합니다.</li>
-            <li><strong>프레시백 수량:</strong> 수거한 프레시백 수량을 입력합니다. (개당 100원으로 계산)</li>
+            <li><strong>배송:</strong> 해당 날짜의 배송 완료 건수를 입력합니다.</li>
+            <li><strong>반품:</strong> 해당 날짜의 반품 건수를 입력합니다. (수익으로 계산됩니다)</li>
+            <li><strong>중단:</strong> 배송 중단으로 인한 수익 금액을 입력합니다.</li>
+            <li><strong>프레시백:</strong> 수거한 프레시백 수량을 입력합니다. (개당 100원으로 계산)</li>
             <li><strong>지출 비용 입력:</strong> 버튼을 클릭하여 패널티, 산재, 유류비, 유지보수비, 부가세, 종합소득세, 세무사 비용을 추가로 입력할 수 있습니다.</li>
           </ul>
           입력 후 '저장' 또는 '수정' 버튼을 클릭하여 저장합니다.

@@ -106,19 +106,19 @@ function TransactionManager({
                   </div>
               </div>
               <div>
-                  <label htmlFor="deliveryCount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>배송 수량</label>
+                  <label htmlFor="deliveryCount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>배송</label>
                   <input type="number" id="deliveryCount" value={deliveryCount} onChange={(e) => setDeliveryCount(e.target.value)} className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm`} />
               </div>
               <div>
-                  <label htmlFor="returnCount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>반품 수량</label>
+                  <label htmlFor="returnCount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>반품</label>
                   <input type="number" id="returnCount" value={returnCount} onChange={(e) => setReturnCount(e.target.value)} className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm`} />
               </div>
               <div>
-                  <label htmlFor="deliveryInterruptionAmount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>배송중단(단가곱)</label>
+                  <label htmlFor="deliveryInterruptionAmount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>중단(단가곱)</label>
                   <input type="number" id="deliveryInterruptionAmount" value={deliveryInterruptionAmount} onChange={(e) => setDeliveryInterruptionAmount(e.target.value)} className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm`} />
               </div>
               <div>
-                  <label htmlFor="freshBagCount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>프레시백 수량</label>
+                  <label htmlFor="freshBagCount" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>프레시백</label>
                   <input type="number" id="freshBagCount" value={freshBagCount} onChange={(e) => setFreshBagCount(e.target.value)} className={`mt-1 block w-full p-2 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-800'} rounded-md shadow-sm`} />
               </div>
           </div>

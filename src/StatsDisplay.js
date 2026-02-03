@@ -213,41 +213,38 @@ function StatsDisplay({
                 </div>
 
                 {/* [하단] 단가별 매출 내역 */}
-                {isMonthly && profitData.unitPriceBreakdown && Object.keys(profitData.unitPriceBreakdown).length > 0 && (
+                {/* [하단] 단가별 매출 현황 (수정됨: unitPriceAnalysis 배열 사용) */}
+                {isMonthly && profitData.unitPriceAnalysis && profitData.unitPriceAnalysis.length > 0 && (
                     <div className="mt-4">
                         <h3 className={`text-lg font-bold mb-3 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>
                             {t.unitPriceList}
                         </h3>
                         <div className="space-y-3">
-                            {/* 단가 높은 순으로 정렬 */}
-                            {Object.entries(profitData.unitPriceBreakdown)
-                                .sort(([priceA], [priceB]) => Number(priceB) - Number(priceA))
-                                .map(([unitPrice, data]) => (
-                                    <div key={unitPrice} className={`p-4 rounded-lg shadow ${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-black'}`}>
-                                        <div className="flex justify-between items-center pb-2 mb-2 border-b border-gray-200 dark:border-gray-600">
-                                            <span className="text-sm font-semibold">{t.unitPrice}</span>
-                                            <span className="font-bold text-lg">{Number(unitPrice).toLocaleString()}원</span>
-                                        </div>
-                                        
-                                        {/* 해당 단가 그룹에 포함된 모든 항목 출력 */}
-                                        <div className="space-y-1 text-sm">
-                                            {Object.entries(data.items).map(([itemName, itemData]) => (
-                                                <div key={itemName} className="grid grid-cols-[auto_1fr_1fr] items-center gap-x-4">
-                                                    <span className="font-medium">{itemName}</span>
-                                                    <span className="text-right">{(itemData.count || 0).toLocaleString()} {t.unit}</span>
-                                                    <span className="text-right font-semibold">{(itemData.amount || 0).toLocaleString()} 원</span>
-                                                </div>
-                                            ))}
-                                        </div>
-
-                                        <div className="flex justify-between items-center pt-3 mt-3 border-t border-gray-200 dark:border-gray-600">
-                                            <span className="font-semibold">{t.totalAmount}</span>
-                                            <span className={`font-bold text-lg ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>
-                                                {(data.totalRevenue || 0).toLocaleString()}원
-                                            </span>
-                                        </div>
+                            {profitData.unitPriceAnalysis.map((data, index) => (
+                                <div key={index} className={`p-4 rounded-lg shadow ${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-black'}`}>
+                                    <div className="flex justify-between items-center pb-2 mb-2 border-b border-gray-200 dark:border-gray-600">
+                                        <span className="text-sm font-semibold">{t.unitPrice}</span>
+                                        <span className="font-bold text-lg">{data.priceLabel}</span>
                                     </div>
-                                ))}
+                                    
+                                    <div className="space-y-1 text-sm">
+                                        {data.items.map((item, idx) => (
+                                            <div key={idx} className="grid grid-cols-[3fr_2fr_3fr] items-center gap-x-4">
+                                                <span className="font-medium">{item.name}</span>
+                                                <span className="text-right">{(item.count || 0).toLocaleString()} {t.unit}</span>
+                                                <span className="text-right font-semibold">{(item.amount || 0).toLocaleString()} 원</span>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="flex justify-between items-center pt-3 mt-3 border-t border-gray-200 dark:border-gray-600">
+                                        <span className="font-semibold">{t.totalAmount}</span>
+                                        <span className={`font-bold text-lg ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>
+                                            {(data.totalAmount || 0).toLocaleString()}원
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 )}
