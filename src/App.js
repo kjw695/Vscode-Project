@@ -729,19 +729,11 @@ const handleCloudRestore = async () => {
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
-                                        <div className="progress-container">
-                                            <div className="progress-bar">
-                                                <div 
-                                                    className="fill" 
-                                                    style={{ 
-                                                        width: `${goalAmount > 0 ? Math.min(100, Math.max(0, (monthlyProfit.netProfit / goalAmount) * 100)) : 0}%` 
-                                                    }}
-                                                ></div>
-                                            </div>
-                                            <span className="percent-text">
-                                                {goalAmount > 0 ? Math.round((monthlyProfit.netProfit / goalAmount) * 100) : 0}%
-                                            </span>
-                                        </div>
+                                        <GoalProgressBar 
+            current={monthlyProfit.netProfit} 
+            goal={goalAmount} 
+            isDarkMode={isDarkMode} 
+        />
                                     
                                         <div className={`pl-6 pr-[23px] py-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-white'} space-y-3 shadow`}>
                                             <DetailRow label="총 근무일" value={`${(monthlyProfit.totalWorkingDays || 0).toLocaleString()} 일`} comparison={renderComparison(monthlyProfit.totalWorkingDays, previousMonthlyProfit.totalWorkingDays)} />

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Save, Plus, ChevronDown, ChevronUp, Check, Calculator, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Save, Plus, ChevronDown, ChevronUp, Check, Calculator, ChevronLeft, ChevronRight, X, Loader2, Camera } from 'lucide-react';
 import CalculatorPage from './CalculatorPage'; 
 import { useNavigate } from 'react-router-dom';
-
 const LEGACY_KEYS = [
     'deliveryCount', 'returnCount', 'deliveryInterruptionAmount', 'freshBagCount', 
     'penaltyAmount', 'industrialAccidentCost', 'fuelCost', 'maintenanceCost',      
@@ -203,39 +202,20 @@ const DataEntryForm = ({
         ? 'focus-within:border-b-red-500' 
         : 'focus-within:border-b-blue-500';
 
- const handleFocus = (e) => {
-    const target = e.target;
-    if (!listContainerRef.current) return;
-
-    
-    // 대기 시간을 600ms로 늘려 키보드가 완전히 올라온 후 동작하게 함
-    setTimeout(() => {
-        const container = listContainerRef.current;
-        const row = target.closest('.relative.py-2') || target.closest('.mx-2.p-2') || target.closest('.mt-2.mx-2.p-3') || target;
+ // ✨ [수정] 키패드가 올라올 때 입력창을 화면 중앙으로 이동시키는 함수
+    const handleFocus = (e) => {
+        const target = e.target;
         
-        if (!row) return;
-
-        // getBoundingClientRect를 다시 호출하여 실시간 위치를 정확히 파악
-        const containerRect = container.getBoundingClientRect();
-        const rowRect = row.getBoundingClientRect();
-
-        // 컨테이너 상단으로부터의 상대적 거리 계산
-        const relativeTop = rowRect.top - containerRect.top;
-        
-        // 상단 25% 지점 (0.25)
-        const targetPos = container.scrollTop + relativeTop - (container.clientHeight * 0.25);
-
-        // behavior: 'smooth'가 안 먹는 경우를 대비해 시도
-        try {
-            container.scrollTo({ 
-                top: targetPos, 
-                behavior: 'smooth' 
+        // 키보드가 올라오는 애니메이션 시간(약 0.5초)을 기다린 후 실행
+        setTimeout(() => {
+            // scrollIntoView는 부모 스크롤 영역을 자동으로 찾아서 스크롤해줍니다.
+            target.scrollIntoView({ 
+                behavior: 'smooth', // 부드럽게 이동
+                block: 'center',    // ✨ 핵심: 입력창이 화면의 '가운데'에 오도록 설정
+                inline: 'nearest'
             });
-        } catch (err) {
-            container.scrollTop = targetPos; // 부드러운 효과가 안되면 즉시 이동
-        }
-    }, 600); 
-};
+        }, 500); // 딜레이를 500ms 정도로 넉넉하게 주면 더 안정적입니다.
+    };
 
     // [초기화] 값이 없으면 ''(빈칸)으로 설정
     useEffect(() => {
@@ -653,6 +633,10 @@ const DataEntryForm = ({
                     >
                         <div className="flex justify-between items-center mb-1">
                             <label className={`text-xs font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>공통 단가 (원)</label>
+                            
+                   
+            
+
                             <div className="flex gap-1">
                                 {(favoriteUnitPrices || []).map((price) => (
                                     <button 
@@ -723,6 +707,7 @@ const DataEntryForm = ({
                         onFocus={handleFocus} 
                         placeholder="메모를 입력하세요" 
                         rows={2} 
+                        tabIndex="-1"
                         className={`w-full bg-transparent outline-none resize-none text-sm font-medium ${isDarkMode ? 'text-white' : 'text-black'}`} 
                     
                     />
@@ -730,6 +715,7 @@ const DataEntryForm = ({
                 </div>
                 <div className="h-[40vh]" />
             </div>
+
 
             <div className={`fixed bottom-[70px] left-0 right-0 p-2 px-4 ${isDarkMode ? 'bg-slate-900/95 border-t border-slate-800' : 'bg-white/95 border-t border-slate-200'} backdrop-blur-sm z-30`}>
                 <div className="max-w-md mx-auto flex items-center justify-between gap-3">
