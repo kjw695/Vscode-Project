@@ -20,7 +20,7 @@ const GoalProgressBar = ({ current, goal, isDarkMode }) => {
   }, [progress]);
 
   return (
-    <div className="w-full mt-10 mb-6 px-1">
+    <div className="w-full mt-4 mb-2 px-1">
       {/* ✨ 애니메이션 스타일 정의 */}
       <style>{`
         /* 1. 트럭 덜컹거리는 효과 */

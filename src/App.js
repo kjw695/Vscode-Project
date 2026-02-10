@@ -35,7 +35,7 @@ import { useDelivery } from './contexts/DeliveryContext';
 import { exportDataAsCsv, parseCsvData } from './utils/dataHandlers.js'; 
 
 // [추가] 로고 이미지 (경로는 실제 로고 경로에 맞게 조정 필요, 없으면 텍스트만 표시됨)
-import logoImage from './logo.svg'; 
+import logoImage from './logo.png'; 
 
 const DetailRow = ({ label, value, comparison }) => (
     <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-1">
@@ -648,7 +648,11 @@ const handleCloudRestore = async () => {
                           
                             <div className="h-3"></div>
                             <div className={`p-4 sm:p-6 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-                            
+                            <GoalProgressBar 
+        current={monthlyProfit?.netProfit || 0} 
+        goal={goalAmount} 
+        isDarkMode={isDarkMode} 
+    />
                                 <div className="flex items-center justify-between mb-4 px-1">
                                     <div className="w-16"></div>
                                     <div className="flex items-center space-x-1"> 
@@ -729,11 +733,7 @@ const handleCloudRestore = async () => {
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
-                                        <GoalProgressBar 
-            current={monthlyProfit.netProfit} 
-            goal={goalAmount} 
-            isDarkMode={isDarkMode} 
-        />
+                                      
                                     
                                         <div className={`pl-6 pr-[23px] py-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-white'} space-y-3 shadow`}>
                                             <DetailRow label="총 근무일" value={`${(monthlyProfit.totalWorkingDays || 0).toLocaleString()} 일`} comparison={renderComparison(monthlyProfit.totalWorkingDays, previousMonthlyProfit.totalWorkingDays)} />
