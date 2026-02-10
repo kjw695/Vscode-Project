@@ -169,7 +169,8 @@ const DataEntryForm = ({
     incomeConfig, expenseConfig,
     favoriteUnitPrices,
     onNavigate,
-    setFormData 
+    setFormData,
+    entries
 }) => {
     const navigate = useNavigate();
     const [selectedExtraKeys, setSelectedExtraKeys] = useState([]);
@@ -182,7 +183,7 @@ const DataEntryForm = ({
     
     // 스크롤 컨테이너 참조
     const listContainerRef = useRef(null);
-
+    const roundScrollRef = useRef(null);
     const touchStartX = useRef(null);
     const touchEndX = useRef(null);
     const minSwipeDistance = 50;
@@ -206,6 +207,7 @@ const DataEntryForm = ({
     const target = e.target;
     if (!listContainerRef.current) return;
 
+    
     // 대기 시간을 600ms로 늘려 키보드가 완전히 올라온 후 동작하게 함
     setTimeout(() => {
         const container = listContainerRef.current;
@@ -258,6 +260,51 @@ const DataEntryForm = ({
     useEffect(() => {
         setCurrentRound(null); 
     }, [formType, date]);
+
+// (자동 회차 선택 로직)
+    useEffect(() => {
+        // 수정 모드일 때는 해당 데이터의 회차를 유지
+        if (entryToEdit) {
+            setCurrentRound(entryToEdit.round || 1);
+            return;
+        }
+
+        // 수익(income) 탭이고, 데이터가 있을 때만 계산
+        if (formType === 'income' && entries) {
+            // 1. 현재 날짜의 '수익' 데이터만 골라냅니다.
+            const todaysEntries = entries.filter(e => e.date === date && e.type === 'income');
+            
+            // 2. 가장 높은 회차 번호를 찾습니다. (데이터가 없으면 0)
+            const maxRound = todaysEntries.reduce((max, e) => {
+                const r = e.round || 0;
+                return r > max ? r : max;
+            }, 0);
+            
+            // 3. 다음 회차 = 최대 회차 + 1 (최대 8회전까지만)
+            let nextRound = maxRound + 1;
+            if (nextRound > 8) nextRound = 8; 
+
+            // 4. 자동으로 선택!
+            setCurrentRound(nextRound);
+        }
+    }, [date, entries, formType, entryToEdit]); // 날짜나 데이터가 바뀌면 다시 계산
+
+    // [추가] 회차가 변경되면 해당 버튼이 보이도록 스크롤 자동 이동
+    useEffect(() => {
+        if (currentRound && roundScrollRef.current) {
+            // 현재 회차에 해당하는 버튼 찾기 (data-round 속성 이용)
+            const activeBtn = roundScrollRef.current.querySelector(`[data-round="${currentRound}"]`);
+            
+            if (activeBtn) {
+                // 부드럽게 해당 버튼을 화면 중앙으로 이동
+                activeBtn.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest',
+                    inline: 'center' 
+                });
+            }
+        }
+    }, [currentRound]);
 
     useEffect(() => {
         const initialPrices = {};
@@ -551,17 +598,53 @@ const DataEntryForm = ({
                     <button type="button" onClick={() => handleTabSwitch('expense')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${formType === 'expense' ? 'bg-blue-600 text-white shadow' : (isDarkMode ? 'text-slate-400' : 'text-slate-600')}`}>지출</button>
                 </div>
 
+              {/* 회차 선택 및 계산하기 영역 */}
                 {formType === 'income' ? (
-                    <>
-                    <div className="flex justify-between items-center px-2 mb-2">
-                        <div className="flex gap-1.5">
-                            {[1, 2, 3].map(round => (
-                                <button key={round} type="button" onClick={() => handleRoundClick(round)} className={`px-3 py-1 text-xs font-bold rounded-full border transition-all ${currentRound === round ? bgThemeSelected : bgThemeUnselected}`}>{round}회전</button>
-                            ))}
+                    <div className="flex justify-between items-center px-1 mb-1 gap-2">
+                        {/* 가로 스크롤 영역 */}
+                        <div 
+                            ref={roundScrollRef}
+                            className="flex-1 overflow-x-auto pb-1"
+                            style={{ 
+                                msOverflowStyle: 'none', 
+                                scrollbarWidth: 'none',
+                                WebkitOverflowScrolling: 'touch' 
+                            }}
+                        >
+                            <style>{`
+                                .hide-scrollbar::-webkit-scrollbar { display: none; }
+                            `}</style>
+                            
+                            <div className="flex gap-1 w-max hide-scrollbar">
+                                {[1, 2, 3, 4, 5, 6, 7, 8].map(round => (
+                                    <button 
+                                        key={round} 
+                                        data-round={round}
+                                        type="button" 
+                                        onClick={() => handleRoundClick(round)} 
+                                        className={`px-2 py-1 text-xs font-bold rounded-full border transition-all flex-shrink-0 ${
+                                            currentRound === round ? bgThemeSelected : bgThemeUnselected
+                                        }`}
+                                    >
+                                        {round}회전
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                        <button type="button" onClick={handleOpenCalculator} className="px-3 py-1 text-xs font-bold rounded-full border border-black bg-black text-yellow-400 animate-pulse shadow-md">계산하기</button>
+                        
+                        {/* 계산하기 버튼 */}
+                        <button 
+                            type="button" 
+                            onClick={handleOpenCalculator} 
+                            className="flex-none px-2 py-1 text-xs font-bold rounded-full border border-black bg-black text-yellow-400 animate-pulse shadow-md whitespace-nowrap"
+                        >
+                            계산하기
+                        </button>
                     </div>
+                ) : <div className="h-[34px] mb-2" />}
 
+                {/* 공통 단가 입력 영역 */}
+                {formType === 'income' && (
                     <div className={`mx-2 p-2 rounded-xl border mb-1 border-b-4 border-b-transparent transition-colors duration-200 ${boxBottomLineClass} ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-300 shadow-sm'}`} 
                         onClick={() => {
                             const input = document.getElementById('unit-price-input');
@@ -588,10 +671,18 @@ const DataEntryForm = ({
                                 ))}
                             </div>
                         </div>
-                        <input id="unit-price-input" type="text" inputMode="numeric" value={formatNumber(unitPrice)} onChange={(e) => setUnitPrice(unformatNumber(e.target.value))} onFocus={handleFocus} className={`w-full h-10 text-xl font-bold bg-transparent outline-none ${isDarkMode ? 'text-white' : 'text-black'}`} placeholder="0" />
+                        <input 
+                            id="unit-price-input" 
+                            type="text" 
+                            inputMode="numeric" 
+                            value={formatNumber(unitPrice)} 
+                            onChange={(e) => setUnitPrice(unformatNumber(e.target.value))} 
+                            onFocus={handleFocus} 
+                            className={`w-full h-10 text-xl font-bold bg-transparent outline-none ${isDarkMode ? 'text-white' : 'text-black'}`} 
+                            placeholder="0" 
+                        />
                     </div>
-                    </>
-                ) : <div className="h-[34px] mb-2" />}
+                )}
             </div>
 
             <div ref={listContainerRef} className={`flex-1 overflow-y-auto px-2 space-y-1 pt-2 ${isDarkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>

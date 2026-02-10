@@ -261,7 +261,7 @@ const handleCloudRestore = async () => {
     }, [selectedMainTab, entryToEdit]);
 
     const resetForm = () => {
-        setDate(getTodayLocal());
+        
         setUnitPrice('');
         setFormData({});
         setFormType('income');
@@ -763,6 +763,7 @@ const handleCloudRestore = async () => {
                                 </div>
                                 {activeDataTab === 'entry' && (
                                     <DataEntryForm
+    entries={entries}                   
     handleSubmit={handleSubmit} 
     date={date} 
     setDate={setDate} 
