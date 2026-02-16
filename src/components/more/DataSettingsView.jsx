@@ -56,7 +56,7 @@ const DataSettingsView = ({
                             className={`${buttonBaseClass} bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/30`}
                         >
                             <Save size={18} />
-                            구글 드라이브에 백업하기
+                            구글 드라이브에 백업
                         </button>
 
                         <button 
@@ -64,7 +64,7 @@ const DataSettingsView = ({
                             className={`${buttonBaseClass} ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}
                         >
                             <RefreshCw size={18} />
-                            구글 드라이브에서 복원하기
+                            구글 드라이브에서 복원
                         </button>
                     </div>
                 </div>

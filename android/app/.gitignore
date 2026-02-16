@@ -1,2 +1,5 @@
 /build/*
 !/build/.npmkeep
+# 안드로이드 서명 키 보안 (필수)
+*.keystore
+*.jks

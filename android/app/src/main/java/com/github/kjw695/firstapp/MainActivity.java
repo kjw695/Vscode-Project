@@ -1,4 +1,4 @@
-package com.github.kjw695.firstapp;
+package com.kjw.deliverytracker;
 
 import android.graphics.Color;
 import android.os.Bundle;

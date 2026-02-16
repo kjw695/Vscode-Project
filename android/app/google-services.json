@@ -1,26 +1,36 @@
 {
   "project_info": {
-    "project_number": "518468545215",
-    "project_id": "deliverpay-new",
-    "storage_bucket": "deliverpay-new.firebasestorage.app"
+    "project_number": "146636241828",
+    "project_id": "kjw891224-8df6e",
+    "storage_bucket": "kjw891224-8df6e.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:518468545215:android:60d599aea2e33b73c4740a",
+        "mobilesdk_app_id": "1:146636241828:android:8d8432719ea68334a95f31",
         "android_client_info": {
-          "package_name": "com.github.kjw695.firstapp"
+          "package_name": "com.kjw.deliverytracker"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "146636241828-6e6s26v6aa29u4m4dg6uq2m72dt3vke0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyCPwGqdhT-h2SjXz_Maz3aJa6ANw4TcaTI"
+          "current_key": "AIzaSyAwszSHClAeZNh4QoieHFePY93FnGu3qFc"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "146636241828-6e6s26v6aa29u4m4dg6uq2m72dt3vke0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

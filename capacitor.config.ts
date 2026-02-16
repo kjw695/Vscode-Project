@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.github.kjw695.firstapp',
+  appId: 'com.kjw.deliverytracker',
   appName: '배송 수익 추적기',
   webDir: 'build',
   backgroundColor: '#111827', // 앱 로딩 시 배경색

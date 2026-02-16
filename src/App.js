@@ -85,7 +85,10 @@ function AppContent() {
     const isAuthReady = true;
 
     // --- UI 테마 및 화면 제어 ---
-    const [isDarkMode, setIsDarkMode] = useState(true);
+    const [isDarkMode, setIsDarkMode] = useState(() => {
+        // 최초 앱 로드 시 핸드폰 기계의 다크모드/라이트모드 설정을 확인합니다.
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    });
     const [selectedMainTab, setSelectedMainTab] = useState('home');
     const [activeContentTab, setActiveContentTab] = useState('monthlyProfit');
     const [activeDataTab, setActiveDataTab] = useState('entry');
@@ -152,7 +155,6 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const [sortColumn, setSortColumn] = useState('date');
     const [sortDirection, setSortDirection] = useState('desc');
     const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
-    const [showMonthlyDetails, setShowMonthlyDetails] = useState(true);
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [filters, setFilters] = useState({ period: 'all', startDate: '', endDate: '', type: 'all' });
 
@@ -233,17 +235,19 @@ const handleCloudRestore = async () => {
     };
 
     useEffect(() => {
-        const savedView = localStorage.getItem('homeView');
-        if (savedView !== null) setShowMonthlyDetails(JSON.parse(savedView));
-    }, []);
-    useEffect(() => { localStorage.setItem('homeView', JSON.stringify(showMonthlyDetails)); }, [showMonthlyDetails]);
-    useEffect(() => {
-        const loadDarkModeSetting = async () => {
-            const { value } = await Preferences.get({ key: 'isDarkMode' });
-            if (value !== null) setIsDarkMode(JSON.parse(value));
-        };
-        loadDarkModeSetting();
-    }, []);
+        const loadDarkModeSetting = async () => {
+            const { value } = await Preferences.get({ key: 'isDarkMode' });
+            if (value !== null) {
+                // 1. 두 번째 실행부터: 사용자가 마지막으로 설정한 모드로 기억
+                setIsDarkMode(JSON.parse(value));
+            } else {
+                // 2. 최초 실행 시: 핸드폰 기계가 다크/라이트인지 확인 후 적용
+                const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                setIsDarkMode(systemPrefersDark);
+            }
+        };
+        loadDarkModeSetting();
+    }, []);
     useEffect(() => {
         const saveAndApplyTheme = async () => {
             await Preferences.set({ key: 'isDarkMode', value: JSON.stringify(isDarkMode) });
@@ -666,17 +670,16 @@ const handleCloudRestore = async () => {
                                             <ChevronRight size={20} />
                                         </button>
                                     </div>
-                                    <div className="w-16 flex justify-end">
-                                        <button 
-                                            onClick={() => setShowMonthlyDetails(!showMonthlyDetails)} 
-                                            className={`py-1.5 px-3 rounded-lg font-bold text-xs transition duration-150 ease-in-out ${isDarkMode ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-                                        >
-                                            {showMonthlyDetails ? '달력' : '상세'} 
-                                        </button>
-                                    </div>
+                                  <div className="w-16 flex justify-end">
+                <button 
+                    onClick={handleTodayClick} 
+                    className="py-1 px-3 rounded-lg font-bold text-xs border-2 border-yellow-400 text-yellow-500 transition duration-150 ease-in-out"
+                >
+                    오늘
+                </button>
+            </div>
                                 </div>
 
-                                {!showMonthlyDetails ? (
                                     <div 
                                         className="calendar-view touch-pan-y"
                                         onTouchStart={onCalendarTouchStart}
@@ -729,23 +732,11 @@ const handleCloudRestore = async () => {
                                                     </div>
                                                 </div>
                                             ))}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4">
-                                      
-                                    
-                                        <div className={`pl-6 pr-[23px] py-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-white'} space-y-3 shadow`}>
-                                            <DetailRow label="총 근무일" value={`${(monthlyProfit.totalWorkingDays || 0).toLocaleString()} 일`} comparison={renderComparison(monthlyProfit.totalWorkingDays, previousMonthlyProfit.totalWorkingDays)} />
-                                            <DetailRow label="총 물량" value={`${(monthlyProfit.totalVolume || 0).toLocaleString()} 건`} comparison={renderComparison(monthlyProfit.totalVolume, previousMonthlyProfit.totalVolume)} />
-                                            <DetailRow label="총 프레시백" value={`${(monthlyProfit.totalFreshBag || 0).toLocaleString()} 개`} comparison={renderComparison(monthlyProfit.totalFreshBag, previousMonthlyProfit.totalFreshBag)} />
-                                            <DetailRow label="일 평균 물량" value={`${Math.round(monthlyProfit.dailyAverageVolume || 0)} 건`} comparison={renderComparison(Math.round(monthlyProfit.dailyAverageVolume || 0), Math.round(previousMonthlyProfit.dailyAverageVolume || 0))} />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </>
-                    )}
+                                      </div>
+    </div>
+    </div>
+    </>
+)}
 
                         {activeContentTab === 'dataEntry' && (
                             <div className={`p-4 sm:p-6 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
@@ -845,7 +836,7 @@ const handleCloudRestore = async () => {
                 )}
             </div>
 
-            {activeContentTab === 'monthlyProfit' && showMonthlyDetails && (
+          {activeContentTab === 'monthlyProfit' && (
                 <button onClick={handleNavigateToDataEntry} className="fixed bottom-28 right-6 z-40 p-4 transition-transform hover:scale-150" aria-label="데이터 기록하기">
                     <Plus size={36} className={`${isDarkMode ? 'text-gray-200' : 'text-black'}`} />
                 </button>

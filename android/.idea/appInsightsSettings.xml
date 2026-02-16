@@ -8,7 +8,7 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="com.github.kjw695.firstapp" />
+                  <option name="appId" value="com.kjw.deliverytracker" />
                   <option name="mobileSdkAppId" value="1:518468545215:android:60d599aea2e33b73c4740a" />
                   <option name="projectId" value="deliverpay-new" />
                   <option name="projectNumber" value="518468545215" />

@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace "com.github.kjw695.firstapp"
+    namespace "com.kjw.deliverytracker"
     compileSdk rootProject.ext.compileSdkVersion
 
     signingConfigs {
@@ -19,7 +19,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.github.kjw695.firstapp"
+        applicationId "com.kjw.deliverytracker"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
