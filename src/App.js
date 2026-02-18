@@ -89,6 +89,7 @@ function AppContent() {
         // 최초 앱 로드 시 핸드폰 기계의 다크모드/라이트모드 설정을 확인합니다.
         return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     });
+    const [isFabVisible, setIsFabVisible] = useState(false);
     const [selectedMainTab, setSelectedMainTab] = useState('home');
     const [activeContentTab, setActiveContentTab] = useState('monthlyProfit');
     const [activeDataTab, setActiveDataTab] = useState('entry');
@@ -640,7 +641,14 @@ const handleCloudRestore = async () => {
         >
             <SystemThemeManager isDarkMode={isDarkMode} />
 
-            <div className="w-full h-full overflow-y-auto pb-20">
+          <div 
+                className="w-full h-full overflow-y-auto pb-20"
+                onClick={(e) => {
+                    // 다른 버튼이나 입력창을 눌렀을 때는 무시하고, 진짜 바탕화면일 때만 반응
+                    if (e.target.closest('button') || e.target.closest('input')) return;
+                    setIsFabVisible(prev => !prev);
+                }}
+            >
                 {isAuthReady && (
                     <>
                        {activeContentTab === 'monthlyProfit' && (
@@ -739,8 +747,9 @@ const handleCloudRestore = async () => {
 )}
 
                         {activeContentTab === 'dataEntry' && (
-                            <div className={`p-4 sm:p-6 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
-                                <div className="flex justify-center border-b mb-4">
+                            // 껍데기를 모두 벗기고 화면 전체를 쓰도록 확장했습니다.
+                            <div className="w-full h-full flex flex-col pt-2" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+                                <div className="flex justify-center border-b mb-2 px-4">
                                     <button onClick={() => setActiveDataTab('entry')} className={`py-2 px-4 font-semibold ${activeDataTab === 'entry' ? (isDarkMode ? 'border-amber-400 text-amber-400' : 'border-amber-600 text-amber-700') : (isDarkMode ? 'border-transparent text-gray-400' : 'border-transparent text-gray-500')} border-b-2`}>입력</button>
                                     <button onClick={() => setActiveDataTab('list')} className={`py-2 px-4 font-semibold ${activeDataTab === 'list' ? (isDarkMode ? 'border-amber-400 text-amber-400' : 'border-amber-600 text-amber-700') : (isDarkMode ? 'border-transparent text-gray-400' : 'border-transparent text-gray-500')} border-b-2`}>데이터</button>
                                 </div>
@@ -836,12 +845,24 @@ const handleCloudRestore = async () => {
                 )}
             </div>
 
-          {activeContentTab === 'monthlyProfit' && (
-                <button onClick={handleNavigateToDataEntry} className="fixed bottom-28 right-6 z-40 p-4 transition-transform hover:scale-150" aria-label="데이터 기록하기">
-                    <Plus size={36} className={`${isDarkMode ? 'text-gray-200' : 'text-black'}`} />
+      {activeContentTab === 'monthlyProfit' && (
+                <button 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (isFabVisible) handleNavigateToDataEntry();
+                        else setIsFabVisible(true);
+                    }} 
+                    // right-4 를 right-2 로 변경하여 오른쪽 빈 공간을 확 줄였습니다.
+                    className={`fixed z-40 right-2 px-6 py-2.5 rounded-full shadow-lg transition-all duration-300 flex justify-center items-center font-bold tracking-widest border-2 ${
+                        isDarkMode ? 'bg-gray-900 border-yellow-500 text-yellow-400' : 'bg-gray-800 border-gray-700 text-yellow-400'
+                    } ${
+                        isFabVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+                    }`} 
+                    style={{ bottom: 'calc(70px + env(safe-area-inset-bottom))' }}
+                >
+                    <span>입력</span>
                 </button>
             )}
-
             {isAuthReady && (
                 <div className={`fixed bottom-0 left-0 right-0 w-full ${isDarkMode ? 'bg-gray-800 border-t border-gray-700' : 'bg-white border-t border-gray-200'} shadow-lg flex justify-around py-2 px-4 pb-[env(safe-area-inset-bottom)] z-50`}>
                     <button 

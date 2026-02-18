@@ -198,9 +198,7 @@ const DataEntryForm = ({
         if (input) input.focus();
     };
 
-    const boxBottomLineClass = formType === 'income' 
-        ? 'focus-within:border-b-red-500' 
-        : 'focus-within:border-b-blue-500';
+const boxBottomLineClass = `border-b-2 ${isDarkMode ? '!border-gray-900' : '!border-gray-200'} focus-within:!border-yellow-300 transition-colors duration-200`;
 
  // ✨ [수정] 키패드가 올라올 때 입력창을 화면 중앙으로 이동시키는 함수
     const handleFocus = (e) => {
@@ -230,6 +228,13 @@ const DataEntryForm = ({
             }, 0);
         }
     }, [entryToEdit]);
+
+    // ✨ [추가] 공통 단가가 딱 1개만 있으면 자동으로 선택 (2개 이상이면 무시)
+    useEffect(() => {
+        if (!entryToEdit && favoriteUnitPrices && favoriteUnitPrices.length === 1) {
+            setUnitPrice(favoriteUnitPrices[0].toString());
+        }
+    }, [favoriteUnitPrices, entryToEdit, setUnitPrice]);
 
     useEffect(() => {
         const handleAndroidBack = () => setViewMode('form');
@@ -455,7 +460,7 @@ const DataEntryForm = ({
             isCustom = false;
         }
 
-        const hasOptions = item.customPrice && item.customPrice.length > 1;
+        const hasOptions = item.customPrice && item.customPrice.length > 0;
 
         const priceComponent = (
             <div className="flex flex-col w-full gap-1 justify-end h-full">
@@ -469,10 +474,10 @@ const DataEntryForm = ({
                                     e.preventDefault(); e.stopPropagation();
                                     handleItemPriceChange(item.key, p.toString());
                                 }}
-                                className={`flex-none px-2 py-0.5 rounded text-[10px] font-bold border transition-colors whitespace-nowrap
+                                className={`flex-none px-2 py-0.5 rounded text-[10px] font-bold border transition-colors whitespace-nowrap shadow-sm
                                     ${Number(currentPriceValue) === p
                                         ? (isDarkMode ? 'bg-blue-600 text-white border-blue-500' : 'bg-blue-600 text-white border-blue-600') 
-                                        : (isDarkMode ? 'bg-gray-700 text-gray-300 border-gray-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50') 
+                                        : 'bg-white text-gray-800 border-gray-300'
                                     }`}
                             >
                                 {p}
@@ -499,10 +504,10 @@ const DataEntryForm = ({
             </div>
         );
 
+        // 통계 카드와 똑같은 좌우 여백(px-6)과 넉넉한 높이(py-3) 적용, 배경색은 투명하게 뚫어 부모(bg-gray-700) 색을 따라가게 함
         const containerClass = isHiddenItem 
-            ? `relative py-2 px-1 flex flex-row items-center gap-2 border-b border-dashed border-red-200 dark:border-red-900/50 min-h-[3.5rem] h-auto cursor-pointer ${isDarkMode ? 'bg-red-900/10' : 'bg-red-50/50'} ${boxBottomLineClass}`
-            : `relative py-2 px-1 flex flex-row items-center gap-2 border-b border-dashed border-gray-200 dark:border-gray-800 transition-colors min-h-[3.5rem] h-auto cursor-pointer ${isDarkMode ? 'bg-slate-900' : 'bg-white'} ${boxBottomLineClass}`;
-
+            ? `relative py-2 px-4 flex flex-row items-center gap-2 border-b border-dashed border-red-200 dark:border-red-900/50 min-h-[3.5rem] h-auto cursor-pointer bg-transparent ${boxBottomLineClass}`
+            : `relative py-2 px-4 flex flex-row items-center gap-2 border-b border-gray-100 dark:border-gray-700 transition-colors min-h-[3.5rem] h-auto cursor-pointer bg-transparent last:border-b-0 ${boxBottomLineClass}`;
         return (
             <div key={item.key} className={containerClass} onClick={() => handleBoxClick(item.key)}>
                 <div className="w-[30%] flex items-center overflow-hidden pl-1">
@@ -553,7 +558,7 @@ const DataEntryForm = ({
     if (viewMode === 'calculator') return <CalculatorPage onBack={handleCalculatorBack} onApply={handleCalculatorApply} date={date} currentRound={currentRound} incomeConfig={incomeConfig} isDarkMode={isDarkMode} />;
 
     return (
-        <form onSubmit={onFormSubmit} className={`w-full h-full flex flex-col pb-20 font-sans ${isDarkMode ? 'bg-slate-900' : 'bg-slate-50'}`} onClick={() => setOpenDropdownKey(null)} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+        <form onSubmit={onFormSubmit} className={`w-full h-full flex flex-col pb-20 font-sans ${isDarkMode ? 'bg-gray-800' : 'bg-slate-50'}`} onClick={() => setOpenDropdownKey(null)} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
             
             {isCalendarOpen && (
                 <TopSheetCalendar 
@@ -564,7 +569,7 @@ const DataEntryForm = ({
                 />
             )}
 
-            <div className={`relative py-1 px-1 ${isDarkMode ? 'bg-slate-900' : 'bg-white'}`}>
+            <div className={`relative pt-2 pb-1 px-3 ${isDarkMode ? 'bg-gray-800' : 'bg-slate-50'}`}>
                 <div className="flex items-center justify-center space-x-6 mb-1">
                     <button type="button" onClick={() => handleDateChange(-1)} className={`p-2 rounded-full ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}>◀</button>
                     <div className="relative group cursor-pointer" onClick={() => setIsCalendarOpen(true)}>
@@ -573,14 +578,14 @@ const DataEntryForm = ({
                     <button type="button" onClick={() => handleDateChange(1)} className={`p-2 rounded-full ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}>▶</button>
                 </div>
 
-                <div className={`flex p-1 mb-2 rounded-lg mx-2 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`}>
+                <div className={`flex p-1 mb-3 rounded-lg w-full ${isDarkMode ? 'bg-gray-900' : 'bg-slate-200'}`}>
                     <button type="button" onClick={() => handleTabSwitch('income')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${formType === 'income' ? 'bg-red-600 text-white shadow' : (isDarkMode ? 'text-slate-400' : 'text-slate-600')}`}>수익</button>
                     <button type="button" onClick={() => handleTabSwitch('expense')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${formType === 'expense' ? 'bg-blue-600 text-white shadow' : (isDarkMode ? 'text-slate-400' : 'text-slate-600')}`}>지출</button>
                 </div>
 
               {/* 회차 선택 및 계산하기 영역 */}
                 {formType === 'income' ? (
-                    <div className="flex justify-between items-center px-1 mb-1 gap-2">
+                    <div className="flex justify-between items-center w-full mb-3 gap-2">
                         {/* 가로 스크롤 영역 */}
                         <div 
                             ref={roundScrollRef}
@@ -625,7 +630,7 @@ const DataEntryForm = ({
 
                 {/* 공통 단가 입력 영역 */}
                 {formType === 'income' && (
-                    <div className={`mx-2 p-2 rounded-xl border mb-1 border-b-4 border-b-transparent transition-colors duration-200 ${boxBottomLineClass} ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-300 shadow-sm'}`} 
+                   <div className={`w-full px-4 py-3 rounded-xl shadow mb-2 transition-colors duration-200 ${boxBottomLineClass} ${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-black'}`}
                         onClick={() => {
                             const input = document.getElementById('unit-price-input');
                             if(input) input.focus();
@@ -648,7 +653,7 @@ const DataEntryForm = ({
                                             if (unitPrice === price.toString()) setUnitPrice('');
                                             else setUnitPrice(price.toString());
                                         }} 
-                                        className={`px-2 py-0.5 text-[10px] rounded border font-extrabold ${unitPrice === price.toString() ? 'bg-black !text-yellow-400 border-yellow-400' : isDarkMode ? 'bg-gray-700 text-white border-gray-500' : 'bg-gray-100 text-black border-gray-400'}`}
+                                        className={`px-2 py-0.5 text-[10px] rounded border font-extrabold shadow-sm ${unitPrice === price.toString() ? 'bg-black !text-yellow-400 border-yellow-400' : 'bg-white text-gray-800 border-gray-300'}`}
                                     >
                                         {price}
                                     </button>
@@ -669,24 +674,25 @@ const DataEntryForm = ({
                 )}
             </div>
 
-            <div ref={listContainerRef} className={`flex-1 overflow-y-auto px-2 space-y-1 pt-2 ${isDarkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
-                <div className="flex flex-col gap-0">
+           <div ref={listContainerRef} className={`flex-1 overflow-y-auto px-3 space-y-4 pt-2 pb-4 ${isDarkMode ? 'bg-gray-800' : 'bg-slate-50'}`}>
+                
+               <div className={`w-full flex flex-col gap-0 rounded-lg shadow overflow-hidden transition-colors duration-200 ${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-black'}`}>
                     {primaryItems.map((item) => renderItemBox(item, false))}
                     {hiddenItems.map((item) => (selectedExtraKeys.includes(item.key) && renderItemBox(item, true)))}
                 </div>
                 
-                {hiddenItems.length > 0 && (
-                    <div className="mt-4 pb-0">
-                        <button type="button" onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }} className={`w-full py-2.5 rounded-xl border-2 border-dashed flex items-center justify-center gap-2 font-bold text-sm transition-all 
+               {hiddenItems.length > 0 && (
+                    <div className="w-full pb-0">
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }} className={`w-full py-2.5 rounded-xl border-2 border-dashed flex items-center justify-center gap-2 font-bold text-sm transition-all
                             ${!isMenuOpen 
-                                ? (isDarkMode ? 'bg-gray-800 text-white border-amber-200 shadow-sm' : 'bg-white text-gray-600 border-amber-200 shadow-sm') 
-                                : (isDarkMode ? 'border-slate-700 text-slate-400 bg-slate-800/40 hover:bg-slate-800' : 'border-slate-300 text-slate-500 bg-white hover:bg-white')
+                                ? (isDarkMode ? 'bg-gray-700 text-gray-200 border-amber-200 shadow-sm' : 'bg-white text-gray-600 border-amber-200 shadow-sm') 
+                                : (isDarkMode ? 'border-amber-200/50 text-gray-400 bg-gray-700/40 hover:bg-gray-700' : 'border-slate-300 text-slate-500 bg-white hover:bg-white')
                             }`}>
                             {isMenuOpen ? <ChevronUp size={18} /> : <Plus size={18} />} 
                             {isMenuOpen ? '항목 선택 닫기' : '기타 항목 입력하기'}
                         </button>
                         {isMenuOpen && (
-                            <div className={`mt-2 p-3 rounded-xl border animate-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-gray-800 border-gray-700 shadow-2xl' : 'bg-white border-gray-200 shadow-lg'}`}>
+                            <div className={`mt-2 p-3 rounded-xl border animate-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-gray-700 border-gray-600 shadow-2xl' : 'bg-white border-gray-200 shadow-lg'}`}>
                                 <div className="flex flex-wrap gap-2">
                                     {hiddenItems.map(item => (
                                         <button key={item.key} type="button" onClick={() => toggleExtraItem(item.key)} className={`px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${selectedExtraKeys.includes(item.key) ? (formType === 'income' ? 'bg-red-600 text-white shadow-md' : 'bg-blue-600 text-white shadow-md') : (isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-white text-gray-600 border border-amber-200')}`}>
@@ -699,7 +705,7 @@ const DataEntryForm = ({
                     </div>
                 )}
 
-              <div className={`mt-2 mx-2 p-3 mb-4 rounded-xl border-2 ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-green-200 shadow-sm'}`}>
+                <div className={`w-full p-4 rounded-xl shadow transition-colors duration-200 border-2 ${isDarkMode ? 'bg-gray-700 border-green-200' : 'bg-white border-green-200'}`}>
                     <label className="block text-xs font-bold mb-1 opacity-50">📝 특이사항 / 메모</label>
                     <textarea 
                         value={formData['memo'] || ''} 
@@ -717,7 +723,10 @@ const DataEntryForm = ({
             </div>
 
 
-            <div className={`fixed bottom-[70px] left-0 right-0 p-2 px-4 ${isDarkMode ? 'bg-slate-900/95 border-t border-slate-800' : 'bg-white/95 border-t border-slate-200'} backdrop-blur-sm z-30`}>
+           <div 
+                className={`fixed left-0 right-0 p-2 px-4 z-30 border-t ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-slate-50 border-slate-200'}`}
+                style={{ bottom: 'calc(56px + env(safe-area-inset-bottom))' }}
+            >
                 <div className="max-w-md mx-auto flex items-center justify-between gap-3">
                     <div className="flex flex-col ml-2">
                         <span className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>예상 합계</span>
