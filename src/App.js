@@ -30,7 +30,7 @@ import { useProfitCalculations } from './hooks/useProfitCalculations';
 import ExpenseSettingsView from './components/more/ExpenseSettingsView';
 import useAppBackButton from './hooks/useAppBackButton';
 import SystemThemeManager from './components/common/SystemThemeManager';
-
+import GoalSettingsView from './components/more/GoalSettingsView';
 import { useDelivery } from './contexts/DeliveryContext';
 import { exportDataAsCsv, parseCsvData } from './utils/dataHandlers.js'; 
 
@@ -147,8 +147,9 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
             { key: 'deliveryCount', label: '배송', isVisible: true },
             { key: 'deliveryInterruptionAmount', label: '중단', isVisible: true },
             { key: 'returnCount', label: '반품', isVisible: true },
-            { key: 'freshBagCount', label: '프레시백', isVisible: true },
-            { key: 'promotionAmount', label: '프로모션', isVisible: false, useCustomPrice: false }
+            { key: 'freshBagCount', label: '프레시백', isVisible: true, useCustomPrice: true, customPrice: [100, 200] },
+            { key: 'assignmentCount', label: '채번', isVisible: false },
+            { key: 'promotionAmount', label: '프로모션', isVisible: false, useCustomPrice: true, customPrice: [1] }
         ];
     });
 
@@ -338,22 +339,27 @@ const handleCloudRestore = async () => {
     };
   
     const handleEdit = (entry) => {
-        setEntryToEdit(entry);
+        setEntryToEdit(entry); // "이 항목을 수정할 거야" 라고 확실히 기억함
         setDate(entry.date);
-        setUnitPrice(entry.unitPrice.toString());
-        const { id, date, unitPrice, timestamp, round, ...rest } = entry;
+        setUnitPrice(entry.unitPrice ? entry.unitPrice.toString() : '');
+        
+        // customItems(추가 항목)와 일반 항목(배송, 반품 등)을 분리해서 안전하게 담음
+        const { id, date, unitPrice, timestamp, round, customItems, ...rest } = entry;
         const stringifiedData = {};
+        
         Object.keys(rest).forEach(key => {
             stringifiedData[key] = rest[key] ? rest[key].toString() : '';
         });
+        
         setFormData(stringifiedData);
+        
         const isExpense = expenseConfig.some(item => rest[item.key] > 0);
         setFormType(isExpense ? 'expense' : 'income');
-        setActiveDataTab('entry');
+        
         setSelectedMainTab('data');
         setActiveContentTab('dataEntry');
         setActiveDataTab('entry'); 
-        setEntryToEdit(null);      
+        
     };
 
     const handleDelete = (id) => {
@@ -839,6 +845,7 @@ const handleCloudRestore = async () => {
                                 {moreSubView === 'privacyPolicy' && <PrivacyPolicy onBack={() => setMoreSubView('legalInfo')} isDarkMode={isDarkMode} />}
                                 {moreSubView === 'openSource' && <OpenSourceLicenses onBack={() => setMoreSubView('legalInfo')} isDarkMode={isDarkMode} />}
                                 {moreSubView === 'contact' && <ContactView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} />}
+                                {moreSubView === 'goal' && <GoalSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} goalAmount={goalAmount} onSaveGoal={(amount) => { setGoalAmount(amount); saveSettingsToLocal({ goalAmount: amount }); showMessage("목표 금액이 성공적으로 변경되었습니다!"); }} />}
                             </div>
                         )}
                     </>
@@ -864,7 +871,11 @@ const handleCloudRestore = async () => {
                 </button>
             )}
             {isAuthReady && (
-                <div className={`fixed bottom-0 left-0 right-0 w-full ${isDarkMode ? 'bg-gray-800 border-t border-gray-700' : 'bg-white border-t border-gray-200'} shadow-lg flex justify-around py-2 px-4 pb-[env(safe-area-inset-bottom)] z-50`}>
+                   <div 
+                    className={`fixed bottom-0 left-0 right-0 w-full ${isDarkMode ? 'bg-gray-800 border-t border-gray-700' : 'bg-white border-t border-gray-200'} shadow-lg flex justify-around py-2 px-4 pb-[env(safe-area-inset-bottom)] z-50 select-none`}
+                    style={{ WebkitTouchCallout: 'none' }}
+                >
+
                     <button 
                         className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'data' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} 
                         onClick={() => { 

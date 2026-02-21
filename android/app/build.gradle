@@ -22,8 +22,10 @@ android {
         applicationId "com.kjw.deliverytracker"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+       //버전 아래두개 수정
+       // 👇 이 두 곳을 수정합니다! 👇
+        versionCode 3       // 기존 1에서 2로 변경 (무조건 1씩 올려야 하는 정수)
+        versionName "1.0.2" // 기존 "1.0.0"에서 "1.0.1"로 변경 (사용자에게 보여지는 버전)
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'

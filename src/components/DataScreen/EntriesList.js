@@ -190,10 +190,10 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
 
                                         return (
                                             <div key={date} className="rounded-xl overflow-hidden">
-                                                {/* 일자별 헤더 */}
+                                                {/* ✨ [수정됨] 일자별 헤더 (요약 바를 포함하여 항상 보이게 함) */}
                                                 <div 
                                                     onClick={() => toggleDateExpand(date)}
-                                                    className={`flex items-center justify-between p-3 cursor-pointer border-b transition-colors 
+                                                    className={`cursor-pointer transition-colors border-b
                                                         ${isDarkMode 
                                                             ? 'bg-gray-800 border-gray-700 hover:bg-gray-700' 
                                                             : 'bg-white border-gray-200 hover:bg-gray-50'
@@ -201,40 +201,41 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                                         ${isDateExpanded ? 'border-b-transparent' : 'rounded-b-xl shadow-sm'}
                                                     `}
                                                 >
-                                                    <div className="flex items-center gap-2">
-                                                        <Calendar size={16} className={isDarkMode ? 'text-gray-400' : 'text-gray-500'} />
-                                                        <span className={`font-bold ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
-                                                            {safeFormatDate(date)}
-                                                        </span>
-                                                        
+                                                    {/* 상단: 날짜 및 금액 */}
+                                                    <div className="flex items-center justify-between p-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <Calendar size={16} className={isDarkMode ? 'text-gray-400' : 'text-gray-500'} />
+                                                            <span className={`font-bold ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
+                                                                {safeFormatDate(date)}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`font-bold ${dailyNetProfit >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                                                                {dailyNetProfit >= 0 ? '+' : ''}{dailyNetProfit.toLocaleString()}원
+                                                            </span>
+                                                            {isDateExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                                                        </div>
                                                     </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`font-bold ${dailySummary.revenue - dailySummary.expense >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                                                            {dailyNetProfit >= 0 ? '+' : ''}{dailyNetProfit.toLocaleString()}원
-                                                        </span>
-                                                        {isDateExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+
+                                                    {/* 하단: 항목별 요약 (접혀있을 때도 항상 표시됨) */}
+                                                    <div className="px-4 pb-3 flex flex-wrap gap-2">
+                                                        {Object.entries(dailySummary.totalItemCounts).length > 0 ? (
+                                                            Object.entries(dailySummary.totalItemCounts).map(([name, count]) => (
+                                                                <span key={name} className={`text-xs px-2.5 py-1 rounded-md font-bold border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-600 shadow-sm'}`}>
+                                                                    {name} <span className="text-blue-500 ml-0.5">{count}</span>
+                                                                </span>
+                                                            ))
+                                                        ) : (
+                                                            <span className="text-xs text-gray-400">집계된 항목이 없습니다.</span>
+                                                        )}
                                                     </div>
                                                 </div>
 
-                                                {/* 날짜 펼침 영역 */}
+                                                {/* 날짜 펼침 영역 (상세 기록 내역만 표시됨) */}
                                                 {isDateExpanded && (
                                                     <div className={`border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-                                                        
-                                                        {/* ✨ [추가된 부분] 항목별 총 개수 요약 바 */}
-                                                        <div className={`px-4 py-3 flex flex-wrap gap-2 ${isDarkMode ? 'bg-gray-800/50' : 'bg-gray-50'}`}>
-                                                            {Object.entries(dailySummary.totalItemCounts).length > 0 ? (
-                                                                Object.entries(dailySummary.totalItemCounts).map(([name, count]) => (
-                                                                    <span key={name} className={`text-xs px-2.5 py-1 rounded-md font-bold border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-600 shadow-sm'}`}>
-                                                                        {name} <span className="text-blue-500 ml-0.5">{count}</span>
-                                                                    </span>
-                                                                ))
-                                                            ) : (
-                                                                <span className="text-xs text-gray-400">집계된 항목이 없습니다.</span>
-                                                            )}
-                                                        </div>
-
                                                         {/* 기존 리스트 (1회전, 2회전...) */}
-                                                        <div className={`space-y-3 p-2 pt-0 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+                                                        <div className={`space-y-3 p-2 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
                                                             {dailyEntries.map((entry, index) => {
                                                                 const { totalRevenue, totalExpense, revenueGroups, expenseDetails, totalVolume, extraIncomeCount, extraIncomeTotalCount } = processFinancials(entry);
                                                                 const netProfit = totalRevenue - totalExpense;

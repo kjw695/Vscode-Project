@@ -8,9 +8,10 @@
 //        └── UnitPriceView.jsx    (새 파일 - 즐겨찾는 단가)
 //        └── ExpenseSettingsView.js (새 파일 -지출 항목 관리 파일)
 // src/components/more/MoreView.js
+// src/components/more/MoreView.js
 import React from 'react';
-// ✨ CreditCard 아이콘 추가
-import { ChevronRight, User, CircleDollarSign, CalendarDays, Database, HelpCircle, FileText, Sun, Moon, Bell, BookOpen, MessageSquare, CreditCard } from 'lucide-react';
+// ✨ Target 아이콘 추가
+import { ChevronRight, User, CircleDollarSign, CalendarDays, Database, HelpCircle, FileText, Sun, Moon, Bell, BookOpen, MessageSquare, CreditCard, Target } from 'lucide-react';
 
 const MenuItem = ({ icon, text, onClick, isDarkMode }) => (
     <button
@@ -33,9 +34,10 @@ function MoreView({ onNavigate, isDarkMode, toggleDarkMode }) {
             <div className="space-y-1">
                 <MenuItem icon={<User size={24} />} text="계정 관리" onClick={() => onNavigate('account')} isDarkMode={isDarkMode} />
                 <MenuItem icon={<CircleDollarSign size={24} />} text="단가 설정" onClick={() => onNavigate('unitPrice')} isDarkMode={isDarkMode} />
-                {/* 👇 지출 항목 관리 메뉴 추가 */}
                 <MenuItem icon={<CreditCard size={24} />} text="항목 관리" onClick={() => onNavigate('expenseSettings')} isDarkMode={isDarkMode} />
                 <MenuItem icon={<CalendarDays size={24} />} text="월별 집계 기간 설정" onClick={() => onNavigate('period')} isDarkMode={isDarkMode} />
+                 {/* 👇 목표 금액 설정 메뉴 추가 */}
+                <MenuItem icon={<Target size={24} />} text="목표 금액 설정" onClick={() => onNavigate('goal')} isDarkMode={isDarkMode} />
                 <MenuItem icon={<Database size={24} />} text="데이터 관리" onClick={() => onNavigate('data')} isDarkMode={isDarkMode} />
             </div>
 
@@ -56,7 +58,6 @@ function MoreView({ onNavigate, isDarkMode, toggleDarkMode }) {
             <div className="space-y-1">
                 <MenuItem icon={<MessageSquare size={24} />} text="의견 보내기" onClick={() => onNavigate('contact')} isDarkMode={isDarkMode} />
             </div>
-
 
             <div className="mt-6 p-4 flex items-center justify-between">
                 <div className={`flex items-center ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>

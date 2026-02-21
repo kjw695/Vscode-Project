@@ -201,18 +201,33 @@ const DataEntryForm = ({
 const boxBottomLineClass = `border-b-2 ${isDarkMode ? '!border-gray-900' : '!border-gray-200'} focus-within:!border-yellow-300 transition-colors duration-200`;
 
  // ✨ [수정] 키패드가 올라올 때 입력창을 화면 중앙으로 이동시키는 함수
+    // ✨ [수정] 키패드가 올라올 때 입력창을 화면 상위 35% 위치로 이동시키는 함수
     const handleFocus = (e) => {
         const target = e.target;
         
-        // 키보드가 올라오는 애니메이션 시간(약 0.5초)을 기다린 후 실행
         setTimeout(() => {
-            // scrollIntoView는 부모 스크롤 영역을 자동으로 찾아서 스크롤해줍니다.
-            target.scrollIntoView({ 
-                behavior: 'smooth', // 부드럽게 이동
-                block: 'center',    // ✨ 핵심: 입력창이 화면의 '가운데'에 오도록 설정
-                inline: 'nearest'
-            });
-        }, 500); // 딜레이를 500ms 정도로 넉넉하게 주면 더 안정적입니다.
+            // 1. 현재 클릭한 입력창의 위치와 화면 전체 높이의 35% 지점 계산
+            const rect = target.getBoundingClientRect();
+            const targetY = window.innerHeight * 0.30; 
+            const diff = rect.top - targetY; // 이동해야 할 거리
+            
+            // 2. 스크롤 가능한 상자(부모) 찾기
+            let scrollContainer = target.parentElement;
+            while (scrollContainer) {
+                const style = window.getComputedStyle(scrollContainer);
+                if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+                    break;
+                }
+                scrollContainer = scrollContainer.parentElement;
+            }
+            
+            // 3. 정확하게 상위 35% 위치로 부드럽게 스크롤 이동
+            if (scrollContainer) {
+                scrollContainer.scrollBy({ top: diff, behavior: 'smooth' });
+            } else {
+                window.scrollBy({ top: diff, behavior: 'smooth' });
+            }
+        }, 500); 
     };
 
     // [초기화] 값이 없으면 ''(빈칸)으로 설정
@@ -558,8 +573,7 @@ const boxBottomLineClass = `border-b-2 ${isDarkMode ? '!border-gray-900' : '!bor
     if (viewMode === 'calculator') return <CalculatorPage onBack={handleCalculatorBack} onApply={handleCalculatorApply} date={date} currentRound={currentRound} incomeConfig={incomeConfig} isDarkMode={isDarkMode} />;
 
     return (
-        <form onSubmit={onFormSubmit} className={`w-full h-full flex flex-col pb-20 font-sans ${isDarkMode ? 'bg-gray-800' : 'bg-slate-50'}`} onClick={() => setOpenDropdownKey(null)} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
-            
+        <form onSubmit={onFormSubmit} className={`w-full h-full flex flex-col pb-20 font-sans overflow-y-auto ${isDarkMode ? 'bg-gray-800' : 'bg-slate-50'}`} onClick={() => setOpenDropdownKey(null)} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>     
             {isCalendarOpen && (
                 <TopSheetCalendar 
                     currentDate={date} 
@@ -674,8 +688,8 @@ const boxBottomLineClass = `border-b-2 ${isDarkMode ? '!border-gray-900' : '!bor
                 )}
             </div>
 
-           <div ref={listContainerRef} className={`flex-1 overflow-y-auto px-3 space-y-4 pt-2 pb-4 ${isDarkMode ? 'bg-gray-800' : 'bg-slate-50'}`}>
-                
+          <div ref={listContainerRef} className={`flex-1 px-3 space-y-4 pt-2 pb-4 ${isDarkMode ? 'bg-gray-800' : 'bg-slate-50'}`}>
+                  
                <div className={`w-full flex flex-col gap-0 rounded-lg shadow overflow-hidden transition-colors duration-200 ${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-black'}`}>
                     {primaryItems.map((item) => renderItemBox(item, false))}
                     {hiddenItems.map((item) => (selectedExtraKeys.includes(item.key) && renderItemBox(item, true)))}
