@@ -116,7 +116,7 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
     };
 
     return (
-        <div className="w-full space-y-4">
+        <div className="w-full space-y-4 pb-32">
             {summary && (
                 <div className={`p-4 rounded-lg border ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
                     <div className="flex justify-between items-center py-1">
@@ -190,7 +190,7 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
 
                                         return (
                                             <div key={date} className="rounded-xl overflow-hidden">
-                                                {/* ✨ [수정됨] 일자별 헤더 (요약 바를 포함하여 항상 보이게 함) */}
+                                                {/* 일자별 헤더 (요약 바를 포함하여 항상 보이게 함) */}
                                                 <div 
                                                     onClick={() => toggleDateExpand(date)}
                                                     className={`cursor-pointer transition-colors border-b
@@ -290,6 +290,14 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                                                                     </p>
                                                                                 </div>
                                                                             </div>
+                                                                            
+                                                                            {/* ✨ [수정 완료] 메모를 '상세' 안쪽에서 바깥으로 꺼내어 날짜만 펼쳐도 보이게 했습니다! */}
+                                                                            {entry.memo && (
+                                                                                <div className={`mt-3 p-3 rounded-lg border ${isDarkMode ? 'bg-yellow-900/20 border-yellow-800/50' : 'bg-yellow-50 border-yellow-200'}`}>
+                                                                                    <span className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-yellow-500' : 'text-yellow-700'}`}>📝 메모</span>
+                                                                                    <p className={`text-[13px] whitespace-pre-wrap ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{entry.memo}</p>
+                                                                                </div>
+                                                                            )}
                                                                         </div>
                                                                         
                                                                         {expandedId === currentId && (
@@ -331,7 +339,7 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                                                                     </div>
                                                                                 )}
                                                                                 
-                                                                                <div className="flex justify-end pt-3 border-t border-gray-200 dark:border-gray-600 space-x-3">
+                                                                                <div className="flex justify-end pt-3 mt-3 border-t border-gray-200 dark:border-gray-600 space-x-3">
                                                                                     <button onClick={(e) => { e.stopPropagation(); handleEdit(entry); }} className="flex items-center space-x-1 px-3 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded-md text-gray-600 dark:text-gray-200 text-xs font-bold shadow-sm active:scale-95 transition-transform"><Edit size={14} /><span>수정</span></button>
                                                                                     <button onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }} className="flex items-center space-x-1 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-md text-red-500 text-xs font-bold shadow-sm active:scale-95 transition-transform"><Trash2 size={14} /><span>삭제</span></button>
                                                                                 </div>

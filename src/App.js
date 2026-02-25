@@ -307,9 +307,14 @@ const handleCloudRestore = async () => {
             return;
         }
 
-        const parsedFormData = {};
+       const parsedFormData = {};
         Object.keys(formData).forEach(key => {
-            parsedFormData[key] = formData[key] ? parseFloat(formData[key]) : 0;
+            // 👇 'memo'라는 이름의 칸은 숫자로 바꾸지 말고 글자 그대로 살려둡니다!
+            if (key === 'memo') {
+                parsedFormData[key] = formData[key] || '';
+            } else {
+                parsedFormData[key] = formData[key] ? parseFloat(formData[key]) : 0;
+            }
         });
 
         const newEntryData = {
@@ -521,25 +526,58 @@ const handleCloudRestore = async () => {
     const handleTodayClick = () => { const today = new Date(); setCurrentCalendarDate(today); setSelectedMonth(today.toISOString().slice(0, 7)); };
     const handleCalendarDateClick = (clickedDate) => {
         const entriesForDate = entries.filter(entry => entry.date === clickedDate);
-        if (entriesForDate.length === 1) { handleEdit(entriesForDate[0]); }
-        else if (entriesForDate.length > 1) { setFilters({ period: 'custom', startDate: clickedDate, endDate: clickedDate, type: 'all' }); setSelectedMainTab('data'); setActiveContentTab('dataEntry'); setActiveDataTab('list'); }
-        else { setSelectedMainTab('data'); setActiveContentTab('dataEntry'); setActiveDataTab('entry'); setDate(clickedDate); setUnitPrice(''); setFormData({}); setEntryToEdit(null); }
+        
+        // ✨ 1. 데이터가 1개 이상(1, 2, 3...) 있으면 무조건 해당 날짜의 [데이터-리스트] 화면으로 이동
+        if (entriesForDate.length >= 1) { 
+            setFilters({ period: 'custom', startDate: clickedDate, endDate: clickedDate, type: 'all' }); 
+            setSelectedMainTab('data'); 
+            setActiveContentTab('dataEntry'); 
+            setActiveDataTab('list'); 
+            setDate(clickedDate); // 👈 여기서 날짜를 기억해둬서, 리스트에서 [입력] 누르면 바로 이 날짜가 뜹니다!
+        } 
+        // ✨ 2. 데이터가 아예 없으면 기존처럼 바로 텅 빈 새 [입력창]으로 이동
+        else { 
+            setSelectedMainTab('data'); 
+            setActiveContentTab('dataEntry'); 
+            setActiveDataTab('entry'); 
+            setDate(clickedDate); 
+            setUnitPrice(''); 
+            setFormData({}); 
+            setEntryToEdit(null); 
+        }
     };
-
     const handleTouchStart = (e) => { touchStartX.current = e.targetTouches[0].clientX; touchStartY.current = e.targetTouches[0].clientY; touchEndX.current = null; touchEndY.current = null; };
     const handleTouchMove = (e) => { touchEndX.current = e.targetTouches[0].clientX; touchEndY.current = e.targetTouches[0].clientY; };
-    const handleTouchEnd = () => {
+  const handleTouchEnd = () => {
         if (!touchStartX.current || !touchEndX.current || !touchStartY.current || !touchEndY.current) return;
         const deltaX = touchStartX.current - touchEndX.current;
         const deltaY = touchStartY.current - touchEndY.current;
-        if (Math.abs(deltaX) > Math.abs(deltaY)) {
-            const isRightSwipe = deltaX < -50;
-            if (isRightSwipe && activeDataTab === 'list') {
-                setActiveDataTab('entry');
+        
+        if (Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+            const isRightSwipe = deltaX < -120; // 오른쪽으로 밀기 (이전 화면)
+            const isLeftSwipe = deltaX > 120;  // 왼쪽으로 밀기 (다음 화면)
+            
+            if (isRightSwipe) {
+                if (activeDataTab === 'list') {
+                    // ✨ 딜레이 없이 즉시 지출로 이동! (아래 2번 작업 덕분에 이제 깜빡이지 않습니다)
+                    setActiveDataTab('entry');
+                    setFormType('expense'); 
+                } else if (activeDataTab === 'entry' && formType === 'expense') {
+                    setFormType('income');  
+                }
+            } else if (isLeftSwipe) {
+                if (activeDataTab === 'entry' && formType === 'income') {
+                    setFormType('expense'); 
+                } else if (activeDataTab === 'entry' && formType === 'expense') {
+                    setActiveDataTab('list'); 
+                    setFilters({ period: 'all', startDate: '', endDate: '', type: 'all' });
+                }
             }
         }
         touchStartX.current = null; touchEndX.current = null; touchStartY.current = null; touchEndY.current = null;
     };
+        
+     
 
     const generateCalendarDays = useCallback(() => {
         const year = currentCalendarDate.getFullYear();
@@ -757,9 +795,19 @@ const handleCloudRestore = async () => {
                             <div className="w-full h-full flex flex-col pt-2" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
                                 <div className="flex justify-center border-b mb-2 px-4">
                                     <button onClick={() => setActiveDataTab('entry')} className={`py-2 px-4 font-semibold ${activeDataTab === 'entry' ? (isDarkMode ? 'border-amber-400 text-amber-400' : 'border-amber-600 text-amber-700') : (isDarkMode ? 'border-transparent text-gray-400' : 'border-transparent text-gray-500')} border-b-2`}>입력</button>
-                                    <button onClick={() => setActiveDataTab('list')} className={`py-2 px-4 font-semibold ${activeDataTab === 'list' ? (isDarkMode ? 'border-amber-400 text-amber-400' : 'border-amber-600 text-amber-700') : (isDarkMode ? 'border-transparent text-gray-400' : 'border-transparent text-gray-500')} border-b-2`}>데이터</button>
+                                    
+                                    {/* 👇 여기 데이터 버튼의 onClick에 setFilters 초기화 코드를 추가합니다! */}
+                                    <button 
+                                        onClick={() => { 
+                                            setActiveDataTab('list');
+                                            setFilters({ period: 'all', startDate: '', endDate: '', type: 'all' }); 
+                                        }} 
+                                        className={`py-2 px-4 font-semibold ${activeDataTab === 'list' ? (isDarkMode ? 'border-amber-400 text-amber-400' : 'border-amber-600 text-amber-700') : (isDarkMode ? 'border-transparent text-gray-400' : 'border-transparent text-gray-500')} border-b-2`}
+                                    >
+                                        데이터
+                                    </button>
                                 </div>
-                                {activeDataTab === 'entry' && (
+                                <div className={activeDataTab === 'entry' ? 'w-full block' : 'hidden'}>
                                     <DataEntryForm
     entries={entries}                   
     handleSubmit={handleSubmit} 
@@ -781,10 +829,17 @@ const handleCloudRestore = async () => {
     expenseConfig={expenseConfig}
     favoriteUnitPrices={favoriteUnitPrices}
     
-    onNavigate={(tab) => { setActiveDataTab(tab); }}
-/>
-                                )}
-                                {activeDataTab === 'list' && (
+    onNavigate={(tab) => { 
+        setActiveDataTab(tab); 
+        if (tab === 'list') {
+            setFilters({ period: 'all', startDate: '', endDate: '', type: 'all' });
+        }
+  }}
+                                    />
+                                </div>
+                                
+                                <div className={activeDataTab === 'list' ? 'w-full block' : 'hidden'}>
+                                   
     <EntriesList
         entries={finalFilteredEntries}
         summary={{
@@ -823,8 +878,8 @@ const handleCloudRestore = async () => {
         isDarkMode={isDarkMode} 
         onOpenFilter={() => setIsFilterModalOpen(true)} 
         filterType={filters.type}
-    />
-)}
+                                    />
+                                </div>
                             </div>
                         )}
 
@@ -852,18 +907,37 @@ const handleCloudRestore = async () => {
                 )}
             </div>
 
-      {activeContentTab === 'monthlyProfit' && (
+      {/* 👇 홈 화면이거나, 달력에서 특정 날짜를 콕 짚어서 들어온 경우(custom)에만 [입력] 버튼 표시 */}
+      {(activeContentTab === 'monthlyProfit' || (activeContentTab === 'dataEntry' && activeDataTab === 'list' && filters.period === 'custom')) && (
                 <button 
                     onClick={(e) => {
                         e.stopPropagation();
-                        if (isFabVisible) handleNavigateToDataEntry();
-                        else setIsFabVisible(true);
+                        if (activeContentTab === 'dataEntry' && activeDataTab === 'list') {
+                            // 리스트 화면에서 [입력] 버튼을 누른 경우: 현재 보고 있던 날짜를 유지한 채로 입력창 띄우기
+                            setActiveDataTab('entry');
+                            setEntryToEdit(null);
+                            setUnitPrice('');
+                            setFormData({});
+                            setFormType('income');
+                            // 달력에서 눌러서 들어왔다면(특정 날짜 필터링 상태) 그 날짜를, 아니면 오늘 날짜를 세팅
+                            if (filters.period === 'custom' && filters.startDate === filters.endDate) {
+                                setDate(filters.startDate);
+                            } else {
+                                setDate(getTodayLocal());
+                            }
+                        } else {
+                            // 홈 화면에서 누른 경우 (기존과 동일)
+                            if (isFabVisible) handleNavigateToDataEntry();
+                            else setIsFabVisible(true);
+                        }
                     }} 
-                    // right-4 를 right-2 로 변경하여 오른쪽 빈 공간을 확 줄였습니다.
                     className={`fixed z-40 right-2 px-6 py-2.5 rounded-full shadow-lg transition-all duration-300 flex justify-center items-center font-bold tracking-widest border-2 ${
                         isDarkMode ? 'bg-gray-900 border-yellow-500 text-yellow-400' : 'bg-gray-800 border-gray-700 text-yellow-400'
                     } ${
-                        isFabVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+                        /* 리스트 화면에서는 투명해지지 않고 항상 100% 보이게 설정 */
+                        (activeContentTab === 'dataEntry' && activeDataTab === 'list') 
+                            ? 'opacity-100 translate-y-0' 
+                            : (isFabVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none')
                     }`} 
                     style={{ bottom: 'calc(70px + env(safe-area-inset-bottom))' }}
                 >
@@ -879,6 +953,9 @@ const handleCloudRestore = async () => {
                     <button 
                         className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'data' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} 
                         onClick={() => { 
+                            // ✨ 하단 메뉴의 [데이터]를 누를 때도 무조건 '전체'로 필터 초기화!
+                            setFilters({ period: 'all', startDate: '', endDate: '', type: 'all' });
+
                             if (selectedMainTab === 'data') {
                                 setEntryToEdit(null);      
                                 setActiveDataTab('entry'); 
@@ -896,6 +973,7 @@ const handleCloudRestore = async () => {
                     >
                         <List size={24} /> <span>데이터</span>
                     </button>
+
                     <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'statistics' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} onClick={() => { setSelectedMainTab('statistics'); setActiveContentTab('statistics'); setStatisticsView('monthly'); setMonthlyStatsSubTab('overview'); }}>
                         <BarChart2 size={24} /> <span>통계</span>
                     </button>

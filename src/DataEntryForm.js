@@ -200,34 +200,43 @@ const DataEntryForm = ({
 
 const boxBottomLineClass = `border-b-2 ${isDarkMode ? '!border-gray-900' : '!border-gray-200'} focus-within:!border-yellow-300 transition-colors duration-200`;
 
- // ✨ [수정] 키패드가 올라올 때 입력창을 화면 중앙으로 이동시키는 함수
-    // ✨ [수정] 키패드가 올라올 때 입력창을 화면 상위 35% 위치로 이동시키는 함수
+ // ✨ [수정 완료] 키패드가 올라올 때 입력창을 화면 상위 30% 위치로 부드럽게 이동시키는 함수
     const handleFocus = (e) => {
-        const target = e.target;
+        let targetElement = e.target;
         
+        // 1. 클릭한 입력창을 감싸는 부모 박스 찾기 (공통 단가, 개별 항목, 메모 모두 호환)
+        targetElement = targetElement.closest('.relative, .rounded-xl, .p-4') || targetElement;
+
         setTimeout(() => {
-            // 1. 현재 클릭한 입력창의 위치와 화면 전체 높이의 35% 지점 계산
-            const rect = target.getBoundingClientRect();
-            const targetY = window.innerHeight * 0.30; 
-            const diff = rect.top - targetY; // 이동해야 할 거리
-            
-            // 2. 스크롤 가능한 상자(부모) 찾기
-            let scrollContainer = target.parentElement;
-            while (scrollContainer) {
-                const style = window.getComputedStyle(scrollContainer);
-                if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
-                    break;
+            if (targetElement) {
+                // 2. '진짜로' 스크롤이 발생하고 있는 컨테이너 찾기
+                // (단순히 속성만 있는게 아니라, 실제 내용물이 넘쳐서 스크롤 가능한 녀석을 감지합니다)
+                let container = targetElement.parentElement;
+                while (container) {
+                    const style = window.getComputedStyle(container);
+                    if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && container.scrollHeight > container.clientHeight + 10) {
+                        break;
+                    }
+                    container = container.parentElement;
                 }
-                scrollContainer = scrollContainer.parentElement;
+
+                // 3. 진짜 컨테이너를 찾았다면 정확히 상위 30%로 이동
+                if (container) {
+                    const containerRect = container.getBoundingClientRect();
+                    const elementRect = targetElement.getBoundingClientRect();
+                    
+                    const targetScrollTop = container.scrollTop + (elementRect.top - containerRect.top) - (container.clientHeight * 0.20);
+                    
+                    container.scrollTo({
+                        top: targetScrollTop,
+                        behavior: 'smooth'
+                    });
+                } else {
+                    // 최후의 방법 (만약 컨테이너를 못 찾으면 기본 스크롤 중앙 정렬 사용)
+                    targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
             }
-            
-            // 3. 정확하게 상위 35% 위치로 부드럽게 스크롤 이동
-            if (scrollContainer) {
-                scrollContainer.scrollBy({ top: diff, behavior: 'smooth' });
-            } else {
-                window.scrollBy({ top: diff, behavior: 'smooth' });
-            }
-        }, 500); 
+        }, 450); 
     };
 
     // [초기화] 값이 없으면 ''(빈칸)으로 설정
@@ -733,14 +742,14 @@ const boxBottomLineClass = `border-b-2 ${isDarkMode ? '!border-gray-900' : '!bor
                     />
                     
                 </div>
-                <div className="h-[40vh]" />
+                <div className="h-[33vh]" />
             </div>
 
 
-           <div 
-                className={`fixed left-0 right-0 p-2 px-4 z-30 border-t ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-slate-50 border-slate-200'}`}
-                style={{ bottom: 'calc(56px + env(safe-area-inset-bottom))' }}
-            >
+          <div 
+    className={`absolute left-0 right-0 p-2 px-4 z-30 border-t shadow-[0_-5px_15px_-3px_rgba(0,0,0,0.15)] ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-slate-50 border-slate-200'}`}
+    style={{ bottom: 'calc(56px + env(safe-area-inset-bottom))' }}
+>
                 <div className="max-w-md mx-auto flex items-center justify-between gap-3">
                     <div className="flex flex-col ml-2">
                         <span className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>예상 합계</span>
