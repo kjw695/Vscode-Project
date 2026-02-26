@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Save, Plus, ChevronDown, ChevronUp, Check, Calculator, ChevronLeft, ChevronRight, X, Loader2, Camera } from 'lucide-react';
 import CalculatorPage from './CalculatorPage'; 
 import { useNavigate } from 'react-router-dom';
+
 const LEGACY_KEYS = [
     'deliveryCount', 'returnCount', 'deliveryInterruptionAmount', 'freshBagCount', 
     'penaltyAmount', 'industrialAccidentCost', 'fuelCost', 'maintenanceCost',      

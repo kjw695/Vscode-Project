@@ -38,7 +38,7 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
         return isNaN(date.getTime()) ? String(dateStr) : date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
     };
 
-    // 금융 데이터 계산 함수
+    // ✨ [수정 완료] 금융 데이터 계산 함수: 억지 계산 로직 제거 및 개별 단가 중심 계산
     const processFinancials = (entry) => {
         const unitPrice = safeNum(entry.unitPrice);
         const delivery = safeNum(entry.deliveryCount);
@@ -46,59 +46,95 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
         const interruption = safeNum(entry.deliveryInterruptionAmount);
         const freshBag = safeNum(entry.freshBagCount);
 
-        let totalRevenue = (unitPrice * delivery) + (unitPrice * returns) + (unitPrice * interruption) + (freshBag * 100);
-        let totalExpense = 0;
-        
-        // 항목별 개수 집계용 객체
-        const itemCounts = {}; 
+        const legacyKeysList = ['deliveryCount', 'returnCount', 'deliveryInterruptionAmount', 'freshBagCount'];
 
-        // 1. 기본 항목 집계
-        if (delivery > 0) itemCounts['배송'] = (itemCounts['배송'] || 0) + delivery;
-        if (returns > 0) itemCounts['반품'] = (itemCounts['반품'] || 0) + returns;
-        if (interruption > 0) itemCounts['중단'] = (itemCounts['중단'] || 0) + interruption;
-        if (freshBag > 0) itemCounts['프레시백'] = (itemCounts['프레시백'] || 0) + freshBag;
-
-        const revenueGroups = {};
-        if (unitPrice > 0) {
-            const commonSum = (unitPrice * delivery) + (unitPrice * returns) + (unitPrice * interruption);
-            if (commonSum > 0) {
-                revenueGroups[unitPrice] = [
-                    { label: '배송', val: unitPrice * delivery, count: delivery, unit: '건' },
-                    { label: '반품', val: unitPrice * returns, count: returns, unit: '건' },
-                    { label: '중단', val: unitPrice * interruption, count: interruption, unit: '건' }
-                ].filter(d => d.val > 0);
-            }
+        // ✨ 개별 단가가 적용되어 customItems로 들어간 기본 항목들을 파악 (중복 계산 방지용)
+        const overriddenKeys = {};
+        if (entry.customItems && Array.isArray(entry.customItems)) {
+            entry.customItems.forEach(item => {
+                if (item.type === 'income' && legacyKeysList.includes(item.key)) {
+                    overriddenKeys[item.key] = true;
+                }
+            });
         }
 
+        let totalRevenue = 0;
+        let totalExpense = 0;
+        const revenueGroups = {};
+        const itemCounts = {}; 
+
+        // 1. 개별 단가가 선택되지 않은 '순수 기본 항목'만 공통 단가로 계산
+        // (프레시백 포함 모든 항목이 개별 단가 버튼을 안 눌렀을 때만 여기서 계산됨)
+        if (delivery > 0) {
+            itemCounts['배송'] = (itemCounts['배송'] || 0) + delivery;
+            if (!overriddenKeys['deliveryCount']) {
+                totalRevenue += unitPrice * delivery;
+                if (!revenueGroups[unitPrice]) revenueGroups[unitPrice] = [];
+                revenueGroups[unitPrice].push({ label: '배송', val: unitPrice * delivery, count: delivery, unit: '건' });
+            }
+        }
+        if (returns > 0) {
+            itemCounts['반품'] = (itemCounts['반품'] || 0) + returns;
+            if (!overriddenKeys['returnCount']) {
+                totalRevenue += unitPrice * returns;
+                if (!revenueGroups[unitPrice]) revenueGroups[unitPrice] = [];
+                revenueGroups[unitPrice].push({ label: '반품', val: unitPrice * returns, count: returns, unit: '건' });
+            }
+        }
+        if (interruption > 0) {
+            itemCounts['중단'] = (itemCounts['중단'] || 0) + interruption;
+            if (!overriddenKeys['deliveryInterruptionAmount']) {
+                totalRevenue += unitPrice * interruption;
+                if (!revenueGroups[unitPrice]) revenueGroups[unitPrice] = [];
+                revenueGroups[unitPrice].push({ label: '중단', val: unitPrice * interruption, count: interruption, unit: '건' });
+            }
+        }
         if (freshBag > 0) {
-            if (!revenueGroups[100]) revenueGroups[100] = [];
-            revenueGroups[100].push({ label: '프레시백', val: freshBag * 100, count: freshBag, unit: '개' });
+            itemCounts['프레시백'] = (itemCounts['프레시백'] || 0) + freshBag;
+            if (!overriddenKeys['freshBagCount']) {
+                // ✨ 억지로 100원을 곱하던 로직을 제거하고, 공통 단가를 따르도록 수정
+                totalRevenue += unitPrice * freshBag;
+                if (!revenueGroups[unitPrice]) revenueGroups[unitPrice] = [];
+                revenueGroups[unitPrice].push({ label: '프레시백', val: unitPrice * freshBag, count: freshBag, unit: '개' });
+            }
         }
 
         const expenseDetails = [];
         let extraIncomeCount = 0;
         let extraIncomeTotalCount = 0;
 
+        // 2. 개별 단가(버튼 클릭) 및 기타 수익 항목 계산
         if (entry.customItems && Array.isArray(entry.customItems)) {
             entry.customItems.forEach(item => {
                 const amount = safeNum(item.amount);
-                const itemPrice = item.unitPrice ? safeNum(item.unitPrice) : amount;
+                const itemPrice = item.unitPrice !== undefined ? safeNum(item.unitPrice) : amount;
                 const itemCount = item.count ? safeNum(item.count) : 1;
-                const finalAmount = item.unitPrice ? (itemPrice * itemCount) : amount;
+                const finalAmount = item.unitPrice !== undefined ? (itemPrice * itemCount) : amount;
 
                 if (item.type === 'income') {
                     totalRevenue += finalAmount;
-                    extraIncomeCount++;
-                    extraIncomeTotalCount += itemCount;
                     
-                    // 2. 추가 수입 항목 집계
-                    itemCounts[item.name] = (itemCounts[item.name] || 0) + itemCount;
+                    // 기본 항목(배송, 프레시백 등)이 개별 단가로 들어온 경우 시각적 처리
+                    if (legacyKeysList.includes(item.key)) {
+                        if (!revenueGroups[itemPrice]) revenueGroups[itemPrice] = [];
+                        revenueGroups[itemPrice].push({ 
+                            label: item.name, 
+                            val: finalAmount, 
+                            count: itemCount, 
+                            unit: item.key === 'freshBagCount' ? '개' : '건' 
+                        });
+                    } else {
+                        // 순수 기타 수익(프로모션 등) 카운트
+                        extraIncomeCount++;
+                        extraIncomeTotalCount += itemCount;
+                        itemCounts[item.name] = (itemCounts[item.name] || 0) + itemCount;
 
-                    if (!revenueGroups[itemPrice]) revenueGroups[itemPrice] = [];
-                    revenueGroups[itemPrice].push({ label: item.name, val: finalAmount, count: item.count, unit: '건' });
+                        if (!revenueGroups[itemPrice]) revenueGroups[itemPrice] = [];
+                        revenueGroups[itemPrice].push({ label: item.name, val: finalAmount, count: itemCount, unit: '건' });
+                    }
                 } else if (item.type === 'expense') {
                     totalExpense += finalAmount;
-                    expenseDetails.push({ label: item.name, val: finalAmount, count: item.count, unit: '건', price: itemPrice });
+                    expenseDetails.push({ label: item.name, val: finalAmount, count: itemCount, unit: '건', price: itemPrice });
                 }
             });
         }
@@ -111,7 +147,7 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
             totalVolume: delivery + returns + interruption,
             extraIncomeCount,
             extraIncomeTotalCount,
-            itemCounts // [추가] 항목별 개수 리턴
+            itemCounts
         };
     };
 
