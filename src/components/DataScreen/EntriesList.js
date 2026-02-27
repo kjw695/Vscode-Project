@@ -92,7 +92,7 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
         if (freshBag > 0) {
             itemCounts['프레시백'] = (itemCounts['프레시백'] || 0) + freshBag;
             if (!overriddenKeys['freshBagCount']) {
-                // ✨ 억지로 100원을 곱하던 로직을 제거하고, 공통 단가를 따르도록 수정
+                
                 totalRevenue += unitPrice * freshBag;
                 if (!revenueGroups[unitPrice]) revenueGroups[unitPrice] = [];
                 revenueGroups[unitPrice].push({ label: '프레시백', val: unitPrice * freshBag, count: freshBag, unit: '개' });

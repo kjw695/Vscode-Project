@@ -3,12 +3,6 @@ import { Save, Plus, ChevronDown, ChevronUp, Check, Calculator, ChevronLeft, Che
 import CalculatorPage from './CalculatorPage'; 
 import { useNavigate } from 'react-router-dom';
 
-const LEGACY_KEYS = [
-    'deliveryCount', 'returnCount', 'deliveryInterruptionAmount', 'freshBagCount', 
-    'penaltyAmount', 'industrialAccidentCost', 'fuelCost', 'maintenanceCost',      
-    'vatAmount', 'incomeTaxAmount', 'taxAccountantFee'
-];
-
 const formatNumber = (num) => {
     if (!num && num !== 0) return '';
     const stringNum = String(num).replace(/,/g, '');
@@ -199,9 +193,9 @@ const DataEntryForm = ({
         if (input) input.focus();
     };
 
-const boxBottomLineClass = `border-b-2 ${isDarkMode ? '!border-gray-900' : '!border-gray-200'} focus-within:!border-yellow-300 transition-colors duration-200`;
+    const boxBottomLineClass = `border-b-2 ${isDarkMode ? '!border-gray-900' : '!border-gray-200'} focus-within:!border-yellow-300 transition-colors duration-200`;
 
- // ✨ [수정 완료] 키패드가 올라올 때 입력창을 화면 상위 30% 위치로 부드럽게 이동시키는 함수
+    // ✨ [수정 완료] 키패드가 올라올 때 입력창을 화면 상위 30% 위치로 부드럽게 이동시키는 함수
     const handleFocus = (e) => {
         let targetElement = e.target;
         
@@ -211,7 +205,6 @@ const boxBottomLineClass = `border-b-2 ${isDarkMode ? '!border-gray-900' : '!bor
         setTimeout(() => {
             if (targetElement) {
                 // 2. '진짜로' 스크롤이 발생하고 있는 컨테이너 찾기
-                // (단순히 속성만 있는게 아니라, 실제 내용물이 넘쳐서 스크롤 가능한 녀석을 감지합니다)
                 let container = targetElement.parentElement;
                 while (container) {
                     const style = window.getComputedStyle(container);
@@ -271,7 +264,7 @@ const boxBottomLineClass = `border-b-2 ${isDarkMode ? '!border-gray-900' : '!bor
         setCurrentRound(null); 
     }, [formType, date]);
 
-// (자동 회차 선택 로직)
+    // (자동 회차 선택 로직)
     useEffect(() => {
         // 수정 모드일 때는 해당 데이터의 회차를 유지
         if (entryToEdit) {
@@ -392,20 +385,24 @@ const boxBottomLineClass = `border-b-2 ${isDarkMode ? '!border-gray-900' : '!bor
         if (formType === 'income' && incomeConfig) {
             for (const item of incomeConfig) {
                 const qty = safeNum(formData[item.key]); 
-                const isLegacy = LEGACY_KEYS.includes(item.key);
-                const hasGlobalPrice = unitPrice && parseFloat(unitPrice) > 0;
-
-                if (qty > 0 && (!isLegacy || !hasGlobalPrice)) {
-                    let finalUnitPrice = 0;
-                    if (selectedItemPrices[item.key] !== undefined && selectedItemPrices[item.key] !== '') {
-                        finalUnitPrice = parseFloat(selectedItemPrices[item.key]);
-                    } 
-                    else if (item.useCustomPrice && item.customPrice && item.customPrice.length === 1) {
-                        finalUnitPrice = item.customPrice[0];
-                    } 
-                    else {
-                        finalUnitPrice = parseFloat(unitPrice) || 0;
-                    }
+                
+                // ✨ 수정 포인트: 옛날방식(isLegacy) 조건 삭제! 모든 데이터를 customItems로 넣습니다.
+                if (qty > 0) {
+                  let finalUnitPrice = 0;
+if (selectedItemPrices[item.key] !== undefined && selectedItemPrices[item.key] !== '') {
+    finalUnitPrice = parseFloat(selectedItemPrices[item.key]);
+} 
+else if (item.useCustomPrice) {
+    // ✨ 개별 항목은 공통 단가 무시!
+    if (item.customPrice && item.customPrice.length === 1) {
+        finalUnitPrice = item.customPrice[0];
+    } else {
+        finalUnitPrice = 0; 
+    }
+} 
+else {
+    finalUnitPrice = parseFloat(unitPrice) || 0;
+}
                     
                     if (finalUnitPrice <= 0) {
                         alert(`'${item.label}' 항목의 단가가 0원입니다.\n단가를 입력해주세요.`);
@@ -421,7 +418,8 @@ const boxBottomLineClass = `border-b-2 ${isDarkMode ? '!border-gray-900' : '!bor
         else if (formType === 'expense' && expenseConfig) {
             expenseConfig.forEach(item => {
                 const cost = safeNum(formData[item.key]); 
-                if (cost > 0 && !LEGACY_KEYS.includes(item.key)) {
+                // ✨ 수정 포인트: 지출에서도 옛날방식 방해물 삭제!
+                if (cost > 0) {
                     customItems.push({
                         key: item.key, name: item.label, amount: cost, type: 'expense'
                     });
@@ -439,13 +437,20 @@ const boxBottomLineClass = `border-b-2 ${isDarkMode ? '!border-gray-900' : '!bor
                 const qty = safeNum(formData[item.key]);
                 if (qty > 0) {
                     let appliedPrice = 0;
-                    if (selectedItemPrices[item.key] !== undefined && selectedItemPrices[item.key] !== '') {
-                        appliedPrice = parseFloat(selectedItemPrices[item.key]);
-                    } else if (item.useCustomPrice && item.customPrice && item.customPrice.length === 1) {
-                        appliedPrice = item.customPrice[0];
-                    } else {
-                        appliedPrice = parseFloat(unitPrice) || 0;
-                    }
+if (selectedItemPrices[item.key] !== undefined && selectedItemPrices[item.key] !== '') {
+    appliedPrice = parseFloat(selectedItemPrices[item.key]);
+} 
+else if (item.useCustomPrice) {
+    // ✨ 개별 항목은 공통 단가 무시!
+    if (item.customPrice && item.customPrice.length === 1) {
+        appliedPrice = item.customPrice[0];
+    } else {
+        appliedPrice = 0; 
+    }
+} 
+else {
+    appliedPrice = parseFloat(unitPrice) || 0;
+}
                     total += qty * appliedPrice;
                 }
             });
@@ -469,21 +474,26 @@ const boxBottomLineClass = `border-b-2 ${isDarkMode ? '!border-gray-900' : '!bor
     const renderItemBox = (item, isHiddenItem = false) => {
         const inputId = `input-${item.key}`;
         
-        let currentPriceValue = '';
-        let isCustom = false; 
+       let currentPriceValue = '';
+let isCustom = false; 
 
-        if (selectedItemPrices[item.key] !== undefined) {
-            currentPriceValue = selectedItemPrices[item.key];
-            isCustom = true;
-        } 
-        else if (item.useCustomPrice && item.customPrice && item.customPrice.length === 1) {
-            currentPriceValue = item.customPrice[0];
-            isCustom = true;
-        } 
-        else {
-            currentPriceValue = unitPrice; 
-            isCustom = false;
-        }
+if (selectedItemPrices[item.key] !== undefined && selectedItemPrices[item.key] !== '') {
+    currentPriceValue = selectedItemPrices[item.key];
+    isCustom = true;
+} 
+else if (item.useCustomPrice) {
+    // ✨ 개별 항목은 공통 단가 표시 안 함 (비워둠)
+    if (item.customPrice && item.customPrice.length === 1) {
+        currentPriceValue = item.customPrice[0];
+    } else {
+        currentPriceValue = ''; 
+    }
+    isCustom = true;
+} 
+else {
+    currentPriceValue = unitPrice; 
+    isCustom = false;
+}
 
         const hasOptions = item.customPrice && item.customPrice.length > 0;
 
@@ -547,15 +557,15 @@ const boxBottomLineClass = `border-b-2 ${isDarkMode ? '!border-gray-900' : '!bor
 
                 <div className="w-[40%]">
                     <input 
-    id={inputId} 
-    type="text" 
-    inputMode="numeric" 
-    value={formatNumber(formData[item.key])} 
-    onChange={(e) => handleInputChange(item.key, unformatNumber(e.target.value))} 
-    onFocus={handleFocus}  // 이 줄을 꼭 넣어주세요!
-    className={`w-full h-10 text-xl font-bold bg-transparent outline-none text-right ${isDarkMode ? 'text-white' : 'text-black'}`} 
-    placeholder="0" 
-/>
+                        id={inputId} 
+                        type="text" 
+                        inputMode="numeric" 
+                        value={formatNumber(formData[item.key])} 
+                        onChange={(e) => handleInputChange(item.key, unformatNumber(e.target.value))} 
+                        onFocus={handleFocus}  // 이 줄을 꼭 넣어주세요!
+                        className={`w-full h-10 text-xl font-bold bg-transparent outline-none text-right ${isDarkMode ? 'text-white' : 'text-black'}`} 
+                        placeholder="0" 
+                    />
                 </div>
             </div>
         );
