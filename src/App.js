@@ -33,7 +33,8 @@ import SystemThemeManager from './components/common/SystemThemeManager';
 import GoalSettingsView from './components/more/GoalSettingsView';
 import { useDelivery } from './contexts/DeliveryContext';
 import { exportDataAsCsv, parseCsvData } from './utils/dataHandlers.js'; 
-
+import { calculateData } from './utils/calculator';
+import InstallmentPage from './InstallmentPage'; // 👈 할부
 // [추가] 로고 이미지 (경로는 실제 로고 경로에 맞게 조정 필요, 없으면 텍스트만 표시됨)
 import logoImage from './logo.png'; 
 
@@ -202,10 +203,21 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
 
     useEffect(() => {
         const now = new Date();
+        // 오늘 날짜가 마감일(예: 25일)을 지났으면 다음 달 장부로 넘김
         if (now.getDate() > monthlyEndDay) {
             const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
             setCurrentCalendarDate(nextMonth);
-            setSelectedMonth(nextMonth.toISOString().slice(0, 7));
+            // ✨ UTC 시차 버그 수정: 영국 시간이 아닌 스마트폰(로컬) 시간 기준으로 글자 생성!
+            const y = nextMonth.getFullYear();
+            const m = String(nextMonth.getMonth() + 1).padStart(2, '0');
+            setSelectedMonth(`${y}-${m}`);
+        } else {
+            // 마감일 이전이면 이번 달 장부 유지 (달력과 데이터를 완벽하게 동기화)
+            const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            setCurrentCalendarDate(currentMonth);
+            const y = currentMonth.getFullYear();
+            const m = String(currentMonth.getMonth() + 1).padStart(2, '0');
+            setSelectedMonth(`${y}-${m}`);
         }
     }, [monthlyEndDay]);
 
@@ -342,29 +354,45 @@ const handleCloudRestore = async () => {
             // Context handles errors
         }
     };
-  
+
     const handleEdit = (entry) => {
-        setEntryToEdit(entry); // "이 항목을 수정할 거야" 라고 확실히 기억함
+        setEntryToEdit(entry); 
         setDate(entry.date);
         setUnitPrice(entry.unitPrice ? entry.unitPrice.toString() : '');
         
-        // customItems(추가 항목)와 일반 항목(배송, 반품 등)을 분리해서 안전하게 담음
         const { id, date, unitPrice, timestamp, round, customItems, ...rest } = entry;
         const stringifiedData = {};
         
+        // 1. 과거 레거시 데이터 복구
         Object.keys(rest).forEach(key => {
             stringifiedData[key] = rest[key] ? rest[key].toString() : '';
         });
         
+        let isExpense = false;
+
+        // 2. ✨ 커스텀 항목(신규 방식) 개수 및 금액 복구 추가!
+        if (customItems && Array.isArray(customItems)) {
+            customItems.forEach(item => {
+                if (item.type === 'income') {
+                    // 수량이 있으면 수량 칸에, 없으면 고정금액 칸에 복구
+                    stringifiedData[item.key] = item.count > 0 ? item.count.toString() : (item.amount > 0 ? item.amount.toString() : '');
+                } else if (item.type === 'expense') {
+                    stringifiedData[item.key] = item.amount > 0 ? item.amount.toString() : '';
+                    isExpense = true;
+                }
+            });
+        }
+        
         setFormData(stringifiedData);
         
-        const isExpense = expenseConfig.some(item => rest[item.key] > 0);
-        setFormType(isExpense ? 'expense' : 'income');
+        if (!isExpense) {
+            isExpense = expenseConfig.some(item => rest[item.key] > 0);
+        }
         
+        setFormType(isExpense ? 'expense' : 'income');
         setSelectedMainTab('data');
         setActiveContentTab('dataEntry');
         setActiveDataTab('entry'); 
-        
     };
 
     const handleDelete = (id) => {
@@ -440,21 +468,18 @@ const handleCloudRestore = async () => {
 
     const finalFilteredEntries = useMemo(() => {
         const filtered = entries.filter(entry => {
-            const extraRevenue = (entry.customItems || []).filter(i => i.type === 'income').reduce((s, i) => s + (Number(i.amount) || 0), 0);
-            const extraExpense = (entry.customItems || []).filter(i => i.type === 'expense').reduce((s, i) => s + (Number(i.amount) || 0), 0);
-
-            const dailyRevenue = (entry.unitPrice * (entry.deliveryCount || 0)) + (entry.unitPrice * (entry.returnCount || 0)) + (entry.unitPrice * (entry.deliveryInterruptionAmount || 0)) + (entry.unitPrice * (entry.freshBagCount || 0)) + extraRevenue;
-            const dailyExpenses = (entry.customItems && entry.customItems.length > 0)
-                ? entry.customItems.filter(i => i.type === 'expense').reduce((s, i) => s + (Number(i.amount) || 0), 0)
-                : ((entry.penaltyAmount || 0) + (entry.industrialAccidentCost || 0) + (entry.fuelCost || 0) + (entry.maintenanceCost || 0) + (entry.vatAmount || 0) + (entry.incomeTaxAmount || 0) + (entry.taxAccountantFee || 0));
-
-            const typeMatch = filters.type === 'all' || (filters.type === 'income' && dailyRevenue > 0) || (filters.type === 'expense' && dailyExpenses > 0);
+            // ✨ 하드코딩 완전 삭제! 단일 계산기 사용
+            const stats = calculateData([entry], itemLabels);
+            
+            const typeMatch = filters.type === 'all' || 
+                              (filters.type === 'income' && stats.totalRevenue > 0) || 
+                              (filters.type === 'expense' && stats.totalExpenses > 0);
             if (!typeMatch) return false;
             if (filters.period === 'all' || !filters.startDate || !filters.endDate) return true;
             return entry.date >= filters.startDate && entry.date <= filters.endDate;
         });
         return filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
-    }, [entries, filters, sortColumn, sortDirection]);
+    }, [entries, filters, sortColumn, sortDirection, itemLabels]);
 
     const handleSaveFavoritePrices = async () => {
         const pricesArray = adminFavoritePricesInput.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
@@ -838,46 +863,20 @@ const handleCloudRestore = async () => {
                                     />
                                 </div>
                                 
-                                <div className={activeDataTab === 'list' ? 'w-full block' : 'hidden'}>
-                                   
-    <EntriesList
-        entries={finalFilteredEntries}
-        summary={{
-            totalRevenue: finalFilteredEntries.reduce((sum, entry) => {
-                // 1. 옛날 데이터 호환용 (기본 항목)
-                const basicRevenue = (entry.unitPrice * (entry.deliveryCount||0)) + 
-                                     (entry.unitPrice * (entry.returnCount||0)) + 
-                                     (entry.unitPrice * (entry.deliveryInterruptionAmount||0)) + 
-                                     (entry.unitPrice * (entry.freshBagCount || 0));
-                
-                // 2. [수정됨] 커스텀 항목: (금액) + (수량 × 단가) 모두 합산
-                const extraRevenue = (entry.customItems || [])
-                    .filter(i => i.type === 'income')
-                    .reduce((s, i) => {
-                        const amount = Number(i.amount) || 0;
-                        const calculated = (Number(i.count) || 0) * (Number(i.unitPrice) || 0);
-                        return s + amount + calculated;
-                    }, 0);
-
-                return sum + basicRevenue + extraRevenue;
-            }, 0),
-            
-            // 지출 부분은 기존과 동일하게 유지
-            totalExpenses: finalFilteredEntries.reduce((sum, entry) => {
-                const hasCustomItems = entry.customItems && entry.customItems.length > 0;
-                const expenseSum = hasCustomItems
-                    ? entry.customItems.filter(i => i.type === 'expense').reduce((s, i) => s + (Number(i.amount) || 0), 0)
-                    : ((entry.penaltyAmount || 0) + (entry.industrialAccidentCost || 0) + (entry.fuelCost || 0) + (entry.maintenanceCost || 0) + (entry.vatAmount || 0) + (entry.incomeTaxAmount || 0) + (entry.taxAccountantFee || 0));
-                return sum + expenseSum;
-            }, 0),
-            entryNetProfit: Object.fromEntries(finalFilteredEntries.map(entry => [entry.id, 0])),
-            filterLabel: filters.label || '전체'
-        }}
-        handleEdit={handleEdit} 
-        handleDelete={handleDelete} 
-        isDarkMode={isDarkMode} 
-        onOpenFilter={() => setIsFilterModalOpen(true)} 
-        filterType={filters.type}
+                              <div className={activeDataTab === 'list' ? 'w-full block' : 'hidden'}>
+                                    <EntriesList
+                                        entries={finalFilteredEntries}
+                                        summary={{
+                                            totalRevenue: calculateData(finalFilteredEntries, itemLabels).totalRevenue,
+                                            totalExpenses: calculateData(finalFilteredEntries, itemLabels).totalExpenses,
+                                            entryNetProfit: Object.fromEntries(finalFilteredEntries.map(entry => [entry.id, 0])),
+                                            filterLabel: filters.label || '전체'
+                                        }}
+                                        handleEdit={handleEdit} 
+                                        handleDelete={handleDelete} 
+                                        isDarkMode={isDarkMode} 
+                                        onOpenFilter={() => setIsFilterModalOpen(true)} 
+                                        filterType={filters.type}
                                     />
                                 </div>
                             </div>
@@ -1004,6 +1003,7 @@ function App() {
             <Routes>
                 <Route path="/" element={<AppContent />} />
                 <Route path="/calculator" element={<CalculatorPageWrapper />} />
+                <Route path="/installment" element={<InstallmentPageWrapper />} />
             </Routes>
         </Router>
     );
@@ -1031,6 +1031,31 @@ function CalculatorPageWrapper() {
             date={date}
             currentRound={currentRound}
             incomeConfig={incomeConfig || []}
+            isDarkMode={isDarkMode}
+            onBack={() => navigate(-1)} 
+            onApply={handleApply} 
+        />
+    );
+}
+
+// 할부 페이지를 감싸서 데이터를 저장해주는 가벼운 껍데기
+function InstallmentPageWrapper() {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { expenseConfig, isDarkMode } = location.state || {};
+    const { saveEntry } = useDelivery(); 
+
+    // InstallmentPage가 여러 개의 데이터를 만들어서 보내주면, 여기서 한 번에 저장합니다!
+    const handleApply = (entriesToSave) => {
+        entriesToSave.forEach(entry => {
+            saveEntry(entry);
+        });
+        navigate(-1); // 다 저장하고 뒤로가기
+    };
+
+    return (
+        <InstallmentPage 
+            expenseConfig={expenseConfig || []}
             isDarkMode={isDarkMode}
             onBack={() => navigate(-1)} 
             onApply={handleApply} 

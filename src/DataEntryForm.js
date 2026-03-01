@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Save, Plus, ChevronDown, ChevronUp, Check, Calculator, ChevronLeft, ChevronRight, X, Loader2, Camera } from 'lucide-react';
 import CalculatorPage from './CalculatorPage'; 
 import { useNavigate } from 'react-router-dom';
+import InstallmentPage from './InstallmentPage';
+import { useDelivery } from './contexts/DeliveryContext';
 
 const formatNumber = (num) => {
     if (!num && num !== 0) return '';
@@ -167,6 +169,7 @@ const DataEntryForm = ({
     entries
 }) => {
     const navigate = useNavigate();
+    const { saveEntry } = useDelivery();
     const [selectedExtraKeys, setSelectedExtraKeys] = useState([]);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [selectedItemPrices, setSelectedItemPrices] = useState({});
@@ -312,6 +315,7 @@ const DataEntryForm = ({
     useEffect(() => {
         const initialPrices = {};
         const items = incomeConfig || [];
+        
         if (formType === 'income') {
             items.forEach(item => {
                 if (item.useCustomPrice && Array.isArray(item.customPrice) && item.customPrice.length === 1) {
@@ -322,14 +326,26 @@ const DataEntryForm = ({
         
         setSelectedItemPrices(prev => {
             const next = { ...prev };
+            
+            // 1. 설정에 있는 기본 단가 채우기 (비어있을 때만)
             Object.keys(initialPrices).forEach(key => {
                 if (next[key] === undefined || next[key] === '') {
                     next[key] = initialPrices[key];
                 }
             });
+
+            // 2. ✨ 수정 모드일 때: 예전에 저장했던 개별 단가로 완벽하게 덮어쓰기!
+            if (entryToEdit && entryToEdit.customItems) {
+                entryToEdit.customItems.forEach(item => {
+                    if (item.type === 'income' && item.unitPrice > 0) {
+                        next[item.key] = item.unitPrice.toString();
+                    }
+                });
+            }
+            
             return next;
         });
-    }, [incomeConfig, formType]);
+    }, [incomeConfig, formType, entryToEdit]); // ✨ 의존성에 entryToEdit 추가
 
     useEffect(() => {
         if (entryToEdit) {
@@ -377,6 +393,22 @@ const DataEntryForm = ({
         setSelectedExtraKeys(newExtraKeys);
         window.history.back(); 
     };
+
+    // ✨ 할부 페이지 컨트롤용 함수
+    const handleOpenInstallment = () => {
+        window.history.pushState({ page: 'installment' }, '', '#installment');
+        setViewMode('installment');
+    };
+
+    const handleInstallmentBack = useCallback(() => {
+        window.history.back(); // 뒤로가기 연동
+    }, []);
+
+    const handleInstallmentApply = (entriesToSave) => {
+        entriesToSave.forEach(entry => saveEntry(entry));
+        window.history.back(); // 저장 후 자동으로 닫기 (지출 탭 유지)
+    };
+
 
     const onFormSubmit = (e) => {
         e.preventDefault();
@@ -592,6 +624,15 @@ else {
 
     if (viewMode === 'calculator') return <CalculatorPage onBack={handleCalculatorBack} onApply={handleCalculatorApply} date={date} currentRound={currentRound} incomeConfig={incomeConfig} isDarkMode={isDarkMode} />;
 
+    if (viewMode === 'installment') return (
+        <InstallmentPage 
+            expenseConfig={expenseConfig} 
+            isDarkMode={isDarkMode} 
+            onBack={handleInstallmentBack} 
+            onApply={handleInstallmentApply} 
+        />
+    );
+
     return (
         <form onSubmit={onFormSubmit} className={`w-full h-full flex flex-col pb-20 font-sans overflow-y-auto ${isDarkMode ? 'bg-gray-800' : 'bg-slate-50'}`} onClick={() => setOpenDropdownKey(null)} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>     
             {isCalendarOpen && (
@@ -618,7 +659,7 @@ else {
                 </div>
 
               {/* 회차 선택 및 계산하기 영역 */}
-                {formType === 'income' ? (
+                {formType === 'income' && (
                     <div className="flex justify-between items-center w-full mb-3 gap-2">
                         {/* 가로 스크롤 영역 */}
                         <div 
@@ -660,7 +701,20 @@ else {
                             계산하기
                         </button>
                     </div>
-                ) : <div className="h-[34px] mb-2" />}
+)}
+{formType === 'expense' && (
+    <div className="flex justify-end mb-2 h-[34px]">
+        <button
+            type="button"
+            onClick={handleOpenInstallment} // 👈 우리가 새로 만든 완벽한 함수로 교체!
+            className={`py-1.5 px-3 rounded-lg text-sm font-bold border-2 flex items-center shadow-sm transition-colors ${
+                isDarkMode ? 'border-blue-500 text-blue-400 hover:bg-gray-800' : 'border-blue-500 text-blue-600 hover:bg-blue-50'
+            }`}
+        >
+            고정 지출 / 할부 등록
+        </button>
+    </div>
+)}
 
                 {/* 공통 단가 입력 영역 */}
                 {formType === 'income' && (

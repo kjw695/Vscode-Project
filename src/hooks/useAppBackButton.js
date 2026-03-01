@@ -15,7 +15,11 @@ const useAppBackButton = ({
 
         const setupListener = async () => {
             backButtonListener = await CapacitorApp.addListener('backButton', ({ canGoBack }) => {
-                
+                if (window.location.hash) {
+                    window.history.back();
+                    return;
+                }
+
                 // 1. 팝업/경고창이 떠 있으면 -> 닫기
                 if (modalState && modalState.isOpen) {
                     closeModal();
