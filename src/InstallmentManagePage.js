@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, Trash2, Calendar, CreditCard, AlertCircle, CheckCircle2, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, Trash2, Calendar, CreditCard, AlertCircle, ChevronRight } from 'lucide-react';
 
 const InstallmentManagePage = ({ entries = [], isDarkMode, onBack, onDeleteEntries }) => {
     const [deleteModal, setDeleteModal] = useState(null); // { group: object, isOpen: boolean }
+    const [activeTab, setActiveTab] = useState('progress'); // ✨ 탭 상태 추가 ('progress' | 'completed')
 
     // 오늘 날짜 구하기 (과거/미래 구분용)
     const getTodayStr = () => {
@@ -19,7 +20,7 @@ const InstallmentManagePage = ({ entries = [], isDarkMode, onBack, onDeleteEntri
         const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
 
         sortedEntries.forEach(entry => {
-            if (entry.groupId) { // groupId가 있는 데이터만(할부/정기결제) 추출
+            if (entry.groupId) {
                 if (!groups[entry.groupId]) {
                     groups[entry.groupId] = {
                         groupId: entry.groupId,
@@ -45,12 +46,21 @@ const InstallmentManagePage = ({ entries = [], isDarkMode, onBack, onDeleteEntri
             }
         });
 
-        // 완료 여부 체크 및 배열로 변환
+        // 완료 여부 체크 및 최신순 정렬
         return Object.values(groups).map(group => ({
             ...group,
             isCompleted: group.paidCount === group.totalCount
-        })).sort((a, b) => new Date(b.startDate) - new Date(a.startDate)); // 최신 등록순
+        })).sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
     }, [entries]);
+
+    // ✨ 현재 선택된 탭에 맞춰서 보여줄 데이터만 필터링하기
+    const filteredInstallments = useMemo(() => {
+        return groupedInstallments.filter(group => {
+            if (activeTab === 'progress') return !group.isCompleted; // 진행 중 탭
+            if (activeTab === 'completed') return group.isCompleted;   // 완료됨 탭
+            return true;
+        });
+    }, [groupedInstallments, activeTab]);
 
     // 삭제 실행 함수
     const handleDelete = (mode) => {
@@ -60,10 +70,8 @@ const InstallmentManagePage = ({ entries = [], isDarkMode, onBack, onDeleteEntri
         let entriesToDelete = [];
 
         if (mode === 'all') {
-            // 그룹 전체 내역 삭제
             entriesToDelete = deleteModal.group.entries;
         } else if (mode === 'future') {
-            // 오늘 이후의 남은 일정만 삭제
             entriesToDelete = deleteModal.group.entries.filter(e => e.date > todayStr);
         }
 
@@ -73,7 +81,6 @@ const InstallmentManagePage = ({ entries = [], isDarkMode, onBack, onDeleteEntri
             return;
         }
 
-        // 부모 컴포넌트(DataEntryForm)로 삭제할 배열 전달
         onDeleteEntries(entriesToDelete);
         setDeleteModal(null);
     };
@@ -82,22 +89,52 @@ const InstallmentManagePage = ({ entries = [], isDarkMode, onBack, onDeleteEntri
         <div className={`fixed inset-0 z-50 flex flex-col ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-800'}`}>
             
             {/* 상단 헤더 */}
-            <div className={`relative flex items-end justify-between px-4 pb-3 pt-10 shadow-sm z-10 ${isDarkMode ? 'bg-gray-800 border-b border-gray-700' : 'bg-white border-b border-gray-200'}`}>
+            <div className={`relative flex items-end justify-between px-4 pb-3 pt-10 z-10 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
                 <button onClick={onBack} className="absolute left-2 bottom-1.5 p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
                     <ChevronLeft size={26} />
                 </button>
                 <h2 className="w-full text-[19px] sm:text-xl font-extrabold text-center mb-0.5">할부 / 정기결제 관리</h2>
             </div>
 
+            {/* ✨ 진행 중 / 완료됨 탭 메뉴 */}
+            <div className={`flex px-4 pt-1 shadow-sm z-10 ${isDarkMode ? 'bg-gray-800 border-b border-gray-700' : 'bg-white border-b border-gray-200'}`}>
+                <button
+                    onClick={() => setActiveTab('progress')}
+                    className={`flex-1 pb-3 pt-2 text-center font-extrabold text-[15px] transition-all border-b-[3px] ${
+                        activeTab === 'progress'
+                            ? 'border-blue-500 text-blue-500'
+                            : 'border-transparent text-gray-400 hover:text-gray-500'
+                    }`}
+                >
+                    진행 중 <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${activeTab === 'progress' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'}`}>
+                        {groupedInstallments.filter(g => !g.isCompleted).length}
+                    </span>
+                </button>
+                <button
+                    onClick={() => setActiveTab('completed')}
+                    className={`flex-1 pb-3 pt-2 text-center font-extrabold text-[15px] transition-all border-b-[3px] ${
+                        activeTab === 'completed'
+                            ? 'border-green-500 text-green-500'
+                            : 'border-transparent text-gray-400 hover:text-gray-500'
+                    }`}
+                >
+                    완료됨 <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${activeTab === 'completed' ? 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'}`}>
+                        {groupedInstallments.filter(g => g.isCompleted).length}
+                    </span>
+                </button>
+            </div>
+
             {/* 메인 리스트 영역 */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {groupedInstallments.length === 0 ? (
+                {filteredInstallments.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full opacity-50 space-y-3 pt-20">
                         <Calendar size={48} className={isDarkMode ? 'text-gray-600' : 'text-gray-400'} />
-                        <p className="text-lg font-bold">등록된 할부/정기결제가 없습니다.</p>
+                        <p className="text-lg font-bold">
+                            {activeTab === 'progress' ? '진행 중인 결제 내역이 없습니다.' : '완료된 결제 내역이 없습니다.'}
+                        </p>
                     </div>
                 ) : (
-                    groupedInstallments.map((group) => (
+                    filteredInstallments.map((group) => (
                         <div key={group.groupId} className={`p-4 rounded-2xl shadow-sm border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} transition-all`}>
                             
                             <div className="flex justify-between items-start mb-3">
@@ -106,7 +143,9 @@ const InstallmentManagePage = ({ entries = [], isDarkMode, onBack, onDeleteEntri
                                         <CreditCard size={20} />
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-lg leading-tight">{group.title}</h3>
+                                        <h3 className={`font-bold text-lg leading-tight ${group.isCompleted ? (isDarkMode ? 'text-gray-400' : 'text-gray-500') : ''}`}>
+                                            {group.title}
+                                        </h3>
                                         <p className={`text-xs font-semibold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                             1회 {group.amount.toLocaleString()}원
                                         </p>
@@ -128,7 +167,7 @@ const InstallmentManagePage = ({ entries = [], isDarkMode, onBack, onDeleteEntri
                                 <div className="flex justify-between text-sm">
                                     <span className="text-gray-500 dark:text-gray-400 font-medium">진행 상황</span>
                                     <span className="font-bold">
-                                        <span className="text-blue-500">{group.paidCount}회</span> / {group.totalCount}회
+                                        <span className={group.isCompleted ? 'text-green-500' : 'text-blue-500'}>{group.paidCount}회</span> / {group.totalCount}회
                                     </span>
                                 </div>
                             </div>
@@ -146,7 +185,7 @@ const InstallmentManagePage = ({ entries = [], isDarkMode, onBack, onDeleteEntri
                 <div className="h-4"></div>
             </div>
 
-            {/* ✨ 스마트 삭제 팝업 모달 */}
+            {/* 스마트 삭제 팝업 모달 */}
             {deleteModal?.isOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-5 animate-in fade-in duration-200" onClick={() => setDeleteModal(null)}>
                     <div className={`w-full max-w-sm p-6 rounded-3xl shadow-2xl animate-in zoom-in-95 duration-200 ${isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white'}`} onClick={e => e.stopPropagation()}>

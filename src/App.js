@@ -850,7 +850,7 @@ const handleCloudRestore = async () => {
     setFormData={setFormData}  
     handleInputChange={handleInputChange}
 
-    incomeConfig={incomeConfig} 
+   incomeConfig={incomeConfig} 
     expenseConfig={expenseConfig}
     favoriteUnitPrices={favoriteUnitPrices}
     
@@ -859,7 +859,13 @@ const handleCloudRestore = async () => {
         if (tab === 'list') {
             setFilters({ period: 'all', startDate: '', endDate: '', type: 'all' });
         }
-  }}
+    }}
+    // ✨ 추가된 부분: 더보기 -> 항목 관리(지출) 탭으로 강제 이동시키는 스위치
+    onGoToExpenseSettings={() => {
+        setSelectedMainTab('more');
+        setActiveContentTab('adminSettings');
+        setMoreSubView('expenseSettings');
+    }}
                                     />
                                 </div>
                                 

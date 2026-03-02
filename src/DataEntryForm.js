@@ -165,12 +165,15 @@ const DataEntryForm = ({
     unitPrice, setUnitPrice, 
     formData, handleInputChange, 
     incomeConfig, expenseConfig,
+   
     favoriteUnitPrices,
     onNavigate,
     setFormData,
-    entries
+    entries,
+    onGoToExpenseSettings
 }) => {
     const navigate = useNavigate();
+
     const { saveEntry, deleteEntry } = useDelivery();
     const [selectedExtraKeys, setSelectedExtraKeys] = useState([]);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -626,12 +629,18 @@ else {
 
     if (viewMode === 'calculator') return <CalculatorPage onBack={handleCalculatorBack} onApply={handleCalculatorApply} date={date} currentRound={currentRound} incomeConfig={incomeConfig} isDarkMode={isDarkMode} />;
 
-    if (viewMode === 'installment') return (
+if (viewMode === 'installment') return (
         <InstallmentPage 
             expenseConfig={expenseConfig} 
             isDarkMode={isDarkMode} 
             onBack={handleInstallmentBack} 
             onApply={handleInstallmentApply} 
+            onAddCategory={() => {
+                // 1. 나중에 다시 돌아왔을 때를 위해 현재 창은 닫아둡니다.
+                setViewMode('form'); 
+                // 2. ✨ App.js에 "항목 관리 탭 열어줘!" 라고 요청합니다.
+                if (onGoToExpenseSettings) onGoToExpenseSettings(); 
+            }}
         />
     );
 

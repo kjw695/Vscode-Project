@@ -136,7 +136,7 @@ const TopSheetCalendar = ({ currentDate, onClose, onSelect, isDarkMode }) => {
 // ----------------------------------------------------------------------
 // 메인 할부 페이지 컴포넌트
 // ----------------------------------------------------------------------
-const InstallmentPage = ({ expenseConfig, isDarkMode, onBack, onApply }) => {
+const InstallmentPage = ({ expenseConfig, isDarkMode, onBack, onApply, onAddCategory }) => {
     const [startDate, setStartDate] = useState(() => {
         const now = new Date();
         const y = now.getFullYear();
@@ -221,7 +221,7 @@ const [memo, setMemo] = useState('');
         const groupId = `installment-${Date.now()}`; 
 
         const entriesToSave = dates.map((dateStr, index) => {
-            
+
             return {
                 type: 'expense',
                 date: dateStr,
@@ -297,11 +297,25 @@ const [memo, setMemo] = useState('');
                         <label className="flex items-center text-base sm:text-lg font-bold text-gray-500 dark:text-gray-400 tracking-tighter">
                             <Tag size={18} className="mr-1 flex-shrink-0"/> 지출 항목
                         </label>
-                        {/* ✨ 항목 이름 글자 크기 2단계 확대 (text-lg sm:text-xl) */}
-                        <select value={selectedExpense} onChange={(e) => setSelectedExpense(e.target.value)} className={`${inputClasses} h-[50px] !py-0 pl-4 pr-2 sm:pl-5 sm:pr-3 text-lg sm:text-xl font-bold`}>
+                       {/* ✨ 항목 이름 글자 크기 2단계 확대 (text-lg sm:text-xl) */}
+                        <select 
+                            value={selectedExpense} 
+                            onChange={(e) => {
+                                if (e.target.value === 'ADD_NEW_CATEGORY') {
+                                    if (onAddCategory) onAddCategory(); // 항목 추가 함수 실행!
+                                    // 페이지 이동하는 동안 기존 선택값이 풀리지 않게 껍데기 유지
+                                    e.target.value = selectedExpense; 
+                                } else {
+                                    setSelectedExpense(e.target.value);
+                                }
+                            }} 
+                            className={`${inputClasses} h-[50px] !py-0 pl-4 pr-2 sm:pl-5 sm:pr-3 text-lg sm:text-xl font-bold`}
+                        >
                             {expenseConfig.map(item => (
                                 <option key={item.key} value={item.key}>{item.label}</option>
                             ))}
+                            <option disabled>──────────</option>
+                            <option value="ADD_NEW_CATEGORY">➕ 항목 관리 (추가)</option>
                         </select>
                     </div>
 
