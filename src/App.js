@@ -95,6 +95,8 @@ function AppContent() {
     const [activeContentTab, setActiveContentTab] = useState('monthlyProfit');
     const [activeDataTab, setActiveDataTab] = useState('entry');
     const [moreSubView, setMoreSubView] = useState('main');
+    const [initialExpenseTab, setInitialExpenseTab] = useState('income');
+    const [isExpenseSettingsModalOpen, setIsExpenseSettingsModalOpen] = useState(false); // ✨ 항목 관리 팝업 상태
 
     // --- 데이터 입력 폼 상태 ---
     const [date, setDate] = useState(getTodayLocal());
@@ -676,6 +678,7 @@ const handleCloudRestore = async () => {
 
     useAppBackButton({
         modalState, closeModal, showConfirmation, isFilterModalOpen, setIsFilterModalOpen,
+        isExpenseSettingsModalOpen, setIsExpenseSettingsModalOpen, // ✨ 이 줄만 추가! 스마트폰 뒤로가기에 팝업 상태 전달
         moreSubView, setMoreSubView, selectedMainTab, setSelectedMainTab, activeContentTab, setActiveContentTab
     });
 
@@ -860,11 +863,9 @@ const handleCloudRestore = async () => {
             setFilters({ period: 'all', startDate: '', endDate: '', type: 'all' });
         }
     }}
-    // ✨ 추가된 부분: 더보기 -> 항목 관리(지출) 탭으로 강제 이동시키는 스위치
-    onGoToExpenseSettings={() => {
-        setSelectedMainTab('more');
-        setActiveContentTab('adminSettings');
-        setMoreSubView('expenseSettings');
+   onGoToExpenseSettings={() => {
+        setInitialExpenseTab('expense'); 
+        setIsExpenseSettingsModalOpen(true); // ✨ 탭 이동이 아니라 팝업으로 열어줍니다!
     }}
                                     />
                                 </div>
@@ -899,7 +900,9 @@ const handleCloudRestore = async () => {
                                 {moreSubView === 'unitPrice' && <UnitPriceView onBack={() => { setMoreSubView('main'); setTargetItemKey(null); }} isDarkMode={isDarkMode} adminFavoritePricesInput={adminFavoritePricesInput} setAdminFavoritePricesInput={setAdminFavoritePricesInput} handleSaveFavoritePrices={handleSaveFavoritePrices} favoriteUnitPrices={favoriteUnitPrices} targetItemKey={targetItemKey} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} />}
                                 {moreSubView === 'period' && <PeriodView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} adminMonthlyStartDayInput={adminMonthlyStartDayInput} setAdminMonthlyStartDayInput={setAdminMonthlyStartDayInput} adminMonthlyEndDayInput={adminMonthlyEndDayInput} setAdminMonthlyEndDayInput={setAdminMonthlyEndDayInput} handleSaveMonthlyPeriodSettings={handleSaveMonthlyPeriodSettings} monthlyStartDay={monthlyStartDay} monthlyEndDay={monthlyEndDay} />}
                                 {moreSubView === 'data' && <DataSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} handleExportCsv={() => exportDataAsCsv(entries, showMessage)} handleImportCsv={(e) => handleLocalCsvImport(e.target.files[0])} handleDeleteAllData={handleDeleteAllDataRequest} handleBackupToDrive={() => backupToDrive(entries)} handleRestoreFromDrive={handleCloudRestore} />}
-                                {moreSubView === 'expenseSettings' && <ExpenseSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} expenseConfig={expenseConfig} setExpenseConfig={setExpenseConfig} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} onNavigate={(view, key) => { setMoreSubView(view); if (key) setTargetItemKey(key); }} />}
+                            {/* ✨ 더보기 메뉴에서 진입할 때는 무조건 '수익(income)' 탭으로 고정! */}
+                                {moreSubView === 'expenseSettings' && <ExpenseSettingsView initialTab="income" onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} expenseConfig={expenseConfig} setExpenseConfig={setExpenseConfig} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} onNavigate={(view, key) => { setMoreSubView(view); if (key) setTargetItemKey(key); }} />}
+
                                 {moreSubView === 'userGuide' && <UserGuideView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} />}
                                 {moreSubView === 'legalInfo' && <LegalInfoView onBack={() => setMoreSubView('main')} onNavigate={setMoreSubView} isDarkMode={isDarkMode} />}
                                 {moreSubView === 'privacyPolicy' && <PrivacyPolicy onBack={() => setMoreSubView('legalInfo')} isDarkMode={isDarkMode} />}
@@ -992,6 +995,32 @@ const handleCloudRestore = async () => {
             )}
 
             <FilterModal isOpen={isFilterModalOpen} onClose={() => setIsFilterModalOpen(false)} onApply={handleApplyFilters} initialFilters={filters} isDarkMode={isDarkMode} entries={entries} />
+            
+            {/* ✨ 입력창 위에 전체화면으로 덮어씌워지는 항목 관리 팝업 */}
+            {isExpenseSettingsModalOpen && (
+                <div 
+                    className={`fixed inset-0 z-[9999] w-full h-full ${isDarkMode ? 'bg-[#111827]' : 'bg-gray-50'}`}
+                    style={{ paddingTop: '25.5px' }} /* ✨ 알림바(상태바) 겹침 방지용 보호 구역 추가! */
+                >
+                    <ExpenseSettingsView 
+                        initialTab={initialExpenseTab} 
+                        onBack={() => setIsExpenseSettingsModalOpen(false)}
+                        isDarkMode={isDarkMode} 
+                        expenseConfig={expenseConfig} 
+                        setExpenseConfig={setExpenseConfig} 
+                        incomeConfig={incomeConfig} 
+                        setIncomeConfig={setIncomeConfig} 
+                        onNavigate={(view, key) => { 
+                            setIsExpenseSettingsModalOpen(false);
+                            setSelectedMainTab('more'); 
+                            setActiveContentTab('adminSettings'); 
+                            setMoreSubView(view); 
+                            if (key) setTargetItemKey(key); 
+                        }} 
+                    />
+                </div>
+            )}
+
             {isLoading && (
                 <div className="fixed inset-0 bg-gray-900 bg-opacity-70 flex flex-col items-center justify-center z-[99]">
                     <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-white mb-4"></div>

@@ -636,9 +636,7 @@ if (viewMode === 'installment') return (
             onBack={handleInstallmentBack} 
             onApply={handleInstallmentApply} 
             onAddCategory={() => {
-                // 1. 나중에 다시 돌아왔을 때를 위해 현재 창은 닫아둡니다.
-                setViewMode('form'); 
-                // 2. ✨ App.js에 "항목 관리 탭 열어줘!" 라고 요청합니다.
+                // ✨ 창을 닫지 않고, 그 위에 항목 관리 팝업만 띄웁니다! (입력 데이터 유지)
                 if (onGoToExpenseSettings) onGoToExpenseSettings(); 
             }}
         />

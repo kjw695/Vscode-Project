@@ -1,10 +1,18 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ChevronLeft, Plus, Trash2, RotateCcw, Eye, EyeOff, CheckSquare, Square, GripVertical, ArrowUpDown } from 'lucide-react';
 
-const ExpenseSettingsView = ({ onBack, onNavigate, isDarkMode, expenseConfig, setExpenseConfig, incomeConfig, setIncomeConfig }) => {
-    const [activeTab, setActiveTab] = useState('income');
+// ✨ initialTab 신호를 받아옵니다
+const ExpenseSettingsView = ({ initialTab = 'income', onBack, onNavigate, isDarkMode, expenseConfig, setExpenseConfig, incomeConfig, setIncomeConfig }) => {
+    // 처음 열릴 때 전달받은 탭으로 설정
+    const [activeTab, setActiveTab] = useState(initialTab);
+    
+    // ✨ 만약 화면이 떠있는 상태에서 신호가 바뀌면 즉시 탭을 바꿔줍니다
+    useEffect(() => {
+        setActiveTab(initialTab);
+    }, [initialTab]);
     
     const [localExpense, setLocalExpense] = useState([]);
+    
     const [localIncome, setLocalIncome] = useState([]);
     const [newItemName, setNewItemName] = useState('');
     const [useCustomPrice, setUseCustomPrice] = useState(false);
