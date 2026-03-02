@@ -45,21 +45,48 @@ function EntriesTable({
         </thead>
         <tbody className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} text-sm font-light`}>
           {entries.length > 0 ? (
-            entries.map(entry => (
+            entries.map(entry => {
+              
+              // ✨ 할부(customItems) 박스 안에 있는 '지출 금액'을 완벽하게 찾아오는 헬퍼 함수
+              const getExpenseAmount = (key) => {
+                  let total = Number(entry[key]) || 0; 
+                  if (entry.customItems && Array.isArray(entry.customItems)) {
+                      entry.customItems.forEach(item => {
+                          if (item.key === key) total += (Number(item.amount) || 0); 
+                      });
+                  }
+                  return total;
+              };
+
+              // ✨ '수익 건수(개수)'를 찾아오는 헬퍼 함수
+              const getIncomeCount = (key) => {
+                  let total = Number(entry[key]) || 0;
+                  if (entry.customItems && Array.isArray(entry.customItems)) {
+                      entry.customItems.forEach(item => {
+                          if (item.key === key) total += (Number(item.count) || 0);
+                      });
+                  }
+                  return total;
+              };
+
+              return (
               <tr key={entry.id} className={`${isDarkMode ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-100'} border-b`}>
                 <td className="py-3 px-6 text-left whitespace-nowrap">{entry.date}</td>
                 <td className="py-3 px-6 text-left">{entry.unitPrice.toLocaleString()}</td>
-                <td className="py-3 px-6 text-left">{entry.deliveryCount.toLocaleString()}</td>
-                <td className="py-3 px-6 text-left">{entry.returnCount.toLocaleString()}</td>
-                <td className="py-3 px-6 text-left">{(entry.deliveryInterruptionAmount || 0).toLocaleString()}</td>
-                <td className="py-3 px-6 text-left">{(entry.freshBagCount || 0).toLocaleString()}</td>
-                <td className="py-3 px-6 text-left">{(entry.penaltyAmount || 0).toLocaleString()}</td>
-                <td className="py-3 px-6 text-left">{(entry.industrialAccidentCost || 0).toLocaleString()}</td>
-                <td className="py-3 px-6 text-left">{(entry.fuelCost || 0).toLocaleString()}</td>
-                <td className="py-3 px-6 text-left">{(entry.maintenanceCost || 0).toLocaleString()}</td>
-                <td className="py-3 px-6 text-left">{(entry.vatAmount || 0).toLocaleString()}</td>
-                <td className="py-3 px-6 text-left">{(entry.incomeTaxAmount || 0).toLocaleString()}</td>
-                <td className="py-3 px-6 text-left">{(entry.taxAccountantFee || 0).toLocaleString()}</td>
+                <td className="py-3 px-6 text-left">{getIncomeCount('deliveryCount').toLocaleString()}</td>
+                <td className="py-3 px-6 text-left">{getIncomeCount('returnCount').toLocaleString()}</td>
+                <td className="py-3 px-6 text-left">{getIncomeCount('deliveryInterruptionAmount').toLocaleString()}</td>
+                <td className="py-3 px-6 text-left">{getIncomeCount('freshBagCount').toLocaleString()}</td>
+                
+                {/* ✨ 지출 항목들에 getExpenseAmount 함수 적용하여 할부 금액까지 모두 합산 표시 */}
+                <td className="py-3 px-6 text-left">{getExpenseAmount('penaltyAmount').toLocaleString()}</td>
+                <td className="py-3 px-6 text-left">{getExpenseAmount('industrialAccidentCost').toLocaleString()}</td>
+                <td className="py-3 px-6 text-left">{getExpenseAmount('fuelCost').toLocaleString()}</td>
+                <td className="py-3 px-6 text-left">{getExpenseAmount('maintenanceCost').toLocaleString()}</td>
+                <td className="py-3 px-6 text-left">{getExpenseAmount('vatAmount').toLocaleString()}</td>
+                <td className="py-3 px-6 text-left">{getExpenseAmount('incomeTaxAmount').toLocaleString()}</td>
+                <td className="py-3 px-6 text-left">{getExpenseAmount('taxAccountantFee').toLocaleString()}</td>
+                
                 <td className="py-3 px-6 text-center">
                   <div className="flex item-center justify-center">
                     <button onClick={() => handleEdit(entry)} className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-1 px-3 rounded-md mr-2 transition duration-150 ease-in-out">

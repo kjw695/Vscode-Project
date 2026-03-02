@@ -651,8 +651,7 @@ else {
                 
                 // 삭제 완료 후 안내 및 화면 복귀
                 alert(`${entriesToDelete.length}건의 일정이 성공적으로 삭제되었습니다.`);
-                window.history.back(); 
-            }}
+                           }}
         />
     );
     
