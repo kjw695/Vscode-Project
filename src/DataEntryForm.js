@@ -4,6 +4,8 @@ import CalculatorPage from './CalculatorPage';
 import { useNavigate } from 'react-router-dom';
 import InstallmentPage from './InstallmentPage';
 import { useDelivery } from './contexts/DeliveryContext';
+import InstallmentManagePage from './InstallmentManagePage';
+
 
 const formatNumber = (num) => {
     if (!num && num !== 0) return '';
@@ -169,7 +171,7 @@ const DataEntryForm = ({
     entries
 }) => {
     const navigate = useNavigate();
-    const { saveEntry } = useDelivery();
+    const { saveEntry, deleteEntry } = useDelivery();
     const [selectedExtraKeys, setSelectedExtraKeys] = useState([]);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [selectedItemPrices, setSelectedItemPrices] = useState({});
@@ -633,6 +635,27 @@ else {
         />
     );
 
+   // ✨ 새로 추가되는 할부 관리 페이지 렌더링
+    if (viewMode === 'installment-manage') return (
+        <InstallmentManagePage
+            entries={entries}
+            isDarkMode={isDarkMode}
+            onBack={() => window.history.back()}
+            onDeleteEntries={(entriesToDelete) => {
+                // ✨ 진짜 삭제 로직: 전달받은 삭제 목록을 하나씩 돌면서 모두 지워줍니다!
+                entriesToDelete.forEach(entry => {
+                    if (entry.id) {
+                        deleteEntry(entry.id);
+                    }
+                });
+                
+                // 삭제 완료 후 안내 및 화면 복귀
+                alert(`${entriesToDelete.length}건의 일정이 성공적으로 삭제되었습니다.`);
+                window.history.back(); 
+            }}
+        />
+    );
+    
     return (
         <form onSubmit={onFormSubmit} className={`w-full h-full flex flex-col pb-20 font-sans overflow-y-auto ${isDarkMode ? 'bg-gray-800' : 'bg-slate-50'}`} onClick={() => setOpenDropdownKey(null)} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>     
             {isCalendarOpen && (
@@ -703,15 +726,30 @@ else {
                     </div>
 )}
 {formType === 'expense' && (
-    <div className="flex justify-end mb-2 h-[34px]">
+    <div className="flex justify-between items-center w-full mb-3 gap-2">
+        {/* ✨ 할부/정기결제 관리 버튼 (새로 추가됨) */}
         <button
             type="button"
-            onClick={handleOpenInstallment} // 👈 우리가 새로 만든 완벽한 함수로 교체!
-            className={`py-1.5 px-3 rounded-lg text-sm font-bold border-2 flex items-center shadow-sm transition-colors ${
+            onClick={() => {
+                window.history.pushState({ page: 'installment-manage' }, '', '#installment-manage');
+                setViewMode('installment-manage');
+            }}
+            className={`py-1.5 px-3 rounded-lg text-xs sm:text-sm font-bold border-2 flex items-center shadow-sm transition-colors flex-1 justify-center ${
+                isDarkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-800' : 'border-gray-300 text-gray-600 hover:bg-gray-100'
+            }`}
+        >
+            할부/정기결제 관리
+        </button>
+
+        {/* 기존: 고정 지출 / 할부 등록 버튼 */}
+        <button
+            type="button"
+            onClick={handleOpenInstallment} 
+            className={`py-1.5 px-3 rounded-lg text-xs sm:text-sm font-bold border-2 flex items-center shadow-sm transition-colors flex-1 justify-center ${
                 isDarkMode ? 'border-blue-500 text-blue-400 hover:bg-gray-800' : 'border-blue-500 text-blue-600 hover:bg-blue-50'
             }`}
         >
-            고정 지출 / 할부 등록
+            <Plus size={16} className="mr-1" /> 고정 지출 / 할부 등록
         </button>
     </div>
 )}

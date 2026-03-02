@@ -204,16 +204,24 @@ const [memo, setMemo] = useState('');
         return (Number(monthlyAmount) || 0) * (Number(months) || 0);
     }, [monthlyAmount, months, isCustomDays, previewDates.length]);
 
-    const handleSubmit = () => {
+  const handleSubmit = () => {
         if (!selectedExpense) return alert('지출 항목을 선택해주세요.');
         if (!monthlyAmount || Number(monthlyAmount) <= 0) return alert('결제할 금액을 입력해주세요.');
         if (!months || Number(months) < 1) return alert('기간은 1개월 이상이어야 합니다.');
         if (isCustomDays && selectedDays.length === 0) return alert('반복할 요일을 하나 이상 선택해주세요.');
 
         const dates = previewDates; 
+        
+        // ✨ 안전장치 추가: 2건 이상 생성될 때 사용자에게 한 번 더 확인을 받습니다!
+        if (dates.length > 1) {
+            const confirmMsg = `달력에 총 ${dates.length}건의 결제 일정이 한 번에 추가됩니다.\n정말 등록하시겠습니까?`;
+            if (!window.confirm(confirmMsg)) return; // 취소 누르면 중단
+        }
+
         const groupId = `installment-${Date.now()}`; 
 
         const entriesToSave = dates.map((dateStr, index) => {
+            
             return {
                 type: 'expense',
                 date: dateStr,
