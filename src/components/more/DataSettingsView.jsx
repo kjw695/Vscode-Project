@@ -51,8 +51,9 @@ const DataSettingsView = ({
                     </p>
                     
                     <div className="space-y-3">
-                        <button 
-                            onClick={handleBackupToDrive}
+                       <button 
+                            // ✨ 임시 알림창으로 변경
+                            onClick={() => alert('현재 구글 드라이브 백업 기능은 개발(점검) 중입니다. 정식 출시 때 완벽하게 제공될 예정입니다! 🛠️')}
                             className={`${buttonBaseClass} bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/30`}
                         >
                             <Save size={18} />
@@ -60,7 +61,8 @@ const DataSettingsView = ({
                         </button>
 
                         <button 
-                            onClick={handleRestoreFromDrive}
+                            // ✨ 임시 알림창으로 변경
+                            onClick={() => alert('현재 구글 드라이브 복원 기능은 개발(점검) 중입니다. 정식 출시 때 완벽하게 제공될 예정입니다! 🛠️')}
                             className={`${buttonBaseClass} ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}
                         >
                             <RefreshCw size={18} />

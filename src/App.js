@@ -38,6 +38,11 @@ import InstallmentPage from './InstallmentPage'; // 👈 할부
 // [추가] 로고 이미지 (경로는 실제 로고 경로에 맞게 조정 필요, 없으면 텍스트만 표시됨)
 import logoImage from './logo.png'; 
 
+// ✨ 앱 업데이트 자동 확인을 위한 플러그인 3개 추가!
+import { AppUpdate } from '@capawesome/capacitor-app-update';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
+
 const DetailRow = ({ label, value, comparison }) => (
     <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-1">
         <span className="text-base sm:text-lg font-semibold">{label}</span>
@@ -173,6 +178,35 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const touchEndX = useRef(null);
     const touchStartY = useRef(null);
     const touchEndY = useRef(null);
+
+    // ✨ 앱 업데이트 자동 확인 로직 (버전 차이에 따른 강제/선택 업데이트)
+    useEffect(() => {
+        const checkForUpdate = async () => {
+            if (Capacitor.getPlatform() === 'android') {
+                try {
+                    const result = await AppUpdate.getAppUpdateInfo();
+                    
+                    if (result.updateAvailability === 2) { 
+                        const appInfo = await CapacitorApp.getInfo();
+                        const currentVersionCode = parseInt(appInfo.build, 10);
+                        const storeVersionCode = result.availableVersionCode;
+
+                        const versionDiff = storeVersionCode - currentVersionCode;
+
+                        if (versionDiff >= 2) {
+                            await AppUpdate.performImmediateUpdate();
+                        } else if (versionDiff === 1) {
+                            await AppUpdate.startFlexibleUpdate(); 
+                        }
+                    }
+                } catch (err) {
+                    console.log('업데이트 확인 중 오류 발생:', err);
+                }
+            }
+        };
+
+        checkForUpdate();
+    }, []);
 
     // 설정값 로드
     useEffect(() => {
