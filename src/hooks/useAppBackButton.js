@@ -1,5 +1,5 @@
 // src/hooks/useAppBackButton.js
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 
 const useAppBackButton = ({
@@ -9,7 +9,8 @@ const useAppBackButton = ({
     isExpenseSettingsModalOpen, setIsExpenseSettingsModalOpen,
     moreSubView, setMoreSubView,
     selectedMainTab, setSelectedMainTab,
-    activeContentTab, setActiveContentTab
+    activeContentTab, setActiveContentTab,
+    isEditing = false, closeEditMode = () => {}
 }) => {
     useEffect(() => {
         let backButtonListener;

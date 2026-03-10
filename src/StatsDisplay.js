@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
+import SwipeableView from './components/common/SwipeableView';//스와이프
 
 const CollapsibleStatCard = ({ title, value, valueColor, onToggle, showDetails, children, isDarkMode, t }) => (
     <div className={`px-6 py-4 rounded-lg ${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-black'} shadow`}>
@@ -50,7 +51,9 @@ function StatsDisplay({
     previousMonthlyProfit, 
     isDarkMode, 
     yearlyPeriod, 
-    cumulativePeriod 
+    cumulativePeriod,
+    setSelectedMonth,        
+    setCurrentCalendarDate
 }) {
     const [showRevenueDetails, setShowRevenueDetails] = useState(false);
     const [showExpensesDetails, setShowExpensesDetails] = useState(false);
@@ -115,6 +118,10 @@ function StatsDisplay({
     const currentProfitData = statisticsView === 'monthly' ? monthlyProfit : (statisticsView === 'yearly' ? yearlyProfit : cumulativeProfit);
     const isMonthly = statisticsView === 'monthly';
 
+    const handlePrev = () => statisticsView === 'monthly' ? handleMonthChange(-1) : setSelectedYear(String(parseInt(selectedYear) - 1));
+    const handleNext = () => statisticsView === 'monthly' ? handleMonthChange(1) : setSelectedYear(String(parseInt(selectedYear) + 1));
+    const animationKey = statisticsView === 'monthly' ? currentCalendarDate.toISOString() : (statisticsView === 'yearly' ? selectedYear : 'cumulative');
+    
     const StatsCard = ({ profitData }) => {
         const revenueRows = profitData.revenueDetails ? Object.entries(profitData.revenueDetails) : [];
         const expenseRows = profitData.expenseDetails ? Object.entries(profitData.expenseDetails) : [];
@@ -259,6 +266,12 @@ function StatsDisplay({
                 <button onClick={() => setStatisticsView('yearly')} className={`py-2 px-4 font-semibold ${statisticsView === 'yearly' ? (isDarkMode ? 'border-yellow-400 text-yellow-400' : 'border-yellow-500 text-yellow-600') : (isDarkMode ? 'border-transparent text-gray-300' : 'border-transparent text-gray-500')} border-b-2`}>{t.yearly}</button>
                 <button onClick={() => setStatisticsView('cumulative')} className={`py-2 px-4 font-semibold ${statisticsView === 'cumulative' ? (isDarkMode ? 'border-yellow-400 text-yellow-400' : 'border-yellow-500 text-yellow-600') : (isDarkMode ? 'border-transparent text-gray-300' : 'border-transparent text-gray-500')} border-b-2`}>{t.cumulative}</button>
             </div>
+            <SwipeableView 
+                onSwipeLeft={handleNext} 
+                onSwipeRight={handlePrev} 
+                swipeDisabled={statisticsView === 'cumulative'} 
+                animationKey={animationKey}
+            >
             
             <h3 className={`text-xl sm:text-2xl font-bold text-center mb-1 ${isDarkMode ? 'text-gray-200' : 'text-black'}`}>
                 {isMonthly && ( <div className="flex items-center justify-center space-x-2 sm:space-x-4"><button onClick={() => handleMonthChange(-1)} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`}><ArrowLeft size={20} /></button><span className="font-bold text-xl sm:text-2xl">{currentCalendarDate.getFullYear()}{isKo ? "년 " : "."}{currentCalendarDate.getMonth() + 1}{isKo ? "월" : ""}</span><button onClick={() => handleMonthChange(1)} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`}><ArrowRight size={20} /></button></div>)}
@@ -272,12 +285,54 @@ function StatsDisplay({
             
             <StatsCard profitData={currentProfitData} />
 
-            {statisticsView === 'yearly' && (
+         {statisticsView === 'yearly' && (
                 <div className="mt-6">
                      <h3 className={`text-lg font-bold mb-3 mt-6 ${isDarkMode ? 'text-gray-200' : 'text-black'}`}>{t.monthlyDetail}</h3>
-                     <div className="overflow-x-auto"><table className={`min-w-full rounded-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}><thead><tr className={`${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-200 text-gray-600'} uppercase text-sm`}><th className="py-3 px-6 text-left">{t.month}</th><th className="py-3 px-6 text-left">{t.profit}</th></tr></thead><tbody className={`${isDarkMode ? 'text-gray-200' : 'text-black'} text-sm`}>{yearlyProfit.monthlyBreakdown.map(monthData => ( <tr key={monthData.month} className={`${isDarkMode ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-100'} border-b`}><td className="py-3 px-6 text-left">{monthData.month}{t.month}</td><td className="py-3 px-6 text-left">{monthData.netProfit.toLocaleString()}</td></tr>))}</tbody></table></div>
+                     
+                     <div className="space-y-3 pb-4">
+                         {yearlyProfit.monthlyBreakdown.map(monthData => (
+                             <div 
+                                 key={monthData.month} 
+                                 /* ✨ 카드를 클릭했을 때 해당 연도의 해당 월로 이동하는 기능 ✨ */
+                                 onClick={() => {
+                                     if (setSelectedMonth && setCurrentCalendarDate) {
+                                         const newMonthStr = `${selectedYear}-${String(monthData.month).padStart(2, '0')}`;
+                                         setSelectedMonth(newMonthStr); // 1. 데이터 기준 월 변경
+                                         setCurrentCalendarDate(new Date(parseInt(selectedYear), monthData.month - 1, 1)); // 2. 달력 기준 월 변경
+                                         setStatisticsView('monthly'); // 3. 월간 탭으로 화면 전환
+                                     }
+                                 }}
+                                 /* ✨ 모바일 터치 피드백: 누르면 살짝 작아지는(active:scale-95) 애니메이션 추가 ✨ */
+                                 className={`p-3 sm:p-4 rounded-xl flex items-center justify-between shadow-sm border cursor-pointer transition-all duration-150 active:scale-95 hover:shadow-md ${isDarkMode ? 'bg-gray-800 border-gray-700 hover:bg-gray-700' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
+                             >
+                                 {/* 1. 좌측: 월 표시 */}
+                                 <div className="w-12 sm:w-16 font-extrabold text-xl sm:text-2xl text-center flex-shrink-0">
+                                     {monthData.month}<span className="text-sm sm:text-base font-medium">{t.month}</span>
+                                 </div>
+
+                                 {/* 2. 중앙: 수익 / 지출 */}
+                                 <div className="flex-1 flex flex-col justify-center px-3 border-r border-gray-200 dark:border-gray-700 mr-3 pr-3 text-right overflow-hidden space-y-1">
+                                     <span className="text-sm sm:text-base text-red-500 dark:text-red-400 font-semibold truncate">
+                                         수익: {(monthData.revenue || 0).toLocaleString()}
+                                     </span>
+                                     <span className="text-sm sm:text-base text-blue-500 dark:text-blue-400 font-semibold truncate">
+                                         지출: {(monthData.expenses || 0).toLocaleString()}
+                                     </span>
+                                 </div>
+
+                                 {/* 3. 우측: 순이익 */}
+                                 <div className="w-24 sm:w-28 text-right flex flex-col justify-center flex-shrink-0">
+                                     <span className="text-[10px] sm:text-xs font-semibold text-gray-500 dark:text-gray-400 mb-0.5">{t.profit}</span>
+                                     <span className={`font-black text-[clamp(1rem,4vw,1.25rem)] tracking-tight ${monthData.netProfit >= 0 ? (isDarkMode ? 'text-yellow-300' : 'text-yellow-600') : 'text-red-500'}`}>
+                                         {(monthData.netProfit || 0).toLocaleString()}
+                                     </span>
+                                 </div>
+                             </div>
+                         ))}
+                     </div>
                 </div>
             )}
+          </SwipeableView> 
         </div>
     );
 }

@@ -35,6 +35,7 @@ import { useDelivery } from './contexts/DeliveryContext';
 import { exportDataAsCsv, parseCsvData } from './utils/dataHandlers.js'; 
 import { calculateData } from './utils/calculator';
 import InstallmentPage from './InstallmentPage'; // 👈 할부
+import BottomNavBar from './components/common/BottomNavBar';
 // [추가] 로고 이미지 (경로는 실제 로고 경로에 맞게 조정 필요, 없으면 텍스트만 표시됨)
 import logoImage from './logo.png'; 
 
@@ -59,7 +60,7 @@ const getTodayLocal = () => {
     return `${year}-${month}-${day}`;
 };
 const getSmartCurrentMonth = (startDay = 26) => {
-    const now = new Date(); // 핸드폰 시간(한국 시간)
+    const now = new Date(); // 핸드폰 시간
     const currentDay = now.getDate();
     
     let year = now.getFullYear();
@@ -924,7 +925,7 @@ const handleCloudRestore = async () => {
                         )}
 
                         {activeContentTab === 'statistics' && (
-                            <StatsDisplay statisticsView={statisticsView} setStatisticsView={setStatisticsView} handleMonthChange={handleMonthChange} selectedYear={selectedYear} currentCalendarDate={currentCalendarDate} monthlyProfit={monthlyProfit} yearlyProfit={yearlyProfit} cumulativeProfit={cumulativeProfit} previousMonthlyProfit={previousMonthlyProfit} isDarkMode={isDarkMode} showMessage={showMessage} monthlyStatsSubTab={monthlyStatsSubTab} setMonthlyStatsSubTab={setMonthlyStatsSubTab} setSelectedYear={setSelectedYear} yearlyPeriod={yearlyPeriod} cumulativePeriod={cumulativePeriod} />
+                            <StatsDisplay statisticsView={statisticsView} setStatisticsView={setStatisticsView} handleMonthChange={handleMonthChange} selectedYear={selectedYear} currentCalendarDate={currentCalendarDate} monthlyProfit={monthlyProfit} yearlyProfit={yearlyProfit} cumulativeProfit={cumulativeProfit} previousMonthlyProfit={previousMonthlyProfit} isDarkMode={isDarkMode} showMessage={showMessage} monthlyStatsSubTab={monthlyStatsSubTab} setMonthlyStatsSubTab={setMonthlyStatsSubTab} setSelectedYear={setSelectedYear} yearlyPeriod={yearlyPeriod} cumulativePeriod={cumulativePeriod} setSelectedMonth={setSelectedMonth} setCurrentCalendarDate={setCurrentCalendarDate} />
                         )}
 
                         {activeContentTab === 'adminSettings' && (
