@@ -884,12 +884,11 @@ const handleCloudRestore = async () => {
 )}
 
                         {activeContentTab === 'dataEntry' && (
-                            // 껍데기를 모두 벗기고 화면 전체를 쓰도록 확장했습니다.
                             <div className="w-full h-full flex flex-col pt-2" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
                                 <div className="flex justify-center border-b mb-2 px-4">
                                     <button onClick={() => setActiveDataTab('entry')} className={`py-2 px-4 font-semibold ${activeDataTab === 'entry' ? (isDarkMode ? 'border-amber-400 text-amber-400' : 'border-amber-600 text-amber-700') : (isDarkMode ? 'border-transparent text-gray-400' : 'border-transparent text-gray-500')} border-b-2`}>입력</button>
                                     
-                                    {/* 👇 여기 데이터 버튼의 onClick에 setFilters 초기화 코드를 추가합니다! */}
+
                                     <button 
                                         onClick={() => { 
                                             setActiveDataTab('list');

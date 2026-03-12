@@ -268,37 +268,36 @@ const DataEntryForm = ({
         return () => window.removeEventListener('popstate', handleAndroidBack);
     }, []);
 
+    // ✅ (자동 회차 선택 로직) - 덮어씌울 새로운 코드
     useEffect(() => {
-        setCurrentRound(null); 
-    }, [formType, date]);
-
-    // (자동 회차 선택 로직)
-    useEffect(() => {
-        // 수정 모드일 때는 해당 데이터의 회차를 유지
+        // 1. 수정 모드일 때는 원래 데이터의 회차를 그대로 보여줌
         if (entryToEdit) {
-            setCurrentRound(entryToEdit.round || 1);
+            setCurrentRound(Number(entryToEdit.round) || 1);
             return;
         }
 
-        // 수익(income) 탭이고, 데이터가 있을 때만 계산
-        if (formType === 'income' && entries) {
-            // 1. 현재 날짜의 '수익' 데이터만 골라냅니다.
+        // 2. 수익(income) 탭이고, 전체 데이터가 잘 들어왔을 때만 다음 회차 계산
+        if (formType === 'income' && entries && Array.isArray(entries)) {
+            // 현재 달력에 선택된 날짜의 '수익' 데이터만 쏙 빼냅니다.
             const todaysEntries = entries.filter(e => e.date === date && e.type === 'income');
             
-            // 2. 가장 높은 회차 번호를 찾습니다. (데이터가 없으면 0)
+            // 가장 높은 회차 번호를 찾습니다. (데이터가 없으면 0)
+            // ✨ [핵심] 과거 데이터가 문자열("2")로 저장되어 있어도 꼬이지 않게 Number()로 안전하게 변환!
             const maxRound = todaysEntries.reduce((max, e) => {
-                const r = e.round || 0;
+                const r = Number(e.round) || 0; 
                 return r > max ? r : max;
             }, 0);
             
-            // 3. 다음 회차 = 최대 회차 + 1 (최대 8회전까지만)
+            // 다음 회차 = 최대 회차 + 1 
             let nextRound = maxRound + 1;
-            if (nextRound > 8) nextRound = 8; 
 
-            // 4. 자동으로 선택!
+            // 드디어 정확하게 계산된 다음 회차를 선택합니다!
             setCurrentRound(nextRound);
+        } else {
+            // 지출 탭이거나 데이터가 없으면 선택 해제
+            setCurrentRound(null);
         }
-    }, [date, entries, formType, entryToEdit]); // 날짜나 데이터가 바뀌면 다시 계산
+    }, [date, entries, formType, entryToEdit]);
 
     // [추가] 회차가 변경되면 해당 버튼이 보이도록 스크롤 자동 이동
     useEffect(() => {
@@ -705,7 +704,10 @@ if (viewMode === 'installment') return (
                             `}</style>
                             
                             <div className="flex gap-1 w-max hide-scrollbar">
-                                {[1, 2, 3, 4, 5, 6, 7, 8].map(round => (
+                                {/* ✨ 동적 생성: 현재 날짜의 최대 회차를 찾아서 버튼 갯수를 유동적으로 만듭니다 (최소 6개 유지) */}
+                                {Array.from({ 
+                                    length: Math.max(6, (entries || []).filter(e => e.date === date && e.type === 'income').reduce((max, e) => Math.max(max, Number(e.round) || 0), 0) + 1) 
+                                }, (_, i) => i + 1).map(round => (
                                     <button 
                                         key={round} 
                                         data-round={round}
