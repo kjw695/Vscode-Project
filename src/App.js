@@ -35,7 +35,6 @@ import { useDelivery } from './contexts/DeliveryContext';
 import { exportDataAsCsv, parseCsvData } from './utils/dataHandlers.js'; 
 import { calculateData } from './utils/calculator';
 import InstallmentPage from './InstallmentPage'; // 👈 할부
-import BottomNavBar from './components/common/BottomNavBar';
 // [추가] 로고 이미지 (경로는 실제 로고 경로에 맞게 조정 필요, 없으면 텍스트만 표시됨)
 import logoImage from './logo.png'; 
 
@@ -711,6 +710,25 @@ const handleCloudRestore = async () => {
         setDate(getTodayLocal()); setUnitPrice(''); setFormData({}); setFormType('income');
     };
 
+    // ✨ 추가됨: 통계/홈 탭 재진입 시 기기 월(마감일) 기준으로 날짜를 리셋하는 함수
+    const handleResetToCurrentMonth = useCallback(() => {
+        const now = new Date();
+        if (now.getDate() > monthlyEndDay) {
+            const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+            setCurrentCalendarDate(nextMonth);
+            const y = nextMonth.getFullYear();
+            const m = String(nextMonth.getMonth() + 1).padStart(2, '0');
+            setSelectedMonth(`${y}-${m}`);
+        } else {
+            const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            setCurrentCalendarDate(currentMonth);
+            const y = currentMonth.getFullYear();
+            const m = String(currentMonth.getMonth() + 1).padStart(2, '0');
+            setSelectedMonth(`${y}-${m}`);
+        }
+    }, [monthlyEndDay]);
+
+
     useAppBackButton({
         modalState, closeModal, showConfirmation, isFilterModalOpen, setIsFilterModalOpen,
         isExpenseSettingsModalOpen, setIsExpenseSettingsModalOpen,
@@ -1029,10 +1047,12 @@ const handleCloudRestore = async () => {
                         <List size={24} /> <span>데이터</span>
                     </button>
 
-                    <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'statistics' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} onClick={() => { setSelectedMainTab('statistics'); setActiveContentTab('statistics'); setStatisticsView('monthly'); setMonthlyStatsSubTab('overview'); }}>
+                   <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'statistics' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} onClick={() => { setSelectedMainTab('statistics'); setActiveContentTab('statistics'); setStatisticsView('monthly'); setMonthlyStatsSubTab('overview'); handleResetToCurrentMonth(); }}>
                         <BarChart2 size={24} /> <span>통계</span>
                     </button>
-                    <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'home' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} onClick={() => { setSelectedMainTab('home'); setActiveContentTab('monthlyProfit'); }}>
+
+                    {/* ✨ 홈 버튼 클릭 시 handleResetToCurrentMonth() 추가 */}
+                    <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'home' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} onClick={() => { setSelectedMainTab('home'); setActiveContentTab('monthlyProfit'); handleResetToCurrentMonth(); }}>
                         <Home size={24} /> <span>홈</span>
                     </button>
                     <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'more' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} onClick={() => { setSelectedMainTab('more'); setActiveContentTab('adminSettings'); setMoreSubView('main'); }}>
