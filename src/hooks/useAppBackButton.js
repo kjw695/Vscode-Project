@@ -35,6 +35,11 @@ const useAppBackButton = ({
                     setIsFilterModalOpen(false);
                     return;
                 }
+// ✨ 4. 수정 중일 때 뒤로가기 방지 및 팝업 띄우기
+                if (isEditing) {
+                    closeEditMode();
+                    return;
+                }
 
                 // ✨ 4. 주소(Hash) 확인 및 뒤로 가기 (할부 창, 계산기 창 등)
                 // 이제 팝업이 모두 닫힌 상태에서만 할부 창이 닫힙니다.
@@ -73,7 +78,8 @@ const useAppBackButton = ({
             }
         };
     }, [
-        modalState, isFilterModalOpen, isExpenseSettingsModalOpen, moreSubView, selectedMainTab, showConfirmation 
+        modalState, isFilterModalOpen, isExpenseSettingsModalOpen, moreSubView, selectedMainTab, showConfirmation, 
+        isEditing, closeEditMode
     ]);
 };
 

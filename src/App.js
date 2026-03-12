@@ -713,8 +713,20 @@ const handleCloudRestore = async () => {
 
     useAppBackButton({
         modalState, closeModal, showConfirmation, isFilterModalOpen, setIsFilterModalOpen,
-        isExpenseSettingsModalOpen, setIsExpenseSettingsModalOpen, // ✨ 이 줄만 추가! 스마트폰 뒤로가기에 팝업 상태 전달
-        moreSubView, setMoreSubView, selectedMainTab, setSelectedMainTab, activeContentTab, setActiveContentTab
+        isExpenseSettingsModalOpen, setIsExpenseSettingsModalOpen,
+        moreSubView, setMoreSubView, selectedMainTab, setSelectedMainTab, activeContentTab, setActiveContentTab,
+        
+        // ✨ 추가: 수정 중 상태와 경고 팝업 로직 전달
+        isEditing: !!entryToEdit,
+        closeEditMode: () => {
+            showConfirmation("수정 중입니다.\n 저장하지 않고 나가시겠습니까?", () => {
+                setEntryToEdit(null);
+                setUnitPrice('');
+                setFormData({});
+                setFormType('income');
+                setActiveDataTab('list'); // 저장 안 하고 리스트 화면으로 안전하게 복귀
+            });
+        }
     });
 
     // [핵심] 데이터 로딩 중이면 스플래시 스크린(로딩 화면) 표시
