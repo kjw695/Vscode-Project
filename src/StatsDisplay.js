@@ -53,7 +53,8 @@ function StatsDisplay({
     yearlyPeriod, 
     cumulativePeriod,
     setSelectedMonth,        
-    setCurrentCalendarDate
+    setCurrentCalendarDate,
+    onProtectedTabClick
 }) {
     const [showRevenueDetails, setShowRevenueDetails] = useState(false);
     const [showExpensesDetails, setShowExpensesDetails] = useState(false);
@@ -261,10 +262,14 @@ function StatsDisplay({
 
     return (
         <div className={`w-full max-w-lg mx-auto p-3 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-stone-100'}`}>
+           {/* 🌟 탭 버튼 영역 수정 🌟 */}
             <div className="flex justify-center border-b mb-4">
+                {/* 월간은 기존처럼 바로 넘어가게 둡니다 */}
                 <button onClick={() => setStatisticsView('monthly')} className={`py-2 px-4 font-semibold ${statisticsView === 'monthly' ? (isDarkMode ? 'border-yellow-400 text-yellow-400' : 'border-yellow-500 text-yellow-600') : (isDarkMode ? 'border-transparent text-gray-300' : 'border-transparent text-gray-500')} border-b-2`}>{t.monthly}</button>
-                <button onClick={() => setStatisticsView('yearly')} className={`py-2 px-4 font-semibold ${statisticsView === 'yearly' ? (isDarkMode ? 'border-yellow-400 text-yellow-400' : 'border-yellow-500 text-yellow-600') : (isDarkMode ? 'border-transparent text-gray-300' : 'border-transparent text-gray-500')} border-b-2`}>{t.yearly}</button>
-                <button onClick={() => setStatisticsView('cumulative')} className={`py-2 px-4 font-semibold ${statisticsView === 'cumulative' ? (isDarkMode ? 'border-yellow-400 text-yellow-400' : 'border-yellow-500 text-yellow-600') : (isDarkMode ? 'border-transparent text-gray-300' : 'border-transparent text-gray-500')} border-b-2`}>{t.cumulative}</button>
+                
+                {/* ✨ 연간과 누적 버튼은 우리가 만든 보호 기능(onProtectedTabClick)을 거치게 합니다! */}
+                <button onClick={() => onProtectedTabClick('yearly')} className={`py-2 px-4 font-semibold ${statisticsView === 'yearly' ? (isDarkMode ? 'border-yellow-400 text-yellow-400' : 'border-yellow-500 text-yellow-600') : (isDarkMode ? 'border-transparent text-gray-300' : 'border-transparent text-gray-500')} border-b-2`}>{t.yearly}</button>
+                <button onClick={() => onProtectedTabClick('cumulative')} className={`py-2 px-4 font-semibold ${statisticsView === 'cumulative' ? (isDarkMode ? 'border-yellow-400 text-yellow-400' : 'border-yellow-500 text-yellow-600') : (isDarkMode ? 'border-transparent text-gray-300' : 'border-transparent text-gray-500')} border-b-2`}>{t.cumulative}</button>
             </div>
             <SwipeableView 
                 onSwipeLeft={handleNext} 

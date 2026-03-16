@@ -37,6 +37,13 @@ import { calculateData } from './utils/calculator';
 import InstallmentPage from './InstallmentPage'; // 👈 할부
 // [추가] 로고 이미지 (경로는 실제 로고 경로에 맞게 조정 필요, 없으면 텍스트만 표시됨)
 import logoImage from './logo.png'; 
+import AdBanner from './AdBanner';
+import { AdMob, RewardAdPluginEvents } from '@capacitor-community/admob';
+import LoadingOverlay from './components/common/LoadingOverlay';
+import { useAdReward } from './hooks/useAdReward';
+//검색기능
+import { Search as SearchIcon } from 'lucide-react'; // Search 이름 중복 방지
+import SearchView from './components/SearchView';
 
 // ✨ 앱 업데이트 자동 확인을 위한 플러그인 3개 추가!
 import { AppUpdate } from '@capawesome/capacitor-app-update';
@@ -178,6 +185,8 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const touchEndX = useRef(null);
     const touchStartY = useRef(null);
     const touchEndY = useRef(null);
+
+   
 
     // ✨ 앱 업데이트 자동 확인 로직 (버전 차이에 따른 강제/선택 업데이트)
     useEffect(() => {
@@ -330,6 +339,14 @@ const handleCloudRestore = async () => {
     const closeModal = () => setModalState({ isOpen: false, content: '', type: 'info', onConfirm: null });
     const handleConfirm = () => { if (modalState.onConfirm) modalState.onConfirm(); closeModal(); };
     const handleApplyFilters = (newFilters) => { setFilters(newFilters); setIsFilterModalOpen(false); };
+
+     const { handleProtectedTabClick } = useAdReward({
+        showConfirmation,
+        showMessage,
+        setIsLoading,
+        setLoadingMessage,
+        setStatisticsView
+    });
 
     const handleSaveGoal = () => {
         const newGoal = parseInt(newGoalAmountInput);
@@ -768,7 +785,8 @@ const handleCloudRestore = async () => {
             style={{ 
                 position: 'fixed',
                 top: 0, left: 0, right: 0, bottom: 0,
-                paddingTop: '25.5px', 
+                // ✨ 더보기 탭에서만 상단에 110px 공간을 만들어서 광고에 안 가려지게 합니다!
+                paddingTop: (selectedMainTab === 'more' || selectedMainTab === 'search') ? '70px' : '25.5px',
                 paddingBottom: '0px',
                 marginTop: '0px !important', 
                 marginBottom: '0px !important',
@@ -779,8 +797,8 @@ const handleCloudRestore = async () => {
             <SystemThemeManager isDarkMode={isDarkMode} />
 
           <div 
-                className="w-full h-full overflow-y-auto pb-20"
-                onClick={(e) => {
+            className="w-full h-full overflow-y-auto pb-20"
+            onClick={(e) => {
                     // 다른 버튼이나 입력창을 눌렀을 때는 무시하고, 진짜 바탕화면일 때만 반응
                     if (e.target.closest('button') || e.target.closest('input')) return;
                     setIsFabVisible(prev => !prev);
@@ -954,8 +972,18 @@ const handleCloudRestore = async () => {
                         )}
 
                         {activeContentTab === 'statistics' && (
-                            <StatsDisplay statisticsView={statisticsView} setStatisticsView={setStatisticsView} handleMonthChange={handleMonthChange} selectedYear={selectedYear} currentCalendarDate={currentCalendarDate} monthlyProfit={monthlyProfit} yearlyProfit={yearlyProfit} cumulativeProfit={cumulativeProfit} previousMonthlyProfit={previousMonthlyProfit} isDarkMode={isDarkMode} showMessage={showMessage} monthlyStatsSubTab={monthlyStatsSubTab} setMonthlyStatsSubTab={setMonthlyStatsSubTab} setSelectedYear={setSelectedYear} yearlyPeriod={yearlyPeriod} cumulativePeriod={cumulativePeriod} setSelectedMonth={setSelectedMonth} setCurrentCalendarDate={setCurrentCalendarDate} />
+                            <StatsDisplay statisticsView={statisticsView} setStatisticsView={setStatisticsView} handleMonthChange={handleMonthChange} selectedYear={selectedYear} currentCalendarDate={currentCalendarDate} monthlyProfit={monthlyProfit} yearlyProfit={yearlyProfit} cumulativeProfit={cumulativeProfit} previousMonthlyProfit={previousMonthlyProfit} isDarkMode={isDarkMode} showMessage={showMessage} monthlyStatsSubTab={monthlyStatsSubTab} setMonthlyStatsSubTab={setMonthlyStatsSubTab} setSelectedYear={setSelectedYear} yearlyPeriod={yearlyPeriod} cumulativePeriod={cumulativePeriod} setSelectedMonth={setSelectedMonth} setCurrentCalendarDate={setCurrentCalendarDate} onProtectedTabClick={handleProtectedTabClick} />
                         )}
+
+{activeContentTab === 'search' && (
+    <SearchView 
+        entries={entries} 
+        itemLabels={itemLabels} 
+        isDarkMode={isDarkMode} 
+        onEdit={handleEdit} 
+        onDelete={handleDelete} 
+    />
+)}
 
                         {activeContentTab === 'adminSettings' && (
                             <div className={`p-4 sm:p-6 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
@@ -1018,6 +1046,7 @@ const handleCloudRestore = async () => {
             )}
             {isAuthReady && (
                    <div 
+                    id="main-bottom-nav" // ✨ 여기에 이름표를 달아줍니다!
                     className={`fixed bottom-0 left-0 right-0 w-full ${isDarkMode ? 'bg-gray-800 border-t border-gray-700' : 'bg-white border-t border-gray-200'} shadow-lg flex justify-around py-2 px-4 pb-[env(safe-area-inset-bottom)] z-50 select-none`}
                     style={{ WebkitTouchCallout: 'none' }}
                 >
@@ -1054,6 +1083,15 @@ const handleCloudRestore = async () => {
                     <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'home' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} onClick={() => { setSelectedMainTab('home'); setActiveContentTab('monthlyProfit'); handleResetToCurrentMonth(); }}>
                         <Home size={24} /> <span>홈</span>
                     </button>
+                    <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'search' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} 
+    onClick={() => { 
+        setSelectedMainTab('search'); 
+        setActiveContentTab('search'); 
+    }}
+>
+    <SearchIcon size={24} /> <span>검색</span>
+</button>
+
                     <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'more' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} onClick={() => { setSelectedMainTab('more'); setActiveContentTab('adminSettings'); setMoreSubView('main'); }}>
                         <MoreHorizontal size={24} /> <span>더보기</span>
                     </button>
@@ -1087,13 +1125,19 @@ const handleCloudRestore = async () => {
                 </div>
             )}
 
-            {isLoading && (
-                <div className="fixed inset-0 bg-gray-900 bg-opacity-70 flex flex-col items-center justify-center z-[99]">
-                    <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-white mb-4"></div>
-                    <p className="text-white text-xl font-semibold">{loadingMessage}</p>
-                </div>
-            )}
+            <LoadingOverlay 
+    isLoading={isLoading} 
+    loadingMessage={loadingMessage} 
+    logoImage={logoImage} 
+/>
+            {/* ✨ 더보기 탭에서만 광고 켜기! 그리고 탭이 바뀔 때마다 신호(activeTab)를 보냅니다 ✨ */}
+            <AdBanner 
+                isVisible={selectedMainTab === 'more' || selectedMainTab === 'search'} 
+                activeTab={selectedMainTab}
+            />
+
             <MessageModal isOpen={modalState.isOpen} content={modalState.content} type={modalState.type} onConfirm={handleConfirm} onClose={closeModal} isDarkMode={isDarkMode} />
+        
         </div>
     );
 }
