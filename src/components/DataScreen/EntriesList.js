@@ -143,7 +143,19 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
     // ✨ 공통으로 사용되는 개별 카드(항목) 렌더링 UI
     const renderEntryCard = ({ entry, index, stats, netProfit }) => {
         const { totalRevenue, totalExpense, revenueGroups, expenseDetails, totalVolume, extraIncomeCount, extraIncomeTotalCount } = stats;
-        const inputTime = entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : null;
+        
+       let inputTime = null;
+        if (entry.timestamp) {
+            const d = new Date(entry.timestamp);
+            if (!isNaN(d.getTime())) {
+                const year = String(d.getFullYear()).slice(-2); // ✨ 연도의 뒤 2자리만 추출합니다 (예: 2023 -> 23)
+                const month = d.getMonth() + 1;
+                const day = d.getDate();
+                const time = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+                inputTime = `${year}년 ${month}월 ${day}일 ${time}`; // ✨ 요청하신 형식으로 조립합니다.
+            }
+        }
+
         const currentId = entry.id || `${entry.date}-${index}`;
         
         // 지출인지 수익인지 판단해서 테두리 색상 결정
@@ -161,7 +173,14 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                 <span className={`text-xs font-bold px-2 py-0.5 rounded ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
                                     {entry.round ? `${entry.round}회전` : (isExpenseCard ? '지출' : '기록')}
                                 </span>
-                                {inputTime && <span className="text-[11px] text-gray-400 flex items-center"><Clock size={12} className="mr-1"/>{inputTime}</span>}
+                                {inputTime && (
+                                    <span className="text-[11px] text-gray-400 flex items-center">
+                                        <Clock size={12} className="mr-1"/>
+                                        {inputTime}
+                                        {/* ✨ [추가됨] 수정된 항목이면 (수정됨) 표시를 띄웁니다! */}
+                                        {entry.isEdited && <span className="ml-1 text-amber-500 font-bold">(수정됨)</span>}
+                                    </span>
+                                )}
                             </div>
                         </div>
                         <div className="text-xs text-gray-400 flex items-center bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">

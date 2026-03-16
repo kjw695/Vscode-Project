@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, X, Sparkles, Lightbulb } from 'lucide-react';
+import { Search, X, Sparkles, Lightbulb, ArrowUp } from 'lucide-react';
 import Fuse from 'fuse.js';
 
 const SearchView = ({ entries, itemLabels, isDarkMode, onEdit }) => {
     const [inputText, setInputText] = useState('');
     const [query, setQuery] = useState('');
     const [showOnlyMemos, setShowOnlyMemos] = useState(false);
+    const [showScrollTop, setShowScrollTop] = useState(false);
 
     // 타자 칠 때 한글 씹힘 방지
     useEffect(() => {
@@ -14,6 +15,27 @@ const SearchView = ({ entries, itemLabels, isDarkMode, onEdit }) => {
         }, 150);
         return () => clearTimeout(timer);
     }, [inputText]);
+
+    // ✨ [추가] 스크롤 위치를 감지해서 300px 이상 내려가면 버튼을 띄우는 로직
+    useEffect(() => {
+        const scrollContainer = document.querySelector('.overflow-y-auto'); // App.js의 스크롤 영역 찾기
+        if (!scrollContainer) return;
+
+        const handleScroll = () => {
+            setShowScrollTop(scrollContainer.scrollTop > 300);
+        };
+
+        scrollContainer.addEventListener('scroll', handleScroll);
+        return () => scrollContainer.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    // ✨ [추가] 누르면 맨 위로 부드럽게 스크롤되는 함수
+    const scrollToTop = () => {
+        const scrollContainer = document.querySelector('.overflow-y-auto');
+        if (scrollContainer) {
+            scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
 
     // ✨ 중복 방지 기능이 탑재된 완벽한 계산기
     const calculateEntryStats = (entry, itemLabels) => {
@@ -180,18 +202,26 @@ const SearchView = ({ entries, itemLabels, isDarkMode, onEdit }) => {
                     ? amount 
                     : (item.unitPrice !== undefined ? (count * Number(item.unitPrice)) : amount);
 
-                const label = item.name || item.key || itemLabels[item.key] || '항목';
+               const label = item.name || item.key || itemLabels[item.key] || '항목';
                 
+               // ✨ 뱃지 안에 들어갈 내용을 상황에 맞게 똑똑하게 조립합니다.
+                let badgeContent = '';
+                if (isExpense) {
+                    badgeContent = `${finalAmount.toLocaleString()}원`;
+                } else if (item.unitPrice !== undefined) {
+                    // ✨ 수량이 1개든 여러 개든 상관없이, 단가가 있으면 무조건 똑같은 양식으로 통일합니다!
+                    badgeContent = `${count}건 × ${Number(item.unitPrice).toLocaleString()}원 (${finalAmount.toLocaleString()}원)`;
+                } else {
+                    // 단가가 아예 입력되지 않은 예전 데이터 항목들
+                    badgeContent = `${count}건 (${finalAmount.toLocaleString()}원)`;
+                }
+
                 badges.push(
                     <span key={item.id || item.key} className={`text-[11px] font-bold p-1.5 px-2.5 rounded-lg ${isDarkMode ? 'bg-gray-900 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
-                        {highlightText(label, query)}{' '}
-                        {isExpense
-                            ? highlightText(finalAmount.toLocaleString() + '원', query)
-                            : (item.unitPrice !== undefined && count > 0
-                                ? highlightText(`${count}건 (${finalAmount.toLocaleString()}원)`, query)
-                                : highlightText(finalAmount.toLocaleString() + '원', query)
-                            )
-                        }
+                        <span className="mr-1">{highlightText(label, query)}</span>
+                        <span className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>
+                            {highlightText(badgeContent, query)}
+                        </span>
                     </span>
                 );
             });
@@ -256,7 +286,7 @@ const SearchView = ({ entries, itemLabels, isDarkMode, onEdit }) => {
                 <Search className="ml-4 text-yellow-600/40" size={20} />
                 <input
                     type="text"
-                    placeholder={showOnlyMemos ? "메모 검색 모드 활성화" : "3월11, 밥값, 50000 등 검색"}
+                    placeholder={showOnlyMemos ? "메모 검색 모드 활성화" : "날짜, 메모내용, 단가 등 검색"}
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     className={`w-full p-4 bg-transparent focus:outline-none font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
@@ -327,8 +357,19 @@ const SearchView = ({ entries, itemLabels, isDarkMode, onEdit }) => {
                     ))
                 )}
             </div>
-        </div>
+            {showScrollTop && (
+                <button
+                    onClick={scrollToTop}
+                    className={`fixed z-50 bottom-24 right-5 p-3 rounded-full shadow-lg transition-transform active:scale-90 ${
+                        isDarkMode ? 'bg-gray-800 border-2 border-yellow-600 text-yellow-400' : 'bg-white border-2 border-yellow-400 text-yellow-600'
+                    }`}
+                >
+                    <ArrowUp size={24} strokeWidth={3} />
+                </button>
+            )}
+
+        </div> // 👈 이게 기존 SearchView의 가장 마지막 닫는 </div> 입니다.
     );
 };
-
+    
 export default SearchView;

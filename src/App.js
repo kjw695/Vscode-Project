@@ -357,6 +357,7 @@ const handleCloudRestore = async () => {
         } else { showMessage("올바른 금액을 숫자로 입력해주세요."); }
     };
 
+    // src/App.js 내부 handleSubmit 함수 수정 제안
     const handleSubmit = async (e, round, customItems = []) => {
         e.preventDefault();
         
@@ -372,27 +373,21 @@ const handleCloudRestore = async () => {
             return;
         }
 
-       const parsedFormData = {};
-        Object.keys(formData).forEach(key => {
-            // 👇 'memo'라는 이름의 칸은 숫자로 바꾸지 말고 글자 그대로 살려둡니다!
-            if (key === 'memo') {
-                parsedFormData[key] = formData[key] || '';
-            } else {
-                parsedFormData[key] = formData[key] ? parseFloat(formData[key]) : 0;
-            }
-        });
+       // ✅ 변경됨: 이전 데이터 형식을 복사하지 않고 필요한 정보만 추출합니다.
+       const memo = formData['memo'] || '';
 
         const newEntryData = {
             id: entryToEdit?.id,
             type: formType,
             date,
             unitPrice: unitPrice ? parseFloat(unitPrice) : 0,
-            ...parsedFormData,
+            memo: memo, // 메모 저장
             round: round || 0,
-            customItems
+            customItems // ✅ 새로운 방식의 데이터만 저장합니다.
         };
 
-        const hasValue = Object.values(parsedFormData).some(val => val > 0) || (formType === 'income' && newEntryData.unitPrice > 0);
+        const hasValue = customItems.length > 0 || (formType === 'income' && newEntryData.unitPrice > 0);
+        
         if (!hasValue) {
             showMessage("❗ 입력된 정보가 없습니다.");
             return;
@@ -407,7 +402,7 @@ const handleCloudRestore = async () => {
             // Context handles errors
         }
     };
-
+    
     const handleEdit = (entry) => {
         setEntryToEdit(entry); 
         setDate(entry.date);
