@@ -185,6 +185,8 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const touchEndX = useRef(null);
     const touchStartY = useRef(null);
     const touchEndY = useRef(null);
+    const mainTouchStartX = useRef(null); // ✨ [추가] 바탕화면 스와이프 전용
+    const mainTouchStartY = useRef(null);
 
    
 
@@ -794,11 +796,35 @@ const handleCloudRestore = async () => {
           <div 
             className="w-full h-full overflow-y-auto pb-20"
             onClick={(e) => {
-                    // 다른 버튼이나 입력창을 눌렀을 때는 무시하고, 진짜 바탕화면일 때만 반응
-                    if (e.target.closest('button') || e.target.closest('input')) return;
-                    setIsFabVisible(prev => !prev);
-                }}
-            >
+                // 다른 버튼이나 입력창을 눌렀을 때는 무시하고, 진짜 바탕화면일 때만 반응
+                if (e.target.closest('button') || e.target.closest('input')) return;
+                setIsFabVisible(prev => !prev);
+            }}
+            onTouchStart={(e) => {
+                mainTouchStartX.current = e.targetTouches[0].clientX;
+                mainTouchStartY.current = e.targetTouches[0].clientY;
+            }}
+            onTouchEnd={(e) => {
+                if (!mainTouchStartY.current || !mainTouchStartX.current) return;
+                const endX = e.changedTouches[0].clientX;
+                const endY = e.changedTouches[0].clientY;
+                
+                const deltaX = mainTouchStartX.current - endX;
+                const deltaY = mainTouchStartY.current - endY;
+                
+                // ✨ 달력 넘기기(좌우) 등과 겹치지 않게, 위아래 이동 폭이 40px 이상일 때만 작동!
+                if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 40) {
+                    if (deltaY > 0) {
+                        setIsFabVisible(true);  // 화면을 위로 슬라이드 -> [입력] 버튼 등장!
+                    } else {
+                        setIsFabVisible(false); // 화면을 아래로 슬라이드 -> [입력] 버튼 숨김!
+                    }
+                }
+                
+                mainTouchStartX.current = null;
+                mainTouchStartY.current = null;
+            }}
+          >
                 {isAuthReady && (
                     <>
                        {activeContentTab === 'monthlyProfit' && (

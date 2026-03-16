@@ -35,6 +35,7 @@ export const useProfitCalculations = (entries, selectedMonth, selectedYear, mont
                 netProfit: mStats.netProfit, 
                 revenue: mStats.totalRevenue, 
                 expenses: mStats.totalExpenses,
+                roundBreakdown: mStats.roundBreakdown,
                 startStr, // 상세 페이지에서 보여줄 시작 날짜
                 endStr    // 상세 페이지에서 보여줄 종료 날짜
             });

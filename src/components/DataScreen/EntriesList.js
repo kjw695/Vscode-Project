@@ -140,22 +140,22 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
         };
     };
 
-    // ✨ 공통으로 사용되는 개별 카드(항목) 렌더링 UI
+    // ✨ 공통으로 사용되는 개별 카드(항목) 렌더링 UI (상세보기 즉시 표시 버전!)
     const renderEntryCard = ({ entry, index, stats, netProfit }) => {
         const { totalRevenue, totalExpense, revenueGroups, expenseDetails, totalVolume, extraIncomeCount, extraIncomeTotalCount } = stats;
         
-       let inputTime = null;
+        let inputTime = null;
         if (entry.timestamp) {
             const d = new Date(entry.timestamp);
             if (!isNaN(d.getTime())) {
-                const year = String(d.getFullYear()).slice(-2); // ✨ 연도의 뒤 2자리만 추출합니다 (예: 2023 -> 23)
+                const year = String(d.getFullYear()).slice(-2);
                 const month = d.getMonth() + 1;
                 const day = d.getDate();
                 const time = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-                inputTime = `${year}년 ${month}월 ${day}일 ${time}`; // ✨ 요청하신 형식으로 조립합니다.
+                inputTime = `${year}년 ${month}월 ${day}일 ${time}`; 
             }
         }
-
+        
         const currentId = entry.id || `${entry.date}-${index}`;
         
         // 지출인지 수익인지 판단해서 테두리 색상 결정
@@ -165,108 +165,86 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
             : (isDarkMode ? 'border-blue-900/40' : 'border-blue-100');
 
         return (
-            <div key={currentId} className={`rounded-xl border-2 ${borderClass} shadow-sm overflow-hidden transition-all ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-                <div className="p-4 cursor-pointer" onClick={() => toggleExpand(currentId)}>
-                    <div className="flex justify-between items-start mb-3">
-                        <div className="flex flex-col">
-                            <div className="flex items-center gap-2">
-                                <span className={`text-xs font-bold px-2 py-0.5 rounded ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
-                                    {entry.round ? `${entry.round}회전` : (isExpenseCard ? '지출' : '기록')}
+            <div key={currentId} className={`rounded-xl border-2 ${borderClass} shadow-sm overflow-hidden mb-3 transition-all ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                <div className="p-4">
+                    {/* 1. 상단 뱃지 및 기록 시간 */}
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center gap-2">
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
+                                {entry.round ? `${entry.round}회전` : (isExpenseCard ? '지출' : '기록')}
+                            </span>
+                            {inputTime && (
+                                <span className="text-[11px] text-gray-400 flex items-center">
+                                    <Clock size={12} className="mr-1"/>
+                                    {inputTime}
+                                    {entry.isEdited && <span className="ml-1 text-amber-500 font-bold">(수정됨)</span>}
                                 </span>
-                                {inputTime && (
-                                    <span className="text-[11px] text-gray-400 flex items-center">
-                                        <Clock size={12} className="mr-1"/>
-                                        {inputTime}
-                                        {/* ✨ [추가됨] 수정된 항목이면 (수정됨) 표시를 띄웁니다! */}
-                                        {entry.isEdited && <span className="ml-1 text-amber-500 font-bold">(수정됨)</span>}
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                        <div className="text-xs text-gray-400 flex items-center bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">
-                            {expandedId === currentId ? '닫기' : '상세'} {expandedId === currentId ? <ChevronUp size={14} className="ml-1" /> : <ChevronDown size={14} className="ml-1" />}
-                        </div>
-                    </div>
-
-                    <div className="flex justify-between items-center">
-                        <div className={`text-[14px] leading-relaxed ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                            {isExpenseCard ? (
-                                <>
-                                    {expenseDetails.slice(0, 2).map((item, i) => (
-                                        <p key={i}>{item.label} : {item.val.toLocaleString()}원</p>
-                                    ))}
-                                    {expenseDetails.length > 2 && (
-                                        <p className="text-gray-400">외 {expenseDetails.length - 2}건 추가 지출</p>
-                                    )}
-                                </>
-                            ) : (
-                                <>
-                                    <p>총 물량 : {totalVolume}건</p>
-                                    <p>프레시백 : {safeNum(entry.freshBagCount)}개</p>
-                                    {extraIncomeCount > 0 && <p>기타 수익 {extraIncomeCount}건 : {extraIncomeTotalCount}개</p>}
-                                </>
                             )}
                         </div>
-                        <div className="text-right">
-                            <p className={`font-black text-xl ${!isExpenseCard ? 'text-red-500' : 'text-blue-500'}`}>
-                                {!isExpenseCard ? `+${netProfit.toLocaleString()}` : netProfit.toLocaleString()}
-                            </p>
-                        </div>
+                        {/* 더보기(상세/닫기) 버튼은 삭제되었습니다! */}
                     </div>
+
+                    {/* 2. ✨ 수익 상세 내역 (클릭 없이 바로 펼쳐짐) */}
+                    {totalRevenue > 0 && (
+                        <div className="mb-4">
+                            <div className="flex justify-between items-end border-b border-red-200 dark:border-red-800 pb-1.5 mb-3">
+                                <h5 className="font-bold text-red-500 text-[13px] uppercase tracking-wider">수익 상세 내역</h5>
+                                <span className="font-black text-lg text-red-500">+{totalRevenue.toLocaleString()}원</span>
+                            </div>
+                            {Object.entries(revenueGroups).sort((a,b) => b[0] - a[0]).map(([price, items]) => {
+                                const groupSum = items.reduce((s, item) => s + item.val, 0);
+                                return (
+                                    <div key={price} className="mb-3 last:mb-0">
+                                        <div className="flex justify-between items-center bg-red-50 dark:bg-red-900/20 p-1.5 px-2 rounded-md mb-2">
+                                            <span className="font-bold text-[11px] text-red-700 dark:text-red-300">적용단가 : {Number(price).toLocaleString()}원</span>
+                                            <span className="font-bold text-[12px] text-red-700 dark:text-red-300">{groupSum.toLocaleString()}원</span>
+                                        </div>
+                                        <div className="pl-1 space-y-1.5">
+                                            {items.map((item, i) => (
+                                                <div key={i} className="flex justify-between text-[12px] text-gray-600 dark:text-gray-400">
+                                                    <span>• {item.label} ({item.count}{item.unit})</span>
+                                                    <span className="font-medium">{item.val.toLocaleString()}원</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                     
+                    {/* 3. ✨ 지출 상세 내역 (클릭 없이 바로 펼쳐짐) */}
+                    {totalExpense > 0 && (
+                        <div className="mb-4">
+                            <div className="flex justify-between items-end border-b border-blue-200 dark:border-blue-800 pb-1.5 mb-3">
+                                <h5 className="font-bold text-blue-500 text-[13px] uppercase tracking-wider">지출 상세 내역</h5>
+                                <span className="font-black text-lg text-blue-500">-{totalExpense.toLocaleString()}원</span>
+                            </div>
+                            <div className="space-y-1.5 pl-1">
+                                {expenseDetails.map((item, i) => (
+                                    <div key={i} className="flex justify-between text-[12px] text-gray-600 dark:text-gray-400">
+                                        <span>• {item.label}</span>
+                                        <span className="font-bold text-blue-500">{item.val.toLocaleString()}원</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* 4. 메모 */}
                     {entry.memo && (
-                        <div className={`mt-3 p-3 rounded-lg border ${isDarkMode ? 'bg-yellow-900/20 border-yellow-800/50' : 'bg-yellow-50 border-yellow-200'}`}>
+                        <div className={`mb-4 p-3 rounded-lg border ${isDarkMode ? 'bg-yellow-900/20 border-yellow-800/50' : 'bg-yellow-50 border-yellow-200'}`}>
                             <span className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-yellow-500' : 'text-yellow-700'}`}>📝 메모</span>
                             <p className={`text-[13px] whitespace-pre-wrap ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{entry.memo}</p>
                         </div>
                     )}
-                </div>
-                
-                {expandedId === currentId && (
-                    <div className={`mx-3 mb-3 p-4 rounded-lg ${isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'} text-sm space-y-4 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-                        {totalRevenue > 0 && (
-                            <div>
-                                <h5 className="font-bold text-red-500 border-b border-red-200 dark:border-red-800 pb-1 mb-2 text-xs uppercase tracking-wider">수익 상세 내역</h5>
-                                {Object.entries(revenueGroups).sort((a,b) => b[0] - a[0]).map(([price, items]) => {
-                                    const groupSum = items.reduce((s, item) => s + item.val, 0);
-                                    return (
-                                        <div key={price} className="mb-4 last:mb-0">
-                                            <div className="flex justify-between items-center bg-red-100/50 dark:bg-red-900/30 p-2 rounded-md mb-2">
-                                                <span className="font-bold text-xs text-red-700 dark:text-red-300">적용단가 : {Number(price).toLocaleString()}원</span>
-                                                <span className="font-bold text-red-700 dark:text-red-300">{groupSum.toLocaleString()}원</span>
-                                            </div>
-                                            <div className="pl-2 space-y-1.5">
-                                                {items.map((item, i) => (
-                                                    <div key={i} className="flex justify-between text-[12px] text-gray-600 dark:text-gray-400">
-                                                        <span>• {item.label} ({item.count}{item.unit})</span>
-                                                        <span className="font-medium">{item.val.toLocaleString()}원</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                        
-                        {totalExpense > 0 && (
-                            <div>
-                                <h5 className="font-bold text-blue-500 border-b border-blue-200 dark:border-blue-800 pb-1 mb-2 text-xs uppercase tracking-wider">지출 상세 내역</h5>
-                                {expenseDetails.map((item, i) => (
-                                    <div key={i} className="flex justify-between py-1.5 text-[12px]">
-                                        <span className="text-gray-600 dark:text-gray-400">• {item.label}</span>
-                                        <span className="font-bold text-blue-500">{item.val.toLocaleString()} 원</span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        
-                        <div className="flex justify-end pt-3 mt-3 border-t border-gray-200 dark:border-gray-600 space-x-3">
-                            <button onClick={(e) => { e.stopPropagation(); handleEdit(entry); }} className="flex items-center space-x-1 px-3 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded-md text-gray-600 dark:text-gray-200 text-xs font-bold shadow-sm active:scale-95 transition-transform"><Edit size={14} /><span>수정</span></button>
-                            <button onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }} className="flex items-center space-x-1 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-md text-red-500 text-xs font-bold shadow-sm active:scale-95 transition-transform"><Trash2 size={14} /><span>삭제</span></button>
-                        </div>
+                    
+                    {/* 5. 수정 및 삭제 버튼 */}
+                    <div className="flex justify-end pt-3 border-t border-gray-200 dark:border-gray-700 space-x-3">
+                        <button onClick={(e) => { e.stopPropagation(); handleEdit(entry); }} className="flex items-center space-x-1 px-3 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md text-gray-600 dark:text-gray-200 text-xs font-bold shadow-sm active:scale-95 transition-transform"><Edit size={14} /><span>수정</span></button>
+                        <button onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }} className="flex items-center space-x-1 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-md text-red-500 text-xs font-bold shadow-sm active:scale-95 transition-transform"><Trash2 size={14} /><span>삭제</span></button>
                     </div>
-                )}
+                </div>
             </div>
         );
     };

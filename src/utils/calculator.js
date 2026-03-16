@@ -30,7 +30,7 @@ export const calculateData = (filteredEntries, itemLabels = {}) => {
     let totalRevenue = 0; let totalExpensesSum = 0; let totalVolume = 0; let totalFreshBag = 0;
     const dailyBreakdown = {}; const rawRevenueMap = {}; const rawExpenseMap = {};
     const revenueDetails = {}; const expenseDetails = {}; const unitPriceBreakdown = {};
-
+    const roundBreakdown = {};
     const addToDetails = (map, name, amount, count = 0) => {
         if (!name || amount <= 0) return;
         if (!map[name]) map[name] = { count: 0, amount: 0 };
@@ -52,6 +52,7 @@ export const calculateData = (filteredEntries, itemLabels = {}) => {
         if (!dailyBreakdown[dateStr]) dailyBreakdown[dateStr] = { revenue: 0, expenses: 0, profit: 0 };
 
         let dailyRev = 0; let dailyExp = 0;
+        let entryVolume = 0;
         const processedKeys = new Set(); // ✨ 중복 방지 메모장 (양쪽 저장 2배 뻥튀기 방지)
 
         // 1. 커스텀 항목(새로운 방식) 우선 계산
@@ -70,7 +71,7 @@ export const calculateData = (filteredEntries, itemLabels = {}) => {
                         dailyRev += finalItemAmount; rawRevenueMap[label] = (rawRevenueMap[label] || 0) + finalItemAmount;
                         addToDetails(revenueDetails, label, finalItemAmount, countVal);
                         addToUnitPriceBreakdown(unitPriceVal, label, finalItemAmount, countVal);
-                        if (label.includes('배송') || label.includes('반품')) totalVolume += countVal;
+                        if (label.includes('배송') || label.includes('반품')) totalVolume += countVal; entryVolume += countVal;
                         if (label.includes('프레시백')) totalFreshBag += countVal;
                     }
                 } else if (item.type === 'expense') {
@@ -118,7 +119,14 @@ export const calculateData = (filteredEntries, itemLabels = {}) => {
                 rawExpenseMap[label] = (rawExpenseMap[label] || 0) + amt; addToDetails(expenseDetails, label, amt, 1);
             }
         });
-
+// ✨ [추가] 회차(round)별로 매출과 물량을 차곡차곡 합산합니다.
+        const roundNum = entry.round || 0;
+        if (!roundBreakdown[roundNum]) {
+            roundBreakdown[roundNum] = { revenue: 0, volume: 0 };
+        }
+        roundBreakdown[roundNum].revenue += dailyRev;
+        roundBreakdown[roundNum].volume += entryVolume;
+        
         dailyBreakdown[dateStr].revenue += dailyRev; dailyBreakdown[dateStr].expenses += dailyExp; dailyBreakdown[dateStr].profit += (dailyRev - dailyExp);
         totalRevenue += dailyRev; totalExpensesSum += dailyExp;
     });
@@ -130,7 +138,7 @@ export const calculateData = (filteredEntries, itemLabels = {}) => {
     return {
         totalRevenue, totalExpenses: totalExpensesSum, netProfit,
         totalVolume, totalFreshBag, totalWorkingDays, dailyAverageVolume,
-        revenueDetails, expenseDetails, unitPriceBreakdown,
+        revenueDetails, expenseDetails, unitPriceBreakdown,roundBreakdown,
         revenueDistribution: Object.entries(rawRevenueMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
         expenseDistribution: Object.entries(rawExpenseMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
         dailyBreakdown, 
