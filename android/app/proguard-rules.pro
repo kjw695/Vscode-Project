@@ -1,21 +1,25 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# --- Capacitor 기본 규칙 ---
+# 자바스크립트와 자바 간의 인터페이스 클래스가 삭제되지 않도록 보호합니다.
+-keepattributes JavascriptInterface
+-keep @interface android.webkit.JavascriptInterface { *; }
+-keep class com.getcapacitor.** { *; }
+-keepclasseswithmembers class * {
+  @android.webkit.JavascriptInterface <methods>;
+}
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# --- AdMob (Google Mobile Ads) 규칙 ---
+# 광고 라이브러리의 클래스와 인터페이스가 삭제되거나 이름이 바뀌지 않게 합니다.
+-keep class com.google.android.gms.ads.** { *; }
+-keep class com.google.ads.** { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# 미디에이션이나 특정 광고 라이브러리에서 사용하는 클래스 보호
+-keep class com.google.android.gms.internal.** { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# --- Firebase 규칙 ---
+# Firebase 및 관련 분석 라이브러리 보호
+-keep class com.google.firebase.** { *; }
+
+# --- 기타 앱 최적화 ---
+# 소스 파일 이름과 줄 번호를 보존하여 에러 로그(Crashlytics 등) 분석을 용이하게 합니다.
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile

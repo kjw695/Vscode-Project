@@ -55,7 +55,7 @@ export const useAdReward = ({
                         // 보상형 광고 로드 (테스트 ID 적용)
                         await AdMob.prepareRewardVideoAd({
                             adId: Capacitor.getPlatform() === 'android' 
-                                ? 'ca-app-pub-3940256099942544/5224354917'  
+                                ? 'ca-app-pub-9892155087017006/6106659870'  
                                 : 'ca-app-pub-3940256099942544/1712480198', 
                             isTesting: true 
                         });

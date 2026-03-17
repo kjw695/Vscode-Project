@@ -16,7 +16,7 @@ const AdBanner = ({ isVisible, activeTab }) => {
                     await AdMob.initialize();
 
                     const adId = Capacitor.getPlatform() === 'android' 
-                        ? 'ca-app-pub-3940256099942544/6300978111' 
+                        ? 'ca-app-pub-9892155087017006/1760220755' 
                         : 'ca-app-pub-3940256099942544/2934735716';
 
                     // 일단 광고를 붙입니다.
@@ -25,7 +25,7 @@ const AdBanner = ({ isVisible, activeTab }) => {
                         adSize: BannerAdSize.ADAPTIVE_BANNER,
                         position: BannerAdPosition.TOP_CENTER, 
                         margin: 0, 
-                        isTesting: true 
+                        isTesting: false
                     });
 
                     isInitialized.current = true;
