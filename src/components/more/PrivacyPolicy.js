@@ -25,6 +25,7 @@ const PrivacyPolicy = ({ onBack, isDarkMode }) => {
             <li><strong>기기 내 저장:</strong> 사용자가 입력한 배송 관련 데이터(날짜, 단가, 수량 등)는 사용자의 단말기 내부에만 저장됩니다.</li>
             <li><strong>광고 식별자:</strong> 앱 수익 창출을 위해 Google AdMob을 통해 광고 식별자(ADID) 및 기기 정보를 자동으로 수집할 수 있습니다.</li>
             <li><strong>백업 데이터:</strong> 사용자가 '데이터 백업' 기능을 직접 실행할 경우, 암호화된 데이터 파일이 사용자의 개인 구글 드라이브(Google Drive)에 업로드됩니다.</li>
+            <li><strong>위치 정보:</strong> 사용자의 현재 위치 기반 지역명(동네 이름) 제공을 위해 위치 정보를 처리합니다. (서버에 저장되지 않고 기기에서만 사용됨)</li>
           </ul>
         </section>
 
@@ -34,6 +35,7 @@ const PrivacyPolicy = ({ onBack, isDarkMode }) => {
             <li><strong>서비스 이용:</strong> 배송 수익 계산 및 기록 관리 (기기 내 자체 처리)</li>
             <li><strong>광고 게재:</strong> Google AdMob을 통한 맞춤형 광고 제공</li>
             <li><strong>데이터 백업:</strong> 사용자 요청 시 데이터 보관 및 복구</li>
+            <li><strong>위치 정보 이용:</strong> 카카오 로컬 API를 활용하여 현재 사용자의 위치(지역명)를 화면에 표시하기 위해 사용합니다.</li>
           </ul>
         </section>
 
@@ -60,8 +62,15 @@ const PrivacyPolicy = ({ onBack, isDarkMode }) => {
             <p>- 제공 목적: 데이터 백업 및 복원</p>
             <p>- 제공 항목: 사용자가 생성한 백업 파일 (개발자는 이 파일에 접근할 수 없습니다.)</p>
           </div>
-        </section>
+          
+          <div className="p-3 bg-gray-200 dark:bg-gray-800 rounded mt-3">
+            <p className="font-bold mb-1">[Kakao (카카오 로컬 API)]</p>
+            <p>- 제공 목적: 위도/경도 좌표를 행정구역동(지역명)으로 변환</p>
+            <p>- 제공 항목: 위치 좌표 정보 (서버에 저장되지 않고 변환 즉시 폐기됩니다.)</p>
+          </div>
+        </section>  
 
+       
         <section>
           <h3 className="text-lg font-bold mb-2 text-blue-600 dark:text-blue-400">5. 이용자의 권리 및 그 행사방법</h3>
           <p>이용자는 언제든지 앱을 삭제하거나 '데이터 삭제' 메뉴를 통해 기기에 저장된 모든 정보를 파기할 수 있습니다. 또한, 기기 설정에서 광고 추적 제한을 설정하여 맞춤형 광고 수신을 거부할 수 있습니다.</p>
@@ -75,7 +84,7 @@ const PrivacyPolicy = ({ onBack, isDarkMode }) => {
 
         <section className="pb-4">
           <h3 className="text-lg font-bold mb-2 text-blue-600 dark:text-blue-400">7. 부칙</h3>
-          <p>본 개인정보 처리방침은 2026년 2월 11일부터 시행됩니다.</p>
+          <p>본  처리방침은 2026년 2월 11일부터 시행됩니다.</p>
         </section>
 
       </div>

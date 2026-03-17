@@ -60,11 +60,11 @@ function OpenSourceLicenses({ onBack, isDarkMode }) {
         >
           <ChevronLeft size={24} />
         </button>
-        {/* ✨ 치명적 버그 수정: 개인정보처리방침 -> 오픈소스 라이선스 */}
+        
         <h2 className="text-xl font-bold ml-2">오픈소스 라이선스</h2>
       </div>
 
-      {/* 본문 내용 (스크롤 영역) */}
+      
       <div className={`flex-1 p-5 rounded-lg overflow-y-auto ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} text-sm leading-relaxed space-y-4`}>
         {renderContent()}
       </div>
