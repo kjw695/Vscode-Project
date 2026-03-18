@@ -107,22 +107,23 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                     ? amount 
                     : (item.unitPrice !== undefined ? (itemPrice * itemCount) : amount);
 
+               // 이름표(name)나 라벨(label)을 가져오고, 혹시라도 빈값이면 key를 씁니다.
+                const itemName = item.name || item.label || item.key;
+
                 if (item.type === 'income') {
                     totalRevenue += finalAmount;
-                    if (legacyKeysList.includes(item.key)) {
-                        if (!revenueGroups[itemPrice]) revenueGroups[itemPrice] = [];
-                        revenueGroups[itemPrice].push({ label: item.name, val: finalAmount, count: itemCount, unit: item.key === 'freshBagCount' ? '개' : '건' });
-                    } else {
-                        extraIncomeCount++;
-                        extraIncomeTotalCount += itemCount;
-                        itemCounts[item.name] = (itemCounts[item.name] || 0) + itemCount;
-                        if (!revenueGroups[itemPrice]) revenueGroups[itemPrice] = [];
-                        revenueGroups[itemPrice].push({ label: item.name, val: finalAmount, count: itemCount, unit: '건' });
-                    }
+                    
+                    // ✨ 1. 모든 항목의 갯수를 공평하게 itemCounts에 합칩니다.
+                    itemCounts[itemName] = (itemCounts[itemName] || 0) + itemCount;
+                    
+                    // ✨ 2. '개' 단위 특별 취급을 없애고 전부 '건'으로 통일합니다.
+                    if (!revenueGroups[itemPrice]) revenueGroups[itemPrice] = [];
+                    revenueGroups[itemPrice].push({ label: itemName, val: finalAmount, count: itemCount, unit: '건' });
+
                 } else if (item.type === 'expense') {
                     totalExpense += finalAmount;
-                    expenseDetails.push({ label: item.name, val: finalAmount, count: itemCount, unit: '건', price: itemPrice });
-               expenseTotals[item.name] = (expenseTotals[item.name] || 0) + finalAmount;
+                    expenseDetails.push({ label: itemName, val: finalAmount, count: itemCount, unit: '건', price: itemPrice });
+                    expenseTotals[itemName] = (expenseTotals[itemName] || 0) + finalAmount;
                 }
             });
         }
@@ -181,8 +182,7 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                 </span>
                             )}
                         </div>
-                        {/* 더보기(상세/닫기) 버튼은 삭제되었습니다! */}
-                    </div>
+                                          </div>
 
                     {/* 2. ✨ 수익 상세 내역 (클릭 없이 바로 펼쳐짐) */}
                     {totalRevenue > 0 && (

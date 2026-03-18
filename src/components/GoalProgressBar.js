@@ -180,7 +180,7 @@ const GoalProgressBar = ({ current, goal, isDarkMode }) => {
                 )}
                 <img src={truckImg} alt="Delivery Truck" className="w-14 h-auto object-contain drop-shadow-md" />
                 <div className={`absolute -top-4 left-1/2 transform -translate-x-1/2 font-bold text-[9px] py-0.5 px-1.5 rounded-full whitespace-nowrap shadow-md ${isDarkMode ? 'bg-gray-800 text-white border border-gray-600' : 'bg-white text-blue-700 border border-blue-100'}`}>
-                    {Math.round(current / 10000).toLocaleString()}만
+                    {(current / 10000).toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}만
                 </div>
             </div>
         </div>

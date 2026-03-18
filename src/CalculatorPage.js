@@ -26,24 +26,40 @@ const CalculatorPage = ({
 
         const todayEntries = allData.filter(d => d.date === date);
 
+        // ✨ 누적 계산을 도와주는 작은 헬퍼 함수
+        const addValue = (key, val, round) => {
+            if (val <= 0) return;
+            prevDataSum[key] = (prevDataSum[key] || 0) + val;
+            
+            if (!breakdown[key]) breakdown[key] = [];
+            const label = round > 0 ? `${round}회전` : '기존';
+            const existing = breakdown[key].find(b => b.label === label);
+            if (existing) {
+                existing.value += val;
+            } else {
+                breakdown[key].push({ label: label, value: val, round: round });
+            }
+        };
+
         todayEntries.forEach((entry) => {
              const entryRound = entry.round || 0; 
              
              if (entryRound < currentRound) {
+                 // 1️⃣ 예전 방식 데이터 (루트에 숫자가 있는 경우)
                  Object.keys(entry).forEach(key => {
                     if (typeof entry[key] === 'number' && key !== 'id' && key !== 'unitPrice' && key !== 'round') {
-                        prevDataSum[key] = (prevDataSum[key] || 0) + entry[key];
-                        
-                        if (!breakdown[key]) breakdown[key] = [];
-                        const label = entryRound > 0 ? `${entryRound}회전` : '기존';
-                        const existing = breakdown[key].find(b => b.label === label);
-                        if (existing) {
-                            existing.value += entry[key];
-                        } else {
-                            breakdown[key].push({ label: label, value: entry[key], round: entryRound });
-                        }
+                        addValue(key, entry[key], entryRound);
                     }
                 });
+
+                // 2️⃣ ✨ 새로운 방식 데이터 (customItems 상자 안에 숫자가 있는 경우 완벽 지원!)
+                if (entry.customItems && Array.isArray(entry.customItems)) {
+                    entry.customItems.forEach(item => {
+                        // 물량(count)이 있으면 우선적으로 가져오고, 없으면 금액(amount)을 가져옵니다.
+                        const val = Number(item.count) || Number(item.amount) || 0;
+                        addValue(item.key, val, entryRound);
+                    });
+                }
              }
         });
 

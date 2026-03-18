@@ -30,19 +30,13 @@ export const useWeather = () => {
 
     const fetchRealTimeWeather = async (lat, lon, cachedRegionName = null) => {
       try {
+        // ✨ 변경: 조건 없이 카카오 API 무조건 호출
         const apiCalls = [
-          fetch(`https://api.weatherapi.com/v1/current.json?key=${API_KEY}&q=${lat},${lon}&aqi=yes&lang=ko`)
+          fetch(`https://api.weatherapi.com/v1/current.json?key=${API_KEY}&q=${lat},${lon}&aqi=yes&lang=ko`),
+          fetch(`https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=${lon}&y=${lat}`, {
+            headers: { Authorization: `KakaoAK ${KAKAO_API_KEY}` }
+          })
         ];
-        
-        if (!cachedRegionName) {
-          // ✨ 1. BigDataCloud 대신 카카오 로컬 API로 호출! (하루 10만 건 무료, 정확도 최상)
-          // 카카오 API는 x에 경도(lon), y에 위도(lat)를 넣어야 합니다.
-          apiCalls.push(
-            fetch(`https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=${lon}&y=${lat}`, {
-              headers: { Authorization: `KakaoAK ${KAKAO_API_KEY}` }
-            })
-          );
-        }
 
         const responses = await Promise.all(apiCalls);
         
@@ -52,15 +46,15 @@ export const useWeather = () => {
         const weatherDataJson = await responses[0].json();
         if (weatherDataJson.error) throw new Error(weatherDataJson.error.message);
 
-        let koreanRegion = cachedRegionName;
-        if (!cachedRegionName && responses[1]) {
-          if (responses[1].ok) {
-            const geoData = await responses[1].json();
-            // ✨ 2. 카카오 API에서 '동/읍/면' 이름 가져오기 (만약 없으면 구/군 가져오기)
-            const document = geoData?.documents?.[0];
-            koreanRegion = document?.region_3depth_name || document?.region_2depth_name || weatherDataJson?.location?.name;
-          } else {
-            koreanRegion = weatherDataJson?.location?.name;
+       // ✨ 변경: 기본값을 영어 대신 "현재 위치"로 고정
+        let koreanRegion = "현재 위치"; 
+
+        // 카카오 API가 정상 응답했을 때만 동/읍/면 한글 주소 덮어쓰기
+        if (responses[1] && responses[1].ok) {
+          const geoData = await responses[1].json();
+          const document = geoData?.documents?.[0];
+          if (document) {
+            koreanRegion = document.region_3depth_name || document.region_2depth_name || "현재 위치";
           }
         }
 
@@ -135,11 +129,12 @@ export const useWeather = () => {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        if (cachedLocation) {
+       if (cachedLocation) {
           try {
             const { lat, lon } = JSON.parse(cachedLocation);
             const distance = Math.sqrt(Math.pow(latitude - lat, 2) + Math.pow(longitude - lon, 2));
-            if (distance > 0.015) fetchRealTimeWeather(latitude, longitude);
+            // ✨ 변경: 거리에 상관없이(또는 캐시에 영어가 있을 수 있으니) 무조건 최신화 호출!
+            fetchRealTimeWeather(latitude, longitude); 
           } catch(e) {
              fetchRealTimeWeather(latitude, longitude); 
           }

@@ -190,34 +190,37 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
 
    
 
-    // ✨ 앱 업데이트 자동 확인 로직 (버전 차이에 따른 강제/선택 업데이트)
-    useEffect(() => {
-        const checkForUpdate = async () => {
-            if (Capacitor.getPlatform() === 'android') {
-                try {
-                    const result = await AppUpdate.getAppUpdateInfo();
-                    
-                    if (result.updateAvailability === 2) { 
-                        const appInfo = await CapacitorApp.getInfo();
-                        const currentVersionCode = parseInt(appInfo.build, 10);
-                        const storeVersionCode = result.availableVersionCode;
+   // ✨ 앱 업데이트 자동 확인 로직 (버전 차이에 따른 강제/선택 업데이트)
+    useEffect(() => {
+        const checkForUpdate = async () => {
+            if (Capacitor.getPlatform() === 'android') {
+                try {
+                    const result = await AppUpdate.getAppUpdateInfo();
+                    
+                    if (result.updateAvailability === 2) { 
+                        const appInfo = await CapacitorApp.getInfo();
+                        const currentVersionCode = parseInt(appInfo.build, 10);
+                        const storeVersionCode = result.availableVersionCode;
 
-                        const versionDiff = storeVersionCode - currentVersionCode;
+                        const versionDiff = storeVersionCode - currentVersionCode;
 
-                        if (versionDiff >= 2) {
-                            await AppUpdate.performImmediateUpdate();
-                        } else if (versionDiff === 1) {
-                            await AppUpdate.startFlexibleUpdate(); 
-                        }
-                    }
-                } catch (err) {
-                    console.log('업데이트 확인 중 오류 발생:', err);
-                }
-            }
-        };
+                        // 👇 여기 조건문이 원하시는 대로 수정되었습니다!
+                        if (versionDiff >= 3) {
+                            // 차이가 3 이상이면: 뒤로가기 불가능한 강제 업데이트 화면 표시
+                            await AppUpdate.performImmediateUpdate();
+                        } else if (versionDiff >= 1) {
+                            // 차이가 1 또는 2이면: 업데이트할지 묻는 팝업 표시 (취소하고 앱 이용 가능)
+                            await AppUpdate.startFlexibleUpdate(); 
+                        }
+                    }
+                } catch (err) {
+                    console.log('업데이트 확인 중 오류 발생:', err);
+                }
+            }
+        };
 
-        checkForUpdate();
-    }, []);
+        checkForUpdate();
+    }, []);
 
     // 설정값 로드
     useEffect(() => {
@@ -837,7 +840,7 @@ const handleCloudRestore = async () => {
                             <div className="h-3"></div>
                             <div className={`p-4 sm:p-6 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
                             <GoalProgressBar 
-        current={monthlyProfit?.netProfit || 0} 
+        current={monthlyProfit?.totalRevenue || 0}
         goal={goalAmount} 
         isDarkMode={isDarkMode} 
     />
@@ -974,6 +977,7 @@ const handleCloudRestore = async () => {
                                 </div>
                                 
                               <div className={activeDataTab === 'list' ? 'w-full block' : 'hidden'}>
+                                
                                     <EntriesList
                                         entries={finalFilteredEntries}
                                         summary={{
