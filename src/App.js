@@ -49,6 +49,8 @@ import SearchView from './components/SearchView';
 import { AppUpdate } from '@capawesome/capacitor-app-update';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
+import GoalSummaryCards from './components/GoalSummaryCards';
+
 
 const DetailRow = ({ label, value, comparison }) => (
     <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-1">
@@ -832,9 +834,12 @@ const handleCloudRestore = async () => {
                     <>
                        {activeContentTab === 'monthlyProfit' && (
     <>
-        <RevenueDistributionChart 
+        <GoalSummaryCards 
             monthlyProfit={monthlyProfit} 
-            incomeConfig={incomeConfig} 
+            goal={goalAmount}
+            selectedMonth={selectedMonth}
+            monthlyEndDay={monthlyEndDay}
+            isDarkMode={isDarkMode}
         />
                           
                             <div className="h-3"></div>
@@ -843,6 +848,7 @@ const handleCloudRestore = async () => {
         current={monthlyProfit?.totalRevenue || 0}
         goal={goalAmount} 
         isDarkMode={isDarkMode} 
+        revenueDistribution={monthlyProfit.revenueDistribution}
     />
                                 <div className="flex items-center justify-between mb-4 px-1">
                                     <div className="w-16"></div>

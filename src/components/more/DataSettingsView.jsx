@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { ArrowLeft, Download, Upload, Trash2, Cloud, FileText, AlertTriangle, Save, RefreshCw } from 'lucide-react';
+import DataMigrationTool from './DataMigrationTool';
 
 const DataSettingsView = ({ 
     onBack, 
@@ -40,6 +41,8 @@ const DataSettingsView = ({
 
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
                 
+                <DataMigrationTool isDarkMode={isDarkMode} />
+
                 {/* 1. 구글 드라이브 섹션 */}
                 <div className={cardClass}>
                     <div className="flex items-center gap-2 mb-4">

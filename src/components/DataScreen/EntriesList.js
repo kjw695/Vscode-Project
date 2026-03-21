@@ -35,66 +35,14 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
         return isNaN(date.getTime()) ? String(dateStr) : date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
     };
 
-    // ✨ 할부 0원 문제 완벽 해결 & 똑똑한 계산 로직
+    // ✨ 오직 신버전(customItems) 상자만 열어서 계산하는 로직
     const processFinancials = (entry) => {
-        const unitPrice = safeNum(entry.unitPrice);
-        const delivery = safeNum(entry.deliveryCount);
-        const returns = safeNum(entry.returnCount);
-        const interruption = safeNum(entry.deliveryInterruptionAmount);
-        const freshBag = safeNum(entry.freshBagCount);
-
-        const legacyKeysList = ['deliveryCount', 'returnCount', 'deliveryInterruptionAmount', 'freshBagCount'];
-        const overriddenKeys = {};
-        if (entry.customItems && Array.isArray(entry.customItems)) {
-            entry.customItems.forEach(item => {
-                if (item.type === 'income' && legacyKeysList.includes(item.key)) {
-                    overriddenKeys[item.key] = true;
-                }
-            });
-        }
-
         let totalRevenue = 0;
         let totalExpense = 0;
         const revenueGroups = {};
         const itemCounts = {}; 
-
-        if (delivery > 0) {
-            itemCounts['배송'] = (itemCounts['배송'] || 0) + delivery;
-            if (!overriddenKeys['deliveryCount']) {
-                totalRevenue += unitPrice * delivery;
-                if (!revenueGroups[unitPrice]) revenueGroups[unitPrice] = [];
-                revenueGroups[unitPrice].push({ label: '배송', val: unitPrice * delivery, count: delivery, unit: '건' });
-            }
-        }
-        if (returns > 0) {
-            itemCounts['반품'] = (itemCounts['반품'] || 0) + returns;
-            if (!overriddenKeys['returnCount']) {
-                totalRevenue += unitPrice * returns;
-                if (!revenueGroups[unitPrice]) revenueGroups[unitPrice] = [];
-                revenueGroups[unitPrice].push({ label: '반품', val: unitPrice * returns, count: returns, unit: '건' });
-            }
-        }
-        if (interruption > 0) {
-            itemCounts['중단'] = (itemCounts['중단'] || 0) + interruption;
-            if (!overriddenKeys['deliveryInterruptionAmount']) {
-                totalRevenue += unitPrice * interruption;
-                if (!revenueGroups[unitPrice]) revenueGroups[unitPrice] = [];
-                revenueGroups[unitPrice].push({ label: '중단', val: unitPrice * interruption, count: interruption, unit: '건' });
-            }
-        }
-        if (freshBag > 0) {
-            itemCounts['프레시백'] = (itemCounts['프레시백'] || 0) + freshBag;
-            if (!overriddenKeys['freshBagCount']) {
-                totalRevenue += unitPrice * freshBag;
-                if (!revenueGroups[unitPrice]) revenueGroups[unitPrice] = [];
-                revenueGroups[unitPrice].push({ label: '프레시백', val: unitPrice * freshBag, count: freshBag, unit: '개' });
-            }
-        }
-
         const expenseDetails = [];
         const expenseTotals = {};
-        let extraIncomeCount = 0;
-        let extraIncomeTotalCount = 0;
 
         if (entry.customItems && Array.isArray(entry.customItems)) {
             entry.customItems.forEach(item => {
@@ -102,21 +50,16 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                 const itemPrice = item.unitPrice !== undefined ? safeNum(item.unitPrice) : amount;
                 const itemCount = item.count ? safeNum(item.count) : 1;
                 
-                // ✨ 지출일 때는 단가 무시하고 무조건 총 금액(amount) 사용! (할부 0원 버그 해결)
                 const finalAmount = item.type === 'expense' 
                     ? amount 
                     : (item.unitPrice !== undefined ? (itemPrice * itemCount) : amount);
 
-               // 이름표(name)나 라벨(label)을 가져오고, 혹시라도 빈값이면 key를 씁니다.
                 const itemName = item.name || item.label || item.key;
 
                 if (item.type === 'income') {
                     totalRevenue += finalAmount;
-                    
-                    // ✨ 1. 모든 항목의 갯수를 공평하게 itemCounts에 합칩니다.
                     itemCounts[itemName] = (itemCounts[itemName] || 0) + itemCount;
                     
-                    // ✨ 2. '개' 단위 특별 취급을 없애고 전부 '건'으로 통일합니다.
                     if (!revenueGroups[itemPrice]) revenueGroups[itemPrice] = [];
                     revenueGroups[itemPrice].push({ label: itemName, val: finalAmount, count: itemCount, unit: '건' });
 
@@ -128,22 +71,23 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
             });
         }
 
+        const totalVolume = (itemCounts['배송'] || 0) + (itemCounts['반품'] || 0) + (itemCounts['중단'] || 0);
+
         return { 
             totalRevenue, 
             totalExpense, 
             revenueGroups,
             expenseDetails: expenseDetails.filter(d => Number(d.val) !== 0),
-            totalVolume: delivery + returns + interruption,
-            extraIncomeCount,
-            extraIncomeTotalCount,
+            totalVolume,
             itemCounts,
-            expenseTotals
+            expenseTotals,
+            extraIncomeCount: 0,
+            extraIncomeTotalCount: 0
         };
     };
 
-    // ✨ 공통으로 사용되는 개별 카드(항목) 렌더링 UI (상세보기 즉시 표시 버전!)
     const renderEntryCard = ({ entry, index, stats, netProfit }) => {
-        const { totalRevenue, totalExpense, revenueGroups, expenseDetails, totalVolume, extraIncomeCount, extraIncomeTotalCount } = stats;
+        const { totalRevenue, totalExpense, revenueGroups, expenseDetails } = stats;
         
         let inputTime = null;
         if (entry.timestamp) {
@@ -158,8 +102,6 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
         }
         
         const currentId = entry.id || `${entry.date}-${index}`;
-        
-        // 지출인지 수익인지 판단해서 테두리 색상 결정
         const isExpenseCard = totalExpense > 0 && totalRevenue === 0;
         const borderClass = !isExpenseCard 
             ? (isDarkMode ? 'border-red-900/40' : 'border-red-100') 
@@ -168,7 +110,6 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
         return (
             <div key={currentId} className={`rounded-xl border-2 ${borderClass} shadow-sm overflow-hidden mb-3 transition-all ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
                 <div className="p-4">
-                    {/* 1. 상단 뱃지 및 기록 시간 */}
                     <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-2">
                             <span className={`text-xs font-bold px-2 py-0.5 rounded ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
@@ -182,9 +123,8 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                 </span>
                             )}
                         </div>
-                                          </div>
+                    </div>
 
-                    {/* 2. ✨ 수익 상세 내역 (클릭 없이 바로 펼쳐짐) */}
                     {totalRevenue > 0 && (
                         <div className="mb-4">
                             <div className="flex justify-between items-end border-b border-red-200 dark:border-red-800 pb-1.5 mb-3">
@@ -213,7 +153,6 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                         </div>
                     )}
                     
-                    {/* 3. ✨ 지출 상세 내역 (클릭 없이 바로 펼쳐짐) */}
                     {totalExpense > 0 && (
                         <div className="mb-4">
                             <div className="flex justify-between items-end border-b border-blue-200 dark:border-blue-800 pb-1.5 mb-3">
@@ -231,7 +170,6 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                         </div>
                     )}
                     
-                    {/* 4. 메모 */}
                     {entry.memo && (
                         <div className={`mb-4 p-3 rounded-lg border ${isDarkMode ? 'bg-yellow-900/20 border-yellow-800/50' : 'bg-yellow-50 border-yellow-200'}`}>
                             <span className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-yellow-500' : 'text-yellow-700'}`}>📝 메모</span>
@@ -239,7 +177,6 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                         </div>
                     )}
                     
-                    {/* 5. 수정 및 삭제 버튼 */}
                     <div className="flex justify-end pt-3 border-t border-gray-200 dark:border-gray-700 space-x-3">
                         <button onClick={(e) => { e.stopPropagation(); handleEdit(entry); }} className="flex items-center space-x-1 px-3 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md text-gray-600 dark:text-gray-200 text-xs font-bold shadow-sm active:scale-95 transition-transform"><Edit size={14} /><span>수정</span></button>
                         <button onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }} className="flex items-center space-x-1 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-md text-red-500 text-xs font-bold shadow-sm active:scale-95 transition-transform"><Trash2 size={14} /><span>삭제</span></button>
@@ -307,7 +244,6 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                             Object.entries(stats.itemCounts).forEach(([key, count]) => {
                                                 acc.totalItemCounts[key] = (acc.totalItemCounts[key] || 0) + count;
                                             });
-                                            // ✨ 하루치 지출 요약 누적하기
                                             Object.entries(stats.expenseTotals || {}).forEach(([key, amount]) => {
                                                 acc.totalExpenseTotals[key] = (acc.totalExpenseTotals[key] || 0) + amount;
                                             });
@@ -316,14 +252,13 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                                 expense: acc.expense + stats.totalExpense,
                                                 volume: acc.volume + stats.totalVolume,
                                                 totalItemCounts: acc.totalItemCounts,
-                                                totalExpenseTotals: acc.totalExpenseTotals // ✨ 누적된 지출 반환
+                                                totalExpenseTotals: acc.totalExpenseTotals
                                             };
                                         }, { revenue: 0, expense: 0, volume: 0, totalItemCounts: {}, totalExpenseTotals: {} });
 
                                         const dailyNetProfit = dailySummary.revenue - dailySummary.expense;
                                         const isDateExpanded = expandedDate === date;
 
-                                        // ✨ 핵심 분리 로직: 하루치 데이터를 '수익'과 '지출'로 나눕니다.
                                         const incomeList = [];
                                         const expenseList = [];
 
@@ -332,7 +267,6 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                             const netProfit = stats.totalRevenue - stats.totalExpense;
                                             const entryData = { entry, index, stats, netProfit };
                                             
-                                            // 지출만 있는 내역은 지출 리스트로 분류
                                             if (stats.totalExpense > 0 && stats.totalRevenue === 0) {
                                                 expenseList.push(entryData);
                                             } else {
@@ -340,7 +274,7 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                             }
                                         });
 
-                                        return (
+                                      return (
                                             <div key={date} className="rounded-xl overflow-hidden shadow-sm">
                                                 <div 
                                                     onClick={() => toggleDateExpand(date)}
@@ -350,29 +284,46 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                                     `}
                                                 >
                                                     <div className="flex items-center justify-between p-3">
+                                                        {/* 왼쪽: 달력 아이콘과 날짜 */}
                                                         <div className="flex items-center gap-2">
                                                             <Calendar size={16} className={isDarkMode ? 'text-gray-400' : 'text-gray-500'} />
                                                             <span className={`font-bold ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
                                                                 {safeFormatDate(date)}
                                                             </span>
                                                         </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className={`font-bold ${dailyNetProfit >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                                                                {dailyNetProfit >= 0 ? '+' : ''}{dailyNetProfit.toLocaleString()}원
-                                                            </span>
-                                                            {isDateExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                                                        
+                                                        {/* 오른쪽: 금액 정보와 화살표 */}
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="flex flex-col items-end">
+                                                                {/* 총 수익이 있으면 빨간색으로 위에 표시 */}
+                                                                {dailySummary.revenue > 0 && (
+                                                                    <span className="font-bold text-red-500 text-[13px] sm:text-sm leading-tight">
+                                                                        +{dailySummary.revenue.toLocaleString()}원
+                                                                    </span>
+                                                                )}
+                                                                {/* 총 지출이 있으면 파란색으로 그 아래 표시 */}
+                                                                {dailySummary.expense > 0 && (
+                                                                    <span className="font-bold text-blue-500 text-[12px] sm:text-[13px] leading-tight mt-0.5">
+                                                                        -{dailySummary.expense.toLocaleString()}원
+                                                                    </span>
+                                                                )}
+                                                                {/* 수익도 지출도 0원일 때 안전장치 */}
+                                                                {dailySummary.revenue === 0 && dailySummary.expense === 0 && (
+                                                                    <span className="font-bold text-gray-500 text-[13px]">0원</span>
+                                                                )}
+                                                            </div>
+                                                            {isDateExpanded ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
                                                         </div>
                                                     </div>
-<div className="px-4 pb-3 flex flex-wrap gap-2">
+
+                                                     <div className="px-4 pb-3 flex flex-wrap gap-2">
                                                         {Object.entries(dailySummary.totalItemCounts).length > 0 || Object.entries(dailySummary.totalExpenseTotals).length > 0 ? (
                                                             <>
-                                                                {/* 수익(물량 등) 태그 */}
                                                                 {Object.entries(dailySummary.totalItemCounts).map(([name, count]) => (
                                                                     <span key={name} className={`text-xs px-2.5 py-1 rounded-md font-bold border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-600 shadow-sm'}`}>
                                                                         {name} <span className="text-blue-500 ml-0.5">{count}</span>
                                                                     </span>
                                                                 ))}
-                                                                {/* ✨ 지출 전용 파란색 요약 태그 */}
                                                                 {Object.entries(dailySummary.totalExpenseTotals).map(([name, amount]) => (
                                                                     <span key={`exp-${name}`} className={`text-xs px-2.5 py-1 rounded-md font-bold border ${isDarkMode ? 'bg-blue-900/30 border-blue-800 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700 shadow-sm'}`}>
                                                                         {name} <span className="text-blue-600 dark:text-blue-400 ml-0.5">{amount.toLocaleString()}원</span>
@@ -383,16 +334,11 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                                             <span className="text-xs text-gray-400">집계된 항목이 없습니다.</span>
                                                         )}
                                                     </div>
-                                                    
-                                                    
                                                 </div>
 
-                                                {/* ✨ 날짜를 눌렀을 때 나타나는 [수익/지출 분리] 영역 */}
                                                 {isDateExpanded && (
                                                     <div className={`border-t ${isDarkMode ? 'border-gray-700 bg-gray-900/50' : 'border-gray-100 bg-gray-50/50'}`}>
                                                         <div className="p-3 space-y-5">
-                                                            
-                                                            {/* 수익 섹션 */}
                                                             {incomeList.length > 0 && (
                                                                 <div className="space-y-3">
                                                                     <div className="flex items-center gap-1.5 ml-1">
@@ -408,12 +354,10 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                                                 </div>
                                                             )}
 
-                                                            {/* 수익과 지출 사이에 얇은 선 추가 (둘 다 있을 경우만) */}
                                                             {incomeList.length > 0 && expenseList.length > 0 && (
                                                                 <hr className={`border-dashed ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`} />
                                                             )}
 
-                                                            {/* 지출 섹션 */}
                                                             {expenseList.length > 0 && (
                                                                 <div className="space-y-3">
                                                                     <div className="flex items-center gap-1.5 ml-1">
@@ -428,7 +372,6 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                                                     </div>
                                                                 </div>
                                                             )}
-                                                            
                                                         </div>
                                                     </div>
                                                 )}

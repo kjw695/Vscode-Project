@@ -1,13 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import truckImg from '../assets/truck.png'; 
 import { useWeather } from '../hooks/useWeather'; 
+
+// 차트 색상 팔레트 (RevenueDistributionChart에서 가져옴)
+const COLORS = [
+    'bg-cyan-500', 'bg-purple-500', 'bg-pink-500', 'bg-green-500', 
+    'bg-yellow-500', 'bg-orange-500', 'bg-blue-500', 'bg-red-500',
+    'bg-indigo-500', 'bg-teal-500'
+];
 
 const getProgressColor = (progress) => {
   const hue = progress * 1.2; 
   return `hsl(${hue}, 90%, 45%)`;
 };
 
-const GoalProgressBar = ({ current, goal, isDarkMode }) => {
+// 💡 1. props에 revenueDistribution 추가
+const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution }) => {
   const progress = goal > 0 ? Math.min((current / goal) * 100, 100) : 0;
   const progressColor = getProgressColor(progress);
   const leftPosition = Math.min(Math.max(progress, 0), 92); 
@@ -17,20 +25,42 @@ const GoalProgressBar = ({ current, goal, isDarkMode }) => {
     setIsAnimating(progress > 0 && progress < 100);
   }, [progress]);
 
-  // 🚨 [오류 원인 해결] useWeather에서 'dust' 변수도 반드시 꺼내와야 합니다!
   const { temp, condition, conditionText, region, dust, loading } = useWeather();
-
   const isDust = condition.includes('dust');
-
-  // 💡 [안전성 강화] 날씨 이모티콘 결정하는 로직을 분리해서 깔끔하게 만듭니다.
   const weatherIcon = condition === 'snow' ? '❄️ ' : condition === 'rain' ? '☔ ' : condition === 'dust' ? '😷 ' : '☀️ ';
-  
-  // 💡 [안전성 강화] 최종적으로 보여줄 텍스트를 하나의 변수로 조합합니다.
   const weatherDisplayString = `[${region}] ${weatherIcon}${temp}°C ${condition === 'dust' && dust ? `- ${dust}` : ''}`;
 
+  // 💡 2. 매출 비중 데이터 계산 로직 (상위 3개 + 기타)
+  // 막대가 트럭까지 꽉 차게 보이기 위해 항목이 많을 경우 4번째는 '기타'로 묶습니다.
+  const chartItems = useMemo(() => {
+    if (!revenueDistribution || revenueDistribution.length === 0) return [];
+
+    let items = [...revenueDistribution];
+    items.sort((a, b) => b.value - a.value);
+
+    let topItems = [];
+    if (items.length > 4) {
+      topItems = items.slice(0, 3);
+      const othersValue = items.slice(3).reduce((sum, item) => sum + item.value, 0);
+      topItems.push({ name: '기타', value: othersValue });
+    } else {
+      topItems = items;
+    }
+
+    return topItems.map((item, index) => {
+      const rawPercent = current > 0 ? (item.value / current) * 100 : 0;
+      return {
+        key: item.name + index,
+        label: item.name,
+        value: item.value,
+        color: COLORS[index % COLORS.length],
+        percent: rawPercent.toFixed(1),
+        rawPercent: rawPercent // 실제 너비 계산용 (오차 방지)
+      };
+    });
+  }, [revenueDistribution, current]);
+
   return (
-    // ✨ 핵심 1: mt(바깥 여백)를 줄이고, pt-16(안쪽 여백 약 64px)을 줘서 
-    // 트럭이 튀어오를 '절대 안전 구역'을 물리적으로 크게 확보합니다!
     <div className="relative w-full mt-2 mb-2 px-1 pt-16">
       
       {/* 🌍 구역 한정 날씨 레이어 */}
@@ -38,8 +68,7 @@ const GoalProgressBar = ({ current, goal, isDarkMode }) => {
         <div className={`weather-overlay weather-${condition}`}></div>
       )}
 
-      {/* ✨ 핵심 2: 확보해둔 64px 공간의 맨 꼭대기(top-0)에 글씨를 딱 붙여버립니다. */}
-      {/* 이제 트럭이 아무리 높이 점프해도 64px을 넘지 못해 절대 겹치지 않습니다! */}
+      {/* 날씨 텍스트 */}
       {!loading && region && temp !== null && (
         <div className="absolute top-0 left-1 flex items-center z-30">
           <span className={`text-xs font-bold tracking-tight ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
@@ -47,8 +76,6 @@ const GoalProgressBar = ({ current, goal, isDarkMode }) => {
           </span>
         </div>
       )}
-
-      {/* --- 이하 애니메이션 <style> 및 목표바 코드는 그대로 유지 --- */}
 
       <style>{`
         @keyframes drive-bounce {
@@ -67,7 +94,6 @@ const GoalProgressBar = ({ current, goal, isDarkMode }) => {
 
        .weather-overlay {
           position: absolute; 
-          /* 텍스트가 위로 올라가면서 전체 박스가 커졌으므로, 배경 위쪽 여백을 살짝 줄였습니다. */
           top: -80px; 
           bottom: -50px;
           left: -20px;
@@ -79,7 +105,6 @@ const GoalProgressBar = ({ current, goal, isDarkMode }) => {
           mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
         }
 
-        /* ☔ 비 효과 */
         .weather-rain {
           background-image: 
             radial-gradient(1px 30px at 20px 10px, rgba(173, 216, 230, 0.9), rgba(255,255,255,0)),
@@ -99,7 +124,6 @@ const GoalProgressBar = ({ current, goal, isDarkMode }) => {
           100% { background-position: 15px 280px; }
         }
 
-      /* ❄️ 눈 효과 */
         .weather-snow {
           background-image: 
             radial-gradient(6px 6px at 20px 30px, #ffffff 50%, rgba(255,255,255,0) 100%),
@@ -119,7 +143,6 @@ const GoalProgressBar = ({ current, goal, isDarkMode }) => {
           100% { background-position: 50px 250px; }
         }
 
-       /* 😷 미세먼지 효과 (나쁨: PM10 81~150) - 기존 코드 유지 */
         .weather-dust {
           background-color: rgba(200, 180, 150, 0.1);
           background-image: 
@@ -138,20 +161,17 @@ const GoalProgressBar = ({ current, goal, isDarkMode }) => {
           100% { background-position: 300px 40px, 300px 40px, 300px 40px, 300px 40px, 300px 40px, 0% 50%; }
         }
 
-        /* 🚨 미세먼지 효과 (매우나쁨: PM10 151 이상) - 훨씬 어둡고, 입자가 굵고, 2배 빠름! */
         .weather-dust-severe {
-          background-color: rgba(180, 140, 100, 0.25); /* 하늘이 좀 더 누렇고 탁해짐 */
+          background-color: rgba(180, 140, 100, 0.25);
           background-image: 
             radial-gradient(3px 3px at 20px 30px, rgba(120, 80, 40, 0.95), transparent),
             radial-gradient(2px 2px at 80px 70px, rgba(130, 90, 50, 0.9), transparent),
             radial-gradient(3px 2px at 150px 20px, rgba(100, 60, 30, 0.95), transparent),
             radial-gradient(4px 2px at 220px 110px, rgba(140, 100, 60, 0.9), transparent),
             radial-gradient(2.5px 2.5px at 280px 50px, rgba(110, 70, 40, 0.85), transparent),
-            /* 굵은 모래 파편 추가 */
             radial-gradient(2px 2px at 50px 150px, rgba(90, 50, 20, 0.9), transparent), 
             radial-gradient(circle at 50% 50%, rgba(180, 140, 100, 0.15) 0%, transparent 80%);
           background-size: 250px 200px, 250px 200px, 250px 200px, 250px 200px, 250px 200px, 250px 200px, 100% 100%;
-          /* 속도를 3.5초에서 1.8초로 훅 줄여서 폭풍처럼 날아가게 만듦 */
           animation: sandStormSevere 1.8s linear infinite;
         }
 
@@ -162,13 +182,33 @@ const GoalProgressBar = ({ current, goal, isDarkMode }) => {
       `}</style>
 
       <div className="relative z-10">
+        {/* 💡 3. 프로그레스 바 영역 수정 (분할 색상 적용) */}
         <div className="h-3 bg-gray-300 dark:bg-gray-700 rounded-full overflow-hidden shadow-inner relative mt-2">
           <div className="absolute top-1/2 left-0 w-full h-[1px] border-t-2 border-dashed border-gray-400/50 dark:border-gray-500/50 transform -translate-y-1/2 z-0"></div>
           {condition === 'snow' && <div className="absolute bottom-0 left-0 w-full h-2 bg-gradient-to-t from-white to-transparent opacity-80 z-10 pointer-events-none"></div>}
           {condition === 'rain' && <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-transparent to-blue-900/20 z-10 pointer-events-none mix-blend-multiply"></div>}
-          <div className="h-full rounded-full transition-all duration-700 ease-out relative z-0" style={{ width: `${progress}%`, backgroundColor: progressColor, boxShadow: `inset 0 1px 2px rgba(0,0,0,0.2)` }} />
+          
+          {/* 채워지는 바 영역 (단색 -> 다중 색상 flexBox) */}
+          <div 
+            className="h-full rounded-full transition-all duration-700 ease-out relative z-0 flex overflow-hidden" 
+            style={{ width: `${progress}%`, boxShadow: `inset 0 1px 2px rgba(0,0,0,0.2)` }}
+          >
+            {chartItems.length > 0 ? (
+                chartItems.map((item) => (
+                    <div 
+                        key={item.key}
+                        className={`${item.color} h-full transition-all duration-500`}
+                        style={{ width: `${item.rawPercent}%` }}
+                    />
+                ))
+            ) : (
+                // revenueDistribution 데이터가 없을 경우를 대비한 기존 단색 지원
+                <div className="w-full h-full" style={{ backgroundColor: progressColor }} />
+            )}
+          </div>
         </div>
 
+        {/* 트럭 애니메이션 영역 */}
         <div className={`absolute top-0 z-20 transition-all duration-700 ease-out`} style={{ left: `${leftPosition}%`, transform: 'translateX(-30%) translateY(-65%)' }}>
             <div className={`relative ${isAnimating ? 'animate-truck-image' : ''}`}>
                 {isAnimating && (
@@ -190,6 +230,22 @@ const GoalProgressBar = ({ current, goal, isDarkMode }) => {
           <span>0</span>
           <span>{Math.round(goal / 10000).toLocaleString()}만</span>
       </div>
+
+      {/* 💡 4. 하단 범례 추가 (상위 4개 항목 표시) */}
+      {chartItems.length > 0 && (
+        <div className="grid grid-cols-4 gap-1 w-full mt-0 px-1">
+            {chartItems.map((item) => (
+                <div key={item.key} className="flex items-center justify-center min-w-0">
+                    <div className={`w-[7px] h-[7px] rounded-full ${item.color} mr-1 flex-shrink-0 self-center`}></div>
+                    <div className="text-gray-500 dark:text-gray-400 text-center min-w-0">
+                        <span className="font-medium whitespace-nowrap overflow-hidden text-ellipsis text-[clamp(9px,2.5vw,11px)]">
+                            {item.label}<span className="opacity-80 ml-0.5">({item.percent}%)</span>
+                        </span>
+                    </div>
+                </div>
+            ))}
+        </div>
+      )}
     </div>
   );
 };
