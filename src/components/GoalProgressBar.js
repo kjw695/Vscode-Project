@@ -25,10 +25,64 @@ const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution }) => 
     setIsAnimating(progress > 0 && progress < 100);
   }, [progress]);
 
-  const { temp, condition, conditionText, region, dust, loading } = useWeather();
-  const isDust = condition.includes('dust');
-  const weatherIcon = condition === 'snow' ? '❄️ ' : condition === 'rain' ? '☔ ' : condition === 'dust' ? '😷 ' : '☀️ ';
-  const weatherDisplayString = `[${region}] ${weatherIcon}${temp}°C ${condition === 'dust' && dust ? `- ${dust}` : ''}`;
+
+let { temp, condition, conditionText, region, dust, loading } = useWeather();
+
+  // 👇 테스트할 때 아래 블록 전체의 주석(//)을 지우고 저장하세요! (단축키: 드래그 후 Ctrl + /)
+
+//특정날씨만 테스트
+
+// 1️⃣ 비 테스트용
+ // condition = 'rain'; dust = '좋음 (15)';
+
+  // 2️⃣ 눈 테스트용
+ // condition = 'snow'; dust = '좋음 (20)';
+
+  // 3️⃣ 미세먼지 '나쁨' 테스트용
+  // condition = 'dust'; dust = '나쁨 (81)';
+
+  // 4️⃣ 미세먼지 '매우나쁨' 테스트용
+  // condition = 'dust'; dust = '매우나쁨 (151)';
+
+
+//밑에는 20초마다 날씨변화
+
+  // const [testIdx, setTestIdx] = useState(0);
+  // useEffect(() => {
+  //   const timer = setInterval(() => setTestIdx(p => (p + 1) % 6), 20000); // 20000 = 20초
+  //   return () => clearInterval(timer);
+  // }, []);
+  // const scenarios = [
+  //   { c: 'clear', d: '좋음 (10)' },             // 1. 맑음
+  //   { c: 'rain', d: '좋음 (15)' },              // 2. 비
+  //   { c: 'snow', d: '좋음 (20)' },              // 3. 눈
+  //   { c: 'dust', d: '보통 (50)' },              // 4. 미세먼지 보통 (배경만 살짝 뿌옇게)
+  //   { c: 'dust', d: '나쁨 (81)' },             // 5. 미세먼지 나쁨 (텍스트 경고 추가)
+  //   { c: 'dust-severe', d: '매우나쁨 (151)' }   // 6. 미세먼지 매우나쁨 (거친 모래바람)
+  // ];
+  // condition = scenarios[testIdx].c;
+  // dust = scenarios[testIdx].d;
+
+
+  // 👆 여기까지 자동 스위치 Ctrl + / 하면 자동으로 주석처리 풀리고 다시하면 주석처리
+
+
+
+// 👆 여기까지 자동 스위치 Ctrl + / 하면 자동으로 주석처리 풀리고 다시하면 주석처리
+
+  // ✨ 날씨 아이콘 설정
+  let weatherIcon = '☀️ ';
+  if (condition === 'snow') weatherIcon = '❄️ ';
+  else if (condition === 'rain') weatherIcon = '☔ ';
+  else if (condition.includes('dust')) weatherIcon = '😷 ';
+
+  // ✨ 미세먼지 수치 전용 색상 클래스 결정 (단어 빼고!)
+  let dustColorClass = 'text-green-500'; // 보통/좋음
+  if (dust?.includes('매우나쁨')) dustColorClass = 'text-red-500 font-extrabold';
+  else if (dust?.includes('나쁨')) dustColorClass = 'text-orange-500 font-bold';
+
+  // ✨ 최종 날씨 글자 (미세먼지 단어 완전 삭제!)
+  const weatherDisplayString = `[${region}] ${weatherIcon}${temp}°C`;
 
   // 💡 2. 매출 비중 데이터 계산 로직 (상위 3개 + 기타)
   // 막대가 트럭까지 꽉 차게 보이기 위해 항목이 많을 경우 4번째는 '기타'로 묶습니다.
@@ -68,16 +122,23 @@ const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution }) => 
         <div className={`weather-overlay weather-${condition}`}></div>
       )}
 
-      {/* 날씨 텍스트 */}
+      {/* 날씨 텍스트 (색상 수치 추가!) */}
       {!loading && region && temp !== null && (
         <div className="absolute top-0 left-1 flex items-center z-30">
           <span className={`text-xs font-bold tracking-tight ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
             {weatherDisplayString}
+            {/* 미세먼지가 맑음이 아닐 때만 수치 띄우기 */}
+            {dust && condition !== 'clear' && (
+                <>
+                  <span className="text-gray-400 mx-1">|</span>
+                  <span className={`${dustColorClass}`}>{dust}</span>
+                </>
+            )}
           </span>
         </div>
       )}
 
-      <style>{`
+     <style>{`
         @keyframes drive-bounce {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-3px); }
@@ -92,92 +153,116 @@ const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution }) => 
         .delay-1 { animation-delay: 0.2s; }
         .delay-2 { animation-delay: 0.4s; }
 
+       /* ✨ 수정: 좌우 여백을 화면 안에 가두고, 마스크 그라데이션을 부드럽게 조정 */
        .weather-overlay {
           position: absolute; 
-          top: -80px; 
-          bottom: -50px;
-          left: -20px;
-          right: -20px;
+          top: -40px; /* 너무 위로 가지 않게 조절 */
+          bottom: -20px;
+          left: 0; right: 0; /* ✨ 가로 스크롤 방지! 화면에 딱 맞춤 */
           pointer-events: none; 
           overflow: hidden;
           z-index: 0;
-          -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
-          mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+          -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
         }
 
+       /* ☔ 비: 빗줄기(ㅣ) 자체를 35도( / )로 물리적으로 꺾어버림! */
         .weather-rain {
-          background-image: 
-            radial-gradient(1px 30px at 20px 10px, rgba(173, 216, 230, 0.9), rgba(255,255,255,0)),
-            radial-gradient(1px 20px at 60px 80px, rgba(173, 216, 230, 0.8), rgba(255,255,255,0)),
-            radial-gradient(1.2px 35px at 110px 30px, rgba(200, 230, 255, 0.9), rgba(255,255,255,0)),
-            radial-gradient(1px 25px at 160px 120px, rgba(173, 216, 230, 0.8), rgba(255,255,255,0)),
-            radial-gradient(1px 30px at 210px 50px, rgba(200, 230, 255, 0.9), rgba(255,255,255,0)),
-            radial-gradient(1.2px 25px at 260px 90px, rgba(173, 216, 230, 0.8), rgba(255,255,255,0)),
-            radial-gradient(1px 35px at 40px 180px, rgba(200, 230, 255, 0.9), rgba(255,255,255,0)),
-            radial-gradient(1px 20px at 130px 220px, rgba(173, 216, 230, 0.8), rgba(255,255,255,0)),
-            radial-gradient(1.2px 30px at 240px 160px, rgba(200, 230, 255, 0.9), rgba(255,255,255,0));
-          background-size: 280px 280px;
-          animation: rainFall 0.35s linear infinite;
+          background-image: none !important; /* 기존 직각 비 삭제 */
+          animation: none !important;
         }
+        
+        .weather-rain::before {
+          content: '';
+          position: absolute;
+          top: -50px; bottom: -50px; 
+          left: -50px; right: -50px; /* 꺾었을 때 틈 안 보이게 넓게 덮음 */
+          transform: skewX(-35deg); /* ✨ 핵심: 빗줄기(ㅣ) 자체를 / 방향으로 35도 비틀기! */
+
+           background-image: 
+            /* 1번 빗줄기: 아주 은은하게 파란빛이 도는 색상 */
+            radial-gradient(1.5px 35px at 30px 20px, rgba(200, 200, 200, 0.6), transparent),
+            /* 2번 빗줄기: 살짝 더 투명한 연파랑 */
+            radial-gradient(1.8px 30px at 100px 100px, rgba(200, 200, 200, 0.6), transparent);
+          /* 3번: 멀리서 떨어지는 아주 얇고 투명한 빗방울 (입체감 추가!) */
+            radial-gradient(0.8px 45px at 150px 50px, rgba(150, 200, 255, 0.4), transparent);
+
+            
+          /* 빗방울 숫자가 줄었으니 밀도를 조절해서 너무 푱 비어 보이지 않게 사이즈 살짝 조정 */
+          background-size: 140px 250px;
+          animation: rainFall 0.7s linear infinite; /* 천천히 운치 있게 */
+        }
+
         @keyframes rainFall {
           0% { background-position: 0px 0px; }
-          100% { background-position: 15px 280px; }
+          /* 틀 자체가 기울어져 있어서, 위에서 아래로만 내려도 / 방향으로 완벽하게 떨어집니다! */
+          100% { background-position: 0px 250px; } 
         }
 
+      /* ❄️ 함박눈: 몽글몽글한 솜사탕 질감 + 크기 다양화 + 하얀 배경 생존용 얇은 음영 */
         .weather-snow {
           background-image: 
-            radial-gradient(6px 6px at 20px 30px, #ffffff 50%, rgba(255,255,255,0) 100%),
-            radial-gradient(4px 4px at 50px 70px, #ffffff 50%, rgba(255,255,255,0) 100%),
-            radial-gradient(8px 8px at 90px 40px, #ffffff 50%, rgba(255,255,255,0) 100%),
-            radial-gradient(5px 5px at 150px 110px, #ffffff 50%, rgba(255,255,255,0) 100%),
-            radial-gradient(6px 6px at 230px 60px, #ffffff 50%, rgba(255,255,255,0) 100%),
-            radial-gradient(2px 2px at 10px 10px, #ffffff 80%, rgba(255,255,255,0) 100%),
-            radial-gradient(2px 2px at 180px 150px, #ffffff 80%, rgba(255,255,255,0) 100%);
-          background-size: 250px 250px; 
-          animation: snowFall 4s linear infinite;
-          filter: drop-shadow(0px 0px 1px rgba(0,0,0,0.3)); 
+            /* 1. 왕방울 함박눈 (가장자리를 솜털처럼 부드럽게 흩뿌림) */
+            radial-gradient(8px 8px at 30px 40px, rgba(255,255,255,1) 80%, rgba(255,255,255,0.4) 80%, transparent 100%),
+            /* 2. 중간 눈송이 */
+            radial-gradient(5px 5px at 110px 120px, rgba(255,255,255,1) 70%, rgba(255,255,255,0.6) 90%, transparent 100%),
+            /* 3. 저 멀리 내리는 작은 눈송이 (원근감 살리기) */
+            radial-gradient(3px 3px at 190px 60px, rgba(255,255,255,1) 80%, transparent 100%),
+            /* 4. 또 다른 왕방울 함박눈 */
+            radial-gradient(7px 7px at 250px 180px, rgba(255,255,255,1) 70%, rgba(255,255,255,0.3) 90%, transparent 100%),
+            /* 5. 화면이 비어 보이지 않게 중간 눈송이 하나 더! */
+            radial-gradient(4.5px 4.5px at 70px 210px, rgba(255,255,255,1) 60%, transparent 100%);
+          
+          background-size: 300px 250px; 
+          /* 함박눈은 무게감이 있어서 살짝 더 느리고 묵직하게 떨어집니다 (3.5초) */
+          animation: snowFall 3.5s linear infinite;
+          
+         filter: drop-shadow(0px 0px 0.5px rgba(0, 0, 0, 0.5));
         }
 
         @keyframes snowFall {
           0% { background-position: 0px 0px; }
-          100% { background-position: 50px 250px; }
+          /* 무한 루프의 마법: 위에서 아래로 끊김 없이 스르륵 */
+          100% { background-position: 0px 250px; } 
         }
 
+        /* 미세먼지 효과 최적화: 블러 필터 빼고 알갱이 갯수 차별화 */
+
+        /* 1. 보통 (알갱이 2개) */
+        .weather-dust-normal {
+          background-color: rgba(200, 180, 150, 0.05); /* 아주 옅은 배경색 */
+          background-image: 
+            radial-gradient(2px 2px at 40px 50px, rgba(139, 100, 60, 0.6), transparent),
+            radial-gradient(2.5px 2.5px at 150px 100px, rgba(150, 110, 70, 0.5), transparent);
+          background-size: 300px 150px;
+          animation: dustLoop 4s linear infinite; /* 천천히 둥둥 */
+        }
+
+        /* 2. 나쁨 (알갱이 4개) */
         .weather-dust {
           background-color: rgba(200, 180, 150, 0.1);
           background-image: 
-            radial-gradient(2px 2px at 20px 30px, rgba(139, 100, 60, 0.8), transparent),
-            radial-gradient(1px 1px at 80px 70px, rgba(150, 110, 70, 0.9), transparent),
-            radial-gradient(1.5px 1.5px at 150px 20px, rgba(120, 80, 50, 0.7), transparent),
-            radial-gradient(3px 1.5px at 220px 110px, rgba(160, 120, 80, 0.8), transparent),
-            radial-gradient(1.5px 1.5px at 280px 50px, rgba(140, 90, 60, 0.7), transparent),
-            radial-gradient(circle at 50% 50%, rgba(200, 180, 150, 0.1) 0%, transparent 80%);
-          background-size: 300px 200px, 300px 200px, 300px 200px, 300px 200px, 300px 200px, 100% 100%;
-          animation: sandStorm 3.5s linear infinite;
+            radial-gradient(2.5px 2.5px at 20px 30px, rgba(139, 100, 60, 0.8), transparent),
+            radial-gradient(2px 2px at 80px 70px, rgba(150, 110, 70, 0.8), transparent),
+            radial-gradient(3px 3px at 180px 40px, rgba(120, 80, 50, 0.7), transparent),
+            radial-gradient(2.5px 2.5px at 250px 120px, rgba(160, 120, 80, 0.8), transparent);
+          background-size: 300px 150px;
+          animation: dustLoop 3s linear infinite;
         }
-
-        @keyframes sandStorm {
-          0% { background-position: 0px 0px, 0px 0px, 0px 0px, 0px 0px, 0px 0px, 0% 50%; }
-          100% { background-position: 300px 40px, 300px 40px, 300px 40px, 300px 40px, 300px 40px, 0% 50%; }
-        }
-
+        
+        /* 3. 매우나쁨 (알갱이 6개 + 진함 + 빠름) */
         .weather-dust-severe {
-          background-color: rgba(180, 140, 100, 0.25);
+          background-color: rgba(180, 140, 100, 0.2); 
           background-image: 
-            radial-gradient(3px 3px at 20px 30px, rgba(120, 80, 40, 0.95), transparent),
-            radial-gradient(2px 2px at 80px 70px, rgba(130, 90, 50, 0.9), transparent),
-            radial-gradient(3px 2px at 150px 20px, rgba(100, 60, 30, 0.95), transparent),
-            radial-gradient(4px 2px at 220px 110px, rgba(140, 100, 60, 0.9), transparent),
-            radial-gradient(2.5px 2.5px at 280px 50px, rgba(110, 70, 40, 0.85), transparent),
-            radial-gradient(2px 2px at 50px 150px, rgba(90, 50, 20, 0.9), transparent), 
-            radial-gradient(circle at 50% 50%, rgba(180, 140, 100, 0.15) 0%, transparent 80%);
-          background-size: 250px 200px, 250px 200px, 250px 200px, 250px 200px, 250px 200px, 250px 200px, 100% 100%;
-          animation: sandStormSevere 1.8s linear infinite;
-        }
-
-        @keyframes sandStormSevere {
-          0% { background-position: 0px 0px, 0px 0px, 0px 0px, 0px 0px, 0px 0px, 0px 0px, 0% 50%; }
-          100% { background-position: 250px 40px, 250px 40px, 250px 40px, 250px 40px, 250px 40px, 250px 40px, 0% 50%; }
+            radial-gradient(3px 3px at 20px 30px, rgba(100, 60, 30, 0.9), transparent),
+            radial-gradient(4px 4px at 80px 80px, rgba(120, 70, 40, 0.9), transparent),
+            radial-gradient(3px 3px at 140px 20px, rgba(90, 50, 20, 0.9), transparent),
+            radial-gradient(4px 4px at 200px 100px, rgba(110, 60, 30, 0.9), transparent),
+            radial-gradient(5px 5px at 260px 50px, rgba(80, 40, 10, 0.9), transparent),
+            radial-gradient(3px 3px at 100px 130px, rgba(100, 50, 20, 0.9), transparent);
+          background-size: 300px 150px;
+          /* 속도를 2초로 줄여서 폭풍처럼 날아가게 만듦 */
+          animation: dustLoop 2s linear infinite;
         }
       `}</style>
 

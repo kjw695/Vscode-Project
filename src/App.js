@@ -44,12 +44,13 @@ import { useAdReward } from './hooks/useAdReward';
 //검색기능
 import { Search as SearchIcon } from 'lucide-react'; // Search 이름 중복 방지
 import SearchView from './components/SearchView';
-
+import InsuranceView from './components/more/InsuranceView';
 // ✨ 앱 업데이트 자동 확인을 위한 플러그인 3개 추가!
 import { AppUpdate } from '@capawesome/capacitor-app-update';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import GoalSummaryCards from './components/GoalSummaryCards';
+import AverageItemsView from './components/more/AverageItemsView';
 
 
 const DetailRow = ({ label, value, comparison }) => (
@@ -94,6 +95,8 @@ function AppContent() {
     // --- 목표 관리 ---
     const [targetItemKey, setTargetItemKey] = useState(null);
     const [goalAmount, setGoalAmount] = useState(7000000);
+    const [selectedInsurance, setSelectedInsurance] = useState(null);
+    const [selectedItemsForAverage, setSelectedItemsForAverage] = useState(['배송', '반품']);
     const [isEditingGoal, setIsEditingGoal] = useState(false);
     const [newGoalAmountInput, setNewGoalAmountInput] = useState('');
 
@@ -243,8 +246,9 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
                         setAdminMonthlyEndDayInput(settings.monthlyPeriod.endDay.toString());
                     }
                     if (settings.goalAmount) setGoalAmount(settings.goalAmount);
-                    if (settings.expenseConfig) setExpenseConfig(settings.expenseConfig);
-                    if (settings.incomeConfig) setIncomeConfig(settings.incomeConfig);
+                    if (settings.selectedInsurance) setSelectedInsurance(settings.selectedInsurance);
+if (settings.selectedItemsForAverage) setSelectedItemsForAverage(settings.selectedItemsForAverage); // 👈 저장된 항목들을 불러옵니다!
+if (settings.expenseConfig) setExpenseConfig(settings.expenseConfig);
                 }
             } catch (error) {
                 console.error("설정 로드 실패:", error);
@@ -840,10 +844,12 @@ const handleCloudRestore = async () => {
             selectedMonth={selectedMonth}
             monthlyEndDay={monthlyEndDay}
             isDarkMode={isDarkMode}
+            selectedInsurance={selectedInsurance}
+            selectedItemsForAverage={selectedItemsForAverage}
         />
                           
-                            <div className="h-3"></div>
-                            <div className={`p-4 sm:p-6 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                            
+                            <div className={`p-2 sm:p-4 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
                             <GoalProgressBar 
         current={monthlyProfit?.totalRevenue || 0}
         goal={goalAmount} 
@@ -1032,6 +1038,20 @@ const handleCloudRestore = async () => {
                                 {moreSubView === 'openSource' && <OpenSourceLicenses onBack={() => setMoreSubView('legalInfo')} isDarkMode={isDarkMode} />}
                                 {moreSubView === 'contact' && <ContactView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} />}
                                 {moreSubView === 'goal' && <GoalSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} goalAmount={goalAmount} onSaveGoal={(amount) => { setGoalAmount(amount); saveSettingsToLocal({ goalAmount: amount }); showMessage("목표 금액이 성공적으로 변경되었습니다!"); }} />}
+                                {moreSubView === 'insurance' && <InsuranceView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} selectedInsurance={selectedInsurance} onSelect={(ins) => { setSelectedInsurance(ins); saveSettingsToLocal({ selectedInsurance: ins }); showMessage("✅ 보험사가 홈 화면에 설정되었습니다."); }} />}
+                                {moreSubView === 'average_settings' && (
+  <AverageItemsView 
+    isDarkMode={isDarkMode}
+    onBack={() => setMoreSubView('main')}
+    incomeConfig={incomeConfig}
+    selectedItems={selectedItemsForAverage}
+    onSelect={(newList) => {
+      setSelectedItemsForAverage(newList);
+      saveSettingsToLocal({ selectedItemsForAverage: newList }); // 저장
+      showMessage("✅ 설정이 반영되었습니다."); // 화면 안나가고 메시지만!
+    }}
+  />
+)}
                             </div>
                         )}
                     </>

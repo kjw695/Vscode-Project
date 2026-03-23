@@ -1,11 +1,31 @@
 import React, { useMemo } from 'react';
+import { PhoneCall } from 'lucide-react';
 
-const GoalSummaryCards = ({ monthlyProfit, goal, selectedMonth, monthlyEndDay, isDarkMode }) => {
-  // 1. 필요한 데이터 추출 (App.js에서 복잡하게 안 넘기고 통째로 받아서 여기서 꺼내 씁니다)
+const GoalSummaryCards = ({ 
+  monthlyProfit, 
+  goal, 
+  selectedMonth, 
+  monthlyEndDay, 
+  isDarkMode, 
+  selectedInsurance,
+  selectedItemsForAverage = [] 
+}) => {
   const current = monthlyProfit?.totalRevenue || 0;
   const totalWorkingDays = monthlyProfit?.totalWorkingDays || 0;
 
-  // 2. 남은 일수 계산 (App.js 코드를 줄이기 위해 자체적으로 여기서 계산!)
+  // 1. 평균 물량 계산 (소수점 제거)
+  const averageVolume = useMemo(() => {
+    if (!totalWorkingDays || totalWorkingDays === 0 || !monthlyProfit?.revenueDetails) return 0;
+    const itemsToSum = selectedItemsForAverage || [];
+    const totalVol = itemsToSum.reduce((acc, itemName) => {
+      const itemData = monthlyProfit.revenueDetails[itemName];
+      return acc + (itemData ? Number(itemData.count || 0) : 0);
+    }, 0);
+    return Math.round(totalVol / totalWorkingDays);
+  }, [monthlyProfit, totalWorkingDays, selectedItemsForAverage]);
+
+  // 2. 남은 일수 및 권장 금액 계산
+  const dailyAverageRevenue = totalWorkingDays > 0 ? Math.round(current / totalWorkingDays) : 0;
   const remainingDays = useMemo(() => {
     if (!selectedMonth || !monthlyEndDay) return 1;
     try {
@@ -13,48 +33,67 @@ const GoalSummaryCards = ({ monthlyProfit, goal, selectedMonth, monthlyEndDay, i
       const endDate = new Date(year, month - 1, monthlyEndDay);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
       const diffTime = endDate.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-      
       return diffDays > 0 ? diffDays : 1; 
-    } catch (e) {
-      return 1;
-    }
+    } catch (e) { return 1; }
   }, [selectedMonth, monthlyEndDay]);
 
-  // 3. 하루 수익 및 일일 권장액 계산
-  const dailyAverageRevenue = totalWorkingDays > 0 ? Math.round(current / totalWorkingDays) : 0;
   const remainingGoal = Math.max(0, goal - current);
   const recommendedDaily = remainingDays > 0 ? Math.round(remainingGoal / remainingDays) : 0;
 
-  // 4. 디자인 클래스 모음
-  const cardClass = `py-3 px-2 rounded-2xl text-center shadow-sm border transition-colors ${
+  // ✨ 디자인 수정 포인트: 굵기를 다시 '정상'으로 돌렸습니다.
+  const cardClass = `py-3 px-1 rounded-xl text-center shadow-sm border flex flex-col justify-center items-center h-full transition-all ${
     isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-100'
   }`;
-  const labelClass = "text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-medium mb-1";
-  const valueClass = "text-sm sm:text-base font-bold leading-tight";
+  
+  // 🏷️ 라벨: font-bold 대신 font-medium으로 (더보기 메뉴와 동일한 굵기)
+  const labelClass = "text-[clamp(9px,2.5vw,12px)] text-gray-500 dark:text-gray-400 font-medium mb-1 whitespace-nowrap tracking-tight";
+  
+  // 💰 숫자: font-black 대신 font-bold로 (기존의 시원한 굵기)
+  const valueClass = "text-[clamp(11px,3.8vw,17px)] font-bold leading-none whitespace-nowrap tracking-tighter";
 
   return (
-    <div className="grid grid-cols-3 gap-2 w-full mb-3 px-1">
-      <div className={cardClass}>
-        <div className={labelClass}>출근일</div>
-        <div className={`${valueClass} text-gray-900 dark:text-white`}>
-          {totalWorkingDays}일
-        </div>
-      </div>
+    <div className="relative w-full mb-1 px-1 pt-7">
+      {selectedInsurance && selectedInsurance.phone && (
+        <a 
+          href={`tel:${selectedInsurance.phone}`} 
+          className={`absolute top-0 right-1 flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full shadow-sm active:scale-95 transition-transform ${
+            isDarkMode ? 'bg-blue-900/40 text-blue-300 border border-blue-800' : 'bg-blue-50 text-blue-600 border border-blue-200'
+          }`}
+        >
+          <PhoneCall size={10} className="animate-pulse" />
+          {selectedInsurance.name.split('(')[0]}
+        </a>
+      )}
 
-      <div className={cardClass}>
-        <div className={labelClass}>하루 수익</div>
-        <div className={`${valueClass} text-blue-600 dark:text-blue-400`}>
-          {dailyAverageRevenue.toLocaleString()}원
+      <div className="grid grid-cols-4 gap-[1vw] w-full">
+        <div className={cardClass}>
+          <div className={labelClass}>출근일</div>
+          <div className={`${valueClass} text-gray-900 dark:text-white`}>
+            {totalWorkingDays}일
+          </div>
         </div>
-      </div>
 
-      <div className={cardClass}>
-        <div className={labelClass}>일일 권장</div>
-        <div className={`${valueClass} text-orange-600 dark:text-orange-400`}>
-          {recommendedDaily.toLocaleString()}원
+        <div className={cardClass}>
+          <div className={labelClass}>평균 물량</div>
+          <div className={`${valueClass} text-green-600 dark:text-green-500`}>
+            {averageVolume}개
+          </div>
+        </div>
+
+        <div className={cardClass}>
+          <div className={labelClass}>하루 평균</div>
+          <div className={`${valueClass} text-blue-600 dark:text-blue-400`}>
+            {dailyAverageRevenue.toLocaleString()}원
+          </div>
+        </div>
+
+        <div className={cardClass}>
+          <div className={labelClass}>일일 권장</div>
+          <div className={`${valueClass} text-orange-600 dark:text-orange-400`}>
+            {recommendedDaily.toLocaleString()}원
+          </div>
         </div>
       </div>
     </div>

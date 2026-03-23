@@ -11,7 +11,7 @@
 // src/components/more/MoreView.js
 import React from 'react';
 // ✨ Target 아이콘 추가
-import { ChevronRight, User, CircleDollarSign, CalendarDays, Database, HelpCircle, FileText, Sun, Moon, Bell, BookOpen, MessageSquare, CreditCard, Target } from 'lucide-react';
+import { ChevronRight, User, CircleDollarSign, CalendarDays, Database, HelpCircle, FileText, Sun, Moon, Bell, BookOpen, MessageSquare, CreditCard, Target, ShieldCheck, BarChart3 } from 'lucide-react';
 
 const MenuItem = ({ icon, text, onClick, isDarkMode }) => (
     <button
@@ -46,7 +46,8 @@ function MoreView({ onNavigate, isDarkMode, toggleDarkMode }) {
             <div className="space-y-1">
                 <MenuItem icon={<BookOpen size={24} />} text="배송 가이드" onClick={() => onNavigate('userGuide')} isDarkMode={isDarkMode} />
             </div>
-
+<MenuItem icon={<ShieldCheck size={24} />} text="내 보험사 설정" onClick={() => onNavigate('insurance')} isDarkMode={isDarkMode} />
+<MenuItem icon={<BarChart3 size={24} />} text="평균 물량 설정" onClick={() => onNavigate('average_settings')} isDarkMode={isDarkMode} />
             <hr className="my-4 border-gray-200 dark:border-gray-700" />
             <p className="px-4 mb-1 text-sm text-gray-500 font-semibold">이용정보</p>
             <div className="space-y-1">
