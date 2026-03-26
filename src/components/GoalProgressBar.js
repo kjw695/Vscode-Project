@@ -75,11 +75,20 @@ let { temp, condition, conditionText, region, dust, loading } = useWeather();
   if (condition === 'snow') weatherIcon = '❄️ ';
   else if (condition === 'rain') weatherIcon = '☔ ';
   else if (condition.includes('dust')) weatherIcon = '😷 ';
+  else if (condition === 'clouds') weatherIcon = '☁️ '; // 구름 많은 날 대비
 
   // ✨ 미세먼지 수치 전용 색상 클래스 결정 (단어 빼고!)
   let dustColorClass = 'text-green-500'; // 보통/좋음
   if (dust?.includes('매우나쁨')) dustColorClass = 'text-red-500 font-extrabold';
   else if (dust?.includes('나쁨')) dustColorClass = 'text-orange-500 font-bold';
+
+  // 💡 2번 반영: CSS 오버레이용 정확한 클래스명 결정
+  let overlayClass = condition;
+  if (condition.includes('dust')) {
+    if (dust?.includes('보통')) overlayClass = 'dust-normal';
+    else if (dust?.includes('매우나쁨')) overlayClass = 'dust-severe';
+    else overlayClass = 'dust'; // 나쁨일 때
+  }
 
   // ✨ 최종 날씨 글자 (미세먼지 단어 완전 삭제!)
   const weatherDisplayString = `[${region}] ${weatherIcon}${temp}°C`;
@@ -128,7 +137,7 @@ let { temp, condition, conditionText, region, dust, loading } = useWeather();
           <span className={`text-xs font-bold tracking-tight ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
             {weatherDisplayString}
             {/* 미세먼지가 맑음이 아닐 때만 수치 띄우기 */}
-            {dust && condition !== 'clear' && (
+           {dust && (condition !== 'clear' || dust.includes('나쁨')) && (
                 <>
                   <span className="text-gray-400 mx-1">|</span>
                   <span className={`${dustColorClass}`}>{dust}</span>
@@ -264,6 +273,12 @@ let { temp, condition, conditionText, region, dust, loading } = useWeather();
           /* 속도를 2초로 줄여서 폭풍처럼 날아가게 만듦 */
           animation: dustLoop 2s linear infinite;
         }
+
+        @keyframes dustLoop {
+            0% { background-position: 0px 0px; }
+            100% { background-position: -300px 150px; }
+        }
+      
       `}</style>
 
       <div className="relative z-10">
