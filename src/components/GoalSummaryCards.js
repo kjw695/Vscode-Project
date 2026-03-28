@@ -13,6 +13,12 @@ const GoalSummaryCards = ({
   const current = monthlyProfit?.totalRevenue || 0;
   const totalWorkingDays = monthlyProfit?.totalWorkingDays || 0;
 
+  const displayMonth = useMemo(() => {
+    if (!selectedMonth) return new Date().getMonth() + 1;
+    const [, monthStr] = selectedMonth.split('-');
+    return parseInt(monthStr, 10);
+  }, [selectedMonth]);
+
   // 1. 평균 물량 계산 (소수점 제거)
   const averageVolume = useMemo(() => {
     if (!totalWorkingDays || totalWorkingDays === 0 || !monthlyProfit?.revenueDetails) return 0;
@@ -53,12 +59,22 @@ const GoalSummaryCards = ({
   // 💰 숫자: font-black 대신 font-bold로 (기존의 시원한 굵기)
   const valueClass = "text-[clamp(11px,3.8vw,17px)] font-bold leading-none whitespace-nowrap tracking-tighter";
 
-  return (
-    <div className="relative w-full mb-1 px-1 pt-7">
+ return (
+    <div className="relative w-full mb-1 px-1 pt-10"> {/* ✨ pt-12를 pt-16으로 늘림 */}
+      
+      <div className="absolute top-2 left-1 flex items-center gap-1.5">
+          <span className={`text-sm sm:text-base font-extrabold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              {displayMonth}월 매출
+          </span>
+          <span className={`text-2xl sm:text-3xl font-black tracking-tighter ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
+              {current.toLocaleString()}<span className="text-sm sm:text-base font-bold ml-0.5 text-gray-500 dark:text-gray-400">원</span>
+          </span>
+      </div>
+
       {selectedInsurance && selectedInsurance.phone && (
         <a 
           href={`tel:${selectedInsurance.phone}`} 
-          className={`absolute top-0 right-1 flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full shadow-sm active:scale-95 transition-transform ${
+          className={`absolute top-2 right-2 flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full shadow-sm active:scale-95 transition-transform ${
             isDarkMode ? 'bg-blue-900/40 text-blue-300 border border-blue-800' : 'bg-blue-50 text-blue-600 border border-blue-200'
           }`}
         >
