@@ -51,6 +51,8 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import GoalSummaryCards from './components/GoalSummaryCards';
 import AverageItemsView from './components/more/AverageItemsView';
+import DashboardSettingsView from './components/more/DashboardSettingsView';
+import useDashboardSettings from './hooks/useDashboardSettings';
 
 
 const DetailRow = ({ label, value, comparison }) => (
@@ -88,7 +90,7 @@ const getSmartCurrentMonth = (startDay = 26) => {
 
 function AppContent() {
     const navigate = useNavigate();
-    
+    const { dashboardConfig, saveDashboardConfig } = useDashboardSettings();
     // [수정] isDataLoaded 상태 가져오기
     const { entries, saveEntry, deleteEntry, clearAllEntries, importStrictly, isDataLoaded } = useDelivery();
 
@@ -846,6 +848,7 @@ const handleCloudRestore = async () => {
             isDarkMode={isDarkMode}
             selectedInsurance={selectedInsurance}
             selectedItemsForAverage={selectedItemsForAverage}
+            dashboardConfig={dashboardConfig}
         />
                           
                             
@@ -1031,7 +1034,17 @@ const handleCloudRestore = async () => {
                                 {moreSubView === 'data' && <DataSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} handleExportCsv={() => exportDataAsCsv(entries, showMessage)} handleImportCsv={(e) => handleLocalCsvImport(e.target.files[0])} handleDeleteAllData={handleDeleteAllDataRequest} handleBackupToDrive={() => backupToDrive(entries)} handleRestoreFromDrive={handleCloudRestore} />}
                             {/* ✨ 더보기 메뉴에서 진입할 때는 무조건 '수익(income)' 탭으로 고정! */}
                                 {moreSubView === 'expenseSettings' && <ExpenseSettingsView initialTab="income" onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} expenseConfig={expenseConfig} setExpenseConfig={setExpenseConfig} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} onNavigate={(view, key) => { setMoreSubView(view); if (key) setTargetItemKey(key); }} />}
-
+{moreSubView === 'dashboard_settings' && (
+    <DashboardSettingsView 
+        isDarkMode={isDarkMode}
+        onBack={() => setMoreSubView('main')}
+        config={dashboardConfig}
+        onSave={(newConfig) => {
+            saveDashboardConfig(newConfig); // 훅의 저장 함수 사용
+            showMessage("✅ 홈 화면 설정이 저장되었습니다.");
+        }}
+    />
+)}
                                 {moreSubView === 'userGuide' && <UserGuideView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} />}
                                 {moreSubView === 'legalInfo' && <LegalInfoView onBack={() => setMoreSubView('main')} onNavigate={setMoreSubView} isDarkMode={isDarkMode} />}
                                 {moreSubView === 'privacyPolicy' && <PrivacyPolicy onBack={() => setMoreSubView('legalInfo')} isDarkMode={isDarkMode} />}
