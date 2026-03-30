@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Info } from 'lucide-react';
 import SwipeableView from './components/common/SwipeableView';
 
 const CollapsibleStatCard = ({ title, value, valueColor, onToggle, showDetails, children, isDarkMode, t }) => (
@@ -53,11 +53,14 @@ function StatsDisplay({
     yearlyPeriod, 
     cumulativePeriod,
     setSelectedMonth,        
-    setCurrentCalendarDate
+    setCurrentCalendarDate,
+    selectedItemsForAverage = [],
+    showMessage
 }) {
     const [showRevenueDetails, setShowRevenueDetails] = useState(false);
     const [showExpensesDetails, setShowExpensesDetails] = useState(false);
     const [analysisTab, setAnalysisTab] = useState('unitPrice');
+    const [ratioBase, setRatioBase] = useState('volume');
 
     const isKo = useMemo(() => navigator.language.toLowerCase().includes('ko'), []);
     const t = {
@@ -130,6 +133,20 @@ function StatsDisplay({
         const revenueRows = profitData.revenueDetails ? Object.entries(profitData.revenueDetails) : [];
         const expenseRows = profitData.expenseDetails ? Object.entries(profitData.expenseDetails) : [];
 
+        // ✨ [추가] 클릭 시 보여줄 메시지 창과 라벨 템플릿
+        const handleVolumeInfoClick = (e) => {
+            e.stopPropagation();
+            const itemsStr = selectedItemsForAverage.length > 0 ? selectedItemsForAverage.join(', ') : '배송, 반품 (기본값)';
+            showMessage(`💡 [총 물량 포함 항목]\n\n현재 총 물량은 "${itemsStr}" 항목을 합산한 결과입니다.\n\n※ 더보기 > 평균 물량 설정에서 변경하실 수 있습니다.`);
+        };
+
+        const volumeLabelWithIcon = (
+            <span className="inline-flex items-center gap-1 cursor-pointer active:opacity-70" onClick={handleVolumeInfoClick}>
+                {t.totalVolume}
+                <Info size={15} className="text-gray-400 dark:text-gray-500" />
+            </span>
+        );
+
         return (
             <div className="space-y-3">
                 <div className={`px-6 py-4 rounded-lg ${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-black'} shadow`}>
@@ -176,14 +193,14 @@ function StatsDisplay({
                         {isMonthly ? (
                             <>
                                 <DetailRow label={t.totalDays} value={`${(profitData.totalWorkingDays || 0).toLocaleString()} ${t.day}`} comparison={renderComparison(profitData.totalWorkingDays, previousMonthlyProfit.totalWorkingDays)} />
-                                <DetailRow label={t.totalVolume} value={`${(profitData.totalVolume || 0).toLocaleString()} ${t.unit}`} comparison={renderComparison(profitData.totalVolume, previousMonthlyProfit.totalVolume)} />
+                                <DetailRow label={volumeLabelWithIcon} value={`${(profitData.totalVolume || 0).toLocaleString()} ${t.unit}`} comparison={renderComparison(profitData.totalVolume, previousMonthlyProfit.totalVolume)} />
                                 <DetailRow label={t.totalFreshbag} value={`${(profitData.totalFreshBag || 0).toLocaleString()} ${t.piece}`} comparison={renderComparison(profitData.totalFreshBag, previousMonthlyProfit.totalFreshBag)} />
                                 <DetailRow label={t.dailyAvg} value={`${Math.round(profitData.dailyAverageVolume || 0)} ${t.unit}`} comparison={renderComparison(Math.round(profitData.dailyAverageVolume || 0), Math.round(previousMonthlyProfit.dailyAverageVolume || 0))} />
                             </>
                         ) : (
                             <>
                                 <SimpleDetailRow label={t.totalDays} value={`${(profitData.totalWorkingDays || 0).toLocaleString()} ${t.day}`} />
-                                <SimpleDetailRow label={t.totalVolume} value={`${(profitData.totalVolume || 0).toLocaleString()} ${t.unit}`} />
+                                <SimpleDetailRow label={volumeLabelWithIcon} value={`${(profitData.totalVolume || 0).toLocaleString()} ${t.unit}`} />
                                 <SimpleDetailRow label={t.totalFreshbag} value={`${(profitData.totalFreshBag || 0).toLocaleString()} ${t.piece}`} />
                                 <SimpleDetailRow label={t.dailyAvg} value={`${Math.round(profitData.dailyAverageVolume || 0)} ${t.unit}`} />
                             </>
@@ -233,6 +250,124 @@ function StatsDisplay({
                                 회차별
                             </button>
                         </div>
+
+
+{/* ✨ [비율 분석 바 추가] 시작 */}
+                        {(() => {
+                            let itemsForBar = [];
+                            
+                            // 1. 단가별 데이터 일치화
+                           if (analysisTab === 'unitPrice' && profitData.unitPriceAnalysis) {
+                                itemsForBar = profitData.unitPriceAnalysis.map(data => ({
+                                    label: String(data.priceLabel).includes('원') ? data.priceLabel : `${data.priceLabel}원`,
+                                    count: data.items.reduce((sum, i) => sum + (i.count || 0), 0),
+                                    amount: data.totalAmount || 0
+                                }));
+                            }
+                            // 2. 회차별 데이터 일치화
+                            else if (analysisTab === 'round' && profitData.roundBreakdown) {
+                                itemsForBar = Object.entries(profitData.roundBreakdown).map(([round, data]) => ({
+                                    label: round === '0' ? '기타' : `${round}회전`,
+                                    count: data.volume || 0,
+                                    amount: data.revenue || 0
+                                }));
+                            }
+
+                            if (itemsForBar.length === 0) return null;
+
+                            // 수량이 많은 순서대로 정렬
+                            itemsForBar.sort((a, b) => b.count - a.count);
+
+                           // 전체 합계 계산 (선택한 기준에 따라)
+                            const currentTotal = itemsForBar.reduce((sum, item) => sum + (ratioBase === 'volume' ? item.count : item.amount), 0);
+
+                            if (currentTotal === 0) return null;
+
+                            // ✨ [핵심] 합계가 무조건 100%가 되도록 미리 계산해서 오차를 조정합니다.
+                            let totalRounded = 0;
+                            itemsForBar.forEach(item => {
+                                const value = ratioBase === 'volume' ? item.count : item.amount;
+                                item.exactPercentage = (value / currentTotal) * 100;
+                                item.roundedPercentage = Math.round(item.exactPercentage);
+                                totalRounded += item.roundedPercentage;
+                            });
+
+                            // 만약 반올림 때문에 총합이 100이 아니라면? (예: 99% 또는 101%)
+                            if (totalRounded !== 100 && itemsForBar.length > 0) {
+                                const diff = 100 - totalRounded;
+                                // 이미 가장 큰 순서대로 정렬되어 있으므로, 1등에게 오차를 몰아줍니다!
+                                itemsForBar[0].roundedPercentage += diff; 
+                            }
+
+                            const colors = ['bg-blue-500', 'bg-red-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500'];
+
+                          return (
+                                <div className={`mt-2 mb-8 p-4 rounded-xl shadow-sm border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <span className={`text-base font-bold ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+                                            📊 {analysisTab === 'unitPrice' ? '단가별' : '회차별'} 비중
+                                        </span>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setRatioBase(prev => prev === 'volume' ? 'revenue' : 'volume'); }}
+                                            className={`text-xs px-3 py-1.5 rounded-full font-bold transition-transform active:scale-95 shadow-sm border ${
+                                                isDarkMode ? 'bg-gray-700 border-gray-600 text-yellow-400' : 'bg-white border-gray-200 text-yellow-600'
+                                            }`}
+                                        >
+                                            {ratioBase === 'volume' ? '📦 물량 기준' : '💰 매출 기준'} 🔄
+                                        </button>
+                                    </div>
+
+                                    {/* 바 높이를 살짝 키웠습니다 (h-3.5 -> h-4) */}
+                                    <div className="w-full h-4 flex rounded-full overflow-hidden mb-4 shadow-inner bg-gray-200 dark:bg-gray-700">
+
+                                        {itemsForBar.map((item, index) => {
+                                           // 위에서 완벽하게 맞춰둔 퍼센트를 그냥 가져옵니다!
+                                            const percentage = item.roundedPercentage; 
+                                            if (percentage === 0) return null;
+                                            return <div key={item.label} style={{ width: `${percentage}%` }} className={`h-full ${colors[index % colors.length]} transition-all duration-500`} />;
+                                        })}
+                                    </div>
+
+            {/* 📝 하단 텍스트 레이아웃 (개수 비례 반응형 & 과한 강조 제거) */}
+                                    <div className="flex w-full items-stretch border-t border-gray-100 dark:border-gray-700 pt-4">
+                                        {itemsForBar.map((item, index) => {
+                                            const percentage = item.roundedPercentage;
+                                            if (percentage === 0) return null;
+
+                                            const itemCount = itemsForBar.length;
+                                            
+                                            // 1. 4개 이하일 때는 가로 배치(옆에), 5개 이상일 때만 세로 배치(밑에)
+                                            const isStacked = itemCount > 4;
+
+                                            // 2. 개수에 따른 반응형 폰트 사이즈 계산
+                                            let textSizeClass = "text-sm sm:text-base"; // 1~2개일 땐 큼직하게
+                                            if (itemCount === 3 || itemCount === 4) textSizeClass = "text-xs sm:text-sm"; // 3~4개일 땐 적당하게
+                                            if (itemCount >= 5) textSizeClass = "text-[10px] sm:text-xs"; // 5개 이상일 땐 줄여서 딱 맞게
+
+                                            return (
+                                                <div 
+                                                    key={item.label} 
+                                                    className={`flex-1 flex justify-center border-r last:border-r-0 border-gray-100 dark:border-gray-700 px-1 ${isStacked ? 'flex-col items-center' : 'flex-row items-center'}`}
+                                                >
+                                                    <div className="flex items-center justify-center truncate">
+                                                        <span className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full flex-shrink-0 ${isStacked ? 'mr-1' : 'mr-1.5'} ${colors[index % colors.length]}`}></span>
+                                                        <span className={`truncate font-medium ${textSizeClass} ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                                            {item.label}{!isStacked && ':'}
+                                                        </span>
+                                                    </div>
+                                                    
+                                                    {/* 3. 불필요한 강조 제거, 이름표와 어울리는 폰트 굵기와 크기로 통일 */}
+                                                    <span className={`font-semibold ${textSizeClass} ${isDarkMode ? 'text-gray-100' : 'text-gray-800'} ${isStacked ? 'mt-0.5' : 'ml-1'}`}>
+                                                        {percentage}%
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
 
                         <div className="min-h-[150px]">
                             {analysisTab === 'unitPrice' ? (

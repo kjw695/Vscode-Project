@@ -849,6 +849,7 @@ const handleCloudRestore = async () => {
             selectedInsurance={selectedInsurance}
             selectedItemsForAverage={selectedItemsForAverage}
             dashboardConfig={dashboardConfig}
+            previousMonthlyProfit={previousMonthlyProfit}
         />
                           
                             
@@ -1012,8 +1013,8 @@ const handleCloudRestore = async () => {
                         )}
 
                         {activeContentTab === 'statistics' && (
-                            <StatsDisplay statisticsView={statisticsView} setStatisticsView={setStatisticsView} handleMonthChange={handleMonthChange} selectedYear={selectedYear} currentCalendarDate={currentCalendarDate} monthlyProfit={monthlyProfit} yearlyProfit={yearlyProfit} cumulativeProfit={cumulativeProfit} previousMonthlyProfit={previousMonthlyProfit} isDarkMode={isDarkMode} showMessage={showMessage} monthlyStatsSubTab={monthlyStatsSubTab} setMonthlyStatsSubTab={setMonthlyStatsSubTab} setSelectedYear={setSelectedYear} yearlyPeriod={yearlyPeriod} cumulativePeriod={cumulativePeriod} setSelectedMonth={setSelectedMonth} setCurrentCalendarDate={setCurrentCalendarDate} onProtectedTabClick={handleProtectedTabClick} />
-                        )}
+    <StatsDisplay statisticsView={statisticsView} setStatisticsView={setStatisticsView} handleMonthChange={handleMonthChange} selectedYear={selectedYear} currentCalendarDate={currentCalendarDate} monthlyProfit={monthlyProfit} yearlyProfit={yearlyProfit} cumulativeProfit={cumulativeProfit} previousMonthlyProfit={previousMonthlyProfit} isDarkMode={isDarkMode} showMessage={showMessage} monthlyStatsSubTab={monthlyStatsSubTab} setMonthlyStatsSubTab={setMonthlyStatsSubTab} setSelectedYear={setSelectedYear} yearlyPeriod={yearlyPeriod} cumulativePeriod={cumulativePeriod} setSelectedMonth={setSelectedMonth} setCurrentCalendarDate={setCurrentCalendarDate} onProtectedTabClick={handleProtectedTabClick} selectedItemsForAverage={selectedItemsForAverage} />
+)}
 
 {activeContentTab === 'search' && (
     <SearchView 
