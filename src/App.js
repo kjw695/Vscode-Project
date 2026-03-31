@@ -850,6 +850,13 @@ const handleCloudRestore = async () => {
             selectedItemsForAverage={selectedItemsForAverage}
             dashboardConfig={dashboardConfig}
             previousMonthlyProfit={previousMonthlyProfit}
+           onTabChange={(tab) => {
+        if (tab === 'insurance') {
+            setSelectedMainTab('more');             // 하단 메뉴: 더보기
+            setActiveContentTab('adminSettings');   // 메인 화면: 설정
+            setMoreSubView('insurance');            // 세부 화면: 보험
+        }
+    }}
         />
                           
                             

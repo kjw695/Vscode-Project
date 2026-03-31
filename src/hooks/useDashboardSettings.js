@@ -1,51 +1,54 @@
 import { useState } from 'react';
 
-// ✨ 앞으로 새로운 카드를 만들고 싶다면, 이 배열에 한 줄만 추가하시면 됩니다! (다른 코드는 손댈 필요 없음)
 const DEFAULT_CONFIG = [
-    { id: 'workDays', label: '출근일', isVisible: true, row: 1 },
-    { id: 'totalVolume', label: '총 물량', isVisible: true, row: 1 }, 
-    { id: 'avgVolume', label: '평균 물량', isVisible: true, row: 1 },
-    { id: 'dailyAvg', label: '하루 평균', isVisible: true, row: 1 },
-    { id: 'remainingWorkDays', label: '남은 출근일', isVisible: false, row: 2 },
-    { id: 'compareLastMonth', label: '전월 대비', isVisible: false, row: 2 },
-    { id: 'recommended', label: '일일 권장', isVisible: false, row: 2 },
+    // 🧱 1줄: 소형 파츠 4개 (x: 0, 1, 2, 3 / y: 0 / w: 1)
+    { id: 'workDays', label: '출근일', x: 0, y: 0, w: 1, h: 2, isVisible: true },
+    { id: 'avgVolume', label: '평균 물량', x: 1, y: 0, w: 1, h: 2, isVisible: true },
+    { id: 'totalVolume', label: '총 물량', x: 2, y: 0, w: 1, h: 2, isVisible: true },
+    { id: 'dailyAvg', label: '하루 평균', x: 3, y: 0, w: 1, h: 2, isVisible: true },
+
+    // 💰 2줄: 매출(3칸) + 보험사(1칸) (x: 0, 3 / y: 2)
+    { id: 'revenue', label: '이번 달 매출', x: 0, y: 2, w: 3, h: 2, isVisible: true },
+    { id: 'insurance', label: '내 보험사', x: 3, y: 2, w: 1, h: 2, isVisible: true },
+    
+    // 💡 보관함 (안 보이는 것들)
+    { id: 'remainingWorkDays', label: '남은 출근일', x: 0, y: 4, w: 1, h: 2, isVisible: false },
+    { id: 'compareLastMonth', label: '전월 대비', x: 1, y: 4, w: 1, h: 2, isVisible: false },
+    { id: 'recommended', label: '일일 권장', x: 2, y: 4, w: 1, h: 2, isVisible: false },
 ];
 
+// ✨ 여기서부터 훅(Hook) 함수가 시작됩니다!
 export const useDashboardSettings = () => {
     const [dashboardConfig, setDashboardConfig] = useState(() => {
-        const saved = localStorage.getItem('dashboardSettings');
+        // ✨ 데이터 구조가 바뀌었으므로 v2로 새롭게 저장 및 불러옵니다.
+        const saved = localStorage.getItem('dashboardSettings_v2'); 
+        
         if (saved) {
             const parsedSaved = JSON.parse(saved);
+            let mergedConfig = [...parsedSaved]; 
 
-            // ✨ [핵심] 마법의 자동 병합(Merge) 시스템
-            let mergedConfig = [...parsedSaved]; // 1. 기존 사용자의 옛날 저장 데이터를 가져옵니다.
-
-            // 2. 우리가 새로 정의한 DEFAULT_CONFIG를 하나씩 돌면서 검사합니다.
-            DEFAULT_CONFIG.forEach((defaultItem, index) => {
+            DEFAULT_CONFIG.forEach((defaultItem) => {
                 const isExist = mergedConfig.find(item => item.id === defaultItem.id);
-                
-                // 3. 어? 옛날 데이터에 없는 새로운 카드(예: 총 물량)를 발견했네?!
                 if (!isExist) {
-                    // 그러면 원래 있어야 할 기본 위치(index)에 알아서 예쁘게 끼워 넣어줍니다!
-                    mergedConfig.splice(index, 0, defaultItem);
+                    // ✨ 그리드에서는 중간에 끼워넣기(splice)보다 맨 뒤에 추가(push)하는 것이 레이아웃 꼬임을 방지합니다.
+                    mergedConfig.push(defaultItem); 
                 }
             });
-// ✨ [추가된 부분] 기존에 저장된 데이터에 'row(줄)' 정보가 없다면 무조건 1번 줄로 지정해 주는 안전 장치!
-        mergedConfig = mergedConfig.map(item => ({
-            ...item,
-            row: item.row || 1 
-        }));
 
-        // 4. (보너스) 만약 나중에 특정 카드를 아예 삭제했다면, 사용자 데이터에서도 깔끔하게 청소해 줍니다.
-        mergedConfig = mergedConfig.filter(item => DEFAULT_CONFIG.find(d => d.id === item.id));
+            // 4. (보너스) 만약 나중에 특정 카드를 아예 삭제했다면, 사용자 데이터에서도 깔끔하게 청소해 줍니다.
+            mergedConfig = mergedConfig.filter(item => DEFAULT_CONFIG.find(d => d.id === item.id));
 
-        return mergedConfig;
-    }
+            return mergedConfig;
+        }
+        
+        // ✨ [중요] 저장된 데이터가 없는 '완전 처음' 켰을 때는 기본값을 보여줍니다!
+        return DEFAULT_CONFIG;
     });
 
     const saveDashboardConfig = (newConfig) => {
         setDashboardConfig(newConfig);
-        localStorage.setItem('dashboardSettings', JSON.stringify(newConfig));
+        // ✨ 저장 키도 v2로 통일합니다.
+        localStorage.setItem('dashboardSettings_v2', JSON.stringify(newConfig));
     };
 
     return { dashboardConfig, saveDashboardConfig };

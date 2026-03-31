@@ -2,26 +2,17 @@ import React, { useMemo } from 'react';
 import { PhoneCall } from 'lucide-react';
 
 const GoalSummaryCards = ({ 
-  monthlyProfit, 
-  goal, 
-  selectedMonth, 
-  monthlyEndDay, 
-  isDarkMode, 
-  selectedInsurance,
-  selectedItemsForAverage = [] ,
-  dashboardConfig = [] ,
-  previousMonthlyProfit
+  monthlyProfit, goal, selectedMonth, monthlyEndDay, isDarkMode, 
+  selectedInsurance, selectedItemsForAverage = [], dashboardConfig = [], previousMonthlyProfit,onTabChange
 }) => {
+  // --- 데이터 계산 로직 (기존과 동일) ---
   const current = monthlyProfit?.totalRevenue || 0;
   const totalWorkingDays = monthlyProfit?.totalWorkingDays || 0;
-
   const displayMonth = useMemo(() => {
     if (!selectedMonth) return new Date().getMonth() + 1;
     const [, monthStr] = selectedMonth.split('-');
     return parseInt(monthStr, 10);
   }, [selectedMonth]);
-
-  // ✨ 1. 총 물량 계산 (평균 물량 설정에서 고른 항목들만 더하기!)
   const totalVolume = useMemo(() => {
     if (!monthlyProfit?.revenueDetails) return 0;
     const itemsToSum = selectedItemsForAverage || [];
@@ -30,11 +21,7 @@ const GoalSummaryCards = ({
       return acc + (itemData ? Number(itemData.count || 0) : 0);
     }, 0);
   }, [monthlyProfit, selectedItemsForAverage]);
-
-  // ✨ 2. 평균 물량 계산 (총 물량 / 출근일)
   const averageVolume = totalWorkingDays > 0 ? Math.round(totalVolume / totalWorkingDays) : 0;
-
-  // 2. 남은 일수 및 권장 금액 계산
   const dailyAverageRevenue = totalWorkingDays > 0 ? Math.round(current / totalWorkingDays) : 0;
   const remainingDays = useMemo(() => {
     if (!selectedMonth || !monthlyEndDay) return 1;
@@ -48,31 +35,36 @@ const GoalSummaryCards = ({
       return diffDays > 0 ? diffDays : 1; 
     } catch (e) { return 1; }
   }, [selectedMonth, monthlyEndDay]);
-
   const remainingGoal = Math.max(0, goal - current);
   const recommendedDaily = remainingDays > 0 ? Math.round(remainingGoal / remainingDays) : 0;
-
-
   const prevCurrent = previousMonthlyProfit?.totalRevenue || 0;
   const compareDiff = current - prevCurrent;
 
-  // ✨ 디자인 수정 포인트: 굵기를 다시 '정상'으로 돌렸습니다.
-  const cardClass = `py-3 px-1 rounded-xl text-center shadow-sm border flex flex-col justify-center items-center h-full transition-all ${
-    isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-100'
-  }`;
-  
-  // 🏷️ 라벨: font-bold 대신 font-medium으로 (더보기 메뉴와 동일한 굵기)
-  const labelClass = "text-[clamp(9px,2.5vw,12px)] text-gray-500 dark:text-gray-400 font-medium mb-1 whitespace-nowrap tracking-tight";
-  
-const valueClass = "text-[clamp(11px,3.8vw,17px)] font-bold leading-none whitespace-nowrap tracking-tighter";
-
+  // 카드 디자인 맵핑
  const cardDataMap = {
+        revenue: { value: `${current.toLocaleString()}원`, colorClass: "text-yellow-600 dark:text-yellow-400" },
+        insurance: { 
+            value: (selectedInsurance && selectedInsurance.phone) ? (
+                <a href={`tel:${selectedInsurance.phone}`} className="flex items-center justify-center gap-2 text-blue-500 hover:text-blue-600 active:scale-95 transition-transform">
+                    <PhoneCall className="w-[1em] h-[1em] animate-pulse" />
+                    {selectedInsurance.name.split('(')[0]}
+                </a>
+            ) : (
+                // ✨ [수정] 미설정 시 클릭하면 '더보기(more)' 탭 등 설정 화면으로 이동하게 만듭니다!
+               <button 
+                    onClick={() => onTabChange && onTabChange('insurance')} 
+                    className="text-gray-400 text-[0.8em] underline decoration-dotted hover:text-gray-500 active:scale-95"
+                >
+                    설정하기
+                </button>
+            ), 
+            colorClass: "" 
+        },
       workDays: { value: `${totalWorkingDays}일`, colorClass: "text-gray-900 dark:text-white" },
       totalVolume: { value: `${totalVolume.toLocaleString()}개`, colorClass: "text-purple-600 dark:text-purple-400" },
       avgVolume: { value: `${averageVolume}개`, colorClass: "text-green-600 dark:text-green-500" },
       dailyAvg: { value: `${dailyAverageRevenue.toLocaleString()}원`, colorClass: "text-blue-600 dark:text-blue-400" },
       recommended: { value: `${recommendedDaily.toLocaleString()}원`, colorClass: "text-orange-600 dark:text-orange-400" },
-      // ✨ [추가] 남은 출근일, 전월 대비 카드 추가
       remainingWorkDays: { value: `${remainingDays}일`, colorClass: "text-pink-600 dark:text-pink-400" },
       compareLastMonth: { 
           value: compareDiff > 0 ? `+${compareDiff.toLocaleString()}원` : `${compareDiff.toLocaleString()}원`, 
@@ -80,64 +72,61 @@ const valueClass = "text-[clamp(11px,3.8vw,17px)] font-bold leading-none whitesp
       },
   };
 
- // ✨ [추가] 1줄과 2줄 데이터 분리 및 그리는 함수 만들기
   const visibleCards = dashboardConfig.filter(item => item.isVisible);
-  const row1Cards = visibleCards.filter(item => item.row === 1 || !item.row);
-  const row2Cards = visibleCards.filter(item => item.row === 2);
-
-  const renderCardGrid = (cards) => {
-      if (cards.length === 0) return null;
-      return (
-          <div className={`grid gap-[1vw] w-full mb-1.5 ${
-              cards.length === 1 ? 'grid-cols-1 max-w-xs mx-auto' : 
-              cards.length === 2 ? 'grid-cols-2' : 
-              cards.length === 3 ? 'grid-cols-3' : 'grid-cols-4'
-          }`}>
-              {cards.map((item) => {
-                  const cardInfo = cardDataMap[item.id];
-                  if (!cardInfo) return null;
-                  return (
-                      <div key={item.id} className={cardClass}>
-                          <div className={labelClass}>{item.label}</div>
-                          <div className={`${valueClass} ${cardInfo.colorClass}`}>
-                              {cardInfo.value}
-                          </div>
-                      </div>
-                  );
-              })}
-          </div>
-      );
-  };
 
   return (
-    <div className="relative w-full mb-1 px-1 pt-10"> 
-      
-      {/* --- 상단 매출 및 보험사 버튼 --- */}
-      <div className="absolute top-2 left-1 flex items-center gap-1.5">
-          <span className={`text-sm sm:text-base font-extrabold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              {displayMonth}월 매출
-          </span>
-          <span className={`text-2xl sm:text-3xl font-black tracking-tighter ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
-              {current.toLocaleString()}<span className="text-sm sm:text-base font-bold ml-0.5 text-gray-500 dark:text-gray-400">원</span>
-          </span>
-      </div>
-
-      {selectedInsurance && selectedInsurance.phone && (
-        <a 
-          href={`tel:${selectedInsurance.phone}`} 
-          className={`absolute top-2 right-2 flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full shadow-sm active:scale-95 transition-transform ${
-            isDarkMode ? 'bg-blue-900/40 text-blue-300 border border-blue-800' : 'bg-blue-50 text-blue-600 border border-blue-200'
-          }`}
+    <div className="relative w-full mb-1 px-1 pt-2"> 
+        <div 
+            className="grid grid-cols-4 gap-[2vw] w-full"
+            style={{ gridAutoRows: 'minmax(30px, auto)' }} 
         >
-          <PhoneCall size={10} className="animate-pulse" />
-          {selectedInsurance.name.split('(')[0]}
-        </a>
-      )}
+            {visibleCards.map((item) => {
+                const cardInfo = cardDataMap[item.id];
+                if (!cardInfo) return null;
+                
+                let displayLabel = item.label;
+                if (item.id === 'revenue') displayLabel = `${displayMonth}월 매출`;
 
-      {/* ✨ 1줄과 2줄을 위아래로 각각 화면에 그리기! */}
-      {renderCardGrid(row1Cards)}
-      {renderCardGrid(row2Cards)}
-      
+                // ✨ [레이아웃 결정] 3칸 이상이면 가로(row), 2칸 이하면 세로(col)
+                const isHorizontal = item.w >= 3;
+
+                // ✨ [폰트 크기 조절] 가로 배치일 때는 글씨를 더 공격적으로 키웁니다!
+                let dynamicLabelClass = "text-[clamp(10px,2.8vw,14px)]"; 
+                let dynamicValueClass = "text-[clamp(13px,4.5vw,22px)]";
+
+                if (item.w === 4) {
+                    dynamicLabelClass = "text-[clamp(16px,5.5vw,26px)]"; 
+                    dynamicValueClass = "text-[clamp(26px,9vw,52px)]";
+                } else if (item.w === 3) {
+                    dynamicLabelClass = "text-[clamp(14px,4.5vw,22px)]"; 
+                    dynamicValueClass = "text-[clamp(22px,7vw,40px)]";
+                } else if (item.w === 2) {
+                    dynamicLabelClass = "text-[clamp(12px,3.5vw,16px)]";
+                    dynamicValueClass = "text-[clamp(18px,5.5vw,28px)]";
+                }
+
+               return (
+                    <div 
+                        key={item.id} 
+                        className={`rounded-2xl text-center shadow-sm border flex transition-all p-2
+                            ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-100'}
+                            ${isHorizontal ? 'flex-row items-center justify-center gap-4' : 'flex-col items-center justify-center gap-1.5'}
+                        `}
+                        style={{
+                            gridColumn: `${item.x + 1} / span ${item.w}`,
+                            gridRow: `${item.y + 1} / span ${item.h}`,
+                        }}
+                    >
+                        <div className={`${dynamicLabelClass} text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap leading-none`}>
+                            {displayLabel}
+                        </div>
+                        <div className={`${dynamicValueClass} font-bold leading-none whitespace-nowrap tracking-tighter ${cardInfo.colorClass}`}>
+                            {cardInfo.value}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
     </div>
   );
 };
