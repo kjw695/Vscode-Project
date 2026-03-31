@@ -34,23 +34,39 @@ const InsuranceView = ({ onBack, isDarkMode, selectedInsurance, onSelect }) => {
                 {INSURANCE_LIST.map((ins) => {
                     const isSelected = selectedInsurance?.id === ins.id;
                     return (
-                        <button
+                        <div
                             key={ins.id}
                             onClick={() => onSelect(ins)}
-                            className={`w-full flex items-center justify-between p-4 rounded-xl border transition-colors ${
+                            className={`w-full flex items-center justify-between p-4 rounded-xl border transition-colors cursor-pointer ${
                                 isSelected 
                                     ? (isDarkMode ? 'bg-blue-900/30 border-blue-500' : 'bg-blue-50 border-blue-400')
                                     : (isDarkMode ? 'bg-gray-800 border-gray-700 hover:bg-gray-700' : 'bg-white border-gray-200 hover:bg-gray-50')
                             }`}
                         >
-                            <span className={`font-bold ${isSelected ? 'text-blue-500' : ''}`}>{ins.name}</span>
+                            {/* 왼쪽: 보험사 이름과 번호 텍스트 */}
+                            <div className="flex flex-col text-left">
+                                <span className={`font-bold ${isSelected ? 'text-blue-500' : ''}`}>{ins.name}</span>
+                                {ins.phone && (
+                                    <span className="text-sm text-gray-500 mt-1">{ins.phone}</span>
+                                )}
+                            </div>
+
+                            {/* 오른쪽: 통화 버튼 */}
                             {ins.phone && (
-                                <div className="flex items-center gap-2 text-sm text-gray-500">
-                                    <PhoneCall size={14} />
-                                    {ins.phone}
-                                </div>
+                                <a 
+                                    href={`tel:${ins.phone}`}
+                                    onClick={(e) => e.stopPropagation()} // 통화 버튼을 눌렀을 때 행 전체가 눌리는 것을 방지
+                                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold shadow-sm active:scale-95 transition-transform ${
+                                        isDarkMode 
+                                            ? 'bg-blue-600 text-white hover:bg-blue-500' 
+                                            : 'bg-blue-500 text-white hover:bg-blue-600'
+                                    }`}
+                                >
+                                    <PhoneCall size={16} />
+                                    통화
+                                </a>
                             )}
-                        </button>
+                        </div>
                     );
                 })}
             </div>

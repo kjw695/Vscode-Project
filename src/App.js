@@ -917,15 +917,15 @@ const handleCloudRestore = async () => {
                                                     `}
                                                 >
                                                     <div className="h-[35px] w-full flex items-center justify-center pb-0.5"> 
-                                                        <span className={`
-                                                            flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold
-                                                            ${!dayInfo.isCurrentMonth ? 'text-gray-300' : ''} 
-                                                            ${dayInfo.isCurrentMonth && index % 7 === 0 ? 'text-red-500' : ''} 
-                                                            ${dayInfo.isCurrentMonth && index % 7 === 6 ? 'text-blue-500' : ''} 
-                                                            ${dayInfo.isToday ? 'border-4 border-yellow-400 shadow-sm' : ''} 
-                                                        `}>
-                                                            {dayInfo.day}
-                                                        </span>
+                                                       <span className={`
+    flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold
+    ${!dayInfo.isCurrentMonth ? (isDarkMode ? 'text-gray-600' : 'text-gray-300') : ''} 
+    ${dayInfo.isCurrentMonth && index % 7 === 0 ? 'text-red-500' : ''} 
+    ${dayInfo.isCurrentMonth && index % 7 === 6 ? 'text-blue-500' : ''} 
+    ${dayInfo.isToday ? 'border-4 border-yellow-400 shadow-sm' : ''} 
+`}>
+    {dayInfo.day}
+</span>
                                                     </div>
 
                                                     <div className="flex-1 w-full flex flex-col items-center justify-start -mt-0.5">
