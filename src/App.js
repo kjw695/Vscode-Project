@@ -135,6 +135,7 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     });
     
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+    const [calendarMode, setCalendarMode] = useState('money');
 
     const [statisticsView, setStatisticsView] = useState('monthly');
     const [monthlyStatsSubTab, setMonthlyStatsSubTab] = useState('overview');
@@ -707,19 +708,44 @@ const handleCloudRestore = async () => {
             
             const dailyData = breakdown[formattedDate] || { revenue: 0, expenses: 0 };
             
+
+            // ✨ [새로 추가된 로직] 그날의 총 물량 계산하기
+            let dailyVolume = 0;
+            if (isWithinPeriod) {
+                const dailyEntries = entries.filter(e => e.date === formattedDate && e.type === 'income');
+                dailyEntries.forEach(entry => {
+                    if (entry.customItems && entry.customItems.length > 0) {
+                        entry.customItems.forEach(item => {
+                            const label = itemLabels[item.key] || item.key;
+                            if (selectedItemsForAverage.includes(label)) {
+                                dailyVolume += Number(item.count || 0);
+                            }
+                        });
+                    } else {
+                        incomeConfig.forEach(config => {
+                            const label = itemLabels[config.key] || config.label;
+                            if (selectedItemsForAverage.includes(label)) {
+                                dailyVolume += Number(entry[config.key] || 0);
+                            }
+                        });
+                    }
+                });
+            }
+
             days.push({ 
                 date: formattedDate, 
                 day: dayIterator.getDate(), 
                 isCurrentMonth: isWithinPeriod, 
                 isToday: isToday, 
                 revenue: isWithinPeriod ? dailyData.revenue : 0, 
-                expenses: isWithinPeriod ? dailyData.expenses : 0 
+                expenses: isWithinPeriod ? dailyData.expenses : 0 ,
+                volume: dailyVolume
             });
 
             dayIterator.setDate(dayIterator.getDate() + 1);
         }
         return days;
-    }, [currentCalendarDate, monthlyStartDay, monthlyEndDay, monthlyProfit.dailyBreakdown]);
+    }, [currentCalendarDate, monthlyStartDay, monthlyEndDay, monthlyProfit.dailyBreakdown, entries, itemLabels, selectedItemsForAverage, incomeConfig]);
 
     const calendarDays = generateCalendarDays();
     const yearlyPeriod = useMemo(() => {
@@ -867,9 +893,19 @@ const handleCloudRestore = async () => {
         isDarkMode={isDarkMode} 
         revenueDistribution={monthlyProfit.revenueDistribution}
     />
-                                <div className="flex items-center justify-between mb-4 px-1">
-                                    <div className="w-16"></div>
-                                    <div className="flex items-center space-x-1"> 
+                               <div className="flex items-center justify-between mb-4 px-1">
+    <div className="w-20">
+        {/* ✨ [추가] 금액/물량 전환 스위치 */}
+        <button 
+            onClick={() => setCalendarMode(prev => prev === 'money' ? 'volume' : 'money')}
+            className={`py-1 px-2 rounded-lg font-bold text-xs border transition-colors flex items-center gap-1 shadow-sm
+                ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-200 hover:bg-gray-600' : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'}
+            `}
+        >
+            {calendarMode === 'money' ? '💰 금액' : '📦 물량'}
+        </button>
+    </div>
+   <div className="flex items-center space-x-1"> 
                                         <button onClick={() => handleMonthChange(-1)} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'}`}>
                                             <ChevronLeft size={20} />
                                         </button>
@@ -880,14 +916,15 @@ const handleCloudRestore = async () => {
                                             <ChevronRight size={20} />
                                         </button>
                                     </div>
-                                  <div className="w-16 flex justify-end">
-                <button 
-                    onClick={handleTodayClick} 
-                    className="py-1 px-3 rounded-lg font-bold text-xs border-2 border-yellow-400 text-yellow-500 transition duration-150 ease-in-out"
-                >
-                    오늘
-                </button>
-            </div>
+                                    {/* ✨ w-16을 w-20으로 수정하여 양쪽 균형을 맞춥니다! */}
+                                    <div className="w-20 flex justify-end">
+                                        <button 
+                                            onClick={handleTodayClick} 
+                                            className="py-1 px-3 rounded-lg font-bold text-xs border-2 border-yellow-400 text-yellow-500 transition duration-150 ease-in-out"
+                                        >
+                                            오늘
+                                        </button>
+                                    </div>
                                 </div>
 
                                     <div 
@@ -928,18 +965,32 @@ const handleCloudRestore = async () => {
 </span>
                                                     </div>
 
-                                                    <div className="flex-1 w-full flex flex-col items-center justify-start -mt-0.5">
-                                                        {dayInfo.isCurrentMonth && dayInfo.revenue > 0 && (
-                                                            <span className="text-red-500 text-[8px] font-medium leading-none mb-0.5">
-                                                                {dayInfo.revenue.toLocaleString()}
-                                                            </span>
-                                                        )}
-                                                        {dayInfo.isCurrentMonth && dayInfo.expenses > 0 && (
-                                                            <span className="text-blue-500 text-[8px] font-medium leading-none">
-                                                                {dayInfo.expenses.toLocaleString()}
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                                   <div className="flex-1 w-full flex flex-col items-center justify-start -mt-0.5">
+    {/* ✨ 스위치 상태에 따라 다르게 보여주기! */}
+    {calendarMode === 'money' ? (
+        <>
+            {dayInfo.isCurrentMonth && dayInfo.revenue > 0 && (
+                <span className="text-red-500 text-[8px] font-medium leading-none mb-0.5">
+                    {dayInfo.revenue.toLocaleString()}
+                </span>
+            )}
+            {dayInfo.isCurrentMonth && dayInfo.expenses > 0 && (
+                <span className="text-blue-500 text-[8px] font-medium leading-none">
+                    {dayInfo.expenses.toLocaleString()}
+                </span>
+            )}
+        </>
+    ) : (
+        <>
+            {dayInfo.isCurrentMonth && dayInfo.volume > 0 && (
+                <span className="text-purple-600 dark:text-purple-400 text-[9px] font-bold leading-none mt-1 tracking-tighter">
+                    {dayInfo.volume.toLocaleString()}개
+                </span>
+            )}
+        </>
+    )}
+</div>
+
                                                 </div>
                                             ))}
                                       </div>
