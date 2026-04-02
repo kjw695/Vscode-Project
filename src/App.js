@@ -892,6 +892,8 @@ const handleCloudRestore = async () => {
         goal={goalAmount} 
         isDarkMode={isDarkMode} 
         revenueDistribution={monthlyProfit.revenueDistribution}
+        selectedItemsForAverage={selectedItemsForAverage}
+    incomeConfig={incomeConfig}
     />
                                <div className="flex items-center justify-between mb-4 px-1">
     <div className="w-20">

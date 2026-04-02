@@ -20,77 +20,40 @@ const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution }) => 
   const progressColor = getProgressColor(progress);
   const leftPosition = Math.min(Math.max(progress, 0), 92); 
 
-  const [isAnimating, setIsAnimating] = useState(false);
+ const [isAnimating, setIsAnimating] = useState(false);
   useEffect(() => {
     setIsAnimating(progress > 0 && progress < 100);
   }, [progress]);
 
+  // ✨ 1. 새로운 기상청 버전에 맞게 데이터 받아오기
+  const { weatherData, locationName, isLoading } = useWeather();
+  const loading = isLoading;
+  const region = locationName || '위치 찾는 중...';
+  const temp = weatherData?.temp || '-';
 
-let { temp, condition, conditionText, region, dust, loading } = useWeather();
+  // ✨ 2. 기상청 날씨(한국어)를 기존 애니메이션용(영어)으로 변환
+  let condition = 'clear';
+  const currentCondition = weatherData?.condition || '';
+  if (currentCondition.includes('비')) condition = 'rain';
+  else if (currentCondition.includes('눈')) condition = 'snow';
 
-  // 👇 테스트할 때 아래 블록 전체의 주석(//)을 지우고 저장하세요! (단축키: 드래그 후 Ctrl + /)
+  // ✨ 3. 아이콘은 기상청 데이터에서 똑똑하게 바로 가져옴
+  let weatherIcon = weatherData?.icon || '☀️ ';
 
-//특정날씨만 테스트
-
-// 1️⃣ 비 테스트용
- // condition = 'rain'; dust = '좋음 (15)';
-
-  // 2️⃣ 눈 테스트용
- // condition = 'snow'; dust = '좋음 (20)';
-
-  // 3️⃣ 미세먼지 '나쁨' 테스트용
-  // condition = 'dust'; dust = '나쁨 (81)';
-
-  // 4️⃣ 미세먼지 '매우나쁨' 테스트용
-  // condition = 'dust'; dust = '매우나쁨 (151)';
-
-
-//밑에는 20초마다 날씨변화
-
-  // const [testIdx, setTestIdx] = useState(0);
-  // useEffect(() => {
-  //   const timer = setInterval(() => setTestIdx(p => (p + 1) % 6), 20000); // 20000 = 20초
-  //   return () => clearInterval(timer);
-  // }, []);
-  // const scenarios = [
-  //   { c: 'clear', d: '좋음 (10)' },             // 1. 맑음
-  //   { c: 'rain', d: '좋음 (15)' },              // 2. 비
-  //   { c: 'snow', d: '좋음 (20)' },              // 3. 눈
-  //   { c: 'dust', d: '보통 (50)' },              // 4. 미세먼지 보통 (배경만 살짝 뿌옇게)
-  //   { c: 'dust', d: '나쁨 (81)' },             // 5. 미세먼지 나쁨 (텍스트 경고 추가)
-  //   { c: 'dust-severe', d: '매우나쁨 (151)' }   // 6. 미세먼지 매우나쁨 (거친 모래바람)
-  // ];
-  // condition = scenarios[testIdx].c;
-  // dust = scenarios[testIdx].d;
-
-
-  // 👆 여기까지 자동 스위치 Ctrl + / 하면 자동으로 주석처리 풀리고 다시하면 주석처리
-
-
-
-// 👆 여기까지 자동 스위치 Ctrl + / 하면 자동으로 주석처리 풀리고 다시하면 주석처리
-
-  // ✨ 날씨 아이콘 설정
-  let weatherIcon = '☀️ ';
-  if (condition === 'snow') weatherIcon = '❄️ ';
-  else if (condition === 'rain') weatherIcon = '☔ ';
-  else if (condition.includes('dust')) weatherIcon = '😷 ';
-  else if (condition === 'clouds') weatherIcon = '☁️ '; // 구름 많은 날 대비
-
-  // ✨ 미세먼지 수치 전용 색상 클래스 결정 (단어 빼고!)
-  let dustColorClass = 'text-green-500'; // 보통/좋음
-  if (dust?.includes('매우나쁨')) dustColorClass = 'text-red-500 font-extrabold';
-  else if (dust?.includes('나쁨')) dustColorClass = 'text-orange-500 font-bold';
-
-  // 💡 2번 반영: CSS 오버레이용 정확한 클래스명 결정
+  // ✨ 4. 미세먼지 (기상청 단기예보에는 없으므로 에러 방지용 null 처리)
+  let dust = null; 
+  let dustColorClass = '';
   let overlayClass = condition;
-  if (condition.includes('dust')) {
-    if (dust?.includes('보통')) overlayClass = 'dust-normal';
-    else if (dust?.includes('매우나쁨')) overlayClass = 'dust-severe';
-    else overlayClass = 'dust'; // 나쁨일 때
-  }
 
-  // ✨ 최종 날씨 글자 (미세먼지 단어 완전 삭제!)
+  // 🚨 [여기에 임시 코드 작성!] 🚨
+  // 아래 주석(//)을 풀고 원하는 날씨로 바꿔치기 해보세요. 확인 후엔 다시 주석 처리하거나 지우면 됩니다!
+  
+  // condition = 'rain'; weatherIcon = '☔ ';  // 👈 비 테스트
+  // condition = 'snow'; weatherIcon = '❄️ ';  // 👈 눈 테스트
+  // condition = 'dust'; weatherIcon = '😷 ';  // 👈 미세먼지 테스트
+
+  
+  // ✨ 최종 날씨 글자
   const weatherDisplayString = `[${region}] ${weatherIcon}${temp}°C`;
 
   // 💡 2. 매출 비중 데이터 계산 로직 (상위 3개 + 기타)

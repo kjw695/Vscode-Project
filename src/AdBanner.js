@@ -33,7 +33,7 @@ const AdBanner = ({ isVisible, activeTab }) => {
                     // ✨ 핵심: 만약 현재 탭이 '더보기/검색'이 아니라면, 
                     // 광고가 다운로드 되자마자 0.001초 만에 바로 숨겨버립니다(투명망토).
                     if (!isVisible) {
-                        await AdMob.hideBanner().catch(() => {});
+                        await AdMob.hideBanner().catch((e) => console.warn('배너 숨기기 실패:', e));
                     }
                 } 
                 // 2. 이미 백그라운드에 광고가 준비되어 있다면 망토만 벗기고 씌웁니다!
