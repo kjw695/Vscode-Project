@@ -1,0 +1,22 @@
+<div className="flex items-center justify-between mt-6 mb-4 px-1"> {/* 👈 mt-6 추가 (숫자가 클수록 공간이 넓어짐) */}
+
+
+
+
+<div className="flex items-center space-x-2">  <<<박스크기공간
+        <button onClick={() => handleMonthChange(-1)} className="..."> <ChevronLeft size={20} /> </button>
+        
+
+<h3 className="font-bold text-lg min-w-fit px-2 text-center">
+min-w  (최소너비)
+min-w-fit(글자길이에 딱맞게)
+min-w-[130px] (자리무조건확보)
+            {currentCalendarDate.getFullYear()}년 {currentCalendarDate.getMonth() + 1}월
+        </h3>
+        <button onClick={() => handleMonthChange(1)} className="..."> <ChevronRight size={20} /> </button>
+    </div>
+
+
+
+
+border-4 굵기.
