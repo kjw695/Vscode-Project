@@ -93,35 +93,42 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                                 dynamicLabelClass = "text-[clamp(13px,3.8vw,16px)]"; // 2칸일 때 (조금 크게)
                             }
 
-                            return (
+                          return (
                                 <div 
                                     key={item.id} 
-                                    className={`rounded-2xl border-2 shadow-sm flex flex-col items-center justify-center relative cursor-move transition-transform duration-150 p-1
+                                    // 1. items-center justify-center를 제거하고, overflow-hidden을 추가했습니다.
+                                    className={`rounded-2xl border-2 shadow-sm flex flex-col relative cursor-move transition-transform duration-150 overflow-hidden
                                         ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-800'}
                                     `}
                                 >
-                                    {/* ✨ 동적으로 계산된 엄청 큰 글씨 클래스를 적용합니다 */}
-                                    <span className={`font-extrabold ${dynamicLabelClass}`}>
-                                        {item.label}
-                                    </span>
-                                    
-                                   {/* 좌측 상단: 크기 조절 버튼 */}
-                                    <button 
-                                        onPointerDown={(e) => { e.stopPropagation(); cycleSize(item.id, item.w); }}
-                                        className="absolute top-1.5 left-1.5 p-1 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-400"
-                                    >
-                                        <Maximize2 size={14} strokeWidth={3} /> {/* ✨ X, Plus와 똑같이 굵기(3)를 통일! */}
-                                    </button>
+                                    {/* ✨ 1층: 상단 아이콘 구역 (버튼 전용 공간) */}
+                                    <div className="w-full h-8 flex justify-between items-start p-1.5 z-10 shrink-0">
+                                        <button 
+                                            onPointerDown={(e) => { e.stopPropagation(); cycleSize(item.id, item.w); }}
+                                            // absolute를 빼고 상단 바 안에 배치했습니다.
+                                            className="p-1 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-400"
+                                        >
+                                            <Maximize2 size={14} strokeWidth={3} />
+                                        </button>
 
-                                   {/* 우측 상단: 삭제(X) 버튼 */}
-                                    <button 
-                                        onPointerDown={(e) => { e.stopPropagation(); toggleVisibility(item.id); }}
-                                        className="absolute top-1.5 right-1.5 p-1 rounded-full bg-red-100 text-red-500 hover:bg-red-200 dark:bg-red-900/50 dark:text-red-400"
-                                    >
-                                        <X size={14} strokeWidth={3} /> {/* ✨ 굵기를 줘서 더 또렷하게! */}
-                                    </button>
+                                        <button 
+                                            onPointerDown={(e) => { e.stopPropagation(); toggleVisibility(item.id); }}
+                                            // absolute를 빼고 상단 바 안에 배치했습니다.
+                                            className="p-1 rounded-full bg-red-100 text-red-500 hover:bg-red-200 dark:bg-red-900/50 dark:text-red-400"
+                                        >
+                                            <X size={14} strokeWidth={3} />
+                                        </button>
+                                    </div>
+
+                                    {/* ✨ 2층: 하단 텍스트 구역 (글자 전용 공간) */}
+                                    <div className="flex-1 w-full flex items-center justify-center px-1 pb-2">
+                                        <span className={`font-extrabold text-center leading-tight break-keep ${dynamicLabelClass}`}>
+                                            {item.label}
+                                        </span>
+                                    </div>
                                 </div>
                             );
+                            
                         })}
                     </ResponsiveGridLayout>
 

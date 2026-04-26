@@ -3,7 +3,8 @@
 //사장님(App.js): 손님 응대(화면 표시)만 함.
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Home, BarChart2, List, MoreHorizontal, Plus } from 'lucide-react';
+/* 명단 끝에 ArrowRightLeft를 추가했습니다. */
+import { ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Home, BarChart2, List, MoreHorizontal, Plus, ArrowRightLeft } from 'lucide-react';
 import { backupToDrive, restoreFromDrive } from './utils/googleDrive';
 import { Preferences } from '@capacitor/preferences';
 import MessageModal from './components/common/MessageModal';
@@ -12,10 +13,10 @@ import StatsDisplay from './StatsDisplay';
 import GoalProgressBar from './components/GoalProgressBar';
 import RevenueDistributionChart from './components/RevenueDistributionChart';
 import FilterModal from './components/DataScreen/FilterModal';
-import EntriesList from './components/DataScreen/EntriesList.js';
+import EntriesList from './components/DataScreen/EntriesList';
 import DataEntryForm from './DataEntryForm';
 import PrivacyPolicy from './components/more/PrivacyPolicy';
-import OpenSourceLicenses from './components/more/OpenSourceLicenses.js';
+import OpenSourceLicenses from './components/more/OpenSourceLicenses';
 import CalculatorPage from './CalculatorPage';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import MoreView from './components/more/MoreView';
@@ -32,7 +33,7 @@ import useAppBackButton from './hooks/useAppBackButton';
 import SystemThemeManager from './components/common/SystemThemeManager';
 import GoalSettingsView from './components/more/GoalSettingsView';
 import { useDelivery } from './contexts/DeliveryContext';
-import { exportDataAsCsv, parseCsvData } from './utils/dataHandlers.js'; 
+import { exportDataAsCsv, parseCsvData } from './utils/dataHandlers'; 
 import { calculateData } from './utils/calculator';
 import InstallmentPage from './InstallmentPage'; // 👈 할부
 // [추가] 로고 이미지 (경로는 실제 로고 경로에 맞게 조정 필요, 없으면 텍스트만 표시됨)
@@ -53,8 +54,12 @@ import GoalSummaryCards from './components/GoalSummaryCards';
 import AverageItemsView from './components/more/AverageItemsView';
 import DashboardSettingsView from './components/more/DashboardSettingsView';
 import useDashboardSettings from './hooks/useDashboardSettings';
-
-
+// ✨ 휴무관리 모달 추가
+import { DayOffModal } from './components/DayOffModal';
+// 👇 이 두 줄을 추가해 주세요
+console.log("▶️ DayOffModal의 타입:", typeof DayOffModal);
+console.log("▶️ DayOffModal의 실제 값:", DayOffModal);
+console.log("🚨 용의자 명단 확인:", { GoalSummaryCards, SearchView, DashboardSettingsView, AverageItemsView });
 const DetailRow = ({ label, value, comparison }) => (
     <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-1">
         <span className="text-base sm:text-lg font-semibold">{label}</span>
@@ -186,6 +191,7 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const [sortDirection, setSortDirection] = useState('desc');
     const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+    const [isDayOffModalOpen, setIsDayOffModalOpen] = useState(false); // ✨ 휴무 모달 상태 추가
     const [filters, setFilters] = useState({ period: 'all', startDate: '', endDate: '', type: 'all' });
 
     // --- 팝업 및 로딩 ---
@@ -633,8 +639,25 @@ const handleCloudRestore = async () => {
             handleMonthChange(-1);
         }
     };
-
-    const handleTodayClick = () => { const today = new Date(); setCurrentCalendarDate(today); setSelectedMonth(today.toISOString().slice(0, 7)); };
+const handleTodayClick = () => { 
+        const now = new Date(); // 💡 무조건 폰(기기)의 로컬 시간 기준!
+        
+        // 💡 마감일(monthlyEndDay)을 넘겼으면 다음 달 장부로, 아니면 이번 달 장부로 정확히 안내합니다.
+        if (now.getDate() > monthlyEndDay) {
+            const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+            setCurrentCalendarDate(nextMonth);
+            const y = nextMonth.getFullYear();
+            const m = String(nextMonth.getMonth() + 1).padStart(2, '0');
+            setSelectedMonth(`${y}-${m}`);
+        } else {
+            const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            setCurrentCalendarDate(currentMonth);
+            const y = currentMonth.getFullYear();
+            const m = String(currentMonth.getMonth() + 1).padStart(2, '0');
+            setSelectedMonth(`${y}-${m}`);
+        }
+    };
+   
     const handleCalendarDateClick = (clickedDate) => {
         const entriesForDate = entries.filter(entry => entry.date === clickedDate);
         
@@ -727,6 +750,9 @@ const handleCloudRestore = async () => {
         while (dayIterator <= calendarEndDate) {
             const formattedDate = toDateStr(dayIterator);
             
+            //✨ [추가] 이 날짜에 '휴무' 이름표가 붙은 데이터가 있는지 확인
+            const isDayOff = entries.some(e => e.date === formattedDate && e.memo === '[휴무]');
+
             const isWithinPeriod = formattedDate >= pStartStr && formattedDate <= pEndStr;
             const isToday = formattedDate === todayStr;
             
@@ -763,7 +789,8 @@ const handleCloudRestore = async () => {
                 isToday: isToday, 
                 revenue: isWithinPeriod ? dailyData.revenue : 0, 
                 expenses: isWithinPeriod ? dailyData.expenses : 0 ,
-                volume: dailyVolume
+                volume: dailyVolume,
+                isDayOff: isDayOff
             });
 
             dayIterator.setDate(dayIterator.getDate() + 1);
@@ -895,9 +922,11 @@ const handleCloudRestore = async () => {
                        {activeContentTab === 'monthlyProfit' && (
     <>
         <GoalSummaryCards 
+            entries={entries}
             monthlyProfit={monthlyProfit} 
             goal={goalAmount}
             selectedMonth={selectedMonth}
+            monthlyStartDay={monthlyStartDay}
             monthlyEndDay={monthlyEndDay}
             isDarkMode={isDarkMode}
             selectedInsurance={selectedInsurance}
@@ -923,40 +952,50 @@ const handleCloudRestore = async () => {
         selectedItemsForAverage={selectedItemsForAverage}
     incomeConfig={incomeConfig}
     />
-                               <div className="flex items-center justify-between mb-4 px-1">
-    <div className="w-20">
-        {/* ✨ [추가] 금액/물량 전환 스위치 */}
+                          
+                          
+                    <div className="grid grid-cols-[1fr_auto_1fr] items-center mb-4 px-1 gap-1">
+    
+    {/* 1. 왼쪽: 금액/물량 버튼 (규격 맞춤) */}
+    <div className="flex justify-start">
         <button 
             onClick={() => setCalendarMode(prev => prev === 'money' ? 'volume' : 'money')}
-            className={`py-1 px-2 rounded-lg font-bold text-xs border transition-colors flex items-center gap-1 shadow-sm
-                ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-200 hover:bg-gray-600' : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'}
+            /* py-1, font-black, text-[11px], border-[1.5px] 로 규격 통일 */
+            className={`py-1 px-1.5 rounded-lg font-black text-[11px] border-[1.5px] transition-colors flex items-center gap-1 shadow-sm
+                ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-200' : 'border-gray-200 bg-gray-50 text-gray-700'}
             `}
         >
-            {calendarMode === 'money' ? '💰 금액' : '📦 물량'}
+            <ArrowRightLeft size={13} className={isDarkMode ? 'text-blue-400' : 'text-blue-600'} />
+            <span>{calendarMode === 'money' ? '금액' : '물량'}</span>
         </button>
     </div>
-   <div className="flex items-center space-x-1"> 
-                                        <button onClick={() => handleMonthChange(-1)} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'}`}>
-                                            <ChevronLeft size={20} />
-                                        </button>
-                                        <h3 className="font-bold text-lg min-w-fit text-center">
-                                            {currentCalendarDate.getFullYear()}년 {currentCalendarDate.getMonth() + 1}월
-                                        </h3>
-                                        <button onClick={() => handleMonthChange(1)} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'}`}>
-                                            <ChevronRight size={20} />
-                                        </button>
-                                    </div>
-                                    {/* ✨ w-16을 w-20으로 수정하여 양쪽 균형을 맞춥니다! */}
-                                    <div className="w-20 flex justify-end">
-                                        <button 
-                                            onClick={handleTodayClick} 
-                                            className="py-1 px-3 rounded-lg font-bold text-xs border-2 border-yellow-400 text-yellow-500 transition duration-150 ease-in-out"
-                                        >
-                                            오늘
-                                        </button>
-                                    </div>
-                                </div>
 
+    {/* 2. 중앙: 날짜 (주인공이므로 크기 유지) */}
+    <div className="flex items-center space-x-1"> 
+        <button onClick={() => handleMonthChange(-1)} className="p-0.5"><ChevronLeft size={22} /></button>
+        <h3 className={`font-black text-lg sm:text-xl tracking-tighter whitespace-nowrap ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            {currentCalendarDate.getFullYear()}년 {currentCalendarDate.getMonth() + 1}월
+        </h3>
+        <button onClick={() => handleMonthChange(1)} className="p-0.5"><ChevronRight size={22} /></button>
+    </div>
+
+    {/* 3. 오른쪽: 휴무/오늘 (왼쪽과 규격 100% 일치) */}
+    <div className="flex justify-end gap-0.5 flex-nowrap w-full max-w-[90px] ml-auto">
+        <button 
+            onClick={() => setIsDayOffModalOpen(true)} 
+            /* py-1, font-black, text-[11px], border-[1.5px] 로 왼쪽과 완벽히 동일 */
+            className="flex-1 py-1 rounded-lg font-black text-[11px] border-[1.5px] border-gray-400 text-indigo-500 whitespace-nowrap"
+        >
+            휴무
+        </button>
+        <button 
+            onClick={handleTodayClick} 
+            className="flex-1 py-1 rounded-lg font-black text-[11px] border-[1.5px] border-yellow-400 text-yellow-500 whitespace-nowrap"
+        >
+            오늘
+        </button>
+    </div>
+</div>
                                     <div 
                                         className="calendar-view touch-pan-y"
                                         onTouchStart={onCalendarTouchStart}
@@ -979,8 +1018,11 @@ const handleCloudRestore = async () => {
                                                     key={index} 
                                                     onClick={() => handleCalendarDateClick(dayInfo.date)} 
                                                     className={`
-                                                        cursor-pointer h-[55px] flex flex-col rounded-md 
-                                                        ${isDarkMode ? 'bg-gray-800' : 'bg-white'}
+                                                        cursor-pointer h-[55px] flex flex-col rounded-md transition-colors
+                                                        ${dayInfo.isDayOff 
+                                                            ? (isDarkMode ? 'bg-gray-700/60' : 'bg-gray-200') // ✨ 휴무일이면 회색 배경!
+                                                            : (isDarkMode ? 'bg-gray-800' : 'bg-white')       // 평상시 배경
+                                                        }
                                                     `}
                                                 >
                                                     <div className="h-[35px] w-full flex items-center justify-center pb-0.5"> 
@@ -996,29 +1038,39 @@ const handleCloudRestore = async () => {
                                                     </div>
 
                                                    <div className="flex-1 w-full flex flex-col items-center justify-start -mt-0.5">
-    {/* ✨ 스위치 상태에 따라 다르게 보여주기! */}
-    {calendarMode === 'money' ? (
-        <>
-            {dayInfo.isCurrentMonth && dayInfo.revenue > 0 && (
-                <span className="text-red-500 text-[8px] font-medium leading-none mb-0.5">
-                    {dayInfo.revenue.toLocaleString()}
-                </span>
-            )}
-            {dayInfo.isCurrentMonth && dayInfo.expenses > 0 && (
-                <span className="text-blue-500 text-[8px] font-medium leading-none">
-                    {dayInfo.expenses.toLocaleString()}
-                </span>
-            )}
-        </>
-    ) : (
-        <>
-            {dayInfo.isCurrentMonth && dayInfo.volume > 0 && (
-                <span className="text-purple-600 dark:text-purple-400 text-[9px] font-bold leading-none mt-1 tracking-tighter">
-                    {dayInfo.volume.toLocaleString()}개
-                </span>
-            )}
-        </>
-    )}
+  {/* ✨ 휴무일 경우 글자 표시 (금액/물량 상관없이 무조건 띄워라!) */}
+{dayInfo.isDayOff && (
+    <span className="text-indigo-500 dark:text-indigo-400 text-[9px] font-black leading-none mt-0.5">휴무</span>
+)}
+
+{calendarMode === 'money' ? (
+    <>
+        {dayInfo.isCurrentMonth && dayInfo.revenue > 0 && (
+            <span className="text-red-500 text-[8px] font-medium leading-none mb-0.5">
+                {dayInfo.revenue.toLocaleString()}
+            </span>
+        )}
+        {dayInfo.isCurrentMonth && dayInfo.expenses > 0 && (
+            <span className="text-blue-500 text-[8px] font-medium leading-none">
+                {dayInfo.expenses.toLocaleString()}
+            </span>
+        )}
+    </>
+) : (
+    <>
+        {dayInfo.isCurrentMonth && dayInfo.volume > 0 && (
+            <span className={`text-[9px] font-black leading-none mt-1 tracking-tighter ${
+                dayInfo.volume > (monthlyProfit.dailyAverageVolume * 1.1) ? 'text-red-500' :       /* 평균보다 10% 이상 많으면 빨강 */
+                dayInfo.volume < (monthlyProfit.dailyAverageVolume * 0.9) ? 'text-blue-500' :      /* 평균보다 10% 이상 적으면 파랑 */
+                'text-orange-500'                                                                  /* 그 중간은 보통(주황) */
+            }`}>
+                {dayInfo.volume.toLocaleString()}개
+            </span>
+        )}
+    </>
+)}
+                
+    
 </div>
 
                                                 </div>
@@ -1290,7 +1342,19 @@ const handleCloudRestore = async () => {
             />
 
             <MessageModal isOpen={modalState.isOpen} content={modalState.content} type={modalState.type} onConfirm={handleConfirm} onClose={closeModal} isDarkMode={isDarkMode} />
-        
+            
+            {/* ✨ 휴무 등록 모달 연결 */}
+             <DayOffModal 
+                isOpen={isDayOffModalOpen} 
+                onClose={() => setIsDayOffModalOpen(false)} 
+                saveEntry={saveEntry} 
+                isDarkMode={isDarkMode} 
+                showMessage={showMessage} 
+                monthlyStartDay={monthlyStartDay} // 👈 이거 꼭 넣어주셔야 해요! (시작일)
+                monthlyEndDay={monthlyEndDay}
+                entries={entries}
+                handleDelete={handleDelete}
+            /> 
         </div>
     );
 }

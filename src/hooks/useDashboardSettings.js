@@ -9,18 +9,19 @@ const DEFAULT_CONFIG = [
 
     // 💰 2줄: 매출(3칸) + 보험사(1칸) (x: 0, 3 / y: 2)
     { id: 'revenue', label: '이번 달 매출', x: 0, y: 2, w: 3, h: 2, isVisible: true },
-    { id: 'insurance', label: '내 보험사', x: 3, y: 2, w: 1, h: 2, isVisible: true },
+    { id: 'insurance', label: '보험사', x: 3, y: 2, w: 1, h: 2, isVisible: true },
     
     // 💡 보관함 (안 보이는 것들)
     { id: 'remainingWorkDays', label: '남은 출근일', x: 0, y: 4, w: 1, h: 2, isVisible: false },
     { id: 'compareLastMonth', label: '전월 대비', x: 1, y: 4, w: 1, h: 2, isVisible: false },
     { id: 'recommended', label: '일일 권장', x: 2, y: 4, w: 1, h: 2, isVisible: false },
+    { id: 'estimatedSalary', label: '예상 월급', x: 0, y: 6, w: 3, h: 2, isVisible: false },
+    { id: 'monthlyHolidays', label: '한달 휴무', x: 3, y: 6, w: 1, h: 2, isVisible: false },
 ];
 
 // ✨ 여기서부터 훅(Hook) 함수가 시작됩니다!
 export const useDashboardSettings = () => {
     const [dashboardConfig, setDashboardConfig] = useState(() => {
-        // ✨ 데이터 구조가 바뀌었으므로 v2로 새롭게 저장 및 불러옵니다.
         const saved = localStorage.getItem('dashboardSettings_v2'); 
         
         if (saved) {

@@ -23,7 +23,7 @@ const InsuranceView = ({ onBack, isDarkMode, selectedInsurance, onSelect }) => {
                 <button onClick={onBack} className={`p-2 -ml-2 mr-2 rounded-full ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
                     <ChevronLeft size={24} />
                 </button>
-                <h2 className="text-2xl font-bold">내 보험사 설정</h2>
+                <h2 className="text-2xl font-bold">보험사 설정</h2>
             </div>
             
             <p className={`text-sm mb-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -51,21 +51,39 @@ const InsuranceView = ({ onBack, isDarkMode, selectedInsurance, onSelect }) => {
                                 )}
                             </div>
 
-                            {/* 오른쪽: 통화 버튼 */}
-                            {ins.phone && (
-                                <a 
-                                    href={`tel:${ins.phone}`}
-                                    onClick={(e) => e.stopPropagation()} // 통화 버튼을 눌렀을 때 행 전체가 눌리는 것을 방지
-                                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold shadow-sm active:scale-95 transition-transform ${
-                                        isDarkMode 
-                                            ? 'bg-blue-600 text-white hover:bg-blue-500' 
-                                            : 'bg-blue-500 text-white hover:bg-blue-600'
+                          {/* ✨ 오른쪽: 명확한 [등록] 버튼 + 작아진 [통화] 아이콘 */}
+                            <div className="flex items-center gap-2 sm:gap-3">
+                                
+                                {/* 1. 등록/선택 버튼 (누르면 확실하게 등록됨) */}
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onSelect(ins);
+                                    }}
+                                    className={`px-4 py-1.5 rounded-lg text-sm font-bold active:scale-95 transition-colors ${
+                                        isSelected 
+                                            ? 'bg-indigo-500 text-white shadow-md' // 이미 등록된 상태면 파란색
+                                            : (isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300') // 등록 전이면 회색
                                     }`}
                                 >
-                                    <PhoneCall size={16} />
-                                    통화
-                                </a>
-                            )}
+                                    {isSelected ? '선택됨' : '등록'}
+                                </button>
+
+                                {/* 2. 통화 버튼 (글자 빼고 동그랗고 세련된 아이콘으로 축소) */}
+                                {ins.phone && (
+                                    <a 
+                                        href={`tel:${ins.phone.replace(/-/g, '')}`} // ✨ 에러 방지: 전화 넘길 때만 하이픈(-)을 제거합니다!
+                                        onClick={(e) => e.stopPropagation()}
+                                        className={`p-2.5 rounded-full shadow-sm active:scale-95 transition-transform flex items-center justify-center ${
+                                            isDarkMode
+                                                ? 'bg-blue-900/50 text-blue-400 hover:bg-blue-800' 
+                                                : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                                        }`}
+                                    >
+                                        <PhoneCall size={18} />
+                                    </a>
+                                )}
+                            </div>
                         </div>
                     );
                 })}

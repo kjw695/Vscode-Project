@@ -32,10 +32,11 @@ android {
         }
     }
     
-    buildTypes {
+   buildTypes {
         release {
             minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // ✨ 여기에 -optimize 를 추가했습니다!
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
         }
     }

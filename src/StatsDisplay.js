@@ -313,7 +313,7 @@ function StatsDisplay({
                                                 isDarkMode ? 'bg-gray-700 border-gray-600 text-yellow-400' : 'bg-white border-gray-200 text-yellow-600'
                                             }`}
                                         >
-                                            {ratioBase === 'volume' ? '📦 물량 기준' : '💰 매출 기준'} 🔄
+                                            {ratioBase === 'volume' ? '물량 기준' : '매출 기준'} 🔄
                                         </button>
                                     </div>
 
