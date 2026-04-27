@@ -31,9 +31,9 @@ export const DayOffModal = ({
 
     const [selectedDates, setSelectedDates] = useState([]);
 
-    // ✨ 핵심 연결: 팝업이 열릴 때마다 부모(홈 화면)가 보고 있는 그 달로 강제 싱크를 맞춥니다.
+// ✨ 핵심 연결: 팝업이 열리거나 닫힐 때 무조건 홈 화면의 달력으로 완벽 리셋합니다.
     useEffect(() => {
-        if (isOpen && selectedMonth) {
+        if (selectedMonth) {
             const [y, m] = selectedMonth.split('-').map(Number);
             setCurrentViewDate(new Date(y, m - 1, 1, 12, 0, 0));
         }
@@ -65,10 +65,8 @@ export const DayOffModal = ({
     }, [entries]);
 
     // 2. 모달이 열릴 때, 이미 등록된 휴무일들을 달력에 미리 선택(파란색)해 둠
-    useEffect(() => {
-        if (isOpen) {
-            setSelectedDates(Object.keys(existingDayOffs));
-        }
+  useEffect(() => {
+        setSelectedDates(Object.keys(existingDayOffs));
     }, [isOpen, existingDayOffs]);
 
     if (!isOpen) return null;

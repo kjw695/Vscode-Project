@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { PhoneCall } from 'lucide-react';
 
 const GoalSummaryCards = ({ 
   entries = [],monthlyProfit, goal, selectedMonth, monthlyEndDay, 
@@ -71,7 +70,7 @@ const GoalSummaryCards = ({
   const netWorkingDays = Math.max(0, remainingDays - futureHolidays);
   const estimatedSalary = current + (dailyAverageRevenue * netWorkingDays);
 
-  // ✨ 2. 이번 달 장부 기간 내 전체 휴무일수 계산 (한달 휴무 카드용)
+  // ✨ 2. 이번 달 장부 기간 내 전체 휴무일수 계산 (휴무 카드용)
   const monthlyHolidaysCount = useMemo(() => {
     if (!entries || !Array.isArray(entries) || entries.length === 0 || !selectedMonth || typeof selectedMonth !== 'string') return 0;
     
@@ -124,22 +123,33 @@ const cardDataMap = {
 
 monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo-600 dark:text-indigo-400" },
 
-        insurance: { 
+   insurance: { 
           value: (selectedInsurance && selectedInsurance.phone) ? (
-              <a href={`tel:${selectedInsurance.phone}`} className="flex items-center justify-center gap-1 sm:gap-2 text-blue-500 hover:text-blue-600 active:scale-95 transition-transform w-full">
-                  <PhoneCall className="w-[1.2em] h-[1.2em] animate-pulse shrink-0" />
-                  <span className="break-keep leading-tight">{selectedInsurance.name.split('(')[0]}</span>
+              <a 
+                  href={`tel:${selectedInsurance.phone.replace(/-/g, '')}`} 
+                  className="flex items-center justify-center w-full h-full px-1 gap-1 active:scale-95 transition-transform overflow-hidden"
+              >
+                  {/* ✨ truncate를 삭제하고, 사장님 지시대로 whitespace-nowrap(줄바꿈금지)만 남김 */}
+                  <div 
+                      className="font-bold text-gray-800 dark:text-gray-200 text-center whitespace-nowrap leading-none tracking-tighter"
+                      style={{ fontSize: '0.85em' }} 
+                  >
+                      {selectedInsurance.name.split('(')[0].replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u27BF]/g, '').trim()}
+                  </div>
               </a>
           ) : (
              <button 
                   onClick={() => onTabChange && onTabChange('insurance')} 
-                  className="text-gray-400 text-[0.8em] underline decoration-dotted hover:text-gray-500 active:scale-95 break-keep"
+                  className="flex items-center justify-center w-full h-full text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 active:scale-95 whitespace-nowrap tracking-tighter"
+                  style={{ fontSize: '0.8em' }}
               >
-                  설정하기
+                  + 보험사 등록
               </button>
           ), 
           colorClass: "" 
       },
+
+
       workDays: { value: `${totalWorkingDays}일`, colorClass: "text-gray-900 dark:text-white" },
       totalVolume: { value: `${totalVolume.toLocaleString()}개`, colorClass: "text-purple-600 dark:text-purple-400" },
       avgVolume: { value: `${averageVolume}개`, colorClass: "text-green-600 dark:text-green-500" },
@@ -170,43 +180,49 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
                 // ✨ [레이아웃 결정] 3칸 이상이면 가로(row), 2칸 이하면 세로(col)
                 const isHorizontal = item.w >= 3;
 
-              // ✨ [진짜 반응형] 박스가 1칸짜리인지 4칸짜리인지에 따라 화면 비율(vw)을 철저하게 맞춰서 넘침 현상 완벽 방지!
-                let dynamicLabelClass = "text-[clamp(10px,2.2vw,14px)]"; 
-                let dynamicValueClass = "text-[clamp(12px,3.2vw,18px)]";
-                let paddingClass = "p-1.5 sm:p-2"; 
+           // ✨ [진짜 박스 반응형 - 황금 비율 적용!]
+                let baseFontSizeClass = "text-[clamp(1px,2.5vw,16px)]"; // ✨ 1.6vw -> 2.5vw로 키워서 상자에 꽉 차게 버팀
+                let paddingClass = "p-1 sm:p-1.5"; // ✨ 1칸짜리는 안쪽 여백(p-1)을 줄여서 글자가 들어갈 공간을 더 넓게 확보!
 
                 if (item.w === 4) {
-                    dynamicLabelClass = "text-[clamp(14px,4vw,22px)]"; 
-                    dynamicValueClass = "text-[clamp(20px,6vw,36px)]";
+                    baseFontSizeClass = "text-[clamp(1px,6vw,28px)]"; 
                     paddingClass = "p-3 sm:p-5";
                 } else if (item.w === 3) {
-                    dynamicLabelClass = "text-[clamp(12px,3vw,18px)]"; 
-                    dynamicValueClass = "text-[clamp(16px,4.5vw,28px)]";
+                    baseFontSizeClass = "text-[clamp(1px,4.5vw,24px)]"; 
                     paddingClass = "p-2 sm:p-4";
                 } else if (item.w === 2) {
-                    dynamicLabelClass = "text-[clamp(11px,2.8vw,16px)]";
-                    dynamicValueClass = "text-[clamp(14px,4vw,24px)]";
-                    paddingClass = "p-2 sm:p-3";
+                    baseFontSizeClass = "text-[clamp(1px,3.5vw,20px)]"; // ✨ 3vw -> 3.5vw로 살짝 키워서 2칸짜리도 꽉 차게!
+                    paddingClass = "p-1.5 sm:p-2"; // ✨ 여백 살짝 최적화
                 }
-                
+
              return (
+
                    <div 
                         key={item.id} 
+                        // ✨ 부모 상자 최상단에 baseFontSizeClass를 부여합니다.
                         className={`rounded-xl sm:rounded-2xl text-center shadow-sm border flex transition-all w-full h-full overflow-hidden
-                            ${paddingClass}
+                            ${paddingClass} ${baseFontSizeClass} 
                             ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-100'}
                             ${isHorizontal ? 'flex-row items-center justify-center gap-2 sm:gap-4' : 'flex-col items-center justify-center gap-0.5 sm:gap-1.5'}
                         `}
                         style={{
-                            /* ✨ 숫자로 강제 변환하여 '4+1=41'이 되는 끔찍한 버그를 차단합니다! */
                             gridColumn: `${Number(item.x) + 1} / span ${Number(item.w)}`,
                             gridRow: `${Number(item.y) + 1} / span ${Number(item.h)}`,
                         }}
                     >
-                        <div className={`w-full ${dynamicLabelClass} text-gray-500 dark:text-gray-400 font-medium leading-tight break-keep`}>
+                        {/* ✨ 1. 라벨(제목): 부모 상자 크기의 80%(0.8em)로 무조건 종속! 절대 잘리지 않음 */}
+                        <div 
+                            className="w-full text-gray-500 dark:text-gray-400 font-medium leading-tight break-keep"
+                            style={{ fontSize: '0.8em' }}
+                        >
                             {displayLabel}
                         </div>
-                        <div className={`w-full ${dynamicValueClass} font-bold leading-tight tracking-tighter ${cardInfo.colorClass} break-keep`}>
+                        
+                        {/* ✨ 2. 내용(값): 부모 상자 크기의 1.2배(1.2em)로 무조건 종속! 비율 유지 */}
+                        <div 
+                            className={`w-full font-bold leading-tight tracking-tighter ${cardInfo.colorClass} break-keep`}
+                            style={{ fontSize: '1.2em' }}
+                        >
                             {cardInfo.value}
                         </div>
                     </div>
