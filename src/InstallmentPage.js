@@ -293,23 +293,22 @@ const [memo, setMemo] = useState('');
                 <div className="grid grid-cols-2 gap-3">
                     {/* 왼쪽: 지출 항목 선택 */}
                     <div className="space-y-2">
-                        {/* ✨ 라벨(제목) 글자 및 아이콘 크기 확대 */}
-                        <label className="flex items-center text-base sm:text-lg font-bold text-gray-500 dark:text-gray-400 tracking-tighter">
+                        {/* ✨ 1. 라벨 크기를 16px로 소폭 조절하여 제목답게 맞춤 */}
+                        <label className="flex items-center text-[clamp(1px,3.5vw,16px)] whitespace-nowrap font-bold text-gray-500 dark:text-gray-400 tracking-tighter">
                             <Tag size={18} className="mr-1 flex-shrink-0"/> 지출 항목
                         </label>
-                       {/* ✨ 항목 이름 글자 크기 2단계 확대 (text-lg sm:text-xl) */}
                         <select 
                             value={selectedExpense} 
                             onChange={(e) => {
                                 if (e.target.value === 'ADD_NEW_CATEGORY') {
-                                    if (onAddCategory) onAddCategory(); // 항목 추가 함수 실행!
-                                    // 페이지 이동하는 동안 기존 선택값이 풀리지 않게 껍데기 유지
+                                    if (onAddCategory) onAddCategory(); 
                                     e.target.value = selectedExpense; 
                                 } else {
                                     setSelectedExpense(e.target.value);
                                 }
                             }} 
-                            className={`${inputClasses} h-[50px] !py-0 pl-4 pr-2 sm:pl-5 sm:pr-3 text-lg sm:text-xl font-bold`}
+                            // ✨ 2. 알맹이 텍스트는 clamp 최대 18px로 세팅 (왼쪽)
+                            className={`${inputClasses} h-[50px] !py-0 pl-3 pr-2 text-[clamp(1px,3.5vw,18px)] font-bold tracking-tighter`}
                         >
                             {expenseConfig.map(item => (
                                 <option key={item.key} value={item.key}>{item.label}</option>
@@ -319,19 +318,19 @@ const [memo, setMemo] = useState('');
                         </select>
                     </div>
 
-{/* 오른쪽: 첫 결제일 */}
+                    {/* 오른쪽: 첫 결제일 */}
                     <div className="space-y-2">
-                        <label className="flex items-center text-base sm:text-lg font-bold text-gray-500 dark:text-gray-400 tracking-tighter">
+                        {/* ✨ 3. 오른쪽 라벨도 왼쪽과 똑같이 text-[clamp(1px,3.5vw,16px)] 적용 */}
+                        <label className="flex items-center text-[clamp(1px,3.5vw,16px)] whitespace-nowrap font-bold text-gray-500 dark:text-gray-400 tracking-tighter">
                             <Calendar size={18} className="mr-1 flex-shrink-0"/> 첫 결제일
                         </label>
                         <button 
                             type="button"
                             onClick={() => setIsCalendarOpen(true)}
-                            // ✨ 수정 1: pl-4 -> px-2 로 변경하여 날짜 앞의 불필요한 빈 공간을 싹 삭제했습니다!
                             className={`${inputClasses} h-[50px] !py-0 px-2 pr-9 sm:px-3 flex items-center justify-start relative`}
                         >
-                            {/* ✨ 수정 2: whitespace-nowrap 추가로 무조건 한 줄 고정, 폰트 크기 살짝 최적화 */}
-                            <span className="font-bold text-lg sm:text-lg tracking-tighter whitespace-nowrap">{displayDate}</span>
+                            {/* ✨ 4. 오른쪽 텍스트도 왼쪽(select)과 똑같이 text-[clamp(1px,3.5vw,18px)] 적용 -> 밸런스 완벽 일치! */}
+                            <span className="font-bold text-[clamp(1px,3.5vw,18px)] tracking-tighter whitespace-nowrap">{displayDate}</span>
                             <Calendar size={20} className="text-gray-400 absolute right-2" />
                         </button>
                     </div>
@@ -348,7 +347,7 @@ const [memo, setMemo] = useState('');
                         </label>
                         <div>
                             <div className="relative">
-                                <input type="number" inputMode="numeric" pattern="[0-9]*" value={monthlyAmount} onChange={(e) => setMonthlyAmount(e.target.value)} placeholder="0" className={`${inputClasses} h-[50px] !py-0 pl-2 pr-8 sm:pr-10 text-right font-bold text-lg sm:text-xl`} />
+                                <input type="number" inputMode="numeric" pattern="[0-9]*" value={monthlyAmount} onChange={(e) => setMonthlyAmount(e.target.value)} placeholder="0"className={`${inputClasses} h-[50px] !py-0 pl-2 pr-8 text-right font-bold text-[clamp(1px,3.5vw,18px)] tracking-tighter`} />
                                 <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-bold text-base sm:text-lg">원</span>
                             </div>
                             <div className="h-5 text-right text-sm font-bold mt-1 pr-4 text-blue-600 dark:text-blue-400 tracking-tighter">
@@ -386,7 +385,7 @@ const [memo, setMemo] = useState('');
                                     value={months} 
                                     onChange={(e) => setMonths(e.target.value)} 
                                     min="1" max="120" 
-                                    className={`${inputClasses} h-[50px] !py-0 px-2 pr-[75px] sm:pr-[80px] text-right font-bold text-lg sm:text-xl select-none [-webkit-touch-callout:none]`} 
+                                   className={`${inputClasses} h-[50px] !py-0 px-2 pr-[75px] text-right font-bold text-[clamp(1px,3.5vw,18px)] tracking-tighter select-none [-webkit-touch-callout:none]`}
                                     onContextMenu={(e) => e.preventDefault()}
                                 />
                                 
@@ -457,7 +456,18 @@ const [memo, setMemo] = useState('');
                     <label className="flex items-center text-sm font-bold text-gray-500 dark:text-gray-400">
                         <FileText size={16} className="mr-1"/> 메모 내용 (선택)
                     </label>
-                    <input type="text" value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="예) 차량 대출금 , 자동차보험 12개월 할부" className={inputClasses} />
+                   <input 
+    type="text" 
+    value={memo} 
+    onChange={(e) => setMemo(e.target.value)} 
+    placeholder="예) 차량 대출금, 자동차보험 12개월 할부"
+    className={`${inputClasses} h-[55px] font-bold`}
+    // ✨ 입력하는 글자와 배경 예시 글자 모두 부모(em) 비율에 맞춰 작아지게 수정!
+    style={{ 
+        fontSize: '0.8em',
+        "--placeholder-color": isDarkMode ? "#9ca3af" : "#9ca3af" // 컬러는 유지
+    }} 
+/>
                 </div>
 {/* 요약 카드 */}
                 <div className={`p-4 rounded-xl mt-4 ${isDarkMode ? 'bg-blue-900/30 border border-blue-800' : 'bg-blue-50 border border-blue-100'}`}>
@@ -501,7 +511,7 @@ const [memo, setMemo] = useState('');
                 <button 
                     type="button"
                     onClick={onBack}
-                    className={`w-1/3 py-4 rounded-xl font-bold text-lg transition-colors shadow-sm border ${
+                    className={`w-1/3 py-4 rounded-xl font-bold text-[clamp(1px,4vw,18px)] whitespace-nowrap transition-colors shadow-sm border ${
                         isDarkMode ? 'bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
                     }`}
                 >
@@ -510,7 +520,7 @@ const [memo, setMemo] = useState('');
                 <button 
                     type="button"
                     onClick={handleSubmit}
-                    className="flex-1 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-lg transition-colors shadow-lg"
+                    className="flex-1 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-[clamp(1px,4vw,18px)] whitespace-nowrap transition-colors shadow-lg"
                 >
                     {months}개월 동안 {isCustomDays ? '지정일 결제' : '할부'}
                 </button>

@@ -3,7 +3,6 @@
 //사장님(App.js): 손님 응대(화면 표시)만 함.
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-/* 명단 끝에 ArrowRightLeft를 추가했습니다. */
 import { ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Home, BarChart2, List, MoreHorizontal, Plus, ArrowRightLeft } from 'lucide-react';
 import { backupToDrive, restoreFromDrive } from './utils/googleDrive';
 import { Preferences } from '@capacitor/preferences';
@@ -1350,6 +1349,7 @@ const handleTodayClick = () => {
                 saveEntry={saveEntry} 
                 isDarkMode={isDarkMode} 
                 showMessage={showMessage} 
+                selectedMonth={selectedMonth}
                 monthlyStartDay={monthlyStartDay} // 👈 이거 꼭 넣어주셔야 해요! (시작일)
                 monthlyEndDay={monthlyEndDay}
                 entries={entries}

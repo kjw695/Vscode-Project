@@ -16,7 +16,7 @@ const DEFAULT_CONFIG = [
     { id: 'compareLastMonth', label: '전월 대비', x: 1, y: 4, w: 1, h: 2, isVisible: false },
     { id: 'recommended', label: '일일 권장', x: 2, y: 4, w: 1, h: 2, isVisible: false },
     { id: 'estimatedSalary', label: '예상 월급', x: 0, y: 6, w: 3, h: 2, isVisible: false },
-    { id: 'monthlyHolidays', label: '한달 휴무', x: 3, y: 6, w: 1, h: 2, isVisible: false },
+    { id: 'monthlyHolidays', label: '휴무일', x: 3, y: 6, w: 1, h: 2, isVisible: false },
 ];
 
 // ✨ 여기서부터 훅(Hook) 함수가 시작됩니다!

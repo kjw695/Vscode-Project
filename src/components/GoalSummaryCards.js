@@ -182,17 +182,18 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
 
            // ✨ [진짜 박스 반응형 - 황금 비율 적용!]
                 let baseFontSizeClass = "text-[clamp(1px,2.5vw,16px)]"; // ✨ 1.6vw -> 2.5vw로 키워서 상자에 꽉 차게 버팀
-                let paddingClass = "p-1 sm:p-1.5"; // ✨ 1칸짜리는 안쪽 여백(p-1)을 줄여서 글자가 들어갈 공간을 더 넓게 확보!
+              // ✨ 1. [여백 다이어트] p-1을 px(좌우)와 py(상하)로 쪼개서 좌우 여백을 극한으로 줄였습니다.
+                let paddingClass = "px-0.5 py-1.5 sm:p-1.5"; 
 
                 if (item.w === 4) {
                     baseFontSizeClass = "text-[clamp(1px,6vw,28px)]"; 
-                    paddingClass = "p-3 sm:p-5";
+                    paddingClass = "px-4 py-3 sm:p-5"; 
                 } else if (item.w === 3) {
                     baseFontSizeClass = "text-[clamp(1px,4.5vw,24px)]"; 
-                    paddingClass = "p-2 sm:p-4";
+                    paddingClass = "px-3 py-2.5 sm:p-4"; 
                 } else if (item.w === 2) {
-                    baseFontSizeClass = "text-[clamp(1px,3.5vw,20px)]"; // ✨ 3vw -> 3.5vw로 살짝 키워서 2칸짜리도 꽉 차게!
-                    paddingClass = "p-1.5 sm:p-2"; // ✨ 여백 살짝 최적화
+                    baseFontSizeClass = "text-[clamp(1px,3.5vw,20px)]"; 
+                    paddingClass = "px-1 py-2 sm:p-2"; 
                 }
 
              return (
@@ -200,11 +201,13 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
                    <div 
                         key={item.id} 
                         // ✨ 부모 상자 최상단에 baseFontSizeClass를 부여합니다.
-                        className={`rounded-xl sm:rounded-2xl text-center shadow-sm border flex transition-all w-full h-full overflow-hidden
-                            ${paddingClass} ${baseFontSizeClass} 
-                            ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-100'}
-                            ${isHorizontal ? 'flex-row items-center justify-center gap-2 sm:gap-4' : 'flex-col items-center justify-center gap-0.5 sm:gap-1.5'}
-                        `}
+                        // ... 중략 ...
+className={`rounded-xl sm:rounded-2xl text-center shadow-sm border flex transition-all w-full h-full overflow-hidden
+    ${paddingClass} ${baseFontSizeClass} 
+    ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-100'}
+    {/* ✨ justify-between을 지우고 다시 justify-center로 복구! 간격(gap)만 살짝 넉넉하게 줍니다 */}
+    ${isHorizontal ? 'flex-row items-center justify-center gap-4 sm:gap-6' : 'flex-col items-center justify-center gap-1 sm:gap-2'}
+`}
                         style={{
                             gridColumn: `${Number(item.x) + 1} / span ${Number(item.w)}`,
                             gridRow: `${Number(item.y) + 1} / span ${Number(item.h)}`,

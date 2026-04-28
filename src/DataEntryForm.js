@@ -733,31 +733,39 @@ if (viewMode === 'installment') return (
                         </button>
                     </div>
 )}
+
 {formType === 'expense' && (
-    <div className="flex justify-between items-center w-full mb-3 gap-2">
-        {/* ✨ 할부/정기결제 관리 버튼 (새로 추가됨) */}
+    // ✨ 1. 부모 상자(2칸짜리)에 '황금 비율(3.5vw)' 뼈대를 심고 최소 크기를 1px로 뚫어버립니다!
+    <div className="flex justify-between items-center w-full mb-3 gap-2 text-[clamp(1px,3.5vw,15px)]">
+        
+        {/* ✨ 할부/정기결제 관리 버튼 */}
         <button
             type="button"
             onClick={() => {
                 window.history.pushState({ page: 'installment-manage' }, '', '#installment-manage');
                 setViewMode('installment-manage');
             }}
-            className={`py-1.5 px-3 rounded-lg text-xs sm:text-sm font-bold border-2 flex items-center shadow-sm transition-colors flex-1 justify-center ${
+            // ✨ 2. text-xs를 지우고, whitespace-nowrap(줄바꿈 금지)를 추가합니다!
+            className={`p-1.5 sm:p-2 rounded-lg font-bold border-2 flex items-center shadow-sm transition-colors flex-1 justify-center whitespace-nowrap ${
                 isDarkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-800' : 'border-gray-300 text-gray-600 hover:bg-gray-100'
             }`}
+            // ✨ 3. 자식은 부모 크기에 100%(1em) 종속시킵니다.
+            style={{ fontSize: '1em' }}
         >
             할부/정기결제 관리
         </button>
 
-        {/* 기존: 고정 지출 / 할부 등록 버튼 */}
+        {/* ✨ 고정 지출 / 할부 등록 버튼 */}
         <button
             type="button"
-            onClick={handleOpenInstallment} 
-            className={`py-1.5 px-3 rounded-lg text-xs sm:text-sm font-bold border-2 flex items-center shadow-sm transition-colors flex-1 justify-center ${
+            onClick={handleOpenInstallment}
+            className={`p-1.5 sm:p-2 rounded-lg font-bold border-2 flex items-center shadow-sm transition-colors flex-1 justify-center whitespace-nowrap ${
                 isDarkMode ? 'border-blue-500 text-blue-400 hover:bg-gray-800' : 'border-blue-500 text-blue-600 hover:bg-blue-50'
             }`}
+            style={{ fontSize: '1em' }}
         >
-            <Plus size={16} className="mr-1" /> 고정 지출 / 할부 등록
+            {/* ✨ 4. Plus 아이콘도 16px 고정을 버리고 글자 크기(1.1em)에 맞춰 같이 작아지도록 수정! shrink-0로 찌그러짐 방지 */}
+            <Plus style={{ width: '1.1em', height: '1.1em' }} className="mr-1 shrink-0" /> 고정 지출 / 할부 등록
         </button>
     </div>
 )}
