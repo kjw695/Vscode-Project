@@ -538,7 +538,8 @@ const handleCloudRestore = async () => {
     // [수정] 안전 장치 포함된 통계 계산 (마지막에 itemLabels 추가)
     const profitData = useProfitCalculations(
         entries, selectedMonth, selectedYear, monthlyStartDay, monthlyEndDay, "local-user",
-        itemLabels 
+        itemLabels ,
+        selectedItemsForAverage
     ) || {};
 
     const { 

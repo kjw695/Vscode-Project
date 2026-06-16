@@ -26,7 +26,7 @@ export const isDuplicateEntry = (existing, incoming) => {
     return existing.date === incoming.date && existing.type === incoming.type && JSON.stringify(existing.customItems || []) === JSON.stringify(incoming.customItems || []);
 };
 
-export const calculateData = (filteredEntries, itemLabels = {}) => {
+export const calculateData = (filteredEntries, itemLabels = {}, selectedItemsForAverage = []) => {
     let totalRevenue = 0; let totalExpensesSum = 0; let totalVolume = 0; let totalFreshBag = 0;
     const dailyBreakdown = {}; const rawRevenueMap = {}; const rawExpenseMap = {};
     const revenueDetails = {}; const expenseDetails = {}; const unitPriceBreakdown = {};
@@ -71,7 +71,17 @@ export const calculateData = (filteredEntries, itemLabels = {}) => {
                         dailyRev += finalItemAmount; rawRevenueMap[label] = (rawRevenueMap[label] || 0) + finalItemAmount;
                         addToDetails(revenueDetails, label, finalItemAmount, countVal);
                         addToUnitPriceBreakdown(unitPriceVal, label, finalItemAmount, countVal);
-                        if (label.includes('배송') || label.includes('반품')) totalVolume += countVal; entryVolume += countVal;
+                        
+                        // ✨ 2. 사용자가 설정한 항목이 있다면 그 항목들만 더하고, 설정값이 아예 없으면 기본값('배송', '반품')을 더합니다.
+                        const isVolumeItem = selectedItemsForAverage.length > 0 
+                            ? selectedItemsForAverage.includes(label) 
+                            : (label.includes('배송') || label.includes('반품'));
+
+                        if (isVolumeItem) {
+                            totalVolume += countVal; 
+                            entryVolume += countVal;
+                        }
+                        
                         if (label.includes('프레시백')) totalFreshBag += countVal;
                     }
                 } else if (item.type === 'expense') {

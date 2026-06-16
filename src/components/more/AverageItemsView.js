@@ -22,7 +22,7 @@ const AverageItemsView = ({ onBack, isDarkMode, incomeConfig, selectedItems, onS
                 <button onClick={onBack} className={`p-2 -ml-2 mr-2 rounded-full ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
                     <ChevronLeft size={24} />
                 </button>
-                <h2 className="text-2xl font-bold">평균 물량 설정</h2>
+                <h2 className="text-2xl font-bold">물량 설정</h2>
             </div>
             <p className={`text-sm mb-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                 하루 평균 물량에 포함할 항목을 모두 선택하세요.

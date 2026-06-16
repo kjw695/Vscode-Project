@@ -24,8 +24,8 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
        //버전 아래두개 수정
        // 👇 이 두 곳을 수정합니다! 👇
-        versionCode 9       // 기존 1에서 2로 변경 (무조건 1씩 올려야 하는 정수)
-        versionName "1.0.9" // 기존 "1.0.0"에서 "1.0.1"로 변경 (사용자에게 보여지는 버전)
+        versionCode 10      // 기존 1에서 2로 변경 (무조건 1씩 올려야 하는 정수)
+        versionName "1.1.0" // 기존 "1.0.0"에서 "1.0.1"로 변경 (사용자에게 보여지는 버전)
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
@@ -76,4 +76,11 @@ try {
     }
 } catch(Exception e) {
     logger.info("google-services.json not found, google-services plugin not applied.")
+}
+
+java {
+    toolchain {
+        // 안드로이드 스튜디오 최신 버전에서 주로 권장하는 Java 17 사용
+        languageVersion = JavaLanguageVersion.of(21) 
+    }
 }
