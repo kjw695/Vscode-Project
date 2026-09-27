@@ -15,23 +15,24 @@ const LoginPage = ({ onBack, isDarkMode, onMigrationComplete }) => {
     const [statusMessage, setStatusMessage] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
 
-    const handleLogin = async (providerFn, providerName) => {
+   const handleLogin = async (providerFn, providerName) => {
         setErrorMessage('');
         setIsProcessing(true);
         setStatusMessage(`${providerName} 로그인 중...`);
 
         try {
             await providerFn();
-            // OAuth는 리다이렉트 방식이라 여기서 바로 끝나지 않고
-            // 페이지 이동 후 돌아오면 AuthContext가 자동으로 로그인 상태를 감지합니다.
-            // 마이그레이션은 별도 useEffect(앱 최상단)에서 isLoggedIn 변화 감지 후 실행하는 것을 권장합니다.
+            // ✨ 수정: 인앱 브라우저 팝업이 열린 직후에는 로딩 상태를 다시 풀어줍니다.
+            // 로그인을 취소하고 창을 닫아도 무한 로딩에 빠지지 않게 됩니다.
+            // 로그인을 성공하면 AuthContext의 새로고침 로직이 앱을 리셋하므로 깔끔하게 처리됩니다.
+            setIsProcessing(false);
+            setStatusMessage('');
         } catch (err) {
             setErrorMessage(`로그인 실패: ${err.message}`);
             setIsProcessing(false);
             setStatusMessage('');
         }
     };
-
     return (
         <div className={`w-full h-full flex flex-col p-6 ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`}>
             <div className="flex items-center mb-8">

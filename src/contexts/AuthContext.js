@@ -9,6 +9,8 @@
 
 import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { App } from '@capacitor/app';           // ✨ 추가: 앱 복귀(딥링크) 감지용
+import { Browser } from '@capacitor/browser';   // ✨ 추가: 안전한 로그인 창을 띄우기 위함
 
 const AuthContext = createContext();
 
@@ -34,9 +36,31 @@ export function AuthProvider({ children }) {
             setUser(session?.user ?? null);
         });
 
+        // ✨ [모바일 핵심] 딥링크(로그인 완료 후 앱으로 복귀) 수신 처리
+        const setupDeepLink = async () => {
+            await App.addListener('appUrlOpen', async (event) => {
+                if (event.url.includes('login-callback')) {
+                    // 1. 열려있던 구글 로그인 브라우저 창 닫기
+                    await Browser.close().catch(() => {});
+                    
+                    // 2. 반환된 URL에서 인증 토큰 부분 추출
+                    const urlObj = new URL(event.url);
+                    
+                    if (urlObj.hash) {
+                        window.location.hash = urlObj.hash;
+                        // 🚨 강제 새로고침 추가: Supabase가 바뀐 해시(토큰)를 즉시 인식하고 로그인 처리함
+                        window.location.reload();
+                    }
+                }
+            });
+        };
+        setupDeepLink();
+
+
         return () => {
             isMounted = false;
             listener?.subscription?.unsubscribe();
+            App.removeAllListeners('appUrlOpen'); // 리스너 정리
         };
     }, []);
 
@@ -67,39 +91,66 @@ export function AuthProvider({ children }) {
         return () => { isMounted = false; };
     }, [user]);
 
-    // 구글 로그인
+    // 구글 로그인 (디버깅용)
     const signInWithGoogle = useCallback(async () => {
-        const { error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-        });
-        if (error) throw error;
+        try {
+            alert("1. Supabase에 로그인 URL 요청 시작"); // 👈 1번 팝업
+            
+            const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: 'deliverytracker://login-callback',
+                    skipBrowserRedirect: true, 
+                }
+            });
+            
+            if (error) {
+                alert("에러 발생: " + error.message); // 👈 에러 팝업
+                throw error;
+            }
+
+            alert("2. URL 받아오기 성공!\nURL: " + data?.url); // 👈 2번 팝업
+
+            if (data?.url) {
+                await Browser.open({ url: data.url });
+                alert("3. 인앱 브라우저 실행 완료"); // 👈 3번 팝업
+            } else {
+                alert("URL이 비어 있습니다!");
+            }
+        } catch (err) {
+            alert("예외 에러: " + err.message);
+            throw err;
+        }
     }, []);
 
-    // 애플 로그인
+   // ✨ 애플 로그인 (동일하게 교체)
     const signInWithApple = useCallback(async () => {
-        const { error } = await supabase.auth.signInWithOAuth({
+        const { data, error } = await supabase.auth.signInWithOAuth({
             provider: 'apple',
+            options: {
+                redirectTo: 'deliverytracker://login-callback',
+                skipBrowserRedirect: true,
+            }
         });
+        
         if (error) throw error;
+        
+        if (data?.url) {
+            await Browser.open({ url: data.url });
+        }
     }, []);
 
-    // 카카오 로그인은 Supabase 기본 OAuth 목록에 없어서 별도 구현이 필요합니다.
-    // (1단계에서는 자리만 비워두고, 추후 카카오 SDK 연동 시 채울 예정)
     const signInWithKakao = useCallback(async () => {
         throw new Error('카카오 로그인은 아직 준비 중입니다.');
     }, []);
 
-    // 로그아웃 — 안전을 위해 "로컬 캐시 비우기"는 여기서 하지 않고
-    // 호출하는 쪽(UI)에서 migration.js의 clearLocalDataAfterLogout()을
-    // 명시적으로 호출하도록 분리했습니다. (실수로 로그아웃만 했는데
-    // 데이터가 같이 날아가는 사고를 방지하기 위함)
     const signOut = useCallback(async () => {
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
     }, []);
 
     const value = {
-        user,                 // null이면 게스트모드
+        user,
         profile,
         isAuthLoading,
         isLoggedIn: !!user,
@@ -114,8 +165,6 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
     const ctx = useContext(AuthContext);
-    if (!ctx) {
-        throw new Error('useAuth는 AuthProvider 내부에서만 사용할 수 있습니다.');
-    }
+    if (!ctx) throw new Error('useAuth는 AuthProvider 내부에서만 사용할 수 있습니다.');
     return ctx;
 }

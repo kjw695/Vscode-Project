@@ -56,7 +56,9 @@ import DashboardSettingsView from './components/more/DashboardSettingsView';
 import useDashboardSettings from './hooks/useDashboardSettings';
 // ✨ 휴무관리 모달 추가
 import { DayOffModal } from './components/DayOffModal';
-// 👇 이 두 줄을 추가해 주세요
+//로그인
+import LoginPage from './components/auth/LoginPage';
+
 console.log("▶️ DayOffModal의 타입:", typeof DayOffModal);
 console.log("▶️ DayOffModal의 실제 값:", DayOffModal);
 console.log("🚨 용의자 명단 확인:", { GoalSummaryCards, SearchView, DashboardSettingsView, AverageItemsView });
