@@ -109,7 +109,7 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
 
         return (
             <div key={currentId} className={`rounded-xl border-2 ${borderClass} shadow-sm overflow-hidden mb-3 transition-all ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-                <div className="p-4">
+                <div className="p-4 text-[clamp(12px,5cqw,14px)]">
                     <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-2">
                             <span className={`text-xs font-bold px-2 py-0.5 rounded ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
@@ -283,7 +283,7 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                                         ${isDateExpanded ? 'border-b-transparent' : 'rounded-b-xl'}
                                                     `}
                                                 >
-                                                    <div className="flex items-center justify-between p-3">
+                                                    <div className="[container-type:inline-size] flex items-center justify-between p-3">
                                                         {/* 왼쪽: 달력 아이콘과 날짜 */}
                                                         <div className="flex items-center gap-2">
                                                             <Calendar size={16} className={isDarkMode ? 'text-gray-400' : 'text-gray-500'} />
@@ -293,7 +293,7 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                                         </div>
                                                         
                                                         {/* 오른쪽: 금액 정보와 화살표 */}
-                                                        <div className="flex items-center gap-3">
+                                                        <div className="flex items-center gap-3 text-[clamp(12px,12cqw,14px)]">
                                                             <div className="flex flex-col items-end">
                                                                 {/* 총 수익이 있으면 빨간색으로 위에 표시 */}
                                                                 {dailySummary.revenue > 0 && (

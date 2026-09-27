@@ -32,6 +32,7 @@ import useAppBackButton from './hooks/useAppBackButton';
 import SystemThemeManager from './components/common/SystemThemeManager';
 import GoalSettingsView from './components/more/GoalSettingsView';
 import { useDelivery } from './contexts/DeliveryContext';
+import { useMigrationOnLogin } from './hooks/useMigrationOnLogin';
 import { exportDataAsCsv, parseCsvData } from './utils/dataHandlers'; 
 import { calculateData } from './utils/calculator';
 import InstallmentPage from './InstallmentPage'; // 👈 할부
@@ -94,6 +95,7 @@ const getSmartCurrentMonth = (startDay = 26) => {
 
 function AppContent() {
     const navigate = useNavigate();
+    useMigrationOnLogin();
     const { dashboardConfig, saveDashboardConfig } = useDashboardSettings();
 
 
@@ -538,8 +540,7 @@ const handleCloudRestore = async () => {
     // [수정] 안전 장치 포함된 통계 계산 (마지막에 itemLabels 추가)
     const profitData = useProfitCalculations(
         entries, selectedMonth, selectedYear, monthlyStartDay, monthlyEndDay, "local-user",
-        itemLabels ,
-        selectedItemsForAverage
+        itemLabels 
     ) || {};
 
     const { 

@@ -1,11 +1,11 @@
 import { useMemo, useCallback } from 'react';
 import { calculateData, getMonthlyDateRange } from '../utils/calculator';
 
-export const useProfitCalculations = (entries, selectedMonth, selectedYear, monthlyStartDay, monthlyEndDay, userId, itemLabels , selectedItemsForAverage = []) => {
+export const useProfitCalculations = (entries, selectedMonth, selectedYear, monthlyStartDay, monthlyEndDay, userId, itemLabels = {}) => {
 
     const calculateDataMemoized = useCallback((filteredEntries) => {
-        return calculateData(filteredEntries, itemLabels , selectedItemsForAverage);
-    }, [itemLabels, selectedItemsForAverage]);
+        return calculateData(filteredEntries, itemLabels);
+    }, [itemLabels]); 
 
     const monthlyProfit = useMemo(() => {
         if (!selectedMonth) return {};

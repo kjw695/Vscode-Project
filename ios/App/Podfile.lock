@@ -14,7 +14,7 @@ PODS:
   - CapacitorGeolocation (7.1.8):
     - Capacitor
     - IONGeolocationLib (= 1.0.1)
-  - CapacitorKeyboard (7.0.4):
+  - CapacitorKeyboard (7.0.6):
     - Capacitor
   - CapacitorPreferences (7.0.2):
     - Capacitor
@@ -96,7 +96,7 @@ SPEC CHECKSUMS:
   CapacitorCordova: 6ab7337f25a2c9ce7a3fdc2f249c480f447853e0
   CapacitorFilesystem: 66f05ee0d8b1ccdc00d509091273a9b3b57c4a0b
   CapacitorGeolocation: ab54d708e2fcf99a7bafe0219eaa6f7a932f001a
-  CapacitorKeyboard: 5660c760113bfa48962817a785879373cf5339c3
+  CapacitorKeyboard: a2e0869edd229490ce36aed2549c0d6b95e27ee8
   CapacitorPreferences: 65107ed7437d96ee72583df5763985e3c0ff2bc2
   CapacitorShare: a4f4f86eabd4b3ff52ba6a11b754713c6926a8d1
   CapacitorStatusBar: d0e0151c89c001a9c7125bac59ddedf76b664768

@@ -735,8 +735,9 @@ if (viewMode === 'installment') return (
 )}
 
 {formType === 'expense' && (
-    // ✨ 1. 부모 상자(2칸짜리)에 '황금 비율(3.5vw)' 뼈대를 심고 최소 크기를 1px로 뚫어버립니다!
-    <div className="flex justify-between items-center w-full mb-3 gap-2 text-[clamp(1px,3.5vw,15px)]">
+    // ✨ [학습 포인트 1] 부모 상자에 [container-type:inline-size]를 넣어서 "이제부터 내 안의 요소들은 내 가로 폭(cqw)을 기준으로 움직여!" 라고 선언합니다.
+    // ✨ [학습 포인트 2] 화면(vw) 대신 상자 폭(cqw)을 쓰고, 최소 글자 크기를 11px로 방어벽을 칩니다.
+    <div className="[container-type:inline-size] flex justify-between items-center w-full mb-3 gap-2 text-[clamp(11px,4cqw,15px)]">
         
         {/* ✨ 할부/정기결제 관리 버튼 */}
         <button

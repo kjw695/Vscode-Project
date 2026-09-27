@@ -1,8 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ChevronLeft, UserX, AlertCircle } from 'lucide-react';
-
+import LoginPage from '../auth/LoginPage';
 function AccountView({ onBack, isDarkMode }) {
   // auth, handleLinkAccount 등의 props는 로컬 모드에서 사용하지 않으므로 무시합니다.
+
+  const [showLogin, setShowLogin] = useState(false); // ← 새로 추가
+
+  if (showLogin) {                                    // ← 새로 추가
+    return <LoginPage onBack={() => setShowLogin(false)} isDarkMode={isDarkMode} />;  // ← 새로 추가
+  }                                                    // ← 새로 추가
+
 
   return (
     <div className="w-full max-w-4xl">
@@ -37,6 +44,14 @@ function AccountView({ onBack, isDarkMode }) {
                 </p>
             </div>
         </div>
+
+        <button
+            onClick={() => setShowLogin(true)}
+            className="w-full mt-4 py-3 rounded-lg font-semibold bg-blue-600 text-white"
+        >
+            로그인하고 다른 기기와 동기화하기
+        </button>
+        
       </div>
     </div>
   );

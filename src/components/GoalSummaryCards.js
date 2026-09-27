@@ -180,19 +180,18 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
                 // ✨ [레이아웃 결정] 3칸 이상이면 가로(row), 2칸 이하면 세로(col)
                 const isHorizontal = item.w >= 3;
 
-           // ✨ [진짜 박스 반응형 - 황금 비율 적용!]
-                let baseFontSizeClass = "text-[clamp(1px,2.5vw,16px)]"; // ✨ 1.6vw -> 2.5vw로 키워서 상자에 꽉 차게 버팀
-              // ✨ 1. [여백 다이어트] p-1을 px(좌우)와 py(상하)로 쪼개서 좌우 여백을 극한으로 줄였습니다.
+          // ✨ [진짜 박스 반응형 - Container Query 비율 적용!]
+               let baseFontSizeClass = "text-[clamp(11px,14cqw,18px)]"; 
                 let paddingClass = "px-0.5 py-1.5 sm:p-1.5"; 
 
                 if (item.w === 4) {
-                    baseFontSizeClass = "text-[clamp(1px,6vw,28px)]"; 
+                    baseFontSizeClass = "text-[clamp(18px,6cqw,28px)]"; 
                     paddingClass = "px-4 py-3 sm:p-5"; 
                 } else if (item.w === 3) {
-                    baseFontSizeClass = "text-[clamp(1px,4.5vw,24px)]"; 
+                    baseFontSizeClass = "text-[clamp(15px,8cqw,24px)]"; 
                     paddingClass = "px-3 py-2.5 sm:p-4"; 
                 } else if (item.w === 2) {
-                    baseFontSizeClass = "text-[clamp(1px,3.5vw,20px)]"; 
+                    baseFontSizeClass = "text-[clamp(13px,10cqw,20px)]"; 
                     paddingClass = "px-1 py-2 sm:p-2"; 
                 }
 
@@ -200,12 +199,10 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
 
                    <div 
                         key={item.id} 
-                        // ✨ 부모 상자 최상단에 baseFontSizeClass를 부여합니다.
-                        // ... 중략 ...
-className={`rounded-xl sm:rounded-2xl text-center shadow-sm border flex transition-all w-full h-full overflow-hidden
+                        // ✨ [마법의 클래스 추가] container-type:inline-size 적용, 글자가 안 잘리게 overflow-hidden 제거
+className={`[container-type:inline-size] rounded-xl sm:rounded-2xl text-center shadow-sm border flex transition-all w-full h-full
     ${paddingClass} ${baseFontSizeClass} 
     ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-100'}
-    {/* ✨ justify-between을 지우고 다시 justify-center로 복구! 간격(gap)만 살짝 넉넉하게 줍니다 */}
     ${isHorizontal ? 'flex-row items-center justify-center gap-4 sm:gap-6' : 'flex-col items-center justify-center gap-1 sm:gap-2'}
 `}
                         style={{
@@ -213,21 +210,21 @@ className={`rounded-xl sm:rounded-2xl text-center shadow-sm border flex transiti
                             gridRow: `${Number(item.y) + 1} / span ${Number(item.h)}`,
                         }}
                     >
-                        {/* ✨ 1. 라벨(제목): 부모 상자 크기의 80%(0.8em)로 무조건 종속! 절대 잘리지 않음 */}
+                      {/* 라벨(제목) */}
                         <div 
-                            className="w-full text-gray-500 dark:text-gray-400 font-medium leading-tight break-keep"
+                            className="w-full text-gray-500 dark:text-gray-400 font-medium leading-tight whitespace-nowrap"
                             style={{ fontSize: '0.8em' }}
                         >
                             {displayLabel}
                         </div>
                         
-                        {/* ✨ 2. 내용(값): 부모 상자 크기의 1.2배(1.2em)로 무조건 종속! 비율 유지 */}
+                        {/* 내용(값) */}
                         <div 
-                            className={`w-full font-bold leading-tight tracking-tighter ${cardInfo.colorClass} break-keep`}
+                            className={`w-full font-bold leading-tight tracking-tighter ${cardInfo.colorClass} whitespace-nowrap`}
                             style={{ fontSize: '1.2em' }}
                         >
                             {cardInfo.value}
-                        </div>
+                        </div> 
                     </div>
                 );
             })}
