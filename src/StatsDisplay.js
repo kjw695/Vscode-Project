@@ -2,26 +2,37 @@ import React, { useState, useMemo, useRef } from 'react';
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Info } from 'lucide-react';
 import SwipeableView from './components/common/SwipeableView';
 
-const CollapsibleStatCard = ({ title, value, valueColor, onToggle, showDetails, children, isDarkMode, t }) => (
-    <div className={`px-6 py-4 rounded-lg ${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-black'} shadow`}>
-        <div className="flex justify-between items-center gap-2 overflow-hidden">
-            <span className="font-semibold text-[clamp(1rem,4vw,1.25rem)] flex-shrink-0">{title}</span>
-            <div className="flex items-center gap-2 min-w-0 overflow-hidden">
-                <span className={`font-bold ${valueColor} text-[clamp(1rem,4.5vw,1.75rem)] whitespace-nowrap text-right w-full overflow-hidden`}>
-                    {value.toLocaleString()}
-                </span>
-                <button onClick={onToggle} className="flex-shrink-0 px-3 py-1 text-sm rounded bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700">
-                    {t.details}
-                </button>
+const CollapsibleStatCard = ({ title, value, valueColor, onToggle, showDetails, children, isDarkMode, t }) => {
+    // ✨ 숫자를 문자열로 변환하여 길이를 미리 측정합니다.
+    const valStr = (value || 0).toLocaleString();
+    
+    return (
+        <div className={`px-6 py-4 rounded-lg ${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-black'} shadow`}>
+            <div className="flex justify-between items-center gap-2 overflow-hidden">
+                <span className="font-semibold text-[clamp(1rem,4vw,1.25rem)] flex-shrink-0">{title}</span>
+                
+                {/* ✨ 컨테이너 쿼리 적용 [container-type:inline-size] */}
+                <div className="flex items-center gap-2 min-w-0 overflow-hidden flex-1 justify-end [container-type:inline-size]">
+                    <span 
+                        className={`font-bold ${valueColor} whitespace-nowrap text-right`}
+                        // ✨ 핵심 공식: 글자 수(valStr.length)가 길어질수록 폰트 크기(cqw)가 작아지도록 나눗셈 적용!
+                        style={{ fontSize: `clamp(14px, 80cqw / ${valStr.length * 0.55}, 1.75rem)` }}
+                    >
+                        {valStr}
+                    </span>
+                    <button onClick={onToggle} className="flex-shrink-0 px-3 py-1 text-sm rounded bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700">
+                        {t.details}
+                    </button>
+                </div>
             </div>
+            {showDetails && (
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600 space-y-2 text-sm sm:text-base">
+                    {children}
+                </div>
+            )}
         </div>
-        {showDetails && (
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600 space-y-2 text-sm sm:text-base">
-                {children}
-            </div>
-        )}
-    </div>
-);
+    );
+};
 
 const DetailRow = ({ label, value, comparison }) => (
     <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-1">
@@ -147,14 +158,21 @@ function StatsDisplay({
             </span>
         );
 
-        return (
+    return (
             <div className="space-y-3">
                 <div className={`px-6 py-4 rounded-lg ${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-black'} shadow`}>
                     <p className={`text-base text-center ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                         {isMonthly ? t.monthlyProfit : statisticsView === 'yearly' ? t.yearlyProfit : t.cumulativeProfit}
                     </p>
-                    <div className={`text-center font-extrabold my-1 ${isDarkMode ? 'text-yellow-300' : 'text-yellow-600'}`}>
-                        <span className="block text-[clamp(1.75rem,6vw,2.75rem)]">{(profitData.netProfit || 0).toLocaleString()}</span>
+                    {/* ✨ 넓이 100%와 컨테이너 쿼리 추가 */}
+                    <div className={`text-center font-extrabold my-1 w-full [container-type:inline-size] ${isDarkMode ? 'text-yellow-300' : 'text-yellow-600'}`}>
+                        <span 
+                            className="block whitespace-nowrap mx-auto"
+                            // ✨ 메인 숫자 길이에 맞춰 스스로 크기를 줄이는 공식 적용 (최대 2.75rem, 최소 1.25rem)
+                            style={{ fontSize: `clamp(1.25rem, 100cqw / ${(profitData.netProfit || 0).toLocaleString().length * 0.55}, 2.75rem)` }}
+                        >
+                            {(profitData.netProfit || 0).toLocaleString()}
+                        </span>
                     </div>
                 </div>
 

@@ -36,7 +36,7 @@ export function AuthProvider({ children }) {
             setUser(session?.user ?? null);
         });
 
-        // ✨ [모바일 핵심] 딥링크(로그인 완료 후 앱으로 복귀) 수신 처리
+      // ✨ [모바일 핵심] 딥링크(로그인 완료 후 앱으로 복귀) 수신 처리
         const setupDeepLink = async () => {
             await App.addListener('appUrlOpen', async (event) => {
                 if (event.url.includes('login-callback')) {
@@ -48,8 +48,13 @@ export function AuthProvider({ children }) {
                     
                     if (urlObj.hash) {
                         window.location.hash = urlObj.hash;
-                        // 🚨 강제 새로고침 추가: Supabase가 바뀐 해시(토큰)를 즉시 인식하고 로그인 처리함
-                        window.location.reload();
+                        
+                        // ✨ 추가: 새로고침 직전에 "계정 화면이었다"고 메모 남기기
+                        localStorage.setItem('returnToAccount', 'true'); 
+                        
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 100);
                     }
                 }
             });

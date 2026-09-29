@@ -14,7 +14,7 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
             const layoutItem = newLayout.find(l => l.i === item.id);
             if (layoutItem) {
                 // 위치(x, y)만 업데이트합니다. 크기(w, h)는 버튼으로만 바꿉니다!
-                return { ...item, x: layoutItem.x, y: layoutItem.y };
+              return { ...item, x: layoutItem.x, y: layoutItem.y, w: layoutItem.w, h: layoutItem.h };
             }
             return item;
         });
@@ -25,19 +25,49 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
         setLocalConfig(prev => prev.map(item => item.id === id ? { ...item, isVisible: !item.isVisible } : item));
     };
 
-    // ✨ 변경: 1칸씩 늘어나고, 4칸 다음엔 다시 1칸으로 돌아오는 똑똑한 로직!
+    // ✨ 변경: 크기 조절 시 겹침 현상을 완벽 방지하는 스마트 리사이징 로직!
     const cycleSize = (id, currentW) => {
-        setLocalConfig(prev => prev.map(item => {
-            if (item.id === id) {
-                // 현재 가로 크기(currentW)에서 1을 더합니다. 
-                // 만약 더한 값이 4칸보다 커지면 다시 1칸으로 되돌립니다.
-                let newW = currentW + 1;
-                if (newW > 4) newW = 1;
-                
-                return { ...item, w: newW, h: 2 }; // 세로는 2칸으로 유지
+        setLocalConfig(prev => {
+            const itemIndex = prev.findIndex(p => p.id === id);
+            if (itemIndex === -1) return prev;
+
+            const newConfig = [...prev];
+            const item = { ...newConfig[itemIndex] }; // 원본 보호를 위해 복사
+
+            // 1. 크기 증가 (4를 넘어가면 1로)
+            let newW = item.w + 1;
+            if (newW > 4) newW = 1;
+            item.w = newW;
+            item.h = 2; // 세로는 2칸 고정
+
+            // 현재 화면에 나와 있는 파츠들 중 가장 아래쪽의 y 좌표 (새로운 줄 생성용)
+            const maxY = Math.max(...prev.filter(p => p.isVisible).map(p => p.y + p.h), 0);
+
+            // 2. 만약 크기가 커져서 전체 가로폭(4칸)을 뚫고 나가면 강제로 맨 아래 새 줄로 내림
+            if (item.x + item.w > 4) {
+                item.x = 0;
+                item.y = maxY;
             }
-            return item;
-        }));
+
+            // 3. 다른 파츠와 겹치는지(Collision) x축, y축 좌표로 정밀 검사
+            const hasCollision = prev.some(other => {
+                if (other.id === item.id || !other.isVisible) return false; // 나 자신이나 숨겨진 건 제외
+                
+                const isXOverlap = item.x < other.x + other.w && item.x + item.w > other.x;
+                const isYOverlap = item.y < other.y + other.h && item.y + item.h > other.y;
+                
+                return isXOverlap && isYOverlap; // 가로 세로가 모두 겹치면 충돌!
+            });
+
+            // 4. 겹치면? 기존 파츠를 밀어내서 망가뜨리지 않고, 자신을 맨 아래 빈 공간으로 피신시킴
+            if (hasCollision) {
+                item.x = 0;
+                item.y = maxY;
+            }
+
+            newConfig[itemIndex] = item;
+            return newConfig;
+        });
     };
 
     const handleSave = () => onSave(localConfig);
@@ -78,7 +108,8 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                         rowHeight={35}         // ✨ 기존 40에서 35로 줄여서 위아래 텅 빈 공간을 압축합니다!
                         onLayoutChange={handleLayoutChange}
                         isResizable={false}    
-                        compactType="vertical" 
+                        compactType={null}
+                        preventCollision={true}
                         margin={[10, 10]}      
                     >
                         {visibleItems.map(item => {

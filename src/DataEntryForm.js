@@ -188,7 +188,23 @@ const DataEntryForm = ({
     const roundScrollRef = useRef(null);
     const touchStartX = useRef(null);
     const touchEndX = useRef(null);
-    const minSwipeDistance = 50;
+    const resetTimeoutRef = useRef(null);
+    const minSwipeDistance = 120;
+
+    // ✨ 방어 로직: 탭 이동 후 2초가 되기 전에 입력을 시작(formData 변경)하면 데이터 삭제를 취소합니다.
+    useEffect(() => {
+        if (resetTimeoutRef.current) {
+            clearTimeout(resetTimeoutRef.current);
+            resetTimeoutRef.current = null;
+        }
+    }, [formData]);
+
+    // 컴포넌트 언마운트 시 메모리 누수 방지용 타이머 정리
+    useEffect(() => {
+        return () => {
+            if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
+        };
+    }, []);
 
     const safeNum = (val) => {
         if (!val) return 0;
@@ -500,11 +516,24 @@ else {
     }, [formData, incomeConfig, expenseConfig, unitPrice, selectedItemPrices, formType]);
 
     const handleTabSwitch = (type) => {
+        if (formType === type) return; // 이미 같은 탭이면 무시
+
         setFormType(type);
-        setFormData({}); 
-        setSelectedExtraKeys([]); 
         setIsMenuOpen(false); 
         setOpenDropdownKey(null);
+
+        // ✨ 2초 안에 다시 원래 탭으로 돌아오면 기존에 예약된 삭제 타이머를 즉시 취소합니다.
+        if (resetTimeoutRef.current) {
+            clearTimeout(resetTimeoutRef.current);
+            resetTimeoutRef.current = null;
+        }
+
+        // ✨ 탭 이동 후 2초(2000ms) 뒤에 데이터를 초기화하도록 지연 설정
+        resetTimeoutRef.current = setTimeout(() => {
+            setFormData({}); 
+            setSelectedExtraKeys([]); 
+            resetTimeoutRef.current = null;
+        }, 2000);
     };
 
     const renderItemBox = (item, isHiddenItem = false) => {

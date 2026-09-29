@@ -58,6 +58,11 @@ import useDashboardSettings from './hooks/useDashboardSettings';
 import { DayOffModal } from './components/DayOffModal';
 //로그인
 import LoginPage from './components/auth/LoginPage';
+import { useAuth } from './contexts/AuthContext';
+//팀관리
+import TeamManagementView from './components/team/TeamManagementView';
+import { joinTeamByCode } from './services/teamService';
+
 
 console.log("▶️ DayOffModal의 타입:", typeof DayOffModal);
 console.log("▶️ DayOffModal의 실제 값:", DayOffModal);
@@ -99,13 +104,32 @@ function AppContent() {
     const navigate = useNavigate();
     useMigrationOnLogin();
     const { dashboardConfig, saveDashboardConfig } = useDashboardSettings();
+const { isLoggedIn , user } = useAuth();
+// ✨ 초대 링크(?code=xxxx)로 접속 시 자동 팀 가입 처리
+    useEffect(() => {
+        const handleAutoJoin = async () => {
+            const params = new URLSearchParams(window.location.search);
+            const inviteCode = params.get('code');
 
+            if (inviteCode && user) {
+                try {
+                    const res = await joinTeamByCode(inviteCode, user.id);
+                    if (showMessage) showMessage(res.message);
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } catch (e) {
+                    console.error("자동 팀 가입 실패:", e.message);
+                }
+            }
+        };
+
+        handleAutoJoin();
+    }, [user]);
 
     // ✨ [추가] 현재 폰이 아이폰(iOS)인지 안드로이드인지 확인하는 마법!
     const isIOS = Capacitor.getPlatform() === 'ios';
 
     // [수정] isDataLoaded 상태 가져오기
-    const { entries, saveEntry, deleteEntry, clearAllEntries, importStrictly, isDataLoaded } = useDelivery();
+ const { entries, saveEntry, deleteEntry, clearAllEntries, importStrictly, isDataLoaded, pendingSyncCount, syncPendingData } = useDelivery();
 
     // --- 목표 관리 ---
     const [targetItemKey, setTargetItemKey] = useState(null);
@@ -115,7 +139,8 @@ function AppContent() {
     const [isEditingGoal, setIsEditingGoal] = useState(false);
     const [newGoalAmountInput, setNewGoalAmountInput] = useState('');
 
-    const isAuthReady = true;
+   const { isAuthLoading } = useAuth(); 
+    const isAuthReady = !isAuthLoading;
 
     // --- UI 테마 및 화면 제어 ---
     const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -210,7 +235,15 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const mainTouchStartX = useRef(null); // ✨ [추가] 바탕화면 스와이프 전용
     const mainTouchStartY = useRef(null);
 
-   
+   useEffect(() => {
+        if (localStorage.getItem('returnToAccount') === 'true') {
+            setSelectedMainTab('more');
+            setActiveContentTab('adminSettings');
+            setMoreSubView('account');
+            // 사용했으니 메모(스티커) 떼기
+            localStorage.removeItem('returnToAccount');
+        }
+    }, []);
 
    // ✨ 앱 업데이트 자동 확인 로직 (버전 차이에 따른 강제/선택 업데이트)
     useEffect(() => {
@@ -853,9 +886,9 @@ const handleTodayClick = () => {
     });
 
     // [핵심] 데이터 로딩 중이면 스플래시 스크린(로딩 화면) 표시
-    if (!isDataLoaded) {
+   if (!isDataLoaded || isAuthLoading) {
         return (
-            <div className={`fixed inset-0 w-full h-full flex flex-col items-center justify-center ${isDarkMode ? 'bg-[#111827]' : 'bg-white'}`}>
+            <div className={`fixed inset-0 w-full h-full flex flex-col items-center justify-center${isDarkMode ? 'bg-[#111827]' : 'bg-white'}`}>
                 <div className="animate-pulse flex flex-col items-center">
                     <img src={logoImage} alt="Loading..." className="w-24 h-24 mb-4" />
                     <p className={`text-lg font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
@@ -887,6 +920,20 @@ const handleTodayClick = () => {
             }}
         >
             <SystemThemeManager isDarkMode={isDarkMode} />
+{/* ✨ 로그인(연동)된 상태에서만 미전송 데이터 경고 배지가 보이도록 조건 추가 */}
+{isLoggedIn && pendingSyncCount > 0 && (
+    <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[9999]">
+        <button 
+            onClick={async () => {
+                const result = await syncPendingData();
+                showMessage(result.message);
+            }}
+            className="bg-red-500 hover:bg-red-600 text-white px-5 py-2.5 rounded-full shadow-lg font-bold text-sm flex items-center justify-center gap-2 animate-bounce active:scale-95 transition-transform whitespace-nowrap"
+        >
+            ⚠️ 미전송 데이터 {pendingSyncCount}건 (터치하여 동기화)
+        </button>
+    </div>
+)}
 
           <div 
             className="w-full h-full overflow-y-auto pb-20"
@@ -1173,6 +1220,24 @@ const handleTodayClick = () => {
                             <div className={`p-4 sm:p-6 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
                                 {moreSubView === 'main' && <MoreView onNavigate={setMoreSubView} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />}
                                 {moreSubView === 'account' && <AccountView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} handleLogout={handleLogout} />}
+                                   {moreSubView === 'team' && (
+    <TeamManagementView 
+        onBack={() => setMoreSubView('main')} 
+        isDarkMode={isDarkMode} 
+        showMessage={showMessage} 
+    />
+)}
+                                    {moreSubView === 'dayOff' && (
+    <DayOffModal 
+        isOpen={true} 
+        onClose={() => setMoreSubView('main')} 
+        isDarkMode={isDarkMode} 
+        showMessage={showMessage} 
+        monthlyStartDay={monthlyStartDay} 
+        monthlyEndDay={monthlyEndDay} 
+        selectedMonth={selectedMonth} 
+    />
+)}
                                 {moreSubView === 'unitPrice' && <UnitPriceView onBack={() => { setMoreSubView('main'); setTargetItemKey(null); }} isDarkMode={isDarkMode} adminFavoritePricesInput={adminFavoritePricesInput} setAdminFavoritePricesInput={setAdminFavoritePricesInput} handleSaveFavoritePrices={handleSaveFavoritePrices} favoriteUnitPrices={favoriteUnitPrices} targetItemKey={targetItemKey} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} />}
                                 {moreSubView === 'period' && <PeriodView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} adminMonthlyStartDayInput={adminMonthlyStartDayInput} setAdminMonthlyStartDayInput={setAdminMonthlyStartDayInput} adminMonthlyEndDayInput={adminMonthlyEndDayInput} setAdminMonthlyEndDayInput={setAdminMonthlyEndDayInput} handleSaveMonthlyPeriodSettings={handleSaveMonthlyPeriodSettings} monthlyStartDay={monthlyStartDay} monthlyEndDay={monthlyEndDay} />}
                                 {moreSubView === 'data' && <DataSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} handleExportCsv={() => exportDataAsCsv(entries, showMessage)} handleImportCsv={(e) => handleLocalCsvImport(e.target.files[0])} handleDeleteAllData={handleDeleteAllDataRequest} handleBackupToDrive={() => backupToDrive(entries)} handleRestoreFromDrive={handleCloudRestore} />}

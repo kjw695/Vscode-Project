@@ -11,8 +11,7 @@
 // src/components/more/MoreView.js
 import React from 'react';
 // ✨ Target 아이콘 추가
-import { ChevronRight, User, CircleDollarSign, CalendarDays, Database, HelpCircle, FileText, Sun, Moon, Bell, BookOpen, MessageSquare, CreditCard, Target, ShieldCheck, BarChart3 , LayoutDashboard} from 'lucide-react';
-
+import { ChevronRight, User, Users ,CircleDollarSign, CalendarDays, Database, HelpCircle, FileText, Sun, Moon, Bell, BookOpen, MessageSquare, CreditCard, Target, ShieldCheck, BarChart3 , LayoutDashboard, Calendar } from 'lucide-react';
 const MenuItem = ({ icon, text, onClick, isDarkMode }) => (
     <button
         onClick={onClick}
@@ -33,6 +32,8 @@ function MoreView({ onNavigate, isDarkMode, toggleDarkMode }) {
             
             <div className="space-y-1">
                 <MenuItem icon={<User size={24} />} text="계정 관리" onClick={() => onNavigate('account')} isDarkMode={isDarkMode} />
+                <MenuItem icon={<Calendar size={24} />} text="휴무 관리" onClick={() => onNavigate('dayOff')} isDarkMode={isDarkMode} />
+                <MenuItem icon={<Users size={24} />} text="팀 관리" onClick={() => onNavigate('team')} isDarkMode={isDarkMode} />
                 <MenuItem icon={<CircleDollarSign size={24} />} text="단가 설정" onClick={() => onNavigate('unitPrice')} isDarkMode={isDarkMode} />
                 <MenuItem icon={<CreditCard size={24} />} text="항목 관리" onClick={() => onNavigate('expenseSettings')} isDarkMode={isDarkMode} />
                 <MenuItem icon={<CalendarDays size={24} />} text="월별 집계 기간 설정" onClick={() => onNavigate('period')} isDarkMode={isDarkMode} />

@@ -180,9 +180,10 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
                 // ✨ [레이아웃 결정] 3칸 이상이면 가로(row), 2칸 이하면 세로(col)
                 const isHorizontal = item.w >= 3;
 
-          // ✨ [진짜 박스 반응형 - Container Query 비율 적용!]
-               let baseFontSizeClass = "text-[clamp(11px,14cqw,18px)]"; 
-                let paddingClass = "px-0.5 py-1.5 sm:p-1.5"; 
+     // ✨ [진짜 박스 반응형 - Container Query 비율 적용!]
+                let baseFontSizeClass = "text-[clamp(11px,14cqw,18px)]"; 
+                // ✨ 1. 상하 여백을 타이트하게 조절합니다 (위쪽을 좁게).
+                let paddingClass = "px-0.5 pt-1.5 pb-2"; 
 
                 if (item.w === 4) {
                     baseFontSizeClass = "text-[clamp(18px,6cqw,28px)]"; 
@@ -192,43 +193,50 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
                     paddingClass = "px-3 py-2.5 sm:p-4"; 
                 } else if (item.w === 2) {
                     baseFontSizeClass = "text-[clamp(13px,10cqw,20px)]"; 
-                    paddingClass = "px-1 py-2 sm:p-2"; 
+                    paddingClass = "px-1 pt-1.5 pb-2"; 
                 }
 
              return (
 
                    <div 
                         key={item.id} 
-                        // ✨ [마법의 클래스 추가] container-type:inline-size 적용, 글자가 안 잘리게 overflow-hidden 제거
-className={`[container-type:inline-size] rounded-xl sm:rounded-2xl text-center shadow-sm border flex transition-all w-full h-full
-    ${paddingClass} ${baseFontSizeClass} 
-    ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-100'}
-    ${isHorizontal ? 'flex-row items-center justify-center gap-4 sm:gap-6' : 'flex-col items-center justify-center gap-1 sm:gap-2'}
-`}
+                        className={`[container-type:inline-size] rounded-xl sm:rounded-2xl shadow-sm border flex transition-all w-full h-full
+                            ${paddingClass} ${baseFontSizeClass} 
+                            ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-100'}
+                            /* ✨ 2. 3칸 이상은 좌우 끝 밀착(justify-between), 2칸 이하는 상하 꽉 채우기(flex-col) */
+                            ${isHorizontal ? 'flex-row items-center justify-between px-4 sm:px-6' : 'flex-col'}
+                        `}
                         style={{
                             gridColumn: `${Number(item.x) + 1} / span ${Number(item.w)}`,
                             gridRow: `${Number(item.y) + 1} / span ${Number(item.h)}`,
                         }}
                     >
-                      {/* 라벨(제목) */}
+                    {/* ✨ 3. 윗부분 박스 (제목): 높이 30%를 차지하며 위로 밀착 */}
                         <div 
-                            className="w-full text-gray-500 dark:text-gray-400 font-medium leading-tight whitespace-nowrap"
+                            className={`w-full text-gray-500 dark:text-gray-400 font-medium leading-tight whitespace-nowrap ${isHorizontal ? 'text-left' : 'h-[30%] flex items-start justify-center'}`}
                             style={{ fontSize: '0.8em' }}
                         >
                             {displayLabel}
                         </div>
                         
-                        {/* 내용(값) */}
+                      {/* ✨ 4. 아랫부분 박스 (값): 높이 70%를 차지하며 아래로 밀착 */}
                         <div 
-                            className={`w-full font-bold leading-tight tracking-tighter ${cardInfo.colorClass} whitespace-nowrap`}
-                            style={{ fontSize: '1.2em' }}
+                            className={`w-full font-bold leading-tight tracking-tighter ${cardInfo.colorClass} whitespace-nowrap flex ${isHorizontal ? 'text-right items-center justify-end' : 'h-[70%] items-end justify-center'}`}
+                            style={{ 
+                                // ✨ 1. '보험사' 같은 React 객체는 고정 크기(1em)를 주어 [object Object] 인식 버그를 차단합니다.
+                                // ✨ 2. 숫자/콤마는 글자 폭이 좁으므로 가중치를 0.45로 대폭 낮춰 오작동 축소를 방지합니다.
+                                // ✨ 3. 최대 글자 크기를 1.3em으로 살짝 더 키워 빈 공간 없이 시원하게 꽉 채웁니다.
+                                fontSize: typeof cardInfo.value === 'object' 
+                                    ? '1em' 
+                                    : `clamp(11px, 95cqw / ${Math.max(String(cardInfo.value).length * 0.45, 3)}, 1.3em)` 
+                            }}
                         >
                             {cardInfo.value}
                         </div> 
                     </div>
                 );
             })}
-        </div>
+        </div> 
     </div>
   );
 };
