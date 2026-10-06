@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Star } from 'lucide-react';
 
 const DAYS_OF_WEEK = [
+    { id: 'sun', label: '일요일' },
     { id: 'mon', label: '월요일' },
     { id: 'tue', label: '화요일' },
     { id: 'wed', label: '수요일' },
     { id: 'thu', label: '목요일' },
     { id: 'fri', label: '금요일' },
     { id: 'sat', label: '토요일' },
-    { id: 'sun', label: '일요일' },
+    
 ];
 
 export default function PreferredTab({ isDarkMode, showMessage }) {

@@ -11,6 +11,7 @@ import React, { createContext, useState, useEffect, useContext, useCallback } fr
 import { supabase } from '../lib/supabaseClient';
 import { App } from '@capacitor/app';           // ✨ 추가: 앱 복귀(딥링크) 감지용
 import { Browser } from '@capacitor/browser';   // ✨ 추가: 안전한 로그인 창을 띄우기 위함
+import { Capacitor } from '@capacitor/core';
 
 const AuthContext = createContext();
 
@@ -96,52 +97,55 @@ export function AuthProvider({ children }) {
         return () => { isMounted = false; };
     }, [user]);
 
-    // 구글 로그인 (디버깅용)
+    // 구글 로그인
     const signInWithGoogle = useCallback(async () => {
         try {
-            alert("1. Supabase에 로그인 URL 요청 시작"); // 👈 1번 팝업
+            const isWeb = Capacitor.getPlatform() === 'web';
+            // ✨ 웹이면 현재 주소(localhost:3000 등)로, 모바일이면 앱 전용 주소로 설정
+            const redirectUrl = isWeb ? window.location.origin : 'deliverytracker://login-callback';
             
             const { data, error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: 'deliverytracker://login-callback',
-                    skipBrowserRedirect: true, 
+                    redirectTo: redirectUrl,     // 👈 여기가 완벽하게 수정되었습니다!
+                    skipBrowserRedirect: !isWeb, // 👈 웹(인터넷)일 때는 false가 되어 자동으로 넘어갑니다.
                 }
             });
             
-            if (error) {
-                alert("에러 발생: " + error.message); // 👈 에러 팝업
-                throw error;
-            }
+            if (error) throw error;
 
-            alert("2. URL 받아오기 성공!\nURL: " + data?.url); // 👈 2번 팝업
-
-            if (data?.url) {
+            // 모바일 환경일 때만 인앱 브라우저를 수동으로 엽니다.
+            if (!isWeb && data?.url) {
                 await Browser.open({ url: data.url });
-                alert("3. 인앱 브라우저 실행 완료"); // 👈 3번 팝업
-            } else {
-                alert("URL이 비어 있습니다!");
             }
         } catch (err) {
-            alert("예외 에러: " + err.message);
+            alert("로그인 중 에러가 발생했습니다: " + err.message);
             throw err;
         }
     }, []);
 
-   // ✨ 애플 로그인 (동일하게 교체)
+   // 애플 로그인
     const signInWithApple = useCallback(async () => {
-        const { data, error } = await supabase.auth.signInWithOAuth({
-            provider: 'apple',
-            options: {
-                redirectTo: 'deliverytracker://login-callback',
-                skipBrowserRedirect: true,
+        try {
+            const isWeb = Capacitor.getPlatform() === 'web';
+            const redirectUrl = isWeb ? window.location.origin : 'deliverytracker://login-callback';
+
+            const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: 'apple',
+                options: {
+                    redirectTo: redirectUrl,
+                    skipBrowserRedirect: !isWeb,
+                }
+            });
+            
+            if (error) throw error;
+            
+            if (!isWeb && data?.url) {
+                await Browser.open({ url: data.url });
             }
-        });
-        
-        if (error) throw error;
-        
-        if (data?.url) {
-            await Browser.open({ url: data.url });
+        } catch (err) {
+            alert("로그인 중 에러가 발생했습니다: " + err.message);
+            throw err;
         }
     }, []);
 

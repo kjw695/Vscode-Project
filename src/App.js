@@ -55,7 +55,7 @@ import AverageItemsView from './components/more/AverageItemsView';
 import DashboardSettingsView from './components/more/DashboardSettingsView';
 import useDashboardSettings from './hooks/useDashboardSettings';
 // ✨ 휴무관리 모달 추가
-import { DayOffModal } from './components/DayOffModal';
+import { DayOffModal } from './components/dayOff/DayOffModal';
 //로그인
 import LoginPage from './components/auth/LoginPage';
 import { useAuth } from './contexts/AuthContext';
@@ -104,7 +104,7 @@ function AppContent() {
     const navigate = useNavigate();
     useMigrationOnLogin();
     const { dashboardConfig, saveDashboardConfig } = useDashboardSettings();
-const { isLoggedIn , user } = useAuth();
+const { isLoggedIn, user, profile } = useAuth();
 // ✨ 초대 링크(?code=xxxx)로 접속 시 자동 팀 가입 처리
     useEffect(() => {
         const handleAutoJoin = async () => {
@@ -887,6 +887,7 @@ const handleTodayClick = () => {
 
     // [핵심] 데이터 로딩 중이면 스플래시 스크린(로딩 화면) 표시
    if (!isDataLoaded || isAuthLoading) {
+
         return (
             <div className={`fixed inset-0 w-full h-full flex flex-col items-center justify-center${isDarkMode ? 'bg-[#111827]' : 'bg-white'}`}>
                 <div className="animate-pulse flex flex-col items-center">
@@ -898,7 +899,9 @@ const handleTodayClick = () => {
             </div>
         );
     }
-
+console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
+    console.log("🚨 [로딩 완료 후] 가져온 프로필:", profile);
+    console.log("🚨 [로딩 완료 후] 조직 ID(organization_id):", profile?.organization_id);
     return (
         <div 
             className={`fixed inset-0 w-full h-full font-sans flex flex-col items-center 
@@ -1236,6 +1239,8 @@ const handleTodayClick = () => {
         monthlyStartDay={monthlyStartDay} 
         monthlyEndDay={monthlyEndDay} 
         selectedMonth={selectedMonth} 
+        currentUser={user} 
+            teamId={profile?.organization_id}
     />
 )}
                                 {moreSubView === 'unitPrice' && <UnitPriceView onBack={() => { setMoreSubView('main'); setTargetItemKey(null); }} isDarkMode={isDarkMode} adminFavoritePricesInput={adminFavoritePricesInput} setAdminFavoritePricesInput={setAdminFavoritePricesInput} handleSaveFavoritePrices={handleSaveFavoritePrices} favoriteUnitPrices={favoriteUnitPrices} targetItemKey={targetItemKey} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} />}
@@ -1423,6 +1428,8 @@ const handleTodayClick = () => {
                 monthlyEndDay={monthlyEndDay}
                 entries={entries}
                 handleDelete={handleDelete}
+                currentUser={user}
+                teamId={profile?.organization_id}
             /> 
         </div>
     );
