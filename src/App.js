@@ -62,6 +62,8 @@ import { useAuth } from './contexts/AuthContext';
 //팀관리
 import TeamManagementView from './components/team/TeamManagementView';
 import { joinTeamByCode } from './services/teamService';
+// 관리자 휴무/대체배치 테스트 화면
+import AdminMain from './admin/Main';
 
 
 console.log("▶️ DayOffModal의 타입:", typeof DayOffModal);
@@ -1442,6 +1444,7 @@ function App() {
                 <Route path="/" element={<AppContent />} />
                 <Route path="/calculator" element={<CalculatorPageWrapper />} />
                 <Route path="/installment" element={<InstallmentPageWrapper />} />
+                <Route path="/admin" element={<AdminMain />} />
             </Routes>
         </Router>
     );
