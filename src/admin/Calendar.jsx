@@ -1,5 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { generateMonthlySchedule } from './utils/schedulingEngine';
+import {
+  generateMonthlySchedule,
+  isWorkingOnDate,
+} from './utils/schedulingEngine';
 
 const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -15,14 +18,28 @@ const Calendar = ({
   substitutePermissions,
   substituteWorkHistory,
   onHistoryChange,
+  onScheduleOverridesChange,
 }) => {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [generated, setGenerated] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null);
 
-  const result = useMemo(() => {
-    return generateMonthlySchedule({
+  const result = useMemo(
+    () =>
+      generateMonthlySchedule({
+        year,
+        month,
+        employees,
+        routes,
+        workRules,
+        scheduleOverrides,
+        fixedDaysOff,
+        substitutePermissions,
+        substituteWorkHistory,
+      }),
+    [
       year,
       month,
       employees,
@@ -32,23 +49,8 @@ const Calendar = ({
       fixedDaysOff,
       substitutePermissions,
       substituteWorkHistory,
-    });
-  }, [
-    year,
-    month,
-    employees,
-    routes,
-    workRules,
-    scheduleOverrides,
-    fixedDaysOff,
-    substitutePermissions,
-    substituteWorkHistory,
-  ]);
-
-  const handleGenerate = () => {
-    setGenerated(result);
-    onHistoryChange?.(result.updatedSubstituteWorkHistory);
-  };
+    ]
+  );
 
   const displayed = generated || result;
 
@@ -69,20 +71,55 @@ const Calendar = ({
     return cells;
   }, [displayed.schedule, month, year]);
 
+  const selectedEmployees = useMemo(
+    () =>
+      employees
+        .filter((employee) => employee.active)
+        .sort((a, b) => {
+          if (a.role !== b.role) return a.role === 'base' ? -1 : 1;
+          return a.name.localeCompare(b.name);
+        }),
+    [employees]
+  );
+
+  const getEmployeeStatus = (employee, dateKey) =>
+    isWorkingOnDate({
+      employee,
+      date: dateKey,
+      workRules,
+      scheduleOverrides,
+      fixedDaysOff,
+    });
+
+  const changeEmployeeStatus = (employeeId, dateKey, shouldWork) => {
+    const next = {
+      ...scheduleOverrides,
+      [employeeId]: {
+        ...(scheduleOverrides?.[employeeId] || {}),
+        [dateKey]: shouldWork ? 'work' : 'off',
+      },
+    };
+
+    onScheduleOverridesChange?.(next);
+    setGenerated(null);
+  };
+
+  const handleGenerate = () => {
+    setGenerated(result);
+    onHistoryChange?.(result.updatedSubstituteWorkHistory);
+  };
+
   const moveMonth = (delta) => {
     const next = new Date(year, month - 1 + delta, 1);
     setYear(next.getFullYear());
     setMonth(next.getMonth() + 1);
+    setSelectedDate(null);
     setGenerated(null);
   };
 
-  const baseEmployeeById = useMemo(
-    () =>
-      Object.fromEntries(
-        employees.map((employee) => [employee.id, employee])
-      ),
-    [employees]
-  );
+  const openDateEditor = (dateKey) => {
+    setSelectedDate((current) => (current === dateKey ? null : dateKey));
+  };
 
   return (
     <section className="space-y-4">
@@ -90,7 +127,7 @@ const Calendar = ({
         <div>
           <h2 className="text-xl font-bold">휴무 · 대체근무 자동배치</h2>
           <p className="text-sm text-gray-500">
-            고정업무는 유지하고, 근무 중인 대체기사에게 업무를 공평하게 분배합니다.
+            휴무를 변경한 뒤 자동배치를 실행하면 변경된 근무상태가 반영됩니다.
           </p>
         </div>
 
@@ -125,6 +162,11 @@ const Calendar = ({
         </div>
       </div>
 
+      <div className="rounded-xl border bg-gray-50 px-4 py-3 text-sm text-gray-600">
+        날짜를 클릭하면 해당 날짜의 <strong>근무 / 휴무</strong>를 직접 변경할 수 있습니다.
+        대체기사의 휴무도 같은 방식으로 관리하며, 휴무 상태에서는 자동배치 대상에서 제외됩니다.
+      </div>
+
       <div className="grid grid-cols-7 overflow-hidden rounded-xl border">
         {DAY_NAMES.map((day) => (
           <div
@@ -138,20 +180,25 @@ const Calendar = ({
         {calendarCells.map((day, index) => (
           <div
             key={day?.date || `empty-${index}`}
-            className="min-h-36 border-b border-r p-2"
+            className={`min-h-36 border-b border-r p-2 ${
+              day?.date === selectedDate ? 'bg-blue-50' : ''
+            }`}
           >
             {day && (
               <>
-                <div className="mb-2 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => openDateEditor(day.date)}
+                  className="mb-2 flex w-full items-center justify-between text-left"
+                >
                   <span className="font-semibold">
                     {Number(day.date.slice(-2))}
                   </span>
-                  {day.assignments.length > 0 && (
-                    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
-                      대체 {day.assignments.length}
-                    </span>
-                  )}
-                </div>
+
+                  <span className="text-xs text-gray-500">
+                    휴무 수정
+                  </span>
+                </button>
 
                 <div className="space-y-1.5">
                   {day.baseOffs.map((off) => (
@@ -190,6 +237,56 @@ const Calendar = ({
                     );
                   })}
                 </div>
+
+                {selectedDate === day.date && (
+                  <div className="mt-3 rounded-lg border bg-white p-2 shadow-sm">
+                    <div className="mb-2 text-xs font-semibold">
+                      {day.date} 근무상태
+                    </div>
+
+                    <div className="space-y-2">
+                      {selectedEmployees.map((employee) => {
+                        const working = getEmployeeStatus(employee, day.date);
+
+                        return (
+                          <div
+                            key={employee.id}
+                            className="flex items-center justify-between gap-2 text-xs"
+                          >
+                            <div>
+                              <span className="font-medium">
+                                {employee.name}
+                              </span>
+                              <span className="ml-1 text-gray-400">
+                                {employee.role === 'base'
+                                  ? '고정'
+                                  : '대체'}
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                changeEmployeeStatus(
+                                  employee.id,
+                                  day.date,
+                                  !working
+                                )
+                              }
+                              className={`rounded-md px-2 py-1 font-medium ${
+                                working
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-gray-200 text-gray-700'
+                              }`}
+                            >
+                              {working ? '근무' : '휴무'}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -252,10 +349,6 @@ const Calendar = ({
               );
             })}
         </div>
-      </div>
-
-      <div className="hidden">
-        {Object.keys(baseEmployeeById).length}
       </div>
     </section>
   );
