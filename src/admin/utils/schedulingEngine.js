@@ -119,7 +119,7 @@ const isEmployeeWorking = ({
     return rule.workDays.includes(dayCode) || rule.workDays.includes(weekDay);
   }
 
-  if (rule.pattern === 'weekly-5' || rule.pattern === 'weekly-6') {
+  if (/^weekly-[1-6]$/.test(rule.pattern)) {
     // 요일별 고정 근무일이 아직 지정되지 않은 테스트 데이터에서는
     // 주간 근무일 수만으로 휴무를 임의 결정하지 않는다.
     if (Array.isArray(rule.restDays)) {
@@ -133,7 +133,7 @@ const isEmployeeWorking = ({
       );
     }
 
-    // 주5/주6 패턴만 있는 경우 날짜별 휴무 결정은 별도 휴무생성 단계가 담당한다.
+    // 주간 근무일 수만 있는 경우 날짜별 휴무 결정은 별도 휴무생성 단계가 담당한다.
     // 엔진 호출자가 실제 상태를 넘기지 않았다면 기본적으로 근무로 취급한다.
     return true;
   }
