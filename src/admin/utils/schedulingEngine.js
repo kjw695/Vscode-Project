@@ -441,14 +441,14 @@ export const generateMonthlySchedule = ({
           candidate: a,
           route,
           history,
-          activeSubstitutes: substituteEmployees,
+          eligibleSubstitutes: candidates,
         });
 
         const scoreB = candidateScore({
           candidate: b,
           route,
           history,
-          activeSubstitutes: substituteEmployees,
+          eligibleSubstitutes: candidates,
         });
 
         if (scoreA !== scoreB) return scoreA - scoreB;
