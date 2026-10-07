@@ -62,7 +62,8 @@ import { useAuth } from './contexts/AuthContext';
 //팀관리
 import TeamManagementView from './components/team/TeamManagementView';
 import { joinTeamByCode } from './services/teamService';
-
+//관리자페이지
+import Main from './admin/Main';
 
 console.log("▶️ DayOffModal의 타입:", typeof DayOffModal);
 console.log("▶️ DayOffModal의 실제 값:", DayOffModal);
@@ -898,6 +899,10 @@ const handleTodayClick = () => {
                 </div>
             </div>
         );
+    }
+      // ✨ 2. 데이터가 완벽하게 불러와진 상태에서, 이 사람이 관리자인지 판별합니다!
+    if (profile?.role === 'admin') {
+        return <Main />;
     }
 console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
     console.log("🚨 [로딩 완료 후] 가져온 프로필:", profile);
