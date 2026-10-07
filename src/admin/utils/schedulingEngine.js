@@ -267,32 +267,23 @@ const routeDistributionRatio = (
 
 const averageRouteRatioAmongActiveSubs = (
   history,
-  activeSubstitutes,
+  eligibleSubstitutes,
   routeId
 ) => {
-  if (!activeSubstitutes.length) return 0;
+  if (!eligibleSubstitutes.length) return 0;
 
-  const ratios = activeSubstitutes.map((employee) =>
+  const ratios = eligibleSubstitutes.map((employee) =>
     routeDistributionRatio(history, employee.id, routeId)
   );
 
   return ratios.reduce((sum, value) => sum + value, 0) / ratios.length;
 };
 
-/**
- * 낮은 점수가 더 공평한 후보.
- *
- * 1순위: 해당 노선이 현재 후보의 대체업무에서 차지하는 비율이
- *        다른 활성 대체기사 평균보다 얼마나 높은지
- * 2순위: 전체 대체 횟수
- *
- * 따라서 "총 대체 횟수가 적은 사람 무조건 우선"이 아니다.
- */
 const candidateScore = ({
   candidate,
   route,
   history,
-  activeSubstitutes,
+  eligibleSubstitutes,
 }) => {
   const currentRatio = routeDistributionRatio(
     history,
@@ -302,7 +293,7 @@ const candidateScore = ({
 
   const averageRatio = averageRouteRatioAmongActiveSubs(
     history,
-    activeSubstitutes,
+    eligibleSubstitutes,
     route.id
   );
 
@@ -313,7 +304,6 @@ const candidateScore = ({
 
   const totalCount = countTotal(history, candidate.id);
 
-  // 같은 분포라면 전체 횟수를 보조 기준으로 사용한다.
   return (
     distributionDeviation * 1000 +
     routeCount * 10 +
