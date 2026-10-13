@@ -26,6 +26,7 @@
     "@testing-library/user-event": "^13.5.0",
     "class-variance-authority": "^0.7.1",
     "cordova-plugin-nativegeocoder": "^3.5.1",
+    "date-holidays": "^3.37.0",
     "firebase": "^12.8.0",
     "fuse.js": "^7.1.0",
     "lodash": "^4.17.21",

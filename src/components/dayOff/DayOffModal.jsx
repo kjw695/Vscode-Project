@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Menu, Settings, RefreshCw, ArrowLeft } from 'lucide-react';
 import CalendarTab from './CalendarTab';
 import PreferredTab from './PreferredTab';
 import ExchangeTab from './ExchangeTab';
@@ -9,93 +9,159 @@ export const DayOffModal = ({
     monthlyStartDay, monthlyEndDay, selectedMonth,
     currentUser, teamId
 }) => {
-    // 탭 상태 관리
-    const [activeTab, setActiveTab] = useState('calendar');
+    // ✨ 화면 모드 상태: 'main'(나의 스케줄 달력) | 'settings'(휴무 설정)
+    const [viewMode, setViewMode] = useState('main');
+    
+    // ✨ 설정 화면 내 탭 상태: 'preferred'(근무스케줄), 'exchange'(휴무일 교환하기), 'alternative'(대체휴일 교환)
+    const [settingTab, setSettingTab] = useState('preferred');
 
-    // 모달이 열릴 때마다 무조건 '휴무 달력' 탭부터 보이도록 초기화
+    // ✨ 새로고침 로딩 상태 추가
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    // 모달이 열릴 때마다 '나의 스케줄' 기본 화면으로 초기화
     useEffect(() => {
         if (isOpen) {
-            setActiveTab('calendar');
+            setViewMode('main');
+            setSettingTab('preferred');
+            setIsRefreshing(false);
         }
     }, [isOpen]);
 
     if (!isOpen) return null;
 
-   return (
-        // ✨ fixed 속성들을 지우고 꽉 차는 일반 컨테이너로 변경했습니다.
-        <div className={`w-full h-full flex flex-col ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`}>
-            <div className="w-full max-w-md mx-auto h-full p-5 flex flex-col overflow-y-auto pb-20"> 
+    return (
+       <div className={`absolute inset-0 z-50 w-full h-full flex flex-col overflow-hidden ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`}>
+            <div className="w-full max-w-md mx-auto h-full flex flex-col relative overflow-hidden">
 
-                {/* 상단 타이틀 및 닫기 */}
-                <div className="flex justify-between items-center mb-6 pt-2">
-                    <h2 className="text-2xl font-black tracking-tight">휴무 관리 센터</h2>
-                    <button onClick={onClose} className="p-2 opacity-50 hover:opacity-100 transition-opacity">
-                        <X size={28} />
-                    </button>
-                </div>
+                {viewMode === 'main' ? (
+                    /* ----------------------------------------------------
+                        1. 나의 스케줄 (메인 달력 화면) 
+                    ---------------------------------------------------- */
+                    <>
+                        {/* 상단 타이틀 및 아이콘 영역 */}
+                        {/* 상단 타이틀 및 아이콘 영역 (위쪽 패딩을 줄이고 아래쪽 패딩을 늘려 아래로 자연스럽게 정렬) */}
+                        <div className={`shrink-0 flex justify-between items-center px-5 pt-7 pb-3 shadow-sm z-10 ${isDarkMode ? 'bg-blue-800 text-white' : 'bg-[#1E56D0] text-white'}`}>
+                            {/* 왼쪽: 햄버거 메뉴 + 타이틀 */}
+                            <div className="flex items-center gap-4">
+                                <button 
+                                    onClick={() => showMessage("휴무 관련 사이드메뉴가 열릴 예정입니다.")} 
+                                    className="opacity-90 hover:opacity-100 transition-opacity active:scale-95"
+                                >
+                                    <Menu size={26} />
+                                </button>
+                                <h2 className="text-[19px] font-bold tracking-tight">나의 스케줄</h2>
+                            </div>
 
-                {/* ✨ 팀 소속 사용자에게만 3개의 탭 메뉴 표시 ('휴무 지정' -> '휴무 달력'으로 텍스트 변경) */}
-                {teamId && (
-                    <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl mb-6 text-sm font-bold shrink-0">
-                        <button 
-                            onClick={() => setActiveTab('calendar')}
-                            className={`flex-1 py-3 rounded-lg transition-all ${activeTab === 'calendar' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500'}`}
-                        >
-                            휴무 달력
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('preferred')}
-                            className={`flex-1 py-3 rounded-lg transition-all ${activeTab === 'preferred' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500'}`}
-                        >
-                            선호 요일
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('exchange')}
-                            className={`flex-1 py-3 rounded-lg transition-all ${activeTab === 'exchange' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500'}`}
-                        >
-                            교환 현황
-                        </button>
-                    </div>
+                            {/* 오른쪽 아이콘들 */}
+                            <div className="flex items-center gap-4">
+                                <button 
+                                    onClick={() => setViewMode('settings')} 
+                                    className="opacity-90 hover:opacity-100 transition-opacity active:scale-95"
+                                >
+                                    <Settings size={22} />
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        if (isRefreshing) return;
+                                        setIsRefreshing(true);
+                                        setTimeout(() => {
+                                            setIsRefreshing(false);
+                                        }, 1000);
+                                    }} 
+                                    className="opacity-90 hover:opacity-100 transition-opacity active:scale-95"
+                                >
+                                    <RefreshCw size={22} className={isRefreshing ? 'animate-spin' : ''} />
+                                </button>
+                                <button onClick={onClose} className="opacity-90 hover:opacity-100 transition-opacity ml-1 active:scale-95">
+                                    <X size={26} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* 달력 탭 렌더링 */}
+                        <div className="flex-1 w-full overflow-y-auto p-4 pb-48 relative">
+                            <CalendarTab 
+                                isDarkMode={isDarkMode}
+                                showMessage={showMessage}
+                                monthlyStartDay={monthlyStartDay}
+                                monthlyEndDay={monthlyEndDay}
+                                selectedMonth={selectedMonth}
+                                onClose={onClose}
+                                teamId={teamId}
+                                currentUser={currentUser}
+                                onNavigateToExchange={() => {
+                                    setViewMode('settings');
+                                    setSettingTab('exchange');
+                                }}
+                            />
+                        </div>
+                    </>
+                ) : (
+                    /* ----------------------------------------------------
+                        2. 휴무 설정 (톱니바퀴 눌렀을 때 나오는 화면) 
+                    ---------------------------------------------------- */
+                    <>
+                       {/* 설정 화면 헤더 */}
+                        <div className={`shrink-0 flex items-center px-4 pt-7 pb-3 z-10 ${isDarkMode ? 'bg-blue-800 text-white' : 'bg-[#1E56D0] text-white'}`}>
+                            <button 
+                                onClick={() => setViewMode('main')}
+                                className="mr-3 opacity-90 hover:opacity-100 transition-opacity active:scale-95"
+                            >
+                                <ArrowLeft size={24} />
+                            </button>
+                            <h2 className="text-[19px] font-bold tracking-tight">휴무 설정</h2>
+                        </div>
+
+                        {/* 설정 화면 3개의 탭 (사진 스타일 반영: 텍스트 아래 파란색 줄) */}
+                        <div className={`shrink-0 flex border-b text-[13px] font-bold z-10 ${isDarkMode ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-white'}`}>
+                            <button 
+                                onClick={() => setSettingTab('preferred')}
+                                className={`flex-1 py-3.5 text-center transition-all border-b-[3px] whitespace-nowrap px-1 ${settingTab === 'preferred' ? 'border-[#1E56D0] text-[#1E56D0] dark:border-blue-400 dark:text-blue-400' : 'border-transparent text-gray-500'}`}
+                            >
+                                근무스케줄
+                            </button>
+                            <button 
+                                onClick={() => setSettingTab('exchange')}
+                                className={`flex-1 py-3.5 text-center transition-all border-b-[3px] whitespace-nowrap px-1 ${settingTab === 'exchange' ? 'border-[#1E56D0] text-[#1E56D0] dark:border-blue-400 dark:text-blue-400' : 'border-transparent text-gray-500'}`}
+                            >
+                                휴무일 교환하기
+                            </button>
+                            <button 
+                                onClick={() => setSettingTab('alternative')}
+                                className={`flex-1 py-3.5 text-center transition-all border-b-[3px] whitespace-nowrap px-1 ${settingTab === 'alternative' ? 'border-[#1E56D0] text-[#1E56D0] dark:border-blue-400 dark:text-blue-400' : 'border-transparent text-gray-500'}`}
+                            >
+                                대체휴일(관) 교환
+                            </button>
+                        </div>
+
+                        {/* 탭 내용 영역 */}
+                       {/* 탭 내용 영역 */}
+                        <div className="flex-1 w-full relative overflow-hidden bg-white dark:bg-gray-900">
+                            <div className="absolute inset-0 overflow-y-auto flex flex-col pb-48">
+                                {settingTab === 'preferred' && (
+                                    <PreferredTab
+                                        isDarkMode={isDarkMode}
+                                        showMessage={showMessage}
+                                        currentUser={currentUser}
+                                        teamId={teamId}
+                                    />
+                                )}
+                                {settingTab === 'exchange' && (
+                                    <ExchangeTab 
+                                        currentUser={currentUser} 
+                                        teamId={teamId} 
+                                    />
+                                )}
+                                {settingTab === 'alternative' && (
+                                    <div className="flex-1 flex items-center justify-center text-gray-400 text-sm mt-20">
+                                        대체휴일 교환 기능은 준비 중입니다.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </>
                 )}
 
-                {/* 각 탭 컴포넌트 렌더링 */}
-                <div className="flex-1 w-full flex flex-col">
-                    
-                    {/* 개인 사용자(!teamId)이거나 달력 탭일 때 렌더링 */}
-                    {(!teamId || activeTab === 'calendar') && (
-                        <CalendarTab 
-                            isDarkMode={isDarkMode}
-                            showMessage={showMessage}
-                            monthlyStartDay={monthlyStartDay}
-                            monthlyEndDay={monthlyEndDay}
-                            selectedMonth={selectedMonth}
-                            onClose={onClose}
-
-                            teamId={teamId}
-                            currentUser={currentUser}
-                            onNavigateToExchange={() => setActiveTab('exchange')}
-
-                        />
-                    )}
-
-                    {/* 선호 요일 설정 탭 */}
-                    {teamId && activeTab === 'preferred' && (
-                        <PreferredTab 
-                            isDarkMode={isDarkMode}
-                            showMessage={showMessage}
-                            currentUser={currentUser}
-                            teamId={teamId}
-                        />
-                    )}
-
-                    {/* 3탭: 휴무 교환 마켓 */}
-                    {teamId && activeTab === 'exchange' && (
-                        <ExchangeTab 
-                            currentUser={currentUser} 
-                            teamId={teamId} 
-                        />
-                    )}
-                </div>
             </div>
         </div>
     );

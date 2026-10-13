@@ -8,9 +8,9 @@ import AdminSettings from './Settings';
 import RouteManager from './RouteManager';
 import { DataProvider, useAdminData } from './contexts/DataContext';
 
-// 👑 자식 컴포넌트들을 감싸는 메인 대시보드 껍데기
-function AdminDashboard() {
-    const { signOut, profile } = useAuth();
+// 👑 자식 컴포넌트들을 감싸는 메인 대시보드 껍데기 (✨ onBack 추가)
+function AdminDashboard({ onBack }) {
+    const { profile } = useAuth();
     const [currentView, setCurrentView] = useState('main'); 
     
     // ✨ 통제소에서 필요한 데이터와 통계치를 한 줄로 가져옵니다!
@@ -34,7 +34,8 @@ function AdminDashboard() {
                         환영합니다, <span className="font-bold text-indigo-600">{profile?.full_name || '관리자'}</span>님!
                     </p>
                 </div>
-                <button onClick={signOut} className="p-2 bg-white rounded-full shadow-sm text-red-500 hover:bg-red-50">
+                {/* ✨ signOut 대신 onBack 연결 (팀 관리 화면으로 복귀) */}
+                <button onClick={onBack} className="p-2 bg-white rounded-full shadow-sm text-red-500 hover:bg-red-50">
                     <LogOut size={20} />
                 </button>
             </div>
@@ -101,11 +102,11 @@ function AdminDashboard() {
     );
 }
 
-// ✨ 최상단 로 감싸서 하위 모든 화면이 데이터를 공유하게 만듭니다.
-export default function Main() {
+// ✨ 최상단 DataProvider로 감싸고 App.js에서 받은 onBack을 전달합니다.
+export default function Main({ onBack }) {
     return (
         <DataProvider>
-            <AdminDashboard />
+            <AdminDashboard onBack={onBack} />
         </DataProvider>
     );
 }

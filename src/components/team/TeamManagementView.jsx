@@ -3,7 +3,8 @@ import { ArrowLeft, Users, PlusCircle, LogIn, Copy, Check } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { createTeam, joinTeamByCode, fetchMyVendorInfo, deleteTeam, leaveTeam } from '../../services/teamService';
 
-export default function TeamManagementView({ onBack, isDarkMode, showMessage }) {
+// ✨ props에 onGoToAdmin 추가
+export default function TeamManagementView({ onBack, isDarkMode, showMessage, onGoToAdmin }) {
     const { user: currentUser } = useAuth();
 
     const [vendorInfo, setVendorInfo] = useState(null);
@@ -78,7 +79,6 @@ export default function TeamManagementView({ onBack, isDarkMode, showMessage }) 
         setTimeout(() => setCopied(false), 2000);
     };
 
-    // 팀 삭제 핸들러 (팀장용)
     const handleDeleteTeam = async () => {
         if (!window.confirm("정말 팀을 삭제하시겠습니까? 모든 팀원의 소속이 해제됩니다.")) return;
         try {
@@ -94,7 +94,6 @@ export default function TeamManagementView({ onBack, isDarkMode, showMessage }) 
         }
     };
 
-    // 팀 나가기 핸들러 (팀원용)
     const handleLeaveTeam = async () => {
         if (!window.confirm("정말 팀을 나가시겠습니까?")) return;
         try {
@@ -109,7 +108,6 @@ export default function TeamManagementView({ onBack, isDarkMode, showMessage }) 
             setLoading(false);
         }
     };
-
 
     return (
         <div className={`w-full max-w-4xl mx-auto p-4 ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
@@ -160,15 +158,24 @@ export default function TeamManagementView({ onBack, isDarkMode, showMessage }) 
                                     </div>
                                 </div>
                             )}
-                            {/* ✨ 팀장: 팀 삭제 / 팀원: 팀 나가기 버튼 추가 */}
+
                             <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                                 {role === 'owner' ? (
-                                    <button 
-                                        onClick={handleDeleteTeam}
-                                        className="w-full py-2.5 bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400 rounded-xl text-xs font-bold border border-red-200 dark:border-red-900 transition-all active:scale-95"
-                                    >
-                                        🗑️ 팀 삭제하기 (팀장 전용)
-                                    </button>
+                                    <div className="flex flex-col space-y-3">
+                                        {/* ✨ 관리자센터 이동 버튼 추가 */}
+                                        <button 
+                                            onClick={onGoToAdmin}
+                                            className="w-full py-2.5 bg-gray-900 text-white dark:bg-gray-700 rounded-xl text-xs font-bold shadow-md transition-all active:scale-95"
+                                        >
+                                            ⚙️ 관리자센터 열기
+                                        </button>
+                                        <button 
+                                            onClick={handleDeleteTeam}
+                                            className="w-full py-2.5 bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400 rounded-xl text-xs font-bold border border-red-200 dark:border-red-900 transition-all active:scale-95"
+                                        >
+                                            🗑️ 팀 삭제하기 (팀장 전용)
+                                        </button>
+                                    </div>
                                 ) : (
                                     <button 
                                         onClick={handleLeaveTeam}

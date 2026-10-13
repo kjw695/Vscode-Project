@@ -106,6 +106,10 @@ function AppContent() {
     useMigrationOnLogin();
     const { dashboardConfig, saveDashboardConfig } = useDashboardSettings();
 const { isLoggedIn, user, profile } = useAuth();
+
+// ✨ 추가: 관리자 센터 수동 오픈 상태
+    const [showAdminCenter, setShowAdminCenter] = useState(false);
+
 // ✨ 초대 링크(?code=xxxx)로 접속 시 자동 팀 가입 처리
     useEffect(() => {
         const handleAutoJoin = async () => {
@@ -901,9 +905,10 @@ const handleTodayClick = () => {
         );
     }
       // ✨ 2. 데이터가 완벽하게 불러와진 상태에서, 이 사람이 관리자인지 판별합니다!
-    if (profile?.role === 'admin') {
-        return <Main />;
+   if (showAdminCenter) {
+        return <Main onBack={() => setShowAdminCenter(false)} />;
     }
+
 console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
     console.log("🚨 [로딩 완료 후] 가져온 프로필:", profile);
     console.log("🚨 [로딩 완료 후] 조직 ID(organization_id):", profile?.organization_id);
@@ -1228,13 +1233,14 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                             <div className={`p-4 sm:p-6 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
                                 {moreSubView === 'main' && <MoreView onNavigate={setMoreSubView} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />}
                                 {moreSubView === 'account' && <AccountView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} handleLogout={handleLogout} />}
-                                   {moreSubView === 'team' && (
-    <TeamManagementView 
-        onBack={() => setMoreSubView('main')} 
-        isDarkMode={isDarkMode} 
-        showMessage={showMessage} 
-    />
-)}
+                                {moreSubView === 'team' && (
+        <TeamManagementView 
+            onBack={() => setMoreSubView('main')} 
+            isDarkMode={isDarkMode} 
+            showMessage={showMessage} 
+            onGoToAdmin={() => setShowAdminCenter(true)} 
+        />
+    )}
                                     {moreSubView === 'dayOff' && (
     <DayOffModal 
         isOpen={true} 
