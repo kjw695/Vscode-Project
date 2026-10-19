@@ -60,8 +60,8 @@ function AdminDashboard({ onBack }) {
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-white/20 rounded-xl"><CalendarIcon size={24} /></div>
                         <div className="text-left">
-                            <h2 className="font-bold text-lg">월간 스케줄 상황판</h2>
-                            <p className="text-xs text-indigo-100 mt-1">휴무 확인 및 자동 배치 엔진 가동</p>
+                            <h2 className="font-bold text-lg">근무표 관리</h2>
+                            <p className="text-xs text-indigo-100 mt-1">주간 근무표 · 월간 휴무 분포 · 자동 배정</p>
                         </div>
                     </div>
                 </button>
