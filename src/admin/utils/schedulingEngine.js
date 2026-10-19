@@ -39,8 +39,9 @@ export function generateMonthlySchedule({
 
     const weeks = getWeeksInMonth(year, month);
 
-    // 대체 직원도 본인의 근무 패턴에 따라 휴무를 갖습니다.
-    activeEmployees.forEach(function (employee) {
+    // 대체 직원의 휴무를 먼저 배치해야 고정 직원의 휴무를 대체 가능일에 맞춰 배치할 수 있습니다.
+    const patternOrder = substitutes.concat(baseEmployees);
+    patternOrder.forEach(function (employee) {
         weeks.forEach(function (weekDates, weekIndex) {
             const workDays = getWorkDaysForWeek(employee, weekIndex);
             const targetOffCount = Math.max(0, weekDates.length - Math.min(workDays, weekDates.length));
@@ -62,12 +63,18 @@ export function generateMonthlySchedule({
                 const bCoverage = getAvailableSubstituteCount(b, employee.team_id, substitutes, allOffs);
                 const aBaseOffs = getBaseOffCount(a, employee.team_id, baseEmployees, allOffs);
                 const bBaseOffs = getBaseOffCount(b, employee.team_id, baseEmployees, allOffs);
+                const aSubOffs = substitutes.filter(function (sub) {
+                    return String(sub.team_id) === String(employee.team_id) && containsId(allOffs[a] || [], sub.id);
+                }).length;
+                const bSubOffs = substitutes.filter(function (sub) {
+                    return String(sub.team_id) === String(employee.team_id) && containsId(allOffs[b] || [], sub.id);
+                }).length;
                 const aScore = getEmployeeType(employee) === 'base'
                     ? (aCoverage - aBaseOffs)
-                    : (aBaseOffs - aCoverage);
+                    : (-aBaseOffs * 10 - aSubOffs * 2);
                 const bScore = getEmployeeType(employee) === 'base'
                     ? (bCoverage - bBaseOffs)
-                    : (bBaseOffs - bCoverage);
+                    : (-bBaseOffs * 10 - bSubOffs * 2);
                 return bScore - aScore || a.localeCompare(b);
             });
 
