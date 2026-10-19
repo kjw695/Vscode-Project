@@ -72,13 +72,14 @@ function isOffRecord(record, employee) {
     if (!record) return false;
 
     const idList = Array.isArray(record.offEmployeeIds) ? record.offEmployeeIds : [];
-    const foundById = idList.some(function (item) {
-        const id = item && typeof item === 'object'
-            ? (item.employeeId || item.employee_id || item.id)
-            : item;
-        return String(id) === String(employee.id);
-    });
-    if (foundById) return true;
+    if (Array.isArray(record.offEmployeeIds)) {
+        return idList.some(function (item) {
+            const id = item && typeof item === 'object'
+                ? (item.employeeId || item.employee_id || item.id)
+                : item;
+            return String(id) === String(employee.id);
+        });
+    }
 
     const names = []
         .concat(Array.isArray(record.offs) ? record.offs : [])
@@ -581,9 +582,9 @@ export default function Calendar({ onBack }) {
                                 <table className="w-full min-w-[1120px] border-separate border-spacing-0 text-sm">
                                     <thead>
                                         <tr>
-                                            <th className="sticky top-0 z-40 min-w-[140px] border-b border-r border-slate-200 bg-slate-50 px-3 py-3 text-left font-black" style={{ left: 0 }}>직원 이름</th>
-                                            <th className="sticky top-0 z-40 min-w-[88px] border-b border-r border-slate-200 bg-slate-50 px-3 py-3 text-center font-black" style={{ left: 140 }}>팀</th>
-                                            <th className="sticky top-0 z-40 min-w-[130px] border-b border-r border-slate-200 bg-slate-50 px-3 py-3 text-left font-black" style={{ left: 228 }}>노선</th>
+                                            <th className="sticky top-0 z-40 w-[140px] min-w-[140px] max-w-[140px] border-b border-r border-slate-200 bg-slate-50 px-3 py-3 text-left font-black" style={{ left: 0 }}>직원 이름</th>
+                                            <th className="sticky top-0 z-40 w-[88px] min-w-[88px] max-w-[88px] border-b border-r border-slate-200 bg-slate-50 px-3 py-3 text-center font-black" style={{ left: 140 }}>팀</th>
+                                            <th className="sticky top-0 z-40 w-[130px] min-w-[130px] max-w-[130px] border-b border-r border-slate-200 bg-slate-50 px-3 py-3 text-left font-black" style={{ left: 228 }}>노선</th>
                                             {weekDates.map(function (date) {
                                                 const isOutside = date.getMonth() + 1 !== month || date.getFullYear() !== year;
                                                 return (
@@ -599,16 +600,16 @@ export default function Calendar({ onBack }) {
                                         {filteredEmployees.map(function (employee) {
                                             return (
                                                 <tr key={employee.id} className="group">
-                                                    <th scope="row" className="sticky z-20 min-w-[140px] border-b border-r border-slate-100 bg-white px-3 py-3 text-left font-bold group-hover:bg-indigo-50" style={{ left: 0 }}>
+                                                    <th scope="row" className="sticky z-20 w-[140px] min-w-[140px] max-w-[140px] border-b border-r border-slate-100 bg-white px-3 py-3 text-left font-bold group-hover:bg-indigo-50" style={{ left: 0 }}>
                                                         <div>{employee.name}</div>
                                                         <div className={'mt-1 text-[10px] font-bold ' + (getEmployeeType(employee) === 'sub' ? 'text-amber-600' : 'text-indigo-600')}>
                                                             {getEmployeeType(employee) === 'sub' ? '대체 직원' : '고정 직원'}
                                                         </div>
                                                     </th>
-                                                    <td className="sticky z-20 min-w-[88px] border-b border-r border-slate-100 bg-white px-3 py-3 text-center text-xs font-semibold text-slate-500 group-hover:bg-indigo-50" style={{ left: 140 }}>
+                                                    <td className="sticky z-20 w-[88px] min-w-[88px] max-w-[88px] border-b border-r border-slate-100 bg-white px-3 py-3 text-center text-xs font-semibold text-slate-500 group-hover:bg-indigo-50" style={{ left: 140 }}>
                                                         {(teams.find(function (team) { return String(team.id) === String(employee.team_id); }) || {}).name || '미배정'}
                                                     </td>
-                                                    <td className="sticky z-20 min-w-[130px] border-b border-r border-slate-100 bg-white px-3 py-3 text-left text-xs font-semibold text-slate-600 group-hover:bg-indigo-50" style={{ left: 228 }}>
+                                                    <td className="sticky z-20 w-[130px] min-w-[130px] max-w-[130px] border-b border-r border-slate-100 bg-white px-3 py-3 text-left text-xs font-semibold text-slate-600 group-hover:bg-indigo-50" style={{ left: 228 }}>
                                                         <span className="block max-w-[120px] truncate" title={getEmployeeRoute(employee, routes)}>{getEmployeeRoute(employee, routes)}</span>
                                                     </td>
                                                     {weekDates.map(function (date) {
