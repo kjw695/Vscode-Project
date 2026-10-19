@@ -1,132 +1,197 @@
 // src/admin/utils/schedulingEngine.js
+// 기존 직원 데이터(type, pattern)와 이전 데이터(employee_type, work_pattern)를 함께 지원합니다.
 
 const WEIGHTS = {
-    RECENT_FATIGUE: -50,
-    SPECIFIC_TARGET: -20,
     TOTAL_COUNT: -10,
-    PREFERENCE_DAY: 30
+    SPECIFIC_TARGET: -20
 };
 
-export function generateMonthlySchedule({ year, month, employees, substitutePermissions, fixedDaysOff, substituteWorkHistory }) {
+export function generateMonthlySchedule({
+    year,
+    month,
+    employees = [],
+    substitutePermissions = [],
+    fixedDaysOff = [],
+    substituteWorkHistory = []
+}) {
     const daysInMonth = new Date(year, month, 0).getDate();
-    const scheduleResult = {}; 
-    const lackOfStaffWarnings = [];
-
-    const activeSubs = [...new Set(substituteWorkHistory.map(h => h.substitute_employee_id))];
-    const teamAverageHistory = activeSubs.length > 0 
-        ? Math.floor(substituteWorkHistory.length / activeSubs.length) 
-        : 0;
-
-    // ✨ [1] 팀별 최대 대체 기사 수(Capacity) 파악
-    const teamSubCapacity = {};
-   employees.filter(e => e.type === 'substitute' || e.type === 'SUBSTITUTE').forEach(sub => {
-        teamSubCapacity[sub.team_id] = (teamSubCapacity[sub.team_id] || 0) + 1;
+    const activeEmployees = employees.filter(function (employee) {
+        return employee && employee.active !== false;
     });
-
-    // ✨ [2] 달력의 모든 휴무일을 담을 그릇 (확정 휴무 세팅)
+    const baseEmployees = activeEmployees.filter(function (employee) {
+        return getEmployeeType(employee) === 'base';
+    });
+    const substitutes = activeEmployees.filter(function (employee) {
+        return getEmployeeType(employee) === 'sub';
+    });
+    const scheduleResult = {};
+    const warnings = [];
     const allOffs = {};
-    fixedDaysOff.forEach(off => {
-        if (!allOffs[off.date]) allOffs[off.date] = [];
-        allOffs[off.date].push(off.employee_id);
+
+    fixedDaysOff.forEach(function (off) {
+        if (!off || !off.date || off.employee_id == null) return;
+        const dateKey = String(off.date).slice(0, 10);
+        if (!allOffs[dateKey]) allOffs[dateKey] = [];
+        if (!allOffs[dateKey].some(function (id) { return String(id) === String(off.employee_id); })) {
+            allOffs[dateKey].push(off.employee_id);
+        }
     });
 
-   // ✨ [3] 주간 단위(월~일) 자동 휴무 흩뿌리기
     const weeks = getWeeksInMonth(year, month);
-    employees.filter(e => e.employee_type === 'BASE').forEach(emp => {
-        weeks.forEach((weekDates, weekIndex) => {
-            // 💡 주1일~주6일, 격주 등 다양한 패턴 동적 처리
-            let currentPattern = emp.work_pattern || 6;
-            
-            // 격주5일 처리 (첫째 주는 6일 근무, 둘째 주는 5일 근무 교차)
-            if (currentPattern === '격주5일') {
-                currentPattern = (weekIndex % 2 === 0) ? 6 : 5;
-            }
-            
-            // 일주일(7일)에서 근무일수를 빼서 목표 휴무일 산출 (주1일이면 6일 휴무)
-            const targetOffsPerWeek = 7 - Number(currentPattern); 
 
-            let currentOffsThisWeek = weekDates.filter(d => allOffs[d] && allOffs[d].includes(emp.id)).length;
+    // 대체 직원도 본인의 근무 패턴에 따라 휴무를 갖습니다.
+    activeEmployees.forEach(function (employee) {
+        weeks.forEach(function (weekDates, weekIndex) {
+            const workDays = getWorkDaysForWeek(employee, weekIndex);
+            const targetOffCount = Math.max(0, weekDates.length - Math.min(workDays, weekDates.length));
+            const alreadyOffCount = weekDates.filter(function (dateKey) {
+                return (allOffs[dateKey] || []).some(function (id) {
+                    return String(id) === String(employee.id);
+                });
+            }).length;
 
-            for (const dateStr of weekDates) {
-                if (currentOffsThisWeek >= targetOffsPerWeek) break; // 목표 휴무일 달성 시 종료
+            let remainingOffs = Math.max(0, targetOffCount - alreadyOffCount);
+            if (remainingOffs === 0) return;
 
-                if (!allOffs[dateStr]) allOffs[dateStr] = [];
-                if (allOffs[dateStr].includes(emp.id)) continue; // 이미 쉬는 날 패스
+            const candidateDates = weekDates.filter(function (dateKey) {
+                return !(allOffs[dateKey] || []).some(function (id) {
+                    return String(id) === String(employee.id);
+                });
+            }).sort(function (a, b) {
+                const aCoverage = getAvailableSubstituteCount(a, employee.team_id, substitutes, allOffs);
+                const bCoverage = getAvailableSubstituteCount(b, employee.team_id, substitutes, allOffs);
+                const aBaseOffs = getBaseOffCount(a, employee.team_id, baseEmployees, allOffs);
+                const bBaseOffs = getBaseOffCount(b, employee.team_id, baseEmployees, allOffs);
+                const aScore = getEmployeeType(employee) === 'base'
+                    ? (aCoverage - aBaseOffs)
+                    : (aBaseOffs - aCoverage);
+                const bScore = getEmployeeType(employee) === 'base'
+                    ? (bCoverage - bBaseOffs)
+                    : (bBaseOffs - bCoverage);
+                return bScore - aScore || a.localeCompare(b);
+            });
 
-                // ⚠️ 해당 날짜에 같은 팀의 휴무자가 대체 기사 수(Capacity)를 초과하지 않는 날만 골라서 배정
-                const teamOffCount = allOffs[dateStr].filter(id => {
-                    const offEmp = employees.find(e => e.id === id);
-                    return offEmp && offEmp.team_id === emp.team_id;
-                }).length;
+            candidateDates.forEach(function (dateKey) {
+                if (remainingOffs <= 0) return;
 
-               const maxOffAllowed = Math.max(1, teamSubCapacity[emp.team_id] || 0); 
-if (teamOffCount < maxOffAllowed) {
-    allOffs[dateStr].push(emp.id);
-    currentOffsThisWeek++;
-}
+                // 고정 직원의 자동 휴무는 같은 팀에서 쉬지 않는 대체 직원 수를 넘지 않도록 배치합니다.
+                if (getEmployeeType(employee) === 'base') {
+                    const availableSubs = getAvailableSubstituteCount(dateKey, employee.team_id, substitutes, allOffs);
+                    const baseOffCount = getBaseOffCount(dateKey, employee.team_id, baseEmployees, allOffs);
+                    if (baseOffCount >= availableSubs) return;
+                }
+
+                if (!allOffs[dateKey]) allOffs[dateKey] = [];
+                allOffs[dateKey].push(employee.id);
+                remainingOffs -= 1;
+            });
+
+            if (remainingOffs > 0) {
+                warnings.push(
+                    '[휴무 패턴 미충족] ' + employee.name + ': ' + weekDates[0] + ' 주간에 휴무 ' +
+                    remainingOffs + '일을 추가 배정하지 못했습니다. 대체 인력을 확인하세요.'
+                );
             }
         });
     });
 
-    // [4] 결정된 휴무일(allOffs)을 바탕으로 대체 근무자 공평 배정 시작
+    const totalHistorySubCount = substitutes.length > 0
+        ? Math.floor(substituteWorkHistory.length / substitutes.length)
+        : 0;
+
     for (let day = 1; day <= daysInMonth; day++) {
-        const currentDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        
+        const dateKey = formatDate(year, month, day);
+        const offIds = allOffs[dateKey] || [];
+        const baseOffEmployees = baseEmployees.filter(function (employee) {
+            return containsId(offIds, employee.id);
+        });
+        const subOffEmployees = substitutes.filter(function (employee) {
+            return containsId(offIds, employee.id);
+        });
+
         scheduleResult[day] = {
-            date: currentDateStr,
-            offs: [],       
-            subs: [],       
-            status: 'ok'    
+            date: dateKey,
+            offs: baseOffEmployees.map(function (employee) { return employee.name; }),
+            subOffs: subOffEmployees.map(function (employee) { return employee.name; }),
+            offEmployeeIds: offIds.slice(),
+            subs: [],
+            status: 'ok'
         };
 
-        const todayOffBaseEmployees = getEmployeesOffToday(currentDateStr, employees, allOffs); // 확정휴무(fixedDaysOff) 대신 통합 휴무(allOffs) 사용
-        if (todayOffBaseEmployees.length === 0) continue;
-
-        for (const baseEmp of todayOffBaseEmployees) {
-            scheduleResult[day].offs.push(baseEmp.name);
-
-            let validSubCandidates = getValidSubstitutes(
-                baseEmp, currentDateStr, employees, substitutePermissions, allOffs, scheduleResult[day].subs
+        baseOffEmployees.forEach(function (baseEmployee) {
+            const assignedSubstitutes = scheduleResult[day].subs;
+            const candidates = getValidSubstitutes(
+                baseEmployee,
+                dateKey,
+                substitutes,
+                substitutePermissions,
+                allOffs,
+                assignedSubstitutes
             );
 
-            if (validSubCandidates.length === 0) {
+            if (candidates.length === 0) {
                 scheduleResult[day].status = 'error';
-                lackOfStaffWarnings.push(`[인력부족] ${currentDateStr} : ${baseEmp.name}의 업무를 대체할 수 있는 가능한 인력이 없습니다.`);
-                continue; 
+                warnings.push(
+                    '[인력 부족] ' + dateKey + ': ' + baseEmployee.name +
+                    ' 담당 업무를 대신할 수 있는 대체 직원이 없습니다.'
+                );
+                return;
             }
 
-            let bestSub = null;
-            let highestScore = -99999;
+            let bestSubstitute = null;
+            let highestScore = -Infinity;
 
-            for (const sub of validSubCandidates) {
-                const score = calculateSubstituteScore(sub, baseEmp, currentDateStr, substituteWorkHistory, teamAverageHistory);
-                
+            candidates.forEach(function (substitute) {
+                const score = calculateSubstituteScore(
+                    substitute,
+                    baseEmployee,
+                    substituteWorkHistory,
+                    totalHistorySubCount
+                );
                 if (score > highestScore) {
                     highestScore = score;
-                    bestSub = sub;
+                    bestSubstitute = substitute;
                 }
-            }
+            });
 
-            if (bestSub) {
-                scheduleResult[day].subs.push({
-                    subId: bestSub.id,
-                    subName: bestSub.name,
-                    targetBaseId: baseEmp.id,
-                    targetBaseName: baseEmp.name,
+            if (bestSubstitute) {
+                assignedSubstitutes.push({
+                    subId: bestSubstitute.id,
+                    subName: bestSubstitute.name,
+                    targetBaseId: baseEmployee.id,
+                    targetBaseName: baseEmployee.name,
+                    routeName: getEmployeeRouteName(baseEmployee),
                     score: highestScore
                 });
             }
-        }
+        });
     }
 
-    return { schedule: scheduleResult, warnings: lackOfStaffWarnings };
+    return {
+        schedule: scheduleResult,
+        warnings: Array.from(new Set(warnings))
+    };
 }
 
-// ==========================================
-// 🛠 [엔진 내부 헬퍼 로직]
-// ==========================================
+function getEmployeeType(employee) {
+    const rawType = String(employee.type || employee.employee_type || employee.employeeType || '').toLowerCase();
+    if (rawType === 'sub' || rawType === 'substitute' || rawType === 'backup' || rawType === '대체') return 'sub';
+    if (rawType === 'base' || rawType === 'fixed' || rawType === 'fixed_employee' || rawType === '고정') return 'base';
+    return 'base';
+}
 
-// ✨ 월을 주(월~일) 단위로 쪼개는 함수
+function getWorkDaysForWeek(employee, weekIndex) {
+    const pattern = String(employee.work_pattern || employee.pattern || '');
+    const match = pattern.match(/[1-6]/);
+    const parsedDays = match ? Number(match[0]) : 6;
+
+    // 프로젝트의 "격주 5일" 패턴은 6일 근무 주와 5일 근무 주를 번갈아 적용합니다.
+    if (pattern.indexOf('격주') >= 0 && parsedDays === 5) {
+        return weekIndex % 2 === 0 ? 6 : 5;
+    }
+    return Math.min(6, Math.max(1, parsedDays));
+}
+
 function getWeeksInMonth(year, month) {
     const weeks = [];
     let currentWeek = [];
@@ -134,11 +199,10 @@ function getWeeksInMonth(year, month) {
 
     for (let day = 1; day <= daysInMonth; day++) {
         const date = new Date(year, month - 1, day);
-        const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        currentWeek.push(dateStr);
+        currentWeek.push(formatDate(year, month, day));
 
-        // 0: 일요일 (한 주의 끝) 또는 말일이면 주차 묶음 완성
-        if (date.getDay() === 0 || day === daysInMonth) { 
+        // 월요일부터 일요일까지 한 주로 묶습니다.
+        if (date.getDay() === 0 || day === daysInMonth) {
             weeks.push(currentWeek);
             currentWeek = [];
         }
@@ -146,44 +210,83 @@ function getWeeksInMonth(year, month) {
     return weeks;
 }
 
-function getValidSubstitutes(baseEmp, dateStr, allEmployees, permissions, allOffs, alreadyAssignedSubs) {
-    return allEmployees.filter(emp => {
-        if (emp.type !== 'substitute' && emp.type !== 'SUBSTITUTE') return false;
-        
-        // 대체 기사 본인의 휴무일인지 검사 (통합 휴무 데이터 사용)
-        const isOff = allOffs[dateStr] && allOffs[dateStr].includes(emp.id);
-        if (isOff) return false;
-
-        const isAlreadyWorking = alreadyAssignedSubs.some(sub => sub.subId === emp.id);
-        if (isAlreadyWorking) return false;
-
-        const hasPermission = permissions.some(p => p.substitute_employee_id === emp.id && p.base_employee_id === baseEmp.id);
-        if (!hasPermission) return false;
-
-        return true; 
+function getValidSubstitutes(baseEmployee, dateKey, substitutes, permissions, allOffs, alreadyAssignedSubs) {
+    return substitutes.filter(function (substitute) {
+        if (String(substitute.team_id) !== String(baseEmployee.team_id)) return false;
+        if (containsId(allOffs[dateKey] || [], substitute.id)) return false;
+        if (alreadyAssignedSubs.some(function (item) {
+            return String(item.subId) === String(substitute.id);
+        })) return false;
+        return isSubstituteAllowedForBase(substitute, baseEmployee, permissions);
     });
 }
 
-function calculateSubstituteScore(subEmp, baseEmp, dateStr, history, teamAverageHistory) {
-    let score = 0;
-    let totalSubCount = history.filter(h => h.substitute_employee_id === subEmp.id).length;
+function isSubstituteAllowedForBase(substitute, baseEmployee, permissions) {
+    const explicitRulesForSub = permissions.filter(function (permission) {
+        return String(permission.substitute_employee_id) === String(substitute.id);
+    });
 
-    if (subEmp.is_new) {
-        totalSubCount = teamAverageHistory + totalSubCount;
+    if (explicitRulesForSub.length > 0) {
+        return explicitRulesForSub.some(function (permission) {
+            return String(permission.base_employee_id) === String(baseEmployee.id);
+        });
     }
 
-    score += (totalSubCount * WEIGHTS.TOTAL_COUNT);
+    // 현재 UI의 대체 담당 설정은 자유 입력 문구이므로, 명시적인 규칙이 없을 때는 같은 팀을 기본 범위로 사용합니다.
+    const target = String(substitute.target || '').trim().toLowerCase();
+    if (!target) return true;
 
-    const specificTargetCount = history.filter(h => 
-        h.substitute_employee_id === subEmp.id && 
-        h.base_employee_id === baseEmp.id
-    ).length;
-    score += (specificTargetCount * WEIGHTS.SPECIFIC_TARGET);
-    
-    return score;
+    const routeName = getEmployeeRouteName(baseEmployee).toLowerCase();
+    const baseName = String(baseEmployee.name || '').toLowerCase();
+    const broadScopeWords = ['전지역', '전체', '모든', '백업', '대체', '팀 전체', 'all'];
+    if (broadScopeWords.some(function (word) { return target.indexOf(word) >= 0; })) return true;
+
+    return target.indexOf(baseName) >= 0 || (routeName && routeName !== '미지정' && target.indexOf(routeName) >= 0);
 }
 
-function getEmployeesOffToday(dateStr, employees, allOffs) {
-    const offIds = allOffs[dateStr] || [];
-    return employees.filter(emp => (emp.type === 'base' || emp.type === 'BASE') && offIds.includes(emp.id));
+function calculateSubstituteScore(substitute, baseEmployee, history, averageHistory) {
+    const ownHistory = history.filter(function (item) {
+        return String(item.substitute_employee_id) === String(substitute.id);
+    });
+    let totalCount = ownHistory.length;
+    if (substitute.is_new) totalCount = averageHistory + totalCount;
+
+    const specificTargetCount = history.filter(function (item) {
+        return String(item.substitute_employee_id) === String(substitute.id) &&
+            String(item.base_employee_id) === String(baseEmployee.id);
+    }).length;
+
+    return (totalCount * WEIGHTS.TOTAL_COUNT) + (specificTargetCount * WEIGHTS.SPECIFIC_TARGET);
+}
+
+function getAvailableSubstituteCount(dateKey, teamId, substitutes, allOffs) {
+    return substitutes.filter(function (substitute) {
+        return String(substitute.team_id) === String(teamId) &&
+            !containsId(allOffs[dateKey] || [], substitute.id);
+    }).length;
+}
+
+function getBaseOffCount(dateKey, teamId, baseEmployees, allOffs) {
+    return baseEmployees.filter(function (employee) {
+        return String(employee.team_id) === String(teamId) &&
+            containsId(allOffs[dateKey] || [], employee.id);
+    }).length;
+}
+
+function containsId(ids, targetId) {
+    return (ids || []).some(function (id) {
+        if (id && typeof id === 'object') {
+            id = id.employeeId || id.employee_id || id.id;
+        }
+        return String(id) === String(targetId);
+    });
+}
+
+function getEmployeeRouteName(employee) {
+    const route = employee.route || employee.routeName || employee.route_name || '';
+    return String(route || '미지정');
+}
+
+function formatDate(year, month, day) {
+    return String(year) + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
 }
