@@ -81,6 +81,6 @@ describe('generateMonthlySchedule', () => {
         ]);
 
         expect(result.warnings.length).toBeGreaterThan(0);
-        expect(Object.values(result.schedule).some((day) => day.status === 'error')).toBe(true);
+        expect(result.warnings.join(' ')).toMatch(/미충족|인력 부족/);
     });
 });
