@@ -566,6 +566,7 @@ export default function Calendar({ onBack }) {
         };
 
         const nextSchedule = { ...generatedSchedule, [dateKey]: updatedRecord };
+        setWarningsAcknowledged(false);
         setGeneratedSchedule(nextSchedule);
         const allCoverageWarnings = [];
         Object.keys(nextSchedule).forEach(function (scheduledDate) {
