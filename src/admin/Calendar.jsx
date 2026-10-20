@@ -881,17 +881,16 @@ export default function Calendar({ onBack }) {
                     {view === 'weekly' ? (
                         <div className="weekly-schedule-capture">
                             <div className="border-b border-slate-100 p-3 md:p-4">
-                                <div className="grid grid-cols-[40px_minmax(0,1fr)_40px] items-center">
-                                    <div aria-hidden="true" />
-                                    <div className="text-center">
-                                        <h3 className="font-black">주간 근무표</h3>
-                                        <p className="text-xs text-slate-500">{formatDate(weekDates[0])} ~ {formatDate(weekDates[6])}</p>
+                                <div className="relative flex min-h-10 items-center justify-center">
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={function () { handleWeekChange(-1); }} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="이전 주"><ChevronLeft size={18} /></button>
+                                        <div className="text-center">
+                                            <h3 className="font-black">주간 근무표</h3>
+                                            <p className="text-xs text-slate-500">{formatDate(weekDates[0])} ~ {formatDate(weekDates[6])}</p>
+                                        </div>
+                                        <button onClick={function () { handleWeekChange(1); }} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="다음 주"><ChevronRight size={18} /></button>
                                     </div>
-                                    <button type="button" onClick={handleDownloadScheduleImage} className="inline-flex h-10 w-10 shrink-0 items-center justify-center justify-self-end rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50" aria-label="근무표 이미지 다운로드" title="근무표 이미지 다운로드"><Download size={18} /></button>
-                                </div>
-                                <div className="mt-3 flex items-center justify-center gap-3">
-                                    <button onClick={function () { handleWeekChange(-1); }} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="이전 주"><ChevronLeft size={18} /></button>
-                                    <button onClick={function () { handleWeekChange(1); }} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="다음 주"><ChevronRight size={18} /></button>
+                                    <button type="button" onClick={handleDownloadScheduleImage} className="absolute right-0 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50" aria-label="근무표 이미지 다운로드" title="근무표 이미지 다운로드"><Download size={18} /></button>
                                 </div>
                                 <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-2">
                                     <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 sm:max-w-sm">
