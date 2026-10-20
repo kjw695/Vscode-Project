@@ -28,9 +28,9 @@
 
 /* 근무표: 모바일에서도 이름/팀/노선 고정 영역이 날짜 영역을 지나치게 밀어내지 않도록 조정 */
 .schedule-table-scroll {
-  --schedule-name-width: 104px;
-  --schedule-team-width: 56px;
-  --schedule-route-width: 86px;
+  --schedule-name-width: 84px;
+  --schedule-team-width: 44px;
+  --schedule-route-width: 75px;
   width: 100%;
   max-width: 100%;
   min-width: 0;
