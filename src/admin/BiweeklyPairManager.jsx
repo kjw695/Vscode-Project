@@ -97,8 +97,6 @@ export default function BiweeklyPairManager({ onBack }) {
         }
         const [first, second] = selectedEmployees;
         const currentWeekIndex = getCurrentStableWeekIndex();
-        const firstDays = getBiweeklyDays(first);
-        const secondDays = getBiweeklyDays(second);
         // 짝은 근무일 수를 맞추는 기능이 아니라, 각자의 격주 순서만 반대로 설정합니다.
         // 첫 번째 선택 직원은 이번 주 짧은 근무 주, 두 번째 직원은 긴 근무 주로 시작합니다.
         const firstOffset = getOffsetForThisWeek(currentWeekIndex, false);
@@ -196,7 +194,6 @@ export default function BiweeklyPairManager({ onBack }) {
                         ) : unpairedEmployees.map((employee) => {
                             const isSelected = selectedIds.includes(String(employee.id));
                             const patternDays = getBiweeklyDays(employee);
-                            const matchesSelected = true;
                             const thisWeekDays = getWorkDaysForWeek(employee, currentWeekIndex);
                             return (
                                 <button
@@ -207,9 +204,7 @@ export default function BiweeklyPairManager({ onBack }) {
                                     className={'flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition-colors ' + (
                                         isSelected
                                             ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-300'
-                                            : matchesSelected
-                                                ? 'border-slate-200 bg-white hover:border-indigo-300'
-                                                : 'border-slate-100 bg-slate-50 opacity-60'
+                                            : 'border-slate-200 bg-white hover:border-indigo-300'
                                     )}
                                 >
                                     <span className="flex min-w-0 items-center gap-3">
