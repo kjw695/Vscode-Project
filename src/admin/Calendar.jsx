@@ -296,7 +296,7 @@ export default function Calendar({ onBack }) {
             const type = getEmployeeType(employee);
             const matchesType = employeeTypeFilter === 'all' || employeeTypeFilter === type;
             const hasOff = weekDates.some(function (date) {
-                const dayRecord = getDayRecord(monthSchedule, date, year, month);
+                const dayRecord = getDayRecord(generatedSchedule, date, year, month);
                 return isOffRecord(dayRecord, employee);
             });
             return matchesName && matchesType && (!offOnly || hasOff);
@@ -730,7 +730,7 @@ export default function Calendar({ onBack }) {
                                 {calendarDays.map(function (day, index) {
                                     if (!day) return <div key={'empty-' + index} className="min-h-[66px] rounded-lg bg-transparent sm:min-h-[82px] md:min-h-[108px]"></div>;
                                     const date = new Date(year, month - 1, day);
-                                    const dayRecord = getDayRecord(generatedSchedule, date, year, month);
+                                    const dayRecord = getDayRecord(monthSchedule, date, year, month);
                                     const isSelected = selectedDay === day;
                                     const isError = dayRecord && dayRecord.status === 'error';
                                     const count = getRecordOffCount(dayRecord);
