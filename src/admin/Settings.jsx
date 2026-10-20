@@ -1,138 +1,487 @@
 // src/admin/Settings.jsx
-import React, { useState } from 'react';
-import { ArrowLeft, Settings as SettingsIcon, Save, RefreshCw, Plus, Trash2, MapPin } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import {
+    ArrowLeft,
+    Settings as SettingsIcon,
+    Save,
+    RefreshCw,
+    Plus,
+    Trash2,
+    MapPin,
+    Users,
+    ChevronDown,
+    ChevronUp,
+    Pencil,
+    Check,
+    X,
+    Search
+} from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useData } from './contexts/DataContext';
+import { useAdminData } from './contexts/DataContext';
+
+const DEFAULT_REGION = '기본 지역';
+const getTeamRegion = (team) => team?.region || DEFAULT_REGION;
+const normalizeName = (value) => String(value || '').trim().toLocaleLowerCase();
 
 export default function Settings({ onBack }) {
     const { profile } = useAuth();
-    const { teams, setTeams, regions = [], setRegions } = useData();
-    const [newTeamName, setNewTeamName] = useState('');
-    const [newRegionName, setNewRegionName] = useState('');
-    const [selectedRegion, setSelectedRegion] = useState('');
+    const {
+        teams = [],
+        setTeams,
+        regions = [],
+        setRegions,
+        employees = [],
+        routes = []
+    } = useAdminData();
 
-    const handleAddTeam = (e) => {
-    e.preventDefault();
-    if (!newTeamName.trim()) return;
-    const region = selectedRegion || regions[0] || '기본 지역';
-    const newTeam = { id: `T${Date.now()}`, name: newTeamName.trim(), region };
-    
-    // teams가 배열이 아닐 경우(데이터 로딩 전 등)를 대비해 안전하게 처리합니다.
-    setTeams([...(Array.isArray(teams) ? teams : []), newTeam]);
-    setNewTeamName('');
-};
+    const [newRegionName, setNewRegionName] = useState('');
+    const [newTeamName, setNewTeamName] = useState('');
+    const [addingTeamRegion, setAddingTeamRegion] = useState('');
+    const [search, setSearch] = useState('');
+    const [expandedRegions, setExpandedRegions] = useState({});
+    const [editing, setEditing] = useState(null);
+    const [notice, setNotice] = useState('');
+
+    // 첫 진입 때 첫 지역만 펼쳐서 목록이 지나치게 길어지지 않게 합니다.
+    useEffect(() => {
+        if (regions.length > 0 && Object.keys(expandedRegions).length === 0) {
+            setExpandedRegions({ [regions[0]]: true });
+        }
+    }, [regions, expandedRegions]);
+
+    const regionList = [...new Set([
+        ...regions,
+        ...teams.map((team) => getTeamRegion(team))
+    ])];
+    const keyword = search.trim().toLocaleLowerCase();
+
+    const visibleRegions = regionList.filter((region) => {
+        if (!keyword || region.toLocaleLowerCase().includes(keyword)) return true;
+        return teams.some((team) =>
+            getTeamRegion(team) === region &&
+            String(team.name || '').toLocaleLowerCase().includes(keyword)
+        );
+    });
 
     const handleAddRegion = (event) => {
         event.preventDefault();
         const region = newRegionName.trim();
-        if (!region) return;
-        if (regions.includes(region)) {
-            alert('이미 등록된 지역입니다.');
+        if (!region) {
+            window.alert('지역 이름을 입력해주세요.');
             return;
         }
-        setRegions([...regions, region]);
-        setSelectedRegion(region);
+        if (regionList.some((item) => normalizeName(item) === normalizeName(region))) {
+            window.alert('같은 이름의 지역이 이미 있습니다.');
+            return;
+        }
+
+        setRegions((previous) => [...(Array.isArray(previous) ? previous : []), region]);
         setNewRegionName('');
+        setExpandedRegions((previous) => ({ ...previous, [region]: true }));
+        setNotice(region + ' 지역을 추가했습니다.');
+    };
+
+    const handleAddTeam = (event, region) => {
+        event.preventDefault();
+        const name = newTeamName.trim();
+        if (!name) {
+            window.alert('팀 이름을 입력해주세요.');
+            return;
+        }
+        const duplicate = teams.some((team) =>
+            getTeamRegion(team) === region &&
+            normalizeName(team.name) === normalizeName(name)
+        );
+        if (duplicate) {
+            window.alert('해당 지역에 같은 이름의 팀이 이미 있습니다.');
+            return;
+        }
+
+        const newTeam = {
+            id: 'T' + Date.now(),
+            name,
+            region
+        };
+        setTeams((previous) => [...(Array.isArray(previous) ? previous : []), newTeam]);
+        setNewTeamName('');
+        setAddingTeamRegion('');
+        setExpandedRegions((previous) => ({ ...previous, [region]: true }));
+        setNotice(region + ' 지역에 ' + name + ' 팀을 추가했습니다.');
     };
 
     const handleDeleteRegion = (region) => {
-        if (teams.some((team) => (team.region || '기본 지역') === region)) {
-            alert('이 지역에 소속된 팀이 있어 삭제할 수 없습니다. 팀을 먼저 다른 지역으로 옮기거나 삭제해주세요.');
+        const regionTeams = teams.filter((team) => getTeamRegion(team) === region);
+        if (regionTeams.length > 0) {
+            window.alert('이 지역에는 팀이 ' + regionTeams.length + '개 있습니다. 팀을 다른 지역으로 옮기거나 삭제한 뒤 지역을 삭제해주세요.');
             return;
         }
-        setRegions(regions.filter((item) => item !== region));
-        if (selectedRegion === region) setSelectedRegion('');
+        if (!window.confirm(region + ' 지역을 삭제할까요?')) return;
+
+        setRegions((previous) => previous.filter((item) => item !== region));
+        setExpandedRegions((previous) => {
+            const next = { ...previous };
+            delete next[region];
+            return next;
+        });
+        setNotice(region + ' 지역을 삭제했습니다.');
     };
 
-    const handleDeleteTeam = (id) => {
+    const handleDeleteTeam = (team) => {
+        const employeeCount = employees.filter((employee) => String(employee.team_id) === String(team.id)).length;
+        const routeCount = routes.filter((route) => String(route.team_id) === String(team.id)).length;
+
+        if (employeeCount > 0 || routeCount > 0) {
+            window.alert(
+                '이 팀에는 직원 ' + employeeCount + '명, 노선 ' + routeCount + '개가 연결되어 있습니다. ' +
+                '직원과 노선을 먼저 옮기거나 정리해야 삭제할 수 있습니다.'
+            );
+            return;
+        }
         if (teams.length <= 1) {
-            alert('⚠️ 최소 1개의 팀은 유지되어야 합니다.');
+            window.alert('최소 1개의 팀은 유지되어야 합니다.');
             return;
         }
-        if (window.confirm('이 팀을 정말 삭제하시겠습니까?')) {
-            setTeams(teams.filter(t => t.id !== id));
-        }
+        if (!window.confirm(team.name + ' 팀을 삭제할까요?')) return;
+
+        setTeams((previous) => previous.filter((item) => String(item.id) !== String(team.id)));
+        setNotice(team.name + ' 팀을 삭제했습니다.');
     };
 
-    const handleRegenerateCode = () => {
-        alert("이 기능은 DB(Supabase) 업데이트 로직이 연결된 후 작동합니다.");
+    const openRegionEditor = (region) => {
+        setEditing({ type: 'region', originalName: region, name: region });
+    };
+
+    const openTeamEditor = (team) => {
+        setEditing({
+            type: 'team',
+            id: team.id,
+            originalName: team.name,
+            name: team.name,
+            region: getTeamRegion(team)
+        });
+    };
+
+    const handleSaveEdit = (event) => {
+        event.preventDefault();
+        if (!editing) return;
+
+        const name = editing.name.trim();
+        if (!name) {
+            window.alert(editing.type === 'region' ? '지역 이름을 입력해주세요.' : '팀 이름을 입력해주세요.');
+            return;
+        }
+
+        if (editing.type === 'region') {
+            const originalName = editing.originalName;
+            const duplicate = regionList.some((region) =>
+                region !== originalName && normalizeName(region) === normalizeName(name)
+            );
+            if (duplicate) {
+                window.alert('같은 이름의 지역이 이미 있습니다.');
+                return;
+            }
+            if (name !== originalName) {
+                setRegions((previous) => previous.map((region) => region === originalName ? name : region));
+                setTeams((previous) => previous.map((team) =>
+                    getTeamRegion(team) === originalName ? { ...team, region: name } : team
+                ));
+                setExpandedRegions((previous) => {
+                    const next = { ...previous };
+                    if (Object.prototype.hasOwnProperty.call(next, originalName)) {
+                        next[name] = next[originalName];
+                        delete next[originalName];
+                    } else {
+                        next[name] = true;
+                    }
+                    return next;
+                });
+                setNotice(originalName + ' 지역명을 ' + name + '으로 변경했습니다.');
+            }
+        } else {
+            const targetRegion = editing.region;
+            const duplicate = teams.some((team) =>
+                String(team.id) !== String(editing.id) &&
+                getTeamRegion(team) === targetRegion &&
+                normalizeName(team.name) === normalizeName(name)
+            );
+            if (duplicate) {
+                window.alert('선택한 지역에 같은 이름의 팀이 이미 있습니다.');
+                return;
+            }
+
+            setTeams((previous) => previous.map((team) =>
+                String(team.id) === String(editing.id)
+                    ? { ...team, name, region: targetRegion }
+                    : team
+            ));
+            setExpandedRegions((previous) => ({ ...previous, [targetRegion]: true }));
+            setNotice(editing.originalName === name
+                ? name + ' 팀의 소속 지역을 변경했습니다.'
+                : editing.originalName + ' 팀 정보를 수정했습니다.');
+        }
+
+        setEditing(null);
     };
 
     const handleSaveAll = () => {
-        alert("✅ 모든 설정이 안전하게 저장되었습니다. (DataContext가 실시간 동기화 중입니다)");
+        try {
+            // DataContext에서도 자동 저장하지만, 버튼을 누르면 즉시 한 번 더 기록합니다.
+            window.localStorage.setItem('my_teams', JSON.stringify(teams));
+            window.localStorage.setItem('my_regions', JSON.stringify(regionList));
+            window.alert('지역과 팀 설정을 현재 기기에 저장했습니다. 다른 기기와 공유하려면 서버 동기화 연결이 필요합니다.');
+        } catch (error) {
+            window.alert('저장하지 못했습니다. 브라우저 저장 공간을 확인해주세요.');
+        }
     };
 
     return (
-        <div className="w-full h-full min-h-screen bg-gray-50 flex flex-col font-sans">
-            <header className="bg-white px-4 py-3 flex items-center shadow-sm relative z-10">
-                <button onClick={onBack} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full">
-                    <ArrowLeft size={24} />
+        <div className="flex min-h-screen w-full flex-col bg-slate-50 font-sans text-slate-800">
+            <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-gray-200 bg-white px-4 py-3 shadow-sm">
+                <button onClick={onBack} className="-ml-2 rounded-full p-2 text-gray-600 hover:bg-gray-100" aria-label="관리자 화면으로 돌아가기">
+                    <ArrowLeft size={23} />
                 </button>
-                <h1 className="ml-2 text-xl font-black text-gray-800 flex items-center gap-2">
-                    <SettingsIcon size={22} className="text-gray-600" /> 팀 및 지역 설정
-                </h1>
+                <div className="min-w-0">
+                    <h1 className="flex items-center gap-2 text-lg font-black sm:text-xl">
+                        <SettingsIcon size={21} className="text-slate-600" /> 팀 및 지역 설정
+                    </h1>
+                    <p className="mt-0.5 text-xs text-slate-500">지역을 펼쳐 팀을 추가하고, 이름이나 소속을 편집하세요.</p>
+                </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto p-5 space-y-6 pb-24">
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                    <h2 className="font-bold text-gray-800 mb-4">DB 연동 기본 정보</h2>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">팀 이름</label>
-                            <input type="text" value={profile?.team_name || '팀 이름 없음'} disabled className="w-full bg-gray-100 text-gray-600 border border-gray-200 rounded-xl px-4 py-3 font-medium outline-none cursor-not-allowed"/>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">관리자</label>
-                            <input type="text" value={profile?.full_name || '관리자'} disabled className="w-full bg-gray-100 text-gray-500 border border-gray-200 rounded-xl px-4 py-3 font-medium cursor-not-allowed"/>
-                        </div>
-                    </div>
-                </div>
+            <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-3 pb-28 sm:p-5">
+                <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                    <h2 className="mb-1 flex items-center gap-2 font-black text-slate-800">
+                        <MapPin size={18} className="text-indigo-600" /> 지역 목록
+                    </h2>
+                    <p className="mb-4 text-xs leading-5 text-slate-500">지역을 먼저 등록한 뒤, 각 지역 카드 안에서 팀을 추가합니다.</p>
 
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                    <h2 className="font-bold text-gray-800 mb-1 flex items-center gap-2"><MapPin size={18} className="text-indigo-600"/> 지역 · 팀 설정</h2>
-                    <p className="mb-4 text-xs text-gray-500">먼저 지역을 만들고, 그 안에 팀을 추가해 관리합니다.</p>
-                    <form onSubmit={handleAddRegion} className="flex gap-2 mb-3">
-                        <input type="text" value={newRegionName} onChange={(e) => setNewRegionName(e.target.value)} placeholder="새 지역 이름 (예: 충청권)" className="min-w-0 flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 font-medium outline-none focus:border-indigo-500"/>
-                        <button type="submit" className="bg-slate-800 text-white px-3 py-2 rounded-xl font-bold flex items-center gap-1 whitespace-nowrap"><Plus size={16} /> 지역</button>
-                    </form>
-                    <form onSubmit={handleAddTeam} className="grid grid-cols-[1fr_1fr_auto] gap-2 mb-4">
-                        <select value={selectedRegion} onChange={(e) => setSelectedRegion(e.target.value)} className="min-w-0 bg-gray-50 border border-gray-200 rounded-xl px-2 py-2 font-medium outline-none focus:border-indigo-500">
-                            <option value="">지역 선택</option>
-                            {regions.map((region) => <option key={region} value={region}>{region}</option>)}
-                        </select>
-                        <input type="text" value={newTeamName} onChange={(e) => setNewTeamName(e.target.value)} placeholder="새 팀 이름" className="min-w-0 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 font-medium outline-none focus:border-indigo-500"/>
-                        <button type="submit" className="bg-indigo-600 text-white px-3 py-2 rounded-xl font-bold flex items-center gap-1 hover:bg-indigo-700 whitespace-nowrap">
-                            <Plus size={18} /> 팀
+                    <form onSubmit={handleAddRegion} className="flex gap-2">
+                        <input
+                            type="text"
+                            value={newRegionName}
+                            onChange={(event) => setNewRegionName(event.target.value)}
+                            placeholder="새 지역 이름 (예: 청주)"
+                            aria-label="새 지역 이름"
+                            className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-medium outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                        />
+                        <button type="submit" className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-slate-800 px-3 py-3 text-sm font-black text-white hover:bg-slate-700">
+                            <Plus size={17} /> 지역 추가
                         </button>
                     </form>
-                    <div className="space-y-2">
-                        {regions.map((region) => <div key={region} className="overflow-hidden rounded-xl border border-gray-100">
-                            <div className="flex items-center justify-between bg-indigo-50 px-3 py-2"><span className="text-sm font-black text-indigo-800">{region}</span><button type="button" onClick={() => handleDeleteRegion(region)} className="rounded-lg p-1 text-indigo-400 hover:bg-red-50 hover:text-red-500" aria-label={region + ' 삭제'}><Trash2 size={15} /></button></div>
-                            {(teams || []).filter((team) => (team.region || '기본 지역') === region).map((team) => <div key={team.id} className="flex justify-between items-center border-t border-gray-100 px-3 py-2.5"><span className="font-bold text-gray-700">{region} <span className="text-gray-400">›</span> {team.name}</span><button type="button" onClick={() => handleDeleteTeam(team.id)} className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={17} /></button></div>)}
-                            {(teams || []).filter((team) => (team.region || '기본 지역') === region).length === 0 && <p className="border-t border-gray-100 px-3 py-2.5 text-xs text-gray-400">아직 팀이 없습니다.</p>}
-                        </div>)}
-                    </div>
-                </div>
 
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="font-bold text-gray-800">팀 초대 코드 관리</h2>
-                        <button onClick={handleRegenerateCode} className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800">
-                            <RefreshCw size={12}/> 재발급
+                    <label className="mt-3 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+                        <Search size={16} className="shrink-0 text-slate-400" />
+                        <input
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder="지역 또는 팀 검색"
+                            aria-label="지역 또는 팀 검색"
+                            className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-slate-400"
+                        />
+                        {search && <button type="button" onClick={() => setSearch('')} className="rounded-md p-1 text-slate-400 hover:bg-slate-100" aria-label="검색어 지우기"><X size={15} /></button>}
+                    </label>
+                </section>
+
+                {notice && (
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-bold text-emerald-800" role="status">
+                        <span>{notice}</span>
+                        <button onClick={() => setNotice('')} className="rounded-md p-1" aria-label="알림 닫기"><X size={15} /></button>
+                    </div>
+                )}
+
+                <section className="space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                        <h2 className="text-sm font-black text-slate-800">지역별 팀 관리</h2>
+                        <span className="rounded-lg bg-slate-200 px-2 py-1 text-xs font-bold text-slate-600">{regionList.length}개 지역</span>
+                    </div>
+
+                    {visibleRegions.map((region) => {
+                        const regionTeams = teams.filter((team) => getTeamRegion(team) === region);
+                        const regionTeamIds = regionTeams.map((team) => String(team.id));
+                        const employeeCount = employees.filter((employee) => regionTeamIds.includes(String(employee.team_id))).length;
+                        const isExpanded = Boolean(expandedRegions[region]);
+                        const regionMatchesSearch = Boolean(keyword && region.toLocaleLowerCase().includes(keyword));
+                        const visibleTeams = regionTeams.filter((team) =>
+                            !keyword || regionMatchesSearch || String(team.name || '').toLocaleLowerCase().includes(keyword)
+                        );
+
+                        return (
+                            <article key={region} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                                <div className="flex items-center gap-2 bg-slate-50 px-3 py-3 sm:px-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setExpandedRegions((previous) => ({ ...previous, [region]: !previous[region] }))}
+                                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                                        aria-expanded={isExpanded}
+                                    >
+                                        <span className="rounded-xl bg-indigo-50 p-2 text-indigo-600"><MapPin size={18} /></span>
+                                        <span className="min-w-0 flex-1">
+                                            <span className="block truncate font-black text-slate-800">{region}</span>
+                                            <span className="mt-0.5 block text-xs text-slate-500">{regionTeams.length}개 팀 · 직원 {employeeCount}명</span>
+                                        </span>
+                                        {isExpanded ? <ChevronUp size={19} className="shrink-0 text-slate-400" /> : <ChevronDown size={19} className="shrink-0 text-slate-400" />}
+                                    </button>
+                                    <button type="button" onClick={() => openRegionEditor(region)} className="rounded-lg p-2 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600" aria-label={region + ' 지역 편집'} title="지역 편집">
+                                        <Pencil size={16} />
+                                    </button>
+                                    <button type="button" onClick={() => handleDeleteRegion(region)} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" aria-label={region + ' 지역 삭제'} title="지역 삭제">
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+
+                                {isExpanded && (
+                                    <div className="space-y-2 p-3 sm:p-4">
+                                        {visibleTeams.map((team) => {
+                                            const teamEmployeeCount = employees.filter((employee) => String(employee.team_id) === String(team.id)).length;
+                                            const teamRouteCount = routes.filter((route) => String(route.team_id) === String(team.id)).length;
+                                            return (
+                                                <div key={team.id} className="flex items-center gap-2 rounded-xl border border-slate-100 bg-white p-3">
+                                                    <span className="rounded-lg bg-slate-100 p-2 text-slate-500"><Users size={17} /></span>
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="truncate text-sm font-bold text-slate-800">{team.name}</p>
+                                                        <p className="mt-0.5 text-xs text-slate-500">직원 {teamEmployeeCount}명 · 노선 {teamRouteCount}개</p>
+                                                    </div>
+                                                    <button type="button" onClick={() => openTeamEditor(team)} className="rounded-lg p-2 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600" aria-label={team.name + ' 팀 편집'} title="팀 편집">
+                                                        <Pencil size={16} />
+                                                    </button>
+                                                    <button type="button" onClick={() => handleDeleteTeam(team)} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" aria-label={team.name + ' 팀 삭제'} title="팀 삭제">
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+
+                                        {visibleTeams.length === 0 && regionTeams.length > 0 && (
+                                            <p className="rounded-xl bg-slate-50 px-3 py-4 text-center text-xs text-slate-500">검색어와 일치하는 팀이 없습니다.</p>
+                                        )}
+                                        {regionTeams.length === 0 && (
+                                            <p className="rounded-xl border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500">아직 등록된 팀이 없습니다. 아래 버튼으로 첫 팀을 추가하세요.</p>
+                                        )}
+
+                                        {addingTeamRegion === region ? (
+                                            <form onSubmit={(event) => handleAddTeam(event, region)} className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-3">
+                                                <label className="mb-1.5 block text-xs font-bold text-slate-600" htmlFor={'new-team-' + region}>{region}에 추가할 팀 이름</label>
+                                                <input
+                                                    id={'new-team-' + region}
+                                                    autoFocus
+                                                    value={newTeamName}
+                                                    onChange={(event) => setNewTeamName(event.target.value)}
+                                                    placeholder="팀 이름 입력"
+                                                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                                                />
+                                                <div className="mt-2 flex gap-2">
+                                                    <button type="submit" className="inline-flex flex-1 items-center justify-center gap-1 rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-black text-white hover:bg-indigo-700">
+                                                        <Check size={16} /> 팀 저장
+                                                    </button>
+                                                    <button type="button" onClick={() => { setAddingTeamRegion(''); setNewTeamName(''); }} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50">
+                                                        취소
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() => { setAddingTeamRegion(region); setNewTeamName(''); }}
+                                                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-indigo-300 bg-indigo-50/50 px-3 py-3 text-sm font-black text-indigo-700 hover:border-indigo-400 hover:bg-indigo-50"
+                                            >
+                                                <Plus size={17} /> {region}에 팀 추가
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </article>
+                        );
+                    })}
+
+                    {visibleRegions.length === 0 && (
+                        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
+                            <MapPin size={25} className="mx-auto mb-2 text-slate-300" />
+                            <p className="text-sm font-bold text-slate-700">{keyword ? '검색 결과가 없습니다.' : '등록된 지역이 없습니다.'}</p>
+                            <p className="mt-1 text-xs text-slate-500">{keyword ? '검색어를 바꾸거나 지워보세요.' : '위에서 지역을 추가하면 팀을 등록할 수 있습니다.'}</p>
+                        </div>
+                    )}
+                </section>
+
+                <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                    <h2 className="mb-4 font-black text-slate-800">관리자 정보</h2>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        <div>
+                            <label className="mb-1 block text-xs font-bold text-slate-500">팀 이름 (계정 정보)</label>
+                            <input type="text" value={profile?.team_name || '팀 이름 없음'} disabled className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-100 px-3 py-3 text-sm text-slate-500 outline-none" />
+                        </div>
+                        <div>
+                            <label className="mb-1 block text-xs font-bold text-slate-500">관리자</label>
+                            <input type="text" value={profile?.full_name || '관리자'} disabled className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-100 px-3 py-3 text-sm text-slate-500 outline-none" />
+                        </div>
+                    </div>
+                    <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                        <div className="min-w-0">
+                            <p className="text-sm font-bold text-slate-700">팀 초대 코드</p>
+                            <p className="mt-0.5 break-all text-lg font-black tracking-widest text-slate-800">{profile?.invite_code || '초대코드 없음'}</p>
+                        </div>
+                        <button type="button" onClick={() => window.alert('초대 코드 재발급은 서버 업데이트 로직 연결 후 사용할 수 있습니다.')} className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-50">
+                            <RefreshCw size={14} /> 재발급
                         </button>
                     </div>
-                    <p className="text-xs text-gray-500 mb-3">현재 작동 중인 DB 연동 초대 코드입니다.</p>
-                    <div className="bg-gray-100 px-4 py-3 rounded-xl w-full text-center">
-                        <span className="font-black text-xl tracking-widest text-gray-800">{profile?.invite_code || '초대코드 없음'}</span>
-                    </div>
+                </section>
+            </main>
+
+            <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 p-3 backdrop-blur">
+                <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
+                    <p className="min-w-0 flex-1 text-[11px] leading-4 text-slate-500">지역·팀 변경은 현재 기기에 자동 저장됩니다.</p>
+                    <button onClick={handleSaveAll} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-black text-white hover:bg-indigo-700">
+                        <Save size={17} /> 설정 저장
+                    </button>
                 </div>
             </div>
 
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200">
-                <button onClick={handleSaveAll} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl hover:bg-indigo-700 transition-colors flex justify-center items-center gap-2">
-                    <Save size={20}/> 모든 설정 저장
-                </button>
-            </div>
+            {editing && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditing(null); }}>
+                    <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="edit-dialog-title">
+                        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
+                            <h2 id="edit-dialog-title" className="font-black text-slate-800">{editing.type === 'region' ? '지역 편집' : '팀 편집'}</h2>
+                            <button type="button" onClick={() => setEditing(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="편집 창 닫기"><X size={20} /></button>
+                        </div>
+                        <form onSubmit={handleSaveEdit} className="space-y-4 p-4">
+                            <div>
+                                <label className="mb-1.5 block text-xs font-bold text-slate-600">{editing.type === 'region' ? '지역 이름' : '팀 이름'}</label>
+                                <input
+                                    autoFocus
+                                    value={editing.name}
+                                    onChange={(event) => setEditing((previous) => ({ ...previous, name: event.target.value }))}
+                                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-medium outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                />
+                            </div>
+                            {editing.type === 'team' && (
+                                <div>
+                                    <label className="mb-1.5 block text-xs font-bold text-slate-600">소속 지역</label>
+                                    <select
+                                        value={editing.region}
+                                        onChange={(event) => setEditing((previous) => ({ ...previous, region: event.target.value }))}
+                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-medium outline-none focus:border-indigo-500"
+                                    >
+                                        {[...new Set([...regionList, editing.region])].map((region) => <option key={region} value={region}>{region}</option>)}
+                                    </select>
+                                </div>
+                            )}
+                            {editing.type === 'region' && (
+                                <p className="text-xs leading-5 text-slate-500">지역 이름을 바꾸면 해당 지역에 속한 모든 팀의 소속 지역도 함께 변경됩니다.</p>
+                            )}
+                            {editing.type === 'team' && (
+                                <p className="text-xs leading-5 text-slate-500">팀의 이름이나 소속 지역을 바꿔도 직원·노선의 팀 연결 ID는 유지됩니다.</p>
+                            )}
+                            <div className="flex gap-2 pt-1">
+                                <button type="submit" className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-black text-white hover:bg-indigo-700">
+                                    <Check size={17} /> 변경 저장
+                                </button>
+                                <button type="button" onClick={() => setEditing(null)} className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50">
+                                    취소
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
