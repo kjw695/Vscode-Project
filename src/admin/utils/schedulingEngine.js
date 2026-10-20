@@ -132,6 +132,17 @@ function generateScheduleForWeeks(options) {
             const alreadyOffCount = weekDates.filter(function (dateKey) {
                 return containsId(allOffs[dateKey] || [], employee.id);
             }).length;
+
+            // 고정 휴무일이 격주 패턴의 목표 휴무일보다 많으면 실제 근무일이 목표보다 줄어듭니다.
+            if (alreadyOffCount > targetOffCount) {
+                warnings.push(
+                    '[고정 휴무와 근무 패턴 충돌] ' + employee.name + ': ' + weekDates[0] +
+                    ' 주간은 목표 ' + workDays + '일 근무지만 고정 휴무가 ' + alreadyOffCount +
+                    '일 지정되어 실제 근무일이 ' + (weekDates.length - alreadyOffCount) +
+                    '일로 줄어듭니다.'
+                );
+            }
+
             let remainingOffs = Math.max(0, targetOffCount - alreadyOffCount);
             if (remainingOffs === 0) return;
 
@@ -264,11 +275,12 @@ function getWorkDaysForWeek(employee, weekIndex) {
     const match = pattern.match(/[1-6]/);
     const parsedDays = match ? Number(match[0]) : 6;
 
-    // '격주 5일'은 6일 근무 주와 5일 근무 주를 번갈아 적용합니다.
+    // '격주 N일'은 N일 근무 주와 N+1일 근무 주를 번갈아 적용합니다.
+    // 6일 근무는 최대치이므로 5일/6일을 번갈아 적용합니다.
     // 주차는 1970-01-04(일요일) 기준으로 고정해 월이 바뀌어도 교대가 유지됩니다.
     if (pattern.includes('격주')) {
         const targetDays = Math.min(6, Math.max(1, parsedDays));
-        const alternateDays = targetDays === 6 ? 5 : 6;
+        const alternateDays = targetDays === 6 ? 5 : targetDays + 1;
         return Math.abs(weekIndex % 2) === 0 ? alternateDays : targetDays;
     }
     return Math.min(6, Math.max(1, parsedDays));
