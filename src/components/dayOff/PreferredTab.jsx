@@ -70,12 +70,11 @@ export default function PreferredTab({ isDarkMode, showMessage }) {
             </div>
 
             {/* 하단 확인 버튼 (사진 스타일 반영 - 회색톤) */}
-            <div className="p-4 mt-2">
+           {/* ✨ 내비게이션 바 바로 위에 둥둥 떠 있도록 고정된 버튼 영역 */}
+            <div className="absolute bottom-16 left-0 right-0 px-4 py-2 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm z-20 border-t border-gray-100 dark:border-gray-800">
                 <button 
-                    onClick={handleSavePreferences}
-                    className={`w-full py-3.5 rounded-lg font-bold text-sm transition-all
-                       className="w-full py-3.5 rounded-lg font-bold text-sm text-white bg-indigo-600 hover:bg-indigo-700 shadow-md active:scale-95 transition-all"
-                    `}
+                    // onClick={handleSave} // 기존에 연결되어 있던 저장 함수 그대로 유지
+                    className="w-full py-3 rounded-xl font-bold text-sm bg-indigo-600 text-white shadow-md transition-all active:scale-95"
                 >
                     확인
                 </button>

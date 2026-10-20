@@ -259,8 +259,12 @@ export default function CalendarTab({
             dateColor = 'text-blue-500';
         }
 
-        // 집계 기간 이외의 날짜는 흐리게 처리
-        if (!inPeriod) {
+        // ✨ 1. 과거 날짜인지, 집계 기간 밖인지 통합 체크
+        const isPastDate = dateStr < todayStr;
+        const isOutOfScope = !inPeriod || isPastDate;
+
+        // 집계 기간 밖이거나 지난 날짜는 글씨를 흐리게
+        if (isOutOfScope) {
             dateColor = isDarkMode ? 'text-gray-600' : 'text-gray-400';
         }
         
@@ -268,52 +272,48 @@ export default function CalendarTab({
         const inSameWeek = exchangeStep === 1 && isSameWeek(dateStr);
         const isDimmed = exchangeStep === 1 && !inSameWeek && !isMyOffDate;
 
-        // ✨ 2. 근무일 표시 데이터 (추후 관리자 센터 연동)
-        // TODO: 관리자 센터 연동 시 유저의 실제 근무 스케줄(주간/야간) 데이터를 여기에 매핑하세요.
+        // 근무일 표시 데이터 (추후 관리자 센터 연동)
         const shiftType = '주간'; 
-        
-        // TODO: 관리자 센터 연동 시 유저에게 배정된 노선명(라우트) 데이터를 여기에 매핑하세요.
         const routeName = teamId ? '라우트' : '배송';
 
-        days.push(
+       days.push(
             <div 
                 key={dateStr} 
                 onClick={() => !isDimmed && toggleDate(dateStr)}
-                className={`flex flex-col items-center justify-start p-1 h-20 border-b border-r transition-colors relative
+                // ✨ justify-center를 제거하여 날짜 숫자가 항상 칸의 맨 위에 일자로 고정되도록 수정 (여백 p-1 추가)
+                className={`flex flex-col items-center pt-3 pb-1 px-1 h-full w-full border-b border-r transition-colors relative
                 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'} 
                 ${bgClass} 
                 ${isDimmed ? 'opacity-20' : ''} 
-                ${!inPeriod ? 'bg-opacity-50' : ''}`}
+                ${isOutOfScope ? 'opacity-40 grayscale-[30%]' : ''}`} 
             >
                 {/* 같은 주 표시용 연한 초록색 배경 (교환 2단계일 때) */}
                 {inSameWeek && !isMyOffDate && !isTargetDate && (
                     <div className="absolute inset-0 bg-green-100 dark:bg-green-900 opacity-20 pointer-events-none" />
                 )}
 
-                {/* 날짜 숫자 */}
+                {/* ✨ 날짜 숫자 (상단에 찰싹 붙어서 일렬로 고정됨) */}
                 <span className={`text-[13px] font-bold ${dateColor}`}>{dayIterator.getDate()}</span>
 
-                {/* 2. 하단 정보 영역: 휴무 vs 근무일 */}
-                {inPeriod && (
-                    <div className="flex flex-col items-center mt-1 w-full space-y-0.5">
-                        {isSelected || existingDayOffs[dateStr] ? (
-                            // 휴무일 표시: ○ 휴무
-                            <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-0.5">
-                                <span className="text-gray-300 dark:text-gray-600">○</span> 휴무
+                {/* ✨ 내용물 래퍼: 남은 공간(flex-1)을 모두 차지하고, 그 안에서 내용물만 중앙(justify-center) 정렬 */}
+                <div className="flex-1 flex flex-col items-center justify-center w-full">
+                    {isSelected || existingDayOffs[dateStr] ? (
+                        // 휴무일 표시: ○ 휴무
+                        <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 flex items-center gap-0.5">
+                            <span className="text-gray-300 dark:text-gray-600">○</span> 휴무
+                        </span>
+                    ) : (
+                        // 근무일 표시: 주간/야간 배지 + 라우트명
+                        <>
+                            <span className="text-[9px] font-bold px-1.5 py-[2px] bg-[#E5E7FF] text-[#4F46E5] dark:bg-indigo-900/50 dark:text-indigo-300 rounded-full mb-0.5">
+                                {shiftType}
                             </span>
-                        ) : (
-                            // 근무일 표시: 주간/야간 배지 + 라우트명
-                            <>
-                                <span className="text-[9px] font-bold px-1.5 py-[2px] bg-[#E5E7FF] text-[#4F46E5] dark:bg-indigo-900/50 dark:text-indigo-300 rounded-full mt-0.5">
-                                    {shiftType}
-                                </span>
-                                <span className={`text-[10px] font-bold truncate w-full text-center ${isDarkMode ? 'text-gray-300' : 'text-gray-800'}`}>
-                                    {routeName}
-                                </span>
-                            </>
-                        )}
-                    </div>
-                )}
+                            <span className={`text-[10px] font-bold truncate w-full text-center ${isDarkMode ? 'text-gray-300' : 'text-gray-800'}`}>
+                                {routeName}
+                            </span>
+                        </>
+                    )}
+                </div>
             </div>
         );
 
@@ -348,7 +348,7 @@ export default function CalendarTab({
             </div>
             
             {/* 달력 그리드 박스 */}
-            <div className={`grid grid-cols-7 w-full border-l ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+            <div className={`grid grid-cols-7 flex-1 auto-rows-fr w-full border-t border-l ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
                 {days}
             </div>
 
