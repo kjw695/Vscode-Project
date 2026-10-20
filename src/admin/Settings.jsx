@@ -145,15 +145,19 @@ export default function Settings({ onBack }) {
     // 팀 추가 입력란과 저장된 새 팀은 현재 보이는 화면 높이의 약 30% 지점에 표시합니다.
     useEffect(() => {
         if (!addingTeamRegion) return undefined;
+
         let focusTimer;
+        let resizeTimer;
+        let fallbackTimer;
+        let viewportChanged = false;
+        let handleViewportResize = null;
+        const viewport = window.visualViewport;
+
         const frame = window.requestAnimationFrame(() => {
             const form = teamFormRefs.current[addingTeamRegion];
             const input = teamInputRefs.current[addingTeamRegion];
             if (!form || !input) return;
 
-            let resizeTimer;
-            let fallbackTimer;
-            let viewportChanged = false;
             const alignForm = () => {
                 if (resizeTimer) window.clearTimeout(resizeTimer);
                 resizeTimer = window.setTimeout(() => {
@@ -165,14 +169,12 @@ export default function Settings({ onBack }) {
                     });
                 }, 90);
             };
-            const viewport = window.visualViewport;
-            const handleViewportResize = () => {
+            handleViewportResize = () => {
                 viewportChanged = true;
                 alignForm();
             };
 
-            // 키보드가 열리기 전에는 화면을 움직이지 않고 먼저 포커스한 뒤,
-            // 실제로 보이는 영역 높이에 맞춰 한 번 부드럽게 정렬합니다.
+            // 키보드가 열린 뒤 실제로 보이는 화면 높이를 기준으로 정렬합니다.
             viewport?.addEventListener('resize', handleViewportResize);
             focusTimer = window.setTimeout(() => {
                 input.focus({ preventScroll: true });
@@ -186,7 +188,7 @@ export default function Settings({ onBack }) {
             if (focusTimer) window.clearTimeout(focusTimer);
             if (resizeTimer) window.clearTimeout(resizeTimer);
             if (fallbackTimer) window.clearTimeout(fallbackTimer);
-            window.visualViewport?.removeEventListener('resize', handleViewportResize);
+            if (handleViewportResize) viewport?.removeEventListener('resize', handleViewportResize);
         };
     }, [addingTeamRegion]);
 
