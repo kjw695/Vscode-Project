@@ -1,5 +1,8 @@
 // src/admin/Calendar.jsx
 import React, { useEffect, useMemo, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { Directory, Filesystem } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import {
     ArrowLeft,
     Calendar as CalendarIcon,
@@ -593,65 +596,57 @@ export default function Calendar({ onBack }) {
     };
 
     const handleDownloadScheduleImage = async function () {
-        if (!isScheduleGenerated) {
-            window.alert('먼저 자동 생성으로 주간 근무표를 만들어주세요.');
-            return;
-        }
-        const rows = filteredEmployees;
-        const canvas = document.createElement('canvas');
-        const cellW = 108, nameW = 150, headerH = 64, rowH = 48, pad = 24;
-        canvas.width = pad * 2 + nameW + cellW * weekDates.length;
-        canvas.height = pad * 2 + headerH + rowH * rows.length + 48;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) { window.alert('이미지 생성 기능을 사용할 수 없습니다.'); return; }
-        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#172033'; ctx.font = 'bold 22px sans-serif';
-        ctx.fillText((teams.find(function (team) { return String(team.id) === String(selectedTeam); }) || {}).name + ' 주간 근무표', pad, pad + 24);
-        ctx.fillStyle = '#64748b'; ctx.font = '14px sans-serif';
-        ctx.fillText(formatDate(weekDates[0]) + ' ~ ' + formatDate(weekDates[6]), pad, pad + 46);
-        const tableTop = pad + headerH;
-        ctx.fillStyle = '#f1f5f9'; ctx.fillRect(pad, tableTop, nameW + cellW * weekDates.length, rowH);
-        ctx.fillStyle = '#172033'; ctx.font = 'bold 14px sans-serif'; ctx.fillText('직원', pad + 10, tableTop + 29);
-        weekDates.forEach(function (date, index) {
-            const x = pad + nameW + index * cellW;
-            ctx.fillStyle = '#172033'; ctx.font = 'bold 14px sans-serif';
-            ctx.fillText(WEEKDAYS[date.getDay()] + ' ' + pad2(date.getMonth() + 1) + '/' + pad2(date.getDate()), x + 6, tableTop + 29);
-        });
-        rows.forEach(function (employee, rowIndex) {
-            const y = tableTop + rowH * (rowIndex + 1);
-            const isBackup = !routes.some(function (route) { return String(route.assigned_emp_id) === String(employee.id); });
-            ctx.fillStyle = isBackup ? '#fffbeb' : '#ffffff'; ctx.fillRect(pad, y, nameW + cellW * weekDates.length, rowH);
-            ctx.strokeStyle = '#e2e8f0'; ctx.strokeRect(pad, y, nameW + cellW * weekDates.length, rowH);
-            ctx.fillStyle = '#172033'; ctx.font = 'bold 14px sans-serif'; ctx.fillText(String(employee.name || ''), pad + 10, y + 29);
+        if (!isScheduleGenerated) { window.alert('먼저 자동 생성으로 주간 근무표를 만들어주세요.'); return; }
+        try {
+            const rows = filteredEmployees;
+            const canvas = document.createElement('canvas');
+            const cellW = 108, nameW = 150, headerH = 64, rowH = 48, pad = 24;
+            canvas.width = pad * 2 + nameW + cellW * weekDates.length;
+            canvas.height = pad * 2 + headerH + rowH * rows.length + 48;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) throw new Error('이미지 캔버스를 사용할 수 없습니다.');
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#172033'; ctx.font = 'bold 22px sans-serif';
+            ctx.fillText(((teams.find(function (team) { return String(team.id) === String(selectedTeam); }) || {}).name || '팀') + ' 주간 근무표', pad, pad + 24);
+            ctx.fillStyle = '#64748b'; ctx.font = '14px sans-serif';
+            ctx.fillText(formatDate(weekDates[0]) + ' ~ ' + formatDate(weekDates[6]), pad, pad + 46);
+            const tableTop = pad + headerH;
+            ctx.fillStyle = '#f1f5f9'; ctx.fillRect(pad, tableTop, nameW + cellW * weekDates.length, rowH);
+            ctx.fillStyle = '#172033'; ctx.font = 'bold 14px sans-serif'; ctx.fillText('직원', pad + 10, tableTop + 29);
             weekDates.forEach(function (date, index) {
                 const x = pad + nameW + index * cellW;
-                const info = getCellStatus(employee, date, generatedSchedule, year, month);
-                const label = info.status === 'off' ? '휴무' : info.status === 'backup' ? ((info.assignment && info.assignment.targetBaseName) || '백업') : info.status === 'work' ? '근무' : '미정';
-                ctx.fillStyle = info.status === 'off' ? '#ffe4e6' : info.status === 'backup' || isBackup ? '#fef3c7' : info.status === 'work' ? '#d1fae5' : '#f1f5f9';
-                ctx.fillRect(x, y, cellW, rowH); ctx.strokeStyle = '#e2e8f0'; ctx.strokeRect(x, y, cellW, rowH);
-                ctx.fillStyle = '#111827'; ctx.font = 'bold 12px sans-serif';
-                const shown = label.length > 8 ? label.slice(0, 7) + '…' : label;
-                ctx.fillText(shown, x + 6, y + 28);
+                ctx.fillStyle = '#172033'; ctx.font = 'bold 14px sans-serif';
+                ctx.fillText(WEEKDAYS[date.getDay()] + ' ' + pad2(date.getMonth() + 1) + '/' + pad2(date.getDate()), x + 6, tableTop + 29);
             });
-        });
-        canvas.toBlob(async function (blob) {
-            if (!blob) { window.alert('이미지 파일을 만들지 못했습니다.'); return; }
+            rows.forEach(function (employee, rowIndex) {
+                const y = tableTop + rowH * (rowIndex + 1);
+                const isBackup = !routes.some(function (route) { return String(route.assigned_emp_id) === String(employee.id); });
+                ctx.fillStyle = isBackup ? '#fffbeb' : '#ffffff'; ctx.fillRect(pad, y, nameW + cellW * weekDates.length, rowH);
+                ctx.strokeStyle = '#e2e8f0'; ctx.strokeRect(pad, y, nameW + cellW * weekDates.length, rowH);
+                ctx.fillStyle = '#172033'; ctx.font = 'bold 14px sans-serif'; ctx.fillText(String(employee.name || ''), pad + 10, y + 29);
+                weekDates.forEach(function (date, index) {
+                    const x = pad + nameW + index * cellW;
+                    const info = getCellStatus(employee, date, generatedSchedule, year, month);
+                    const label = info.status === 'off' ? '휴무' : info.status === 'backup' ? ((info.assignment && info.assignment.targetBaseName) || '백업') : info.status === 'work' ? '근무' : '미정';
+                    ctx.fillStyle = isBackup ? '#fef3c7' : info.status === 'off' ? '#ffe4e6' : info.status === 'backup' ? '#fef3c7' : info.status === 'work' ? '#d1fae5' : '#f1f5f9';
+                    ctx.fillRect(x, y, cellW, rowH); ctx.strokeStyle = '#e2e8f0'; ctx.strokeRect(x, y, cellW, rowH);
+                    ctx.fillStyle = '#111827'; ctx.font = 'bold 12px sans-serif';
+                    ctx.fillText(label.length > 8 ? label.slice(0, 7) + '…' : label, x + 6, y + 28);
+                });
+            });
+            const dataUrl = canvas.toDataURL('image/png');
             const fileName = '근무표-' + formatDate(weekDates[0]) + '.png';
-            const file = new File([blob], fileName, { type: 'image/png' });
-            try {
-                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                    await navigator.share({ files: [file], title: '주간 근무표', text: fileName });
-                } else {
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a'); link.href = url; link.download = fileName; link.click();
-                    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-                }
-            } catch (error) {
-                if (error && error.name === 'AbortError') return;
-                console.error('근무표 이미지 공유에 실패했습니다.', error);
-                window.alert('이미지를 공유하거나 저장하지 못했습니다. 다시 시도해주세요.');
+            if (Capacitor.isNativePlatform()) {
+                const saved = await Filesystem.writeFile({ path: fileName, data: dataUrl.split(',')[1], directory: Directory.Documents, recursive: true });
+                await Share.share({ title: '주간 근무표', text: fileName, url: saved.uri, dialogTitle: '근무표 이미지 공유 또는 저장' });
+            } else {
+                const link = document.createElement('a'); link.href = dataUrl; link.download = fileName; link.style.display = 'none';
+                document.body.appendChild(link); link.click(); link.remove();
             }
-        }, 'image/png');
+        } catch (error) {
+            console.error('근무표 이미지 내보내기에 실패했습니다.', error);
+            window.alert('이미지를 저장하지 못했습니다. 다시 시도해주세요.');
+        }
     };
 
     const renderStatusCell = function (employee, date) {
@@ -668,8 +663,9 @@ export default function Calendar({ onBack }) {
                     ? ((info.assignment && info.assignment.targetBaseName) || '백업')
                     : '근무';
         const title = info.status === 'off' ? '누르면 근무로 변경' : '누르면 휴무 지정';
+        const isBackupEmployee = !routes.some(function (route) { return String(route.assigned_emp_id) === String(employee.id); });
         const colorClass = info.status === 'off'
-            ? 'border-rose-200 bg-rose-50 text-rose-700'
+            ? (isBackupEmployee ? 'border-rose-300 bg-amber-50 text-rose-700' : 'border-rose-200 bg-rose-50 text-rose-700')
             : info.status === 'backup'
                 ? 'border-amber-200 bg-amber-50 text-slate-900'
                 : info.status === 'work'
@@ -736,7 +732,7 @@ export default function Calendar({ onBack }) {
                                 주간 범위: {formatDate(weekDates[0])} ~ {formatDate(weekDates[6])}
                             </p>
                         </div>
-                        <div className="grid w-full grid-cols-3 items-stretch gap-1.5 sm:flex sm:flex-wrap sm:justify-center sm:gap-2">
+                        <div className="sticky top-[72px] z-30 grid w-full grid-cols-3 items-stretch gap-1.5 rounded-xl border border-slate-200 bg-white/95 p-2 shadow-md backdrop-blur sm:flex sm:flex-wrap sm:justify-center sm:gap-2">
                             <button
                                 onClick={handleStartAutoSchedule}
                                 disabled={scheduleStatus === 'processing' || activeTeamEmployees.length === 0}
@@ -821,7 +817,7 @@ export default function Calendar({ onBack }) {
                                         <ChevronLeft size={18} />
                                     </button>
                                     <div>
-                                        <div className="flex items-center gap-2"><h3 className="font-black">주간 근무표</h3><button type="button" onClick={handleDownloadScheduleImage} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50" aria-label="근무표 이미지 다운로드"><Download size={14} />다운로드</button></div>
+                                        <div className="flex w-full items-center justify-between gap-3"><h3 className="font-black">주간 근무표</h3><button type="button" onClick={handleDownloadScheduleImage} className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 p-2 text-slate-700 hover:bg-slate-50" aria-label="근무표 이미지 다운로드" title="근무표 이미지 다운로드"><Download size={18} /></button></div>
                                         <p className="text-xs text-slate-500">{formatDate(weekDates[0])} ~ {formatDate(weekDates[6])}</p>
                                     </div>
                                     <button onClick={function () { handleWeekChange(1); }} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="다음 주">
