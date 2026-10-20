@@ -415,19 +415,6 @@ export default function Settings({ onBack }) {
             </header>
 
             <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-3 pb-6 sm:p-5">
-                <section className="rounded-2xl border border-indigo-100 bg-white p-3 shadow-sm sm:p-4">
-                    <label className="flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50/60 px-3 py-3 shadow-sm transition-colors focus-within:border-indigo-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-100">
-                        <Search size={18} className="shrink-0 text-indigo-500" />
-                        <input
-                            value={search}
-                            onChange={(event) => setSearch(event.target.value)}
-                            placeholder="지역 또는 팀 검색"
-                            aria-label="지역 또는 팀 검색"
-                            className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-slate-500"
-                        />
-                        {search && <button type="button" onClick={() => setSearch('')} className="rounded-md p-1 text-slate-400 hover:bg-slate-100" aria-label="검색어 지우기"><X size={15} /></button>}
-                    </label>
-                </section>
                 <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <h2 className="mb-1 flex items-center gap-2 font-black text-slate-800">
                         <MapPin size={18} className="text-indigo-600" /> 지역 목록
@@ -448,6 +435,20 @@ export default function Settings({ onBack }) {
                         </button>
                     </form>
 
+                </section>
+
+                <section className="rounded-2xl border border-indigo-100 bg-white p-3 shadow-sm sm:p-4">
+                    <label className="flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50/60 px-3 py-3 shadow-sm transition-colors focus-within:border-indigo-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-100">
+                        <Search size={18} className="shrink-0 text-indigo-500" />
+                        <input
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder="지역 또는 팀 검색"
+                            aria-label="지역 또는 팀 검색"
+                            className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-slate-500"
+                        />
+                        {search && <button type="button" onClick={() => setSearch('')} className="rounded-md p-1 text-slate-400 hover:bg-slate-100" aria-label="검색어 지우기"><X size={15} /></button>}
+                    </label>
                 </section>
 
                 {notice && (
