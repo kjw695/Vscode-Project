@@ -497,6 +497,26 @@ export default function EmployeeManager({ onBack }) {
                                 </div>
                             )}
 
+                            <div>
+                                <label className="mb-2 block text-xs font-black text-gray-600">주간 근무 패턴</label>
+                                <div className="flex gap-1 rounded-xl bg-gray-100 p-1">
+                                    {[1, 2, 3, 4, 5, 6].map((day) => (
+                                        <button type="button" key={day} onClick={() => setWorkDays(day)} className={'h-10 flex-1 rounded-lg text-sm font-black ' + (workDays === day ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500')}>
+                                            {day}일
+                                        </button>
+                                    ))}
+                                </div>
+                                <button type="button" onClick={toggleBiweeklyPattern} className={'mt-2 w-full rounded-xl border px-3 py-2.5 text-sm font-bold ' + (isBiweekly ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-gray-200 bg-white text-gray-500')}>
+                                    {isBiweekly ? '✓ 격주 패턴 적용' : '격주 패턴 적용'}
+                                </button>
+                                <p className="mt-2 text-xs text-gray-500">적용 패턴: <strong>{isBiweekly ? '격주 ' : '주 '}{workDays}일</strong></p>
+                                {isBiweekly && workDays === 6 && (
+                                    <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-800">
+                                        격주 6일은 한 주 6일 근무, 다른 주는 7일 근무 기준(휴무 0일)이 됩니다. 7일 연속 근무는 허용되지 않으므로 고정 휴무를 지정하거나 근무 패턴을 조정하세요. 자동 근무표 생성 시에도 경고가 표시됩니다.
+                                    </div>
+                                )}
+                            </div>
+
                             <section className="rounded-xl border border-slate-200 bg-white p-3">
                                 <label className="flex cursor-pointer items-center gap-2.5">
                                     <input
@@ -588,26 +608,6 @@ export default function EmployeeManager({ onBack }) {
                                     </div>
                                 )}
                             </section>
-
-                            <div>
-                                <label className="mb-2 block text-xs font-black text-gray-600">주간 근무 패턴</label>
-                                <div className="flex gap-1 rounded-xl bg-gray-100 p-1">
-                                    {[1, 2, 3, 4, 5, 6].map((day) => (
-                                        <button type="button" key={day} onClick={() => setWorkDays(day)} className={'h-10 flex-1 rounded-lg text-sm font-black ' + (workDays === day ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500')}>
-                                            {day}일
-                                        </button>
-                                    ))}
-                                </div>
-                                <button type="button" onClick={toggleBiweeklyPattern} className={'mt-2 w-full rounded-xl border px-3 py-2.5 text-sm font-bold ' + (isBiweekly ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-gray-200 bg-white text-gray-500')}>
-                                    {isBiweekly ? '✓ 격주 패턴 적용' : '격주 패턴 적용'}
-                                </button>
-                                <p className="mt-2 text-xs text-gray-500">적용 패턴: <strong>{isBiweekly ? '격주 ' : '주 '}{workDays}일</strong></p>
-                                {isBiweekly && workDays === 6 && (
-                                    <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-800">
-                                        격주 6일은 한 주 6일 근무, 다른 주는 7일 근무 기준(휴무 0일)이 됩니다. 7일 연속 근무는 허용되지 않으므로 고정 휴무를 지정하거나 근무 패턴을 조정하세요. 자동 근무표 생성 시에도 경고가 표시됩니다.
-                                    </div>
-                                )}
-                            </div>
 
                             <button type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3.5 font-black text-white hover:bg-indigo-700">
                                 <CheckCircle2 size={19} /> {editingNewEmployee ? '직원 등록' : '변경 사항 저장'}
