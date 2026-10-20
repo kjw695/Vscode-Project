@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowLeft, Search, Users, Link2, Unlink, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Search, Users, Link2, Unlink, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import { useAdminData } from './contexts/DataContext';
 
 function getPattern(employee) {
@@ -126,6 +126,23 @@ export default function BiweeklyPairManager({ onBack }) {
                 ? '\n주의: 7일 근무 주가 포함되어 자동 근무표에 경고가 표시됩니다.'
                 : '')
         );
+    };
+
+    const handleSwapOrder = (pairId, members) => {
+        if (members.length !== 2) {
+            window.alert('짝에 연결된 직원 정보가 두 명인지 확인해주세요.');
+            return;
+        }
+        const names = members.map((employee) => employee.name || '이름 미등록').join(' · ');
+        if (!window.confirm(
+            names + '의 격주 순서를 서로 바꿀까요? 이번 주와 다음 주의 근무 순서가 반대로 바뀌며, 고정 휴무·노선·팀·근무 일수는 그대로 유지됩니다.'
+        )) return;
+
+        setEmployees((previous) => previous.map((employee) => {
+            if (String(employee.biweeklyPairId) !== String(pairId)) return employee;
+            const currentOffset = Number(employee.biweeklyWeekOffset) === 1 ? 1 : 0;
+            return { ...employee, biweeklyWeekOffset: currentOffset === 1 ? 0 : 1 };
+        }));
     };
 
     const handleUnpair = (pairId, members) => {
@@ -270,9 +287,22 @@ export default function BiweeklyPairManager({ onBack }) {
                                                     );
                                                 })}
                                             </div>
-                                            <button type="button" onClick={() => handleUnpair(id, members)} className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-bold text-slate-600 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700">
-                                                <Unlink size={14} /> 짝 해제
-                                            </button>
+                                            <div className="flex shrink-0 flex-col gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSwapOrder(id, members)}
+                                                    className="flex items-center justify-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100"
+                                                >
+                                                    <RefreshCw size={14} /> 순서 바꾸기
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleUnpair(id, members)}
+                                                    className="flex items-center justify-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-bold text-slate-600 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                                                >
+                                                    <Unlink size={14} /> 짝 해제
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 );
