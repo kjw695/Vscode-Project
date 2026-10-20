@@ -5,6 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAdminData } from './contexts/DataContext';
 
 const DEFAULT_PATTERN = '주 5일';
+const getTeamRegion = (team) => team?.region || '기본 지역';
+const getTeamLabel = (team) => team ? getTeamRegion(team) + ' · ' + team.name : '미배정';
 
 export default function EmployeeManager({ onBack }) {
     const { profile } = useAuth();
@@ -38,7 +40,7 @@ export default function EmployeeManager({ onBack }) {
             employee,
             type,
             assignedRoutes,
-            teamName: teams.find((team) => String(team.id) === String(employee.team_id))?.name || '미배정',
+            teamName: getTeamLabel(teams.find((team) => String(team.id) === String(employee.team_id))),
             isInactive: employee.active === false
         };
     }), [employees, routes, teams]);
@@ -62,11 +64,15 @@ export default function EmployeeManager({ onBack }) {
     const unassignedBaseCount = employeeRows.filter(({ type, assignedRoutes, isInactive }) => type === 'base' && !isInactive && assignedRoutes.length === 0).length;
     const editingNewEmployee = Boolean(selectedEmployee && !selectedEmployee.id);
 
-    const availableRoutes = useMemo(() => routes.filter((route) =>
-        String(route.team_id) === String(editTeamId) &&
-        (route.assigned_emp_id == null || route.assigned_emp_id === '' ||
-            String(route.assigned_emp_id) === String(selectedEmployee?.id))
-    ), [routes, editTeamId, selectedEmployee]);
+    const teamRoutes = useMemo(() => routes.filter((route) =>
+        String(route.team_id) === String(editTeamId)
+    ), [routes, editTeamId]);
+    const teamsByRegion = useMemo(() => teams.reduce((groups, team) => {
+        const region = getTeamRegion(team);
+        groups[region] = groups[region] || [];
+        groups[region].push(team);
+        return groups;
+    }, {}), [teams]);
 
     const handleOpenModal = (employee) => {
         const safeEmployee = {
@@ -125,8 +131,16 @@ export default function EmployeeManager({ onBack }) {
             type: newType,
             pattern: finalPattern,
             active: selectedEmployee.active !== false,
+            vehicle_number: String(formData.get('vehicle_number') || '').trim(),
             target: newType === 'sub' ? String(formData.get('target') || '').trim() : ''
         };
+
+        const selectedRoute = routes.find((route) => String(route.id) === routeId);
+        if (newType === 'base' && selectedRoute && selectedRoute.assigned_emp_id != null &&
+            String(selectedRoute.assigned_emp_id) !== String(employeeId)) {
+            const currentDriver = employees.find((employee) => String(employee.id) === String(selectedRoute.assigned_emp_id));
+            if (!window.confirm(selectedRoute.name + ' 노선은 현재 ' + (currentDriver?.name || '다른 직원') + '에게 배정되어 있습니다. 이 직원에게 옮길까요?')) return;
+        }
 
         if (editingNewEmployee) {
             setEmployees((previous) => [...previous, updatedData]);
@@ -284,34 +298,54 @@ export default function EmployeeManager({ onBack }) {
                         </div>
 
                         <form onSubmit={handleSaveEmployee} className="space-y-4 overflow-y-auto p-4 sm:p-5">
-                            <div>
-                                <label className="mb-1 block text-xs font-black text-gray-600">직원 이름</label>
-                                <input name="name" required defaultValue={selectedEmployee.name || ''} placeholder="예: 김민수" className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 font-semibold outline-none focus:border-indigo-500" />
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                                <div className="min-w-0">
+                                    <label className="mb-1 block text-xs font-black text-gray-600">이름</label>
+                                    <input name="name" required defaultValue={selectedEmployee.name || ''} placeholder="이름" className="w-full rounded-xl border border-gray-200 bg-gray-50 px-2.5 py-3 text-sm font-semibold outline-none focus:border-indigo-500" />
+                                </div>
                                 <div>
-                                    <label className="mb-1 block text-xs font-black text-gray-600">소속 팀</label>
-                                    <select name="team_id" value={editTeamId} onChange={(event) => { setEditTeamId(event.target.value); setEditRouteId(''); }} className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-indigo-500">
-                                        {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+                                    <label className="mb-1 block truncate text-xs font-black text-gray-600">소속 팀</label>
+                                    <select name="team_id" value={editTeamId} onChange={(event) => { setEditTeamId(event.target.value); setEditRouteId(''); }} className="w-full rounded-xl border border-gray-200 bg-gray-50 px-2.5 py-3 text-sm font-semibold outline-none focus:border-indigo-500">
+                                        {Object.entries(teamsByRegion).map(([region, regionTeams]) => (
+                                            <optgroup key={region} label={region}>
+                                                {regionTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+                                            </optgroup>
+                                        ))}
                                     </select>
                                 </div>
                                 <div>
                                     <label className="mb-1 block text-xs font-black text-gray-600">구분</label>
-                                    <select name="type" value={editType} onChange={(event) => setEditType(event.target.value)} className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-indigo-500">
+                                    <select name="type" value={editType} onChange={(event) => setEditType(event.target.value)} className="w-full rounded-xl border border-gray-200 bg-gray-50 px-2.5 py-3 text-sm font-semibold outline-none focus:border-indigo-500">
                                         <option value="base">고정</option>
                                         <option value="sub">백업</option>
                                     </select>
                                 </div>
                             </div>
 
+                            <div>
+                                <label className="mb-1 block text-xs font-black text-gray-600">차량번호</label>
+                                <input name="vehicle_number" defaultValue={selectedEmployee.vehicle_number || selectedEmployee.vehicleNumber || ''} placeholder="예: 12가 3456" className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-indigo-500" />
+                            </div>
+
                             {editType === 'base' && (
                                 <div>
-                                    <label className="mb-1 block text-xs font-black text-gray-600">담당 노선 바로 배정 (선택)</label>
+                                    <label className="mb-1 block text-xs font-black text-gray-600">담당 노선 배정 (전체 노선 표시)</label>
                                     <select name="route_id" value={editRouteId} onChange={(event) => setEditRouteId(event.target.value)} className="w-full rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-3 text-sm font-semibold outline-none focus:border-indigo-500">
                                         <option value="">노선 배정 안 함</option>
-                                        {availableRoutes.map((route) => <option key={route.id} value={route.id}>{route.name} {route.description ? '· ' + route.description : ''}</option>)}
+                                        {teamRoutes.map((route) => {
+                                            const assignedEmployee = employees.find((employee) => String(employee.id) === String(route.assigned_emp_id));
+                                            return <option key={route.id} value={route.id}>{route.name} · {assignedEmployee ? assignedEmployee.name + ' 배정됨' : '미배정'}</option>;
+                                        })}
                                     </select>
+                                    <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                                        {teamRoutes.map((route) => {
+                                            const assignedEmployee = employees.find((employee) => String(employee.id) === String(route.assigned_emp_id));
+                                            return <span key={route.id} className={'truncate rounded-lg px-2 py-1.5 text-[11px] font-bold ' + (assignedEmployee ? 'bg-slate-100 text-slate-600' : 'bg-emerald-50 text-emerald-700')} title={route.name + ' · ' + (assignedEmployee ? assignedEmployee.name : '미배정')}>
+                                                {route.name} · {assignedEmployee ? assignedEmployee.name : '미배정'}
+                                            </span>;
+                                        })}
+                                    </div>
+                                    {teamRoutes.length === 0 && <p className="mt-2 text-xs text-amber-700">선택한 팀에 등록된 노선이 없습니다.</p>}
                                 </div>
                             )}
 
