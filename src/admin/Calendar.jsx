@@ -562,12 +562,31 @@ export default function Calendar({ onBack }) {
 
         const nextSchedule = { ...generatedSchedule, [dateKey]: updatedRecord };
         setGeneratedSchedule(nextSchedule);
+        const allCoverageWarnings = [];
+        Object.keys(nextSchedule).forEach(function (scheduledDate) {
+            const scheduledRecord = nextSchedule[scheduledDate];
+            const scheduledOffIds = Array.isArray(scheduledRecord.offEmployeeIds) ? scheduledRecord.offEmployeeIds : [];
+            activeTeamEmployees.filter(function (item) {
+                return getEmployeeType(item) === 'base' &&
+                    scheduledOffIds.some(function (id) { return String(id) === String(item.id); });
+            }).forEach(function (baseEmployee) {
+                const hasBackup = (scheduledRecord.subs || []).some(function (assignment) {
+                    return String(assignment.targetBaseId) === String(baseEmployee.id);
+                });
+                if (!hasBackup) {
+                    allCoverageWarnings.push(
+                        '[백업 인원 확인 필요] ' + scheduledDate + ': ' + baseEmployee.name +
+                        ' 휴무가 지정됐지만 근무 가능한 백업이 없습니다. 백업 인원을 확인하거나 휴무일을 변경하세요.'
+                    );
+                }
+            });
+        });
         setWarnings(function (previousWarnings) {
             const otherWarnings = previousWarnings.filter(function (warning) {
                 return !String(warning).startsWith('[인력 부족]') &&
                     !String(warning).startsWith('[백업 인원 확인 필요]');
             });
-            return Array.from(new Set(otherWarnings.concat(coverageWarnings)));
+            return Array.from(new Set(otherWarnings.concat(allCoverageWarnings)));
         });
         setScheduleStatus('generated');
         setSavedRecord(null);
@@ -817,7 +836,7 @@ export default function Calendar({ onBack }) {
                                                     <th scope="row" className="sticky z-20 w-[104px] min-w-[104px] max-w-[104px] border-b border-r border-slate-100 bg-white px-2 py-3 text-left font-bold group-hover:bg-indigo-50 md:w-[140px] md:min-w-[140px] md:max-w-[140px] md:px-3" style={{ left: 0 }}>
                                                         <div>{employee.name}</div>
                                                         <div className={'mt-1 text-[10px] font-bold ' + (getEmployeeType(employee) === 'sub' ? 'text-amber-600' : 'text-indigo-600')}>
-                                                            {getEmployeeType(employee) === 'sub' ? '대체 직원' : '고정 직원'}
+                                                            {getEmployeeType(employee) === 'sub' ? '백업' : '고정'}
                                                         </div>
                                                     </th>
                                                     <td className="sticky z-20 w-[56px] min-w-[56px] max-w-[56px] border-b border-r border-slate-100 bg-white px-1 py-3 text-center text-[10px] font-semibold text-slate-500 group-hover:bg-indigo-50 md:w-[88px] md:min-w-[88px] md:max-w-[88px] md:px-3 md:text-xs" style={{ left: 'var(--schedule-name-width)' }}>
@@ -859,7 +878,7 @@ export default function Calendar({ onBack }) {
                             <div className="mb-4 flex items-center justify-between">
                                 <div>
                                     <h3 className="font-black">월간 휴무 분포</h3>
-                                    <p className="mt-1 text-xs text-slate-500">날짜를 선택하면 휴무자와 대체 배정 내역을 확인합니다.</p>
+                                    <p className="mt-1 text-xs text-slate-500">날짜를 선택하면 휴무자와 백업 배정 내역을 확인합니다.</p>
                                 </div>
                                 <div className="flex items-center gap-1">
                                     <button onClick={function () { handleMonthChange(-1); }} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="이전 달">
@@ -899,7 +918,7 @@ export default function Calendar({ onBack }) {
                                             {dayRecord ? (
                                                 <>
                                                     <span className="mt-auto rounded-md bg-rose-50 px-1.5 py-1 text-[10px] font-bold text-rose-700 md:text-xs">휴무 {count}</span>
-                                                    {dayRecord.subs && dayRecord.subs.length > 0 && <span className="mt-1 rounded-md bg-amber-50 px-1.5 py-1 text-[10px] font-bold text-amber-700 md:text-xs">대체 {dayRecord.subs.length}</span>}
+                                                    {dayRecord.subs && dayRecord.subs.length > 0 && <span className="mt-1 rounded-md bg-amber-50 px-1.5 py-1 text-[10px] font-bold text-amber-700 md:text-xs">백업 {dayRecord.subs.length}</span>}
                                                     {isError && <span className="mt-1 text-[10px] font-bold text-rose-600">인력 확인</span>}
                                                 </>
                                             ) : (
