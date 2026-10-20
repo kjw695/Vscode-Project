@@ -203,7 +203,12 @@ export default function Calendar({ onBack }) {
                 });
                 if (Object.keys(migratedWeek).length > 0) {
                     setGeneratedSchedule(migratedWeek);
-                    setWarnings(legacyRecord.warnings || []);
+                    const migratedWarnings = (legacyRecord.warnings || []).filter(function (warning) {
+                        return weekDates.some(function (date) {
+                            return String(warning).indexOf(formatDate(date)) >= 0;
+                        });
+                    });
+                    setWarnings(migratedWarnings);
                     setSavedRecord(null);
                     setScheduleStatus('generated');
                     return;
@@ -532,7 +537,7 @@ export default function Calendar({ onBack }) {
                                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                             >
                                 {scheduleStatus === 'processing' ? <RotateCcw size={17} className="animate-spin" /> : <Play size={17} />}
-                                자동 생성
+                                선택 주 자동 생성
                             </button>
                             <button
                                 onClick={handleSaveDraft}
