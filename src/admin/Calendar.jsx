@@ -892,11 +892,11 @@ export default function Calendar({ onBack }) {
                             )}
 
                             <div className="schedule-table-scroll max-h-[62vh] w-full overflow-auto md:max-h-[70vh]">
-                                <table className="w-full min-w-[350px] border-separate border-spacing-0 text-[11px] md:min-w-[1120px] md:text-sm">
+                                <table className="w-max min-w-[350px] border-separate border-spacing-0 text-[11px] md:min-w-[900px] md:text-sm">
                                     <thead>
                                         <tr>
                                             <th className="sticky top-0 z-40 w-auto min-w-0 border-b border-r border-slate-200 bg-slate-50 px-2 py-2 text-center text-[10px] font-black whitespace-nowrap md:px-3 md:py-3 md:text-sm" style={{ left: 0 }}>이름</th>
-                                            <th className="sticky top-0 z-40 hidden w-[75px] min-w-[75px] max-w-[75px] border-b border-r border-slate-200 bg-slate-50 px-1 py-3 text-left font-black md:table-cell md:w-[130px] md:min-w-[130px] md:max-w-[130px] md:px-3" style={{ left: 'var(--schedule-name-width)' }}>노선</th>
+                                            <th className="sticky top-0 z-30 hidden w-[75px] min-w-[75px] max-w-[75px] border-b border-r border-slate-200 bg-slate-50 px-1 py-3 text-left font-black md:table-cell md:w-[130px] md:min-w-[130px] md:max-w-[130px] md:px-3">노선</th>
                                             {weekDates.map(function (date) {
                                                 const isOutside = date.getMonth() + 1 !== month || date.getFullYear() !== year;
                                                 return (
@@ -915,7 +915,7 @@ export default function Calendar({ onBack }) {
                                                     <th scope="row" className={'sticky left-0 z-20 w-auto min-w-0 whitespace-nowrap border-b border-r border-slate-100 px-2 py-2 text-center font-bold md:px-3 md:py-3 ' + (routes.some(function (route) { return String(route.assigned_emp_id) === String(employee.id); }) ? 'bg-white' : 'bg-amber-50')} style={{ left: 0 }}>
                                                         <span className="inline-block text-[11px] md:text-sm">{employee.name}</span>
                                                     </th>
-                                                    <td className={'sticky z-20 hidden w-[75px] min-w-[75px] max-w-[75px] border-b border-r border-slate-100 px-1 py-3 text-left text-[10px] font-semibold text-slate-600 group-hover:bg-indigo-50 md:table-cell md:w-[130px] md:min-w-[130px] md:max-w-[130px] md:px-3 md:text-xs ' + (routes.some(function (route) { return String(route.assigned_emp_id) === String(employee.id); }) ? 'bg-white' : 'bg-amber-50')} style={{ left: 'var(--schedule-name-width)' }}>
+                                                    <td className={'hidden w-[75px] min-w-[75px] max-w-[75px] border-b border-r border-slate-100 px-1 py-3 text-left text-[10px] font-semibold text-slate-600 md:table-cell md:w-[130px] md:min-w-[130px] md:max-w-[130px] md:px-3 md:text-xs ' + (routes.some(function (route) { return String(route.assigned_emp_id) === String(employee.id); }) ? 'bg-white' : 'bg-amber-50')}>
                                                         <span className="block max-w-full truncate" title={getEmployeeRoute(employee, routes)}>{getEmployeeRoute(employee, routes)}</span>
                                                     </td>
                                                     {weekDates.map(function (date) {
