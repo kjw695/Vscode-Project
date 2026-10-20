@@ -664,7 +664,7 @@ export default function Calendar({ onBack }) {
 
             <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-2 p-2 sm:gap-4 sm:p-3 md:gap-5 md:p-6">
                 <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
-                    <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+                    <div className="flex flex-col items-center gap-4 lg:flex-row lg:justify-center">
                         <div>
                             <div className="flex items-center gap-2">
                                 <button onClick={function () { handleMonthChange(-1); }} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="이전 달">
@@ -679,7 +679,7 @@ export default function Calendar({ onBack }) {
                                 주간 범위: {formatDate(weekDates[0])} ~ {formatDate(weekDates[6])}
                             </p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center justify-center gap-2">
                             <button
                                 onClick={handleStartAutoSchedule}
                                 disabled={scheduleStatus === 'processing' || activeTeamEmployees.length === 0}
@@ -716,7 +716,7 @@ export default function Calendar({ onBack }) {
                     </div>
                 </section>
 
-                <section className="grid grid-cols-3 gap-2 sm:gap-3">
+                <section className="mx-auto grid w-full max-w-4xl grid-cols-3 gap-2 sm:gap-3">
                     <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-2 shadow-sm sm:rounded-2xl sm:p-4">
                         <div className="flex min-w-0 items-center gap-1 text-[10px] font-bold text-slate-500 sm:gap-2 sm:text-sm"><Users size={14} className="shrink-0" /><span className="truncate">활성 직원</span></div>
                         <div className="mt-1.5 text-xl font-black sm:mt-2 sm:text-2xl">{activeTeamEmployees.length}<span className="ml-0.5 text-[10px] font-semibold text-slate-400 sm:ml-1 sm:text-sm">명</span></div>
@@ -733,7 +733,7 @@ export default function Calendar({ onBack }) {
                     </div>
                 </section>
 
-                <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <section className="mx-auto w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                     <div className="flex flex-col items-center gap-3 border-b border-slate-200 p-3 md:p-4">
                         <div className="mx-auto inline-flex w-fit justify-center rounded-xl bg-slate-100 p-1">
                             <button onClick={function () { setView('weekly'); }} className={'rounded-lg px-4 py-2 text-sm font-bold transition ' + (view === 'weekly' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800')}>
@@ -795,6 +795,10 @@ export default function Calendar({ onBack }) {
                                     <ul className="max-h-32 space-y-1 overflow-y-auto text-xs leading-5 text-rose-700">
                                         {warnings.map(function (warning, index) { return <li key={index}>• {warning}</li>; })}
                                     </ul>
+                                    <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-rose-200 bg-white p-2 text-xs font-bold leading-5 text-slate-700">
+                                        <input type="checkbox" checked={warningsAcknowledged} onChange={function (event) { setWarningsAcknowledged(event.target.checked); }} className="mt-1 h-4 w-4 shrink-0 accent-rose-600" />
+                                        <span>위 경고를 확인했습니다. 백업이 없는 경우에도 휴무는 유지되며, 인력 보완 또는 일정 조정이 필요함을 확인했습니다.</span>
+                                    </label>
                                 </div>
                             )}
 
@@ -820,14 +824,8 @@ export default function Calendar({ onBack }) {
                                         {filteredEmployees.map(function (employee) {
                                             return (
                                                 <tr key={employee.id} className="group">
-                                                    <th scope="row" className="sticky z-20 w-[84px] min-w-[84px] max-w-[84px] border-b border-r border-slate-100 bg-white px-1 py-2 text-left font-bold group-hover:bg-indigo-50 md:w-[140px] md:min-w-[140px] md:max-w-[140px] md:px-3 md:py-3" style={{ left: 0 }}>
+                                                    <th scope="row" className={'sticky z-20 w-[84px] min-w-[84px] max-w-[84px] border-b border-r border-slate-100 px-1 py-2 text-left font-bold group-hover:bg-indigo-50 md:w-[140px] md:min-w-[140px] md:max-w-[140px] md:px-3 md:py-3 ' + (routes.some(function (route) { return String(route.assigned_emp_id) === String(employee.id); }) ? 'bg-white' : 'bg-amber-50')} style={{ left: 0 }}>
                                                         <div className="truncate text-[11px] md:text-sm">{employee.name}</div>
-                                                        <div className={'mt-0.5 text-[9px] font-bold md:mt-1 md:text-[10px] ' + (getEmployeeType(employee) === 'sub' ? 'text-amber-600' : 'text-indigo-600')}>
-                                                            {getEmployeeType(employee) === 'sub' ? '백업' : '고정'}
-                                                        </div>
-                                                        <div className="mt-0.5 max-w-full truncate text-[8px] font-medium text-slate-400 md:hidden">
-                                                            {(teams.find(function (team) { return String(team.id) === String(employee.team_id); }) || {}).name || '미배정'} · {getEmployeeRoute(employee, routes)}
-                                                        </div>
                                                     </th>
                                                     <td className="sticky z-20 hidden w-[44px] min-w-[44px] max-w-[44px] border-b border-r border-slate-100 bg-white px-1 py-3 text-center text-[10px] font-semibold text-slate-500 group-hover:bg-indigo-50 md:table-cell md:w-[88px] md:min-w-[88px] md:max-w-[88px] md:px-3 md:text-xs" style={{ left: 'var(--schedule-name-width)' }}>
                                                         {(teams.find(function (team) { return String(team.id) === String(employee.team_id); }) || {}).name || '미배정'}
