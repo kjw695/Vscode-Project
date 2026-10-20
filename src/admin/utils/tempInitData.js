@@ -7,9 +7,9 @@ export default function useTempInitData(teams, setTeams, employees, setEmployees
         if (teams.length === 0 && employees.length === 0 && routes.length === 0) {
             
             setTeams([
-                { id: 'T1', name: '청주팀' },
-                { id: 'T2', name: '대전팀' },
-                { id: 'T3', name: '세종팀' }
+                { id: 'T1', name: '청주팀', region: '충청권' },
+                { id: 'T2', name: '대전팀', region: '충청권' },
+                { id: 'T3', name: '세종팀', region: '충청권' }
             ]);
             
             setEmployees([
