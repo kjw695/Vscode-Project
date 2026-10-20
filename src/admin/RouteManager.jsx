@@ -1,6 +1,6 @@
 // src/admin/RouteManager.jsx
 import React, { useMemo, useState } from 'react';
-import { Map, ArrowLeft, Truck, Plus, Trash2, X, CheckCircle2, ChevronDown, ChevronUp, UserRound } from 'lucide-react';
+import { ArrowLeft, Truck, Plus, Trash2, X, CheckCircle2, ChevronDown, ChevronUp, UserRound, Search } from 'lucide-react';
 import { useAdminData } from './contexts/DataContext';
 
 export default function RouteManager({ onBack }) {
@@ -9,6 +9,7 @@ export default function RouteManager({ onBack }) {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [expandedRouteId, setExpandedRouteId] = useState(null);
     const [notice, setNotice] = useState('');
+    const [search, setSearch] = useState('');
 
     const filteredRoutes = useMemo(
         () => routes.filter((route) => String(route.team_id) === String(selectedTeam)),
@@ -23,6 +24,17 @@ export default function RouteManager({ onBack }) {
         ),
         [employees, selectedTeam]
     );
+    const visibleRoutes = useMemo(() => {
+        const keyword = search.trim().toLowerCase();
+        if (!keyword) return filteredRoutes;
+        return filteredRoutes.filter((route) => {
+            const assignedEmployee = employees.find((employee) => String(employee.id) === String(route.assigned_emp_id));
+            return [route.name, route.description, assignedEmployee?.name]
+                .filter(Boolean)
+                .some((value) => String(value).toLowerCase().includes(keyword));
+        });
+    }, [filteredRoutes, employees, search]);
+    const assignedRouteCount = filteredRoutes.filter((route) => route.assigned_emp_id != null && route.assigned_emp_id !== '').length;
 
     const handleAssign = (routeId, employeeId) => {
         const targetRoute = routes.find((route) => String(route.id) === String(routeId));
@@ -76,7 +88,7 @@ export default function RouteManager({ onBack }) {
                     <button onClick={onBack} className="rounded-full p-2 text-gray-600 hover:bg-gray-100" aria-label="관리자 화면으로 돌아가기"><ArrowLeft size={22} /></button>
                     <div className="min-w-0">
                         <h1 className="truncate text-lg font-black sm:text-xl">노선 배치</h1>
-                        <p className="text-xs text-slate-500">노선을 누른 뒤 직원을 선택해 즉시 배정</p>
+                        <p className="text-xs text-slate-500">전체 배치 현황을 보고 노선을 눌러 담당자를 바꾸세요</p>
                     </div>
                 </div>
                 <button onClick={() => setIsAddModalOpen(true)} className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-black text-white">
@@ -86,26 +98,46 @@ export default function RouteManager({ onBack }) {
 
             <div className="flex gap-2 overflow-x-auto border-b border-gray-200 bg-white px-3 py-2 sm:px-4">
                 {teams.map((team) => (
-                    <button key={team.id} onClick={() => { setSelectedTeam(team.id); setExpandedRouteId(null); }}
+                    <button key={team.id} onClick={() => { setSelectedTeam(team.id); setExpandedRouteId(null); setSearch(''); }}
                         className={'shrink-0 rounded-lg px-3 py-2 text-xs font-black ' + (String(selectedTeam) === String(team.id) ? 'bg-indigo-50 text-indigo-700' : 'text-gray-500 hover:bg-gray-50')}>
                         {team.name}
                     </button>
                 ))}
             </div>
 
-            <main className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 content-start gap-3 p-3 pb-6 sm:p-4 md:grid-cols-2 xl:grid-cols-3">
+            <main className="mx-auto w-full max-w-6xl flex-1 p-3 pb-6 sm:p-4">
                 {notice && (
-                    <div className="col-span-full flex items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
+                    <div className="mb-3 flex items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
                         <span>{notice}</span>
                         <button onClick={() => setNotice('')} className="p-1" aria-label="알림 닫기"><X size={14} /></button>
                     </div>
                 )}
 
-                {filteredRoutes.map((route) => {
+                <section className="mb-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <h2 className="text-sm font-black text-slate-800">노선 현황</h2>
+                            <p className="mt-0.5 text-xs text-slate-500">카드를 누르면 담당 직원을 바로 변경할 수 있습니다.</p>
+                        </div>
+                        <span className="shrink-0 rounded-lg bg-indigo-50 px-2 py-1 text-xs font-black text-indigo-700">{filteredRoutes.length}개</span>
+                    </div>
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                        <div className="rounded-xl bg-slate-50 p-2"><p className="text-lg font-black text-slate-800">{filteredRoutes.length}</p><p className="text-[10px] font-bold text-slate-500">전체 노선</p></div>
+                        <div className="rounded-xl bg-emerald-50 p-2"><p className="text-lg font-black text-emerald-700">{assignedRouteCount}</p><p className="text-[10px] font-bold text-emerald-700">배정 완료</p></div>
+                        <div className="rounded-xl bg-amber-50 p-2"><p className="text-lg font-black text-amber-700">{filteredRoutes.length - assignedRouteCount}</p><p className="text-[10px] font-bold text-amber-700">배정 필요</p></div>
+                    </div>
+                    <label className="mt-3 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                        <Search size={16} className="shrink-0 text-slate-400" />
+                        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="노선 또는 직원 이름 검색" className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400" />
+                    </label>
+                </section>
+
+                <div className="grid grid-cols-2 content-start gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">
+                {visibleRoutes.map((route) => {
                     const assignedEmployee = employees.find((employee) => String(employee.id) === String(route.assigned_emp_id));
                     const expanded = String(expandedRouteId) === String(route.id);
                     return (
-                        <section key={route.id} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                        <section key={route.id} className={'overflow-hidden rounded-xl border bg-white shadow-sm transition-colors ' + (expanded ? 'col-span-2 border-indigo-300 ring-1 ring-indigo-100 sm:col-span-2 lg:col-span-3 xl:col-span-4' : assignedEmployee ? 'border-slate-200 hover:border-indigo-200' : 'border-amber-200 hover:border-amber-300')}>
                             <div role="button" tabIndex={0}
                                 onClick={() => setExpandedRouteId(expanded ? null : route.id)}
                                 onKeyDown={(event) => {
@@ -114,18 +146,18 @@ export default function RouteManager({ onBack }) {
                                         setExpandedRouteId(expanded ? null : route.id);
                                     }
                                 }}
-                                className="flex w-full cursor-pointer items-center justify-between gap-3 p-3 text-left hover:bg-slate-50 sm:p-4">
+                                className="flex w-full cursor-pointer items-start justify-between gap-2 p-2.5 text-left hover:bg-slate-50 sm:p-3">
                                 <span className="flex min-w-0 items-start gap-2">
-                                    <span className="rounded-lg bg-blue-50 p-2 text-blue-600"><Truck size={17} /></span>
+                                    <span className={'rounded-lg p-1.5 ' + (assignedEmployee ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600')}><Truck size={16} /></span>
                                     <span className="min-w-0">
-                                        <span className="block truncate font-black">{route.name}</span>
-                                        <span className="mt-0.5 block truncate text-xs text-slate-500">{route.description || '구역 설명 없음'}</span>
-                                        <span className={'mt-1.5 inline-flex rounded-full px-2 py-1 text-[11px] font-bold ' + (assignedEmployee ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700')}>
-                                            {assignedEmployee ? '고정 · ' + assignedEmployee.name : '미배정'}
+                                        <span className="block truncate text-sm font-black">{route.name}</span>
+                                        <span className="mt-0.5 block truncate text-[11px] text-slate-500">{route.description || '구역 설명 없음'}</span>
+                                        <span className={'mt-1.5 inline-flex max-w-full truncate rounded-full px-2 py-1 text-[10px] font-bold ' + (assignedEmployee ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700')}>
+                                            {assignedEmployee ? assignedEmployee.name : '배정 필요'}
                                         </span>
                                     </span>
                                 </span>
-                                <span className="flex shrink-0 items-center gap-2 text-slate-400">
+                                <span className="flex shrink-0 items-center gap-1 text-slate-400">
                                     {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                                     <span onClick={(event) => event.stopPropagation()} className="rounded-lg p-1 hover:bg-red-50 hover:text-red-500">
                                         <button type="button" onClick={() => handleDeleteRoute(route.id)} aria-label={route.name + ' 삭제'}><Trash2 size={16} /></button>
@@ -153,10 +185,11 @@ export default function RouteManager({ onBack }) {
                         </section>
                     );
                 })}
+                </div>
 
-                {filteredRoutes.length === 0 && (
-                    <div className="col-span-full rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-slate-500">
-                        이 팀에 등록된 노선이 없습니다. 위의 노선 추가를 눌러 등록하세요.
+                {visibleRoutes.length === 0 && (
+                    <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-slate-500">
+                        {filteredRoutes.length === 0 ? '이 팀에 등록된 노선이 없습니다. 위의 노선 추가를 눌러 등록하세요.' : '검색 조건에 맞는 노선이 없습니다.'}
                     </div>
                 )}
             </main>
