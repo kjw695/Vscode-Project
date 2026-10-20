@@ -30,6 +30,8 @@ export default function EmployeeManager({ onBack }) {
     const [isBiweekly, setIsBiweekly] = useState(false);
     const [hasFixedOffDays, setHasFixedOffDays] = useState(false);
     const [fixedOffWeekdays, setFixedOffWeekdays] = useState([]);
+    const [fixedOffWeekdaysShortWeek, setFixedOffWeekdaysShortWeek] = useState([]);
+    const [fixedOffWeekdaysLongWeek, setFixedOffWeekdaysLongWeek] = useState([]);
     const [editType, setEditType] = useState('base');
     const [editTeamId, setEditTeamId] = useState(teams[0]?.id || '');
     const [editRouteIds, setEditRouteIds] = useState([]);
@@ -90,11 +92,21 @@ export default function EmployeeManager({ onBack }) {
         };
         setSelectedEmployee(safeEmployee);
         setIsBiweekly(String(safeEmployee.pattern).includes('격주'));
-        const savedFixedOffWeekdays = Array.isArray(safeEmployee.fixedOffWeekdays)
-            ? [...new Set(safeEmployee.fixedOffWeekdays.map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))]
+        const normalizeWeekdays = (days) => Array.isArray(days)
+            ? [...new Set(days.map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))].sort((a, b) => a - b)
             : [];
+        const savedFixedOffWeekdays = normalizeWeekdays(safeEmployee.fixedOffWeekdays);
+        const savedFixedOffByWeek = safeEmployee.fixedOffWeekdaysByWeek || {};
         setFixedOffWeekdays(savedFixedOffWeekdays);
-        setHasFixedOffDays(Boolean(safeEmployee.hasFixedOffDays || savedFixedOffWeekdays.length > 0));
+        setFixedOffWeekdaysShortWeek(normalizeWeekdays(
+            Array.isArray(savedFixedOffByWeek.shortWeek) ? savedFixedOffByWeek.shortWeek : savedFixedOffWeekdays
+        ));
+        setFixedOffWeekdaysLongWeek(normalizeWeekdays(
+            Array.isArray(savedFixedOffByWeek.longWeek) ? savedFixedOffByWeek.longWeek : savedFixedOffWeekdays
+        ));
+        setHasFixedOffDays(Boolean(safeEmployee.hasFixedOffDays || savedFixedOffWeekdays.length > 0 ||
+            normalizeWeekdays(savedFixedOffByWeek.shortWeek).length > 0 ||
+            normalizeWeekdays(savedFixedOffByWeek.longWeek).length > 0));
         const match = String(safeEmployee.pattern).match(/[1-6]/);
         setWorkDays(match ? Number(match[0]) : 5);
         setEditType(safeEmployee.type);
@@ -125,6 +137,8 @@ export default function EmployeeManager({ onBack }) {
         setIsBiweekly(false);
         setHasFixedOffDays(false);
         setFixedOffWeekdays([]);
+        setFixedOffWeekdaysShortWeek([]);
+        setFixedOffWeekdaysLongWeek([]);
         setEditType(defaultType);
         setEditTeamId(teams[0]?.id || '');
         setEditRouteIds([]);
@@ -141,7 +155,10 @@ export default function EmployeeManager({ onBack }) {
             window.alert('직원 이름을 입력해주세요.');
             return;
         }
-        if (hasFixedOffDays && fixedOffWeekdays.length === 0) {
+        const hasAnyFixedWeekday = isBiweekly
+            ? fixedOffWeekdaysShortWeek.length > 0 || fixedOffWeekdaysLongWeek.length > 0
+            : fixedOffWeekdays.length > 0;
+        if (hasFixedOffDays && !hasAnyFixedWeekday) {
             window.alert('고정 휴무를 사용하려면 쉬는 요일을 하나 이상 선택해주세요.');
             return;
         }
@@ -159,7 +176,11 @@ export default function EmployeeManager({ onBack }) {
             type: newType,
             pattern: finalPattern,
             hasFixedOffDays,
-            fixedOffWeekdays: hasFixedOffDays ? [...fixedOffWeekdays].sort((a, b) => a - b) : [],
+            fixedOffWeekdays: hasFixedOffDays && !isBiweekly ? [...fixedOffWeekdays].sort((a, b) => a - b) : [],
+            fixedOffWeekdaysByWeek: hasFixedOffDays && isBiweekly ? {
+                shortWeek: [...fixedOffWeekdaysShortWeek].sort((a, b) => a - b),
+                longWeek: [...fixedOffWeekdaysLongWeek].sort((a, b) => a - b)
+            } : null,
             active: selectedEmployee.active !== false,
             vehicle_number: String(formData.get('vehicle_number') || '').trim(),
             target: newType === 'sub' ? String(formData.get('target') || '').trim() : ''
@@ -354,7 +375,7 @@ export default function EmployeeManager({ onBack }) {
 
             {selectedEmployee && (
                 <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/50 px-3 pt-[max(12px,env(safe-area-inset-top))] pb-3">
-                    <div className="flex max-h-[calc(100dvh-32px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+                    <div className="flex h-[calc(100dvh-32px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
                         <div className="flex items-center justify-between gap-3 border-b p-4">
                             <h2 className="flex items-center gap-2 font-black">
                                 {editingNewEmployee ? <Plus size={18} /> : <Users size={18} />}
@@ -363,7 +384,7 @@ export default function EmployeeManager({ onBack }) {
                             <button onClick={() => setSelectedEmployee(null)} className="rounded-lg p-1 text-gray-400"><X size={22} /></button>
                         </div>
 
-                        <form onSubmit={handleSaveEmployee} className="space-y-4 overflow-y-auto p-4 sm:p-5">
+                        <form onSubmit={handleSaveEmployee} className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
                             <div className="grid grid-cols-3 gap-2 sm:gap-3">
                                 <div className="min-w-0">
                                     <label className="mb-1 block text-xs font-black text-gray-600">이름</label>
@@ -472,37 +493,83 @@ export default function EmployeeManager({ onBack }) {
                                     <span className="text-sm font-black text-slate-700">고정 휴무가 있어요</span>
                                 </label>
                                 {hasFixedOffDays && (
-                                    <div className="mt-3 border-t border-slate-100 pt-3">
-                                        <p className="mb-2 text-xs leading-5 text-slate-500">매주 쉬는 요일을 선택하세요. 선택한 요일은 자동 근무표에서도 휴무로 고정됩니다.</p>
-                                        <div className="grid grid-cols-7 gap-1">
-                                            {WEEKDAYS.map((day, weekdayIndex) => {
-                                                const isSelected = fixedOffWeekdays.includes(weekdayIndex);
-                                                return (
-                                                    <button
-                                                        key={day}
-                                                        type="button"
-                                                        aria-pressed={isSelected}
-                                                        onClick={() => setFixedOffWeekdays((previous) =>
-                                                            isSelected
-                                                                ? previous.filter((value) => value !== weekdayIndex)
-                                                                : [...previous, weekdayIndex].sort((a, b) => a - b)
-                                                        )}
-                                                        className={'min-w-0 rounded-lg border px-1 py-2.5 text-sm font-black transition-colors ' + (
-                                                            isSelected
-                                                                ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
-                                                                : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-indigo-300'
-                                                        )}
-                                                    >
-                                                        {day}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                        <p className="mt-2 text-xs font-bold text-indigo-700">
-                                            {fixedOffWeekdays.length > 0
-                                                ? WEEKDAYS.filter((_, dayIndex) => fixedOffWeekdays.includes(dayIndex)).join(' · ') + '요일 고정 휴무'
-                                                : '쉬는 요일을 선택해주세요.'}
+                                    <div className="mt-3 space-y-3 border-t border-slate-100 pt-3">
+                                        <p className="text-xs leading-5 text-slate-500">
+                                            {isBiweekly
+                                                ? '격주 두 주의 쉬는 요일을 각각 선택하세요. 선택한 요일은 자동 근무표에서도 해당 주에 고정 휴무로 적용됩니다.'
+                                                : '매주 쉬는 요일을 선택하세요. 선택한 요일은 자동 근무표에서도 휴무로 고정됩니다.'}
                                         </p>
+                                        {isBiweekly ? (
+                                            <>
+                                                {[
+                                                    { key: 'shortWeek', title: workDays + '일 근무 주', days: fixedOffWeekdaysShortWeek, setter: setFixedOffWeekdaysShortWeek },
+                                                    { key: 'longWeek', title: (workDays + 1) + '일 근무 주', days: fixedOffWeekdaysLongWeek, setter: setFixedOffWeekdaysLongWeek }
+                                                ].map((week) => (
+                                                    <div key={week.key} className="rounded-lg border border-slate-200 bg-white p-2.5">
+                                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                                            <span className="text-xs font-black text-slate-700">{week.title}</span>
+                                                            <span className="text-[10px] font-bold text-indigo-600">{week.days.length ? WEEKDAYS.filter((_, dayIndex) => week.days.includes(dayIndex)).join(' · ') + ' 휴무' : '고정 요일 없음'}</span>
+                                                        </div>
+                                                        <div className="grid grid-cols-7 gap-1">
+                                                            {WEEKDAYS.map((day, weekdayIndex) => {
+                                                                const isSelected = week.days.includes(weekdayIndex);
+                                                                return (
+                                                                    <button
+                                                                        key={day}
+                                                                        type="button"
+                                                                        aria-pressed={isSelected}
+                                                                        onClick={() => week.setter((previous) =>
+                                                                            isSelected
+                                                                                ? previous.filter((value) => value !== weekdayIndex)
+                                                                                : [...previous, weekdayIndex].sort((a, b) => a - b)
+                                                                        )}
+                                                                        className={'min-w-0 rounded-lg border px-1 py-2.5 text-sm font-black transition-colors ' + (
+                                                                            isSelected
+                                                                                ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                                                                                : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-indigo-300'
+                                                                        )}
+                                                                    >
+                                                                        {day}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="grid grid-cols-7 gap-1">
+                                                    {WEEKDAYS.map((day, weekdayIndex) => {
+                                                        const isSelected = fixedOffWeekdays.includes(weekdayIndex);
+                                                        return (
+                                                            <button
+                                                                key={day}
+                                                                type="button"
+                                                                aria-pressed={isSelected}
+                                                                onClick={() => setFixedOffWeekdays((previous) =>
+                                                                    isSelected
+                                                                        ? previous.filter((value) => value !== weekdayIndex)
+                                                                        : [...previous, weekdayIndex].sort((a, b) => a - b)
+                                                                )}
+                                                                className={'min-w-0 rounded-lg border px-1 py-2.5 text-sm font-black transition-colors ' + (
+                                                                    isSelected
+                                                                        ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                                                                        : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-indigo-300'
+                                                                )}
+                                                            >
+                                                                {day}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                                <p className="text-xs font-bold text-indigo-700">
+                                                    {fixedOffWeekdays.length > 0
+                                                        ? WEEKDAYS.filter((_, dayIndex) => fixedOffWeekdays.includes(dayIndex)).join(' · ') + '요일 고정 휴무'
+                                                        : '쉬는 요일을 선택해주세요.'}
+                                                </p>
+                                            </>
+                                        )}
                                     </div>
                                 )}
                             </section>
@@ -516,10 +583,23 @@ export default function EmployeeManager({ onBack }) {
                                         </button>
                                     ))}
                                 </div>
-                                <button type="button" onClick={() => setIsBiweekly((value) => !value)} className={'mt-2 w-full rounded-xl border px-3 py-2.5 text-sm font-bold ' + (isBiweekly ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-gray-200 bg-white text-gray-500')}>
+                                <button type="button" onClick={() => setIsBiweekly((value) => {
+                                    if (!value) {
+                                        setFixedOffWeekdaysShortWeek((previous) => previous.length ? previous : [...fixedOffWeekdays]);
+                                        setFixedOffWeekdaysLongWeek((previous) => previous.length ? previous : [...fixedOffWeekdays]);
+                                    } else {
+                                        setFixedOffWeekdays((previous) => fixedOffWeekdaysShortWeek.filter((day) => fixedOffWeekdaysLongWeek.includes(day)));
+                                    }
+                                    return !value;
+                                })} className={'mt-2 w-full rounded-xl border px-3 py-2.5 text-sm font-bold ' + (isBiweekly ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-gray-200 bg-white text-gray-500')}>
                                     {isBiweekly ? '✓ 격주 패턴 적용' : '격주 패턴 적용'}
                                 </button>
                                 <p className="mt-2 text-xs text-gray-500">적용 패턴: <strong>{isBiweekly ? '격주 ' : '주 '}{workDays}일</strong></p>
+                                {isBiweekly && workDays === 6 && (
+                                    <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-800">
+                                        격주 6일은 한 주 6일 근무, 다음 주는 7일 근무 기준(휴무 0일)이 됩니다. 7일 연속 근무는 허용되지 않으므로 고정 휴무를 지정하거나 근무 패턴을 조정하세요. 자동 근무표 생성 시에도 경고가 표시됩니다.
+                                    </div>
+                                )}
                             </div>
 
                             <button type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3.5 font-black text-white hover:bg-indigo-700">
