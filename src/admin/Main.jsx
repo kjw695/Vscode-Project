@@ -19,6 +19,11 @@ function AdminDashboard({ onBack }) {
         let active = true;
         let listenerHandle = null;
         CapacitorApp.addListener('backButton', () => {
+            // 설정 화면에서 편집창/팀 추가 입력창이 열려 있으면 먼저 그 창만 닫습니다.
+            if (typeof window !== 'undefined' && window.__adminSettingsHasOverlay) {
+                window.dispatchEvent(new Event('admin-settings-back'));
+                return;
+            }
             if (currentView !== 'main') {
                 setCurrentView('main');
             } else if (onBack) {
