@@ -11,11 +11,6 @@ function getBiweeklyDays(employee) {
     return getPattern(employee).includes('격주') ? (match ? Number(match[0]) : 5) : null;
 }
 
-function getEmployeeType(employee) {
-    const type = String(employee.type || employee.employee_type || employee.employeeType || '').toLowerCase();
-    return ['sub', 'substitute', 'backup', '대체', '백업'].includes(type) ? 'sub' : 'base';
-}
-
 function getTeamLabel(employee, teams) {
     const team = teams.find((item) => String(item.id) === String(employee.team_id));
     return team ? [team.region, team.name].filter(Boolean).join(' · ') : '미배정';
@@ -80,14 +75,7 @@ export default function BiweeklyPairManager({ onBack }) {
         .map((id) => activeBiweeklyEmployees.find((employee) => String(employee.id) === String(id)))
         .filter(Boolean);
     const selectedPatternDays = selectedEmployees.length ? getBiweeklyDays(selectedEmployees[0]) : null;
-    const selectedPatternType = selectedEmployees.length ? getEmployeeType(selectedEmployees[0]) : null;
-    const selectedSecondPatternDays = selectedEmployees.length === 2 ? getBiweeklyDays(selectedEmployees[1]) : null;
-    const selectedPatternGap = selectedEmployees.length === 2
-        ? Math.abs(selectedPatternDays - selectedSecondPatternDays)
-        : null;
-    const canCreatePair = selectedEmployees.length === 2 &&
-        selectedPatternGap <= 1 &&
-        getEmployeeType(selectedEmployees[1]) === selectedPatternType;
+    const canCreatePair = selectedEmployees.length === 2;
 
     const handleSelectEmployee = (employee) => {
         const id = String(employee.id);
@@ -99,34 +87,22 @@ export default function BiweeklyPairManager({ onBack }) {
             window.alert('한 번에 두 명씩 선택해주세요.');
             return;
         }
-        if (selectedEmployees.length === 1) {
-            const first = selectedEmployees[0];
-            if (Math.abs(getBiweeklyDays(first) - getBiweeklyDays(employee)) > 1) {
-                window.alert('격주 근무 일수가 같거나 1일 차이인 직원끼리 짝을 만들 수 있습니다. 예: 격주 4일과 격주 5일');
-                return;
-            }
-            if (getEmployeeType(first) !== getEmployeeType(employee)) {
-                window.alert('고정 직원끼리 또는 백업 직원끼리 짝을 만들어주세요.');
-                return;
-            }
-        }
         setSelectedIds((previous) => [...previous, id]);
     };
 
     const handleCreatePair = () => {
         if (!canCreatePair) {
-            window.alert('같은 격주 근무 패턴의 직원 두 명을 선택해주세요.');
+            window.alert('격주 근무 직원 두 명을 선택해주세요.');
             return;
         }
         const [first, second] = selectedEmployees;
         const currentWeekIndex = getCurrentStableWeekIndex();
         const firstDays = getBiweeklyDays(first);
         const secondDays = getBiweeklyDays(second);
-        // 같은 패턴이면 첫 번째 직원은 짧은 주, 두 번째는 긴 주로 시작합니다.
-        // 패턴 차이가 1일이면 겹치는 근무일 수(예: 격주 4일의 5일 주와 격주 5일의 5일 주)를 이번 주에 맞춥니다.
-        const firstStartsLong = firstDays < secondDays;
-        const firstOffset = getOffsetForThisWeek(currentWeekIndex, firstStartsLong);
-        const secondOffset = getOffsetForThisWeek(currentWeekIndex, !firstStartsLong);
+        // 짝은 근무일 수를 맞추는 기능이 아니라, 각자의 격주 순서만 반대로 설정합니다.
+        // 첫 번째 선택 직원은 이번 주 짧은 근무 주, 두 번째 직원은 긴 근무 주로 시작합니다.
+        const firstOffset = getOffsetForThisWeek(currentWeekIndex, false);
+        const secondOffset = getOffsetForThisWeek(currentWeekIndex, true);
         const pairId = 'BIWEEKLY_' + Date.now() + '_' + String(first.id) + '_' + String(second.id);
         setEmployees((previous) => previous.map((employee) => {
             if (String(employee.id) === String(first.id)) {
@@ -183,7 +159,7 @@ export default function BiweeklyPairManager({ onBack }) {
                 <section className="rounded-2xl border border-indigo-100 bg-indigo-50 p-3 sm:p-4">
                     <h2 className="text-sm font-black text-indigo-950">짝 만드는 방법</h2>
                     <p className="mt-1 text-xs leading-5 text-indigo-800">
-                        근무 패턴이 같거나 1일 차이인 직원 두 명을 선택하세요. 패턴이 다르면 공통 근무일 수(예: 격주 4일·5일의 5일 주)를 이번 주에 맞추고, 다음 주에는 각자의 반대 근무 주가 적용됩니다.
+                        근무일 수나 직군이 달라도 격주 직원 두 명이면 짝을 맺을 수 있습니다. 첫 번째 직원은 이번 주 짧은 근무 주, 두 번째 직원은 긴 근무 주로 시작하고 다음 주에는 서로 바뀝니다.
                     </p>
                     <div className="mt-3 flex items-center gap-2 rounded-xl bg-white/80 p-2.5 text-xs font-bold text-indigo-900">
                         <CheckCircle2 size={16} className="shrink-0" />
@@ -220,9 +196,7 @@ export default function BiweeklyPairManager({ onBack }) {
                         ) : unpairedEmployees.map((employee) => {
                             const isSelected = selectedIds.includes(String(employee.id));
                             const patternDays = getBiweeklyDays(employee);
-                            const matchesSelected = selectedEmployees.length === 0 ||
-                                (Math.abs(getBiweeklyDays(selectedEmployees[0]) - patternDays) <= 1 &&
-                                    getEmployeeType(selectedEmployees[0]) === getEmployeeType(employee));
+                            const matchesSelected = true;
                             const thisWeekDays = getWorkDaysForWeek(employee, currentWeekIndex);
                             return (
                                 <button
@@ -268,7 +242,7 @@ export default function BiweeklyPairManager({ onBack }) {
                         </button>
                         {selectedEmployees.length === 1 && (
                             <p className="mt-2 text-center text-[11px] text-slate-500">
-                                {selectedEmployees[0].name}님과 근무 패턴이 같거나 1일 차이인 격주 직원을 선택하세요. 같은 직군이어야 합니다.
+                                근무 패턴과 직군에 관계없이 다른 격주 직원 한 명을 더 선택하세요.
                             </p>
                         )}
                     </div>
