@@ -191,13 +191,12 @@ export default function EmployeeManager({ onBack }) {
         const employeeId = selectedEmployee.id || 'EMP_' + Date.now();
 
         const previousPattern = String(selectedEmployee.pattern || selectedEmployee.work_pattern || '');
-        const previousDaysMatch = previousPattern.match(/[1-6]/);
+        // 짝은 근무 일수가 아니라 교대 순서를 연결하므로, 격주를 유지하면 일수가 바뀌어도 짝을 유지합니다.
         const preserveBiweeklyPair = Boolean(
             !editingNewEmployee &&
             selectedEmployee.biweeklyPairId &&
             isBiweekly &&
-            previousPattern.includes('격주') &&
-            Number(previousDaysMatch ? previousDaysMatch[0] : 0) === workDays
+            previousPattern.includes('격주')
         );
         const pairToClear = !editingNewEmployee && selectedEmployee.biweeklyPairId && !preserveBiweeklyPair
             ? selectedEmployee.biweeklyPairId
