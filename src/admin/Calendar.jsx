@@ -592,6 +592,68 @@ export default function Calendar({ onBack }) {
         setSavedRecord(null);
     };
 
+    const handleDownloadScheduleImage = async function () {
+        if (!isScheduleGenerated) {
+            window.alert('먼저 자동 생성으로 주간 근무표를 만들어주세요.');
+            return;
+        }
+        const rows = filteredEmployees;
+        const canvas = document.createElement('canvas');
+        const cellW = 108, nameW = 150, headerH = 64, rowH = 48, pad = 24;
+        canvas.width = pad * 2 + nameW + cellW * weekDates.length;
+        canvas.height = pad * 2 + headerH + rowH * rows.length + 48;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { window.alert('이미지 생성 기능을 사용할 수 없습니다.'); return; }
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#172033'; ctx.font = 'bold 22px sans-serif';
+        ctx.fillText((teams.find(function (team) { return String(team.id) === String(selectedTeam); }) || {}).name + ' 주간 근무표', pad, pad + 24);
+        ctx.fillStyle = '#64748b'; ctx.font = '14px sans-serif';
+        ctx.fillText(formatDate(weekDates[0]) + ' ~ ' + formatDate(weekDates[6]), pad, pad + 46);
+        const tableTop = pad + headerH;
+        ctx.fillStyle = '#f1f5f9'; ctx.fillRect(pad, tableTop, nameW + cellW * weekDates.length, rowH);
+        ctx.fillStyle = '#172033'; ctx.font = 'bold 14px sans-serif'; ctx.fillText('직원', pad + 10, tableTop + 29);
+        weekDates.forEach(function (date, index) {
+            const x = pad + nameW + index * cellW;
+            ctx.fillStyle = '#172033'; ctx.font = 'bold 14px sans-serif';
+            ctx.fillText(WEEKDAYS[date.getDay()] + ' ' + pad2(date.getMonth() + 1) + '/' + pad2(date.getDate()), x + 6, tableTop + 29);
+        });
+        rows.forEach(function (employee, rowIndex) {
+            const y = tableTop + rowH * (rowIndex + 1);
+            const isBackup = !routes.some(function (route) { return String(route.assigned_emp_id) === String(employee.id); });
+            ctx.fillStyle = isBackup ? '#fffbeb' : '#ffffff'; ctx.fillRect(pad, y, nameW + cellW * weekDates.length, rowH);
+            ctx.strokeStyle = '#e2e8f0'; ctx.strokeRect(pad, y, nameW + cellW * weekDates.length, rowH);
+            ctx.fillStyle = '#172033'; ctx.font = 'bold 14px sans-serif'; ctx.fillText(String(employee.name || ''), pad + 10, y + 29);
+            weekDates.forEach(function (date, index) {
+                const x = pad + nameW + index * cellW;
+                const info = getCellStatus(employee, date, generatedSchedule, year, month);
+                const label = info.status === 'off' ? '휴무' : info.status === 'backup' ? ((info.assignment && info.assignment.targetBaseName) || '백업') : info.status === 'work' ? '근무' : '미정';
+                ctx.fillStyle = info.status === 'off' ? '#ffe4e6' : info.status === 'backup' || isBackup ? '#fef3c7' : info.status === 'work' ? '#d1fae5' : '#f1f5f9';
+                ctx.fillRect(x, y, cellW, rowH); ctx.strokeStyle = '#e2e8f0'; ctx.strokeRect(x, y, cellW, rowH);
+                ctx.fillStyle = '#111827'; ctx.font = 'bold 12px sans-serif';
+                const shown = label.length > 8 ? label.slice(0, 7) + '…' : label;
+                ctx.fillText(shown, x + 6, y + 28);
+            });
+        });
+        canvas.toBlob(async function (blob) {
+            if (!blob) { window.alert('이미지 파일을 만들지 못했습니다.'); return; }
+            const fileName = '근무표-' + formatDate(weekDates[0]) + '.png';
+            const file = new File([blob], fileName, { type: 'image/png' });
+            try {
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({ files: [file], title: '주간 근무표', text: fileName });
+                } else {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a'); link.href = url; link.download = fileName; link.click();
+                    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+                }
+            } catch (error) {
+                if (error && error.name === 'AbortError') return;
+                console.error('근무표 이미지 공유에 실패했습니다.', error);
+                window.alert('이미지를 공유하거나 저장하지 못했습니다. 다시 시도해주세요.');
+            }
+        }, 'image/png');
+    };
+
     const renderStatusCell = function (employee, date) {
         const info = getCellStatus(employee, date, generatedSchedule, year, month);
         if (info.status === 'outside') {
@@ -609,7 +671,7 @@ export default function Calendar({ onBack }) {
         const colorClass = info.status === 'off'
             ? 'border-rose-200 bg-rose-50 text-rose-700'
             : info.status === 'backup'
-                ? 'border-amber-200 bg-amber-50 text-amber-700'
+                ? 'border-amber-200 bg-amber-50 text-slate-900'
                 : info.status === 'work'
                     ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                     : 'border-slate-200 bg-slate-50 text-slate-400';
@@ -759,7 +821,7 @@ export default function Calendar({ onBack }) {
                                         <ChevronLeft size={18} />
                                     </button>
                                     <div>
-                                        <h3 className="font-black">주간 근무표</h3>
+                                        <div className="flex items-center gap-2"><h3 className="font-black">주간 근무표</h3><button type="button" onClick={handleDownloadScheduleImage} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50" aria-label="근무표 이미지 다운로드"><Download size={14} />다운로드</button></div>
                                         <p className="text-xs text-slate-500">{formatDate(weekDates[0])} ~ {formatDate(weekDates[6])}</p>
                                     </div>
                                     <button onClick={function () { handleWeekChange(1); }} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="다음 주">
@@ -818,15 +880,15 @@ export default function Calendar({ onBack }) {
                                                     <th scope="row" className={'sticky z-20 w-[62px] min-w-[62px] max-w-[62px] border-b border-r border-slate-100 px-1 py-2 text-left font-bold group-hover:bg-indigo-50 md:w-[140px] md:min-w-[140px] md:max-w-[140px] md:px-3 md:py-3 ' + (routes.some(function (route) { return String(route.assigned_emp_id) === String(employee.id); }) ? 'bg-white' : 'bg-amber-50')} style={{ left: 0 }}>
                                                         <div className="truncate text-[11px] md:text-sm">{employee.name}</div>
                                                     </th>
-                                                    <td className="sticky z-20 hidden w-[44px] min-w-[44px] max-w-[44px] border-b border-r border-slate-100 bg-white px-1 py-3 text-center text-[10px] font-semibold text-slate-500 group-hover:bg-indigo-50 md:table-cell md:w-[88px] md:min-w-[88px] md:max-w-[88px] md:px-3 md:text-xs" style={{ left: 'var(--schedule-name-width)' }}>
+                                                    <td className={'sticky z-20 hidden w-[44px] min-w-[44px] max-w-[44px] border-b border-r border-slate-100 px-1 py-3 text-center text-[10px] font-semibold text-slate-500 group-hover:bg-indigo-50 md:table-cell md:w-[88px] md:min-w-[88px] md:max-w-[88px] md:px-3 md:text-xs ' + (routes.some(function (route) { return String(route.assigned_emp_id) === String(employee.id); }) ? 'bg-white' : 'bg-amber-50')} style={{ left: 'var(--schedule-name-width)' }}>
                                                         {(teams.find(function (team) { return String(team.id) === String(employee.team_id); }) || {}).name || '미배정'}
                                                     </td>
-                                                    <td className="sticky z-20 hidden w-[75px] min-w-[75px] max-w-[75px] border-b border-r border-slate-100 bg-white px-1 py-3 text-left text-[10px] font-semibold text-slate-600 group-hover:bg-indigo-50 md:table-cell md:w-[130px] md:min-w-[130px] md:max-w-[130px] md:px-3 md:text-xs" style={{ left: 'calc(var(--schedule-name-width) + var(--schedule-team-width))' }}>
+                                                    <td className={'sticky z-20 hidden w-[75px] min-w-[75px] max-w-[75px] border-b border-r border-slate-100 px-1 py-3 text-left text-[10px] font-semibold text-slate-600 group-hover:bg-indigo-50 md:table-cell md:w-[130px] md:min-w-[130px] md:max-w-[130px] md:px-3 md:text-xs ' + (routes.some(function (route) { return String(route.assigned_emp_id) === String(employee.id); }) ? 'bg-white' : 'bg-amber-50')} style={{ left: 'calc(var(--schedule-name-width) + var(--schedule-team-width))' }}>
                                                         <span className="block max-w-full truncate" title={getEmployeeRoute(employee, routes)}>{getEmployeeRoute(employee, routes)}</span>
                                                     </td>
                                                     {weekDates.map(function (date) {
                                                         return (
-                                                            <td key={formatDate(date)} className="border-b border-r border-slate-100 px-0 py-1 text-center md:px-2 md:py-2">
+                                                            <td key={formatDate(date)} className={'border-b border-r border-slate-100 px-0 py-1 text-center md:px-2 md:py-2 ' + (!routes.some(function (route) { return String(route.assigned_emp_id) === String(employee.id); }) && getCellStatus(employee, date, generatedSchedule, year, month).status !== 'off' ? 'bg-amber-50' : '')}>
                                                                 {renderStatusCell(employee, date)}
                                                             </td>
                                                         );
