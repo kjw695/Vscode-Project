@@ -94,6 +94,35 @@ function generateScheduleForWeeks(options) {
         }
     });
 
+    // 직원 설정에서 지정한 고정 휴무 요일을 매주 먼저 반영합니다.
+    // 0=일요일, 1=월요일 ... 6=토요일입니다.
+    activeEmployees.forEach(function (employee) {
+        const fixedOffWeekdays = Array.isArray(employee.fixedOffWeekdays)
+            ? Array.from(new Set(employee.fixedOffWeekdays.map(Number).filter(function (day) {
+                return Number.isInteger(day) && day >= 0 && day <= 6;
+            })))
+            : [];
+        if (fixedOffWeekdays.length === 0) return;
+
+        weeks.forEach(function (weekDates) {
+            weekDates.forEach(function (dateKey) {
+                const match = String(dateKey).match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
+                if (!match) return;
+                const weekday = new Date(
+                    Number(match[1]),
+                    Number(match[2]) - 1,
+                    Number(match[3])
+                ).getDay();
+                if (!fixedOffWeekdays.includes(weekday)) return;
+
+                if (!allOffs[dateKey]) allOffs[dateKey] = [];
+                if (!containsId(allOffs[dateKey], employee.id)) {
+                    allOffs[dateKey].push(employee.id);
+                }
+            });
+        });
+    });
+
     // 백업 직원의 휴무부터 배치해 대체 가능 인원을 먼저 확보합니다.
     const patternOrder = substitutes.concat(baseEmployees);
     patternOrder.forEach(function (employee) {
