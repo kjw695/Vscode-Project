@@ -127,12 +127,8 @@ function generateScheduleForWeeks(options) {
             candidateDates.forEach(function (dateKey) {
                 if (remainingOffs <= 0) return;
 
-                // 고정 직원의 자동 휴무는 쉬지 않는 대체 직원 수를 넘지 않도록 배치합니다.
-                if (getEmployeeType(employee) === 'base') {
-                    const availableSubs = getAvailableSubstituteCount(dateKey, employee.team_id, substitutes, allOffs);
-                    const baseOffCount = getBaseOffCount(dateKey, employee.team_id, baseEmployees, allOffs);
-                    if (baseOffCount >= availableSubs) return;
-                }
+                // 휴무는 백업 인원이 부족해도 일정에 지정합니다.
+                // 백업 배정은 아래 검증에서 별도 경고로 알려 근무자의 휴무가 사라지지 않게 합니다.
 
                 if (!allOffs[dateKey]) allOffs[dateKey] = [];
                 if (!containsId(allOffs[dateKey], employee.id)) {
@@ -144,7 +140,7 @@ function generateScheduleForWeeks(options) {
             if (remainingOffs > 0) {
                 warnings.push(
                     '[휴무 패턴 미충족] ' + employee.name + ': ' + weekDates[0] +
-                    ' 주간에 휴무 ' + remainingOffs + '일을 추가 배정하지 못했습니다. 대체 인력을 확인하세요.'
+                    ' 주간에 휴무 ' + remainingOffs + '일을 추가 배정하지 못했습니다. 백업 인원을 확인하세요.'
                 );
             }
         });
@@ -188,7 +184,7 @@ function generateScheduleForWeeks(options) {
                 scheduleResult[dateKey].status = 'error';
                 warnings.push(
                     '[인력 부족] ' + dateKey + ': ' + baseEmployee.name +
-                    ' 담당 업무를 대신할 수 있는 대체 직원이 없습니다.'
+                    ' 담당 노선을 맡을 수 있는 근무 가능 백업이 없습니다.'
                 );
                 return;
             }
