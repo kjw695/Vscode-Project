@@ -618,9 +618,10 @@ export default function Calendar({ onBack }) {
                 type="button"
                 onClick={function () { handleToggleOff(employee, date); }}
                 title={title}
-                className={'inline-flex min-w-[54px] items-center justify-center rounded-md border px-1.5 py-1.5 text-[10px] font-black leading-tight transition hover:brightness-95 sm:min-w-[62px] sm:px-2 sm:text-[11px] ' + colorClass}
+                className={'inline-flex min-w-[34px] items-center justify-center rounded-md border px-0.5 py-1 text-[9px] font-black leading-tight transition hover:brightness-95 md:min-w-[62px] md:px-2 md:py-1.5 md:text-[11px] ' + colorClass}
             >
-                {label}
+                <span className="md:hidden">{label === '백업근무' ? '백업' : label === '미생성' ? '미정' : label}</span>
+                <span className="hidden md:inline">{label}</span>
             </button>
         );
     };
@@ -791,17 +792,17 @@ export default function Calendar({ onBack }) {
                             )}
 
                             <div className="schedule-table-scroll max-h-[62vh] w-full overflow-auto md:max-h-[70vh]">
-                                <table className="w-full min-w-[1120px] border-separate border-spacing-0 text-sm">
+                                <table className="w-full min-w-[350px] border-separate border-spacing-0 text-[11px] md:min-w-[1120px] md:text-sm">
                                     <thead>
                                         <tr>
-                                            <th className="sticky top-0 z-40 w-[104px] min-w-[104px] max-w-[104px] border-b border-r border-slate-200 bg-slate-50 px-2 py-3 text-left font-black md:w-[140px] md:min-w-[140px] md:max-w-[140px] md:px-3" style={{ left: 0 }}>직원 이름</th>
-                                            <th className="sticky top-0 z-40 w-[56px] min-w-[56px] max-w-[56px] border-b border-r border-slate-200 bg-slate-50 px-1 py-3 text-center font-black md:w-[88px] md:min-w-[88px] md:max-w-[88px] md:px-3" style={{ left: 'var(--schedule-name-width)' }}>팀</th>
-                                            <th className="sticky top-0 z-40 w-[86px] min-w-[86px] max-w-[86px] border-b border-r border-slate-200 bg-slate-50 px-1 py-3 text-left font-black md:w-[130px] md:min-w-[130px] md:max-w-[130px] md:px-3" style={{ left: 'calc(var(--schedule-name-width) + var(--schedule-team-width))' }}>노선</th>
+                                            <th className="sticky top-0 z-40 w-[84px] min-w-[84px] max-w-[84px] border-b border-r border-slate-200 bg-slate-50 px-1 py-2 text-left text-[10px] font-black md:w-[140px] md:min-w-[140px] md:max-w-[140px] md:px-3 md:py-3 md:text-sm" style={{ left: 0 }}>직원 이름</th>
+                                            <th className="sticky top-0 z-40 hidden w-[44px] min-w-[44px] max-w-[44px] border-b border-r border-slate-200 bg-slate-50 px-1 py-3 text-center font-black md:table-cell md:w-[88px] md:min-w-[88px] md:max-w-[88px] md:px-3" style={{ left: 'var(--schedule-name-width)' }}>팀</th>
+                                            <th className="sticky top-0 z-40 hidden w-[75px] min-w-[75px] max-w-[75px] border-b border-r border-slate-200 bg-slate-50 px-1 py-3 text-left font-black md:table-cell md:w-[130px] md:min-w-[130px] md:max-w-[130px] md:px-3" style={{ left: 'calc(var(--schedule-name-width) + var(--schedule-team-width))' }}>노선</th>
                                             {weekDates.map(function (date) {
                                                 const isOutside = date.getMonth() + 1 !== month || date.getFullYear() !== year;
                                                 return (
-                                                    <th key={formatDate(date)} className={'sticky top-0 z-30 min-w-[112px] border-b border-r border-slate-200 px-3 py-3 text-center font-black ' + (isOutside ? 'bg-slate-100 text-slate-400' : 'bg-slate-50')}>
-                                                        <div>{WEEKDAYS[date.getDay()]}요일</div>
+                                                    <th key={formatDate(date)} className={'sticky top-0 z-30 min-w-[38px] border-b border-r border-slate-200 px-0.5 py-2 text-center text-[10px] font-black md:min-w-[112px] md:px-3 md:py-3 md:text-sm ' + (isOutside ? 'bg-slate-100 text-slate-400' : 'bg-slate-50')}>
+                                                        <div><span className="md:hidden">{WEEKDAYS[date.getDay()]}</span><span className="hidden md:inline">{WEEKDAYS[date.getDay()]}요일</span></div>
                                                         <div className="mt-0.5 text-[11px] font-semibold text-slate-500">{date.getMonth() + 1}/{date.getDate()}</div>
                                                     </th>
                                                 );
@@ -812,21 +813,24 @@ export default function Calendar({ onBack }) {
                                         {filteredEmployees.map(function (employee) {
                                             return (
                                                 <tr key={employee.id} className="group">
-                                                    <th scope="row" className="sticky z-20 w-[104px] min-w-[104px] max-w-[104px] border-b border-r border-slate-100 bg-white px-2 py-3 text-left font-bold group-hover:bg-indigo-50 md:w-[140px] md:min-w-[140px] md:max-w-[140px] md:px-3" style={{ left: 0 }}>
-                                                        <div>{employee.name}</div>
-                                                        <div className={'mt-1 text-[10px] font-bold ' + (getEmployeeType(employee) === 'sub' ? 'text-amber-600' : 'text-indigo-600')}>
+                                                    <th scope="row" className="sticky z-20 w-[84px] min-w-[84px] max-w-[84px] border-b border-r border-slate-100 bg-white px-1 py-2 text-left font-bold group-hover:bg-indigo-50 md:w-[140px] md:min-w-[140px] md:max-w-[140px] md:px-3 md:py-3" style={{ left: 0 }}>
+                                                        <div className="truncate text-[11px] md:text-sm">{employee.name}</div>
+                                                        <div className={'mt-0.5 text-[9px] font-bold md:mt-1 md:text-[10px] ' + (getEmployeeType(employee) === 'sub' ? 'text-amber-600' : 'text-indigo-600')}>
                                                             {getEmployeeType(employee) === 'sub' ? '백업' : '고정'}
                                                         </div>
+                                                        <div className="mt-0.5 max-w-full truncate text-[8px] font-medium text-slate-400 md:hidden">
+                                                            {(teams.find(function (team) { return String(team.id) === String(employee.team_id); }) || {}).name || '미배정'} · {getEmployeeRoute(employee, routes)}
+                                                        </div>
                                                     </th>
-                                                    <td className="sticky z-20 w-[56px] min-w-[56px] max-w-[56px] border-b border-r border-slate-100 bg-white px-1 py-3 text-center text-[10px] font-semibold text-slate-500 group-hover:bg-indigo-50 md:w-[88px] md:min-w-[88px] md:max-w-[88px] md:px-3 md:text-xs" style={{ left: 'var(--schedule-name-width)' }}>
+                                                    <td className="sticky z-20 hidden w-[44px] min-w-[44px] max-w-[44px] border-b border-r border-slate-100 bg-white px-1 py-3 text-center text-[10px] font-semibold text-slate-500 group-hover:bg-indigo-50 md:table-cell md:w-[88px] md:min-w-[88px] md:max-w-[88px] md:px-3 md:text-xs" style={{ left: 'var(--schedule-name-width)' }}>
                                                         {(teams.find(function (team) { return String(team.id) === String(employee.team_id); }) || {}).name || '미배정'}
                                                     </td>
-                                                    <td className="sticky z-20 w-[86px] min-w-[86px] max-w-[86px] border-b border-r border-slate-100 bg-white px-1 py-3 text-left text-[10px] font-semibold text-slate-600 group-hover:bg-indigo-50 md:w-[130px] md:min-w-[130px] md:max-w-[130px] md:px-3 md:text-xs" style={{ left: 'calc(var(--schedule-name-width) + var(--schedule-team-width))' }}>
+                                                    <td className="sticky z-20 hidden w-[75px] min-w-[75px] max-w-[75px] border-b border-r border-slate-100 bg-white px-1 py-3 text-left text-[10px] font-semibold text-slate-600 group-hover:bg-indigo-50 md:table-cell md:w-[130px] md:min-w-[130px] md:max-w-[130px] md:px-3 md:text-xs" style={{ left: 'calc(var(--schedule-name-width) + var(--schedule-team-width))' }}>
                                                         <span className="block max-w-full truncate" title={getEmployeeRoute(employee, routes)}>{getEmployeeRoute(employee, routes)}</span>
                                                     </td>
                                                     {weekDates.map(function (date) {
                                                         return (
-                                                            <td key={formatDate(date)} className="border-b border-r border-slate-100 px-2 py-2 text-center">
+                                                            <td key={formatDate(date)} className="border-b border-r border-slate-100 px-0 py-1 text-center md:px-2 md:py-2">
                                                                 {renderStatusCell(employee, date)}
                                                             </td>
                                                         );
