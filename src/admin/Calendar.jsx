@@ -16,7 +16,7 @@ import {
     CalendarDays,
     RotateCcw
 } from 'lucide-react';
-import { generateMonthlySchedule } from './utils/schedulingEngine';
+import { generateWeeklySchedule } from './utils/schedulingEngine';
 import { useAdminData } from './contexts/DataContext';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -63,9 +63,16 @@ function getEmployeeRoute(employee, routes) {
 }
 
 function getDayRecord(schedule, date, year, month) {
+    if (!schedule) return null;
+
+    const dateKey = formatDate(date);
+    const dateKeyRecord = schedule[dateKey];
+    if (dateKeyRecord && dateKeyRecord.date === dateKey) return dateKeyRecord;
+
+    // 이전 버전에서 저장한 월간 일정(일자 숫자 키)도 읽을 수 있게 유지합니다.
     if (date.getFullYear() !== year || date.getMonth() + 1 !== month) return null;
-    const record = schedule[date.getDate()];
-    return record && record.date === formatDate(date) ? record : null;
+    const legacyRecord = schedule[date.getDate()];
+    return legacyRecord && legacyRecord.date === dateKey ? legacyRecord : null;
 }
 
 function isOffRecord(record, employee) {
@@ -103,10 +110,9 @@ function getAssignment(record, employee) {
 }
 
 function getCellStatus(employee, date, schedule, year, month) {
-    if (date.getFullYear() !== year || date.getMonth() + 1 !== month) {
-        return { status: 'outside', record: null, assignment: null };
-    }
     const record = getDayRecord(schedule, date, year, month);
+    const isOutsideMonth = date.getFullYear() !== year || date.getMonth() + 1 !== month;
+    if (isOutsideMonth && !record) return { status: 'outside', record: null, assignment: null };
     if (!record) return { status: 'pending', record: null, assignment: null };
     if (isOffRecord(record, employee)) {
         return { status: 'off', record: record, assignment: null };
@@ -158,7 +164,11 @@ export default function Calendar({ onBack }) {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth() + 1;
     const monthKey = String(year) + '-' + pad2(month);
-    const scheduleKey = 'my_schedule_' + String(selectedTeam) + '_' + monthKey;
+    const weekDates = useMemo(function () {
+        return getWeekDates(currentDate);
+    }, [currentDate]);
+    const weekStartKey = formatDate(weekDates[0]);
+    const scheduleKey = 'my_schedule_' + String(selectedTeam) + '_' + weekStartKey;
 
     useEffect(function () {
         if (teams.length > 0 && !teams.some(function (team) { return String(team.id) === String(selectedTeam); })) {
@@ -169,19 +179,41 @@ export default function Calendar({ onBack }) {
     useEffect(function () {
         try {
             const raw = localStorage.getItem(scheduleKey);
-            if (!raw) {
-                setGeneratedSchedule({});
-                setWarnings([]);
-                setSavedRecord(null);
-                setScheduleStatus('ready');
+            if (raw) {
+                const record = JSON.parse(raw);
+                setSavedRecord(record);
+                setGeneratedSchedule(record.schedule || {});
+                setWarnings(record.warnings || []);
+                setScheduleStatus(record.status === 'confirmed' ? 'confirmed' : 'saved');
                 return;
             }
 
-            const record = JSON.parse(raw);
-            setSavedRecord(record);
-            setGeneratedSchedule(record.schedule || {});
-            setWarnings(record.warnings || []);
-            setScheduleStatus(record.status === 'confirmed' ? 'confirmed' : 'saved');
+            // 이전 버전의 월간 저장 자료가 있다면 현재 선택한 주에 해당하는 날짜만 가져옵니다.
+            const legacyKey = 'my_schedule_' + String(selectedTeam) + '_' + monthKey;
+            const legacyRaw = localStorage.getItem(legacyKey);
+            if (legacyRaw) {
+                const legacyRecord = JSON.parse(legacyRaw);
+                const migratedWeek = {};
+                weekDates.forEach(function (date) {
+                    if (date.getFullYear() !== year || date.getMonth() + 1 !== month) return;
+                    const oldDayRecord = legacyRecord.schedule && legacyRecord.schedule[date.getDate()];
+                    if (oldDayRecord && oldDayRecord.date === formatDate(date)) {
+                        migratedWeek[formatDate(date)] = oldDayRecord;
+                    }
+                });
+                if (Object.keys(migratedWeek).length > 0) {
+                    setGeneratedSchedule(migratedWeek);
+                    setWarnings(legacyRecord.warnings || []);
+                    setSavedRecord(null);
+                    setScheduleStatus('generated');
+                    return;
+                }
+            }
+
+            setGeneratedSchedule({});
+            setWarnings([]);
+            setSavedRecord(null);
+            setScheduleStatus('ready');
         } catch (error) {
             console.error('저장된 근무표를 불러오지 못했습니다.', error);
             setGeneratedSchedule({});
@@ -207,10 +239,6 @@ export default function Calendar({ onBack }) {
         return route.assigned_emp_id == null || route.assigned_emp_id === '';
     });
 
-    const weekDates = useMemo(function () {
-        return getWeekDates(currentDate);
-    }, [currentDate]);
-
     const calendarDays = useMemo(function () {
         const firstDayOffset = (new Date(year, month - 1, 1).getDay() + 6) % 7;
         const daysInMonth = new Date(year, month, 0).getDate();
@@ -220,9 +248,43 @@ export default function Calendar({ onBack }) {
         return days;
     }, [year, month]);
 
+    const monthSchedule = useMemo(function () {
+        const combined = {};
+        try {
+            // 이전 월간 자료는 달력에 유지하고, 새 주간 저장 자료가 있으면 최신 값이 우선합니다.
+            const legacyKey = 'my_schedule_' + String(selectedTeam) + '_' + monthKey;
+            const legacyRaw = localStorage.getItem(legacyKey);
+            if (legacyRaw) {
+                const legacyRecord = JSON.parse(legacyRaw);
+                Object.keys(legacyRecord.schedule || {}).forEach(function (dayKey) {
+                    const record = legacyRecord.schedule[dayKey];
+                    if (record && record.date) combined[record.date] = record;
+                });
+            }
+
+            const scanDate = getMonday(new Date(year, month - 1, 1));
+            const lastDate = new Date(year, month - 1, new Date(year, month, 0).getDate());
+            while (scanDate <= lastDate) {
+                const weeklyKey = 'my_schedule_' + String(selectedTeam) + '_' + formatDate(scanDate);
+                const weeklyRaw = localStorage.getItem(weeklyKey);
+                if (weeklyRaw) {
+                    const weeklyRecord = JSON.parse(weeklyRaw);
+                    Object.assign(combined, weeklyRecord.schedule || {});
+                }
+                scanDate.setDate(scanDate.getDate() + 7);
+            }
+        } catch (error) {
+            console.error('월간 휴무 분포를 불러오지 못했습니다.', error);
+        }
+
+        // 현재 보고 있는 주의 미저장 초안도 월간 달력에 바로 반영합니다.
+        Object.assign(combined, generatedSchedule || {});
+        return combined;
+    }, [selectedTeam, year, month, monthKey, generatedSchedule, scheduleStatus, savedRecord]);
+
     const currentRecord = getDayRecord(generatedSchedule, currentDate, year, month);
     const selectedDate = new Date(year, month - 1, Math.min(selectedDay, new Date(year, month, 0).getDate()));
-    const selectedRecord = getDayRecord(generatedSchedule, selectedDate, year, month);
+    const selectedRecord = getDayRecord(monthSchedule, selectedDate, year, month);
     const isScheduleGenerated = Object.keys(generatedSchedule).length > 0;
 
     const filteredEmployees = useMemo(function () {
@@ -234,7 +296,7 @@ export default function Calendar({ onBack }) {
             const type = getEmployeeType(employee);
             const matchesType = employeeTypeFilter === 'all' || employeeTypeFilter === type;
             const hasOff = weekDates.some(function (date) {
-                const dayRecord = getDayRecord(generatedSchedule, date, year, month);
+                const dayRecord = getDayRecord(monthSchedule, date, year, month);
                 return isOffRecord(dayRecord, employee);
             });
             return matchesName && matchesType && (!offOnly || hasOff);
@@ -283,9 +345,8 @@ export default function Calendar({ onBack }) {
                     route: getEmployeeRoute(employee, routes)
                 });
             });
-            const result = generateMonthlySchedule({
-                year: year,
-                month: month,
+            const result = generateWeeklySchedule({
+                weekStart: formatDate(weekDates[0]),
                 employees: teamEmployeesWithRoutes,
                 substitutePermissions: substitutePermissions || [],
                 fixedDaysOff: fixedDaysOff || [],
@@ -341,7 +402,7 @@ export default function Calendar({ onBack }) {
             window.alert('인력 부족 또는 근무 패턴 미충족 경고가 ' + warnings.length + '건 있습니다. 경고를 해결한 뒤 확정해주세요.');
             return;
         }
-        if (!window.confirm('선택한 팀의 ' + year + '년 ' + month + '월 근무표를 확정할까요?')) return;
+        if (!window.confirm('선택한 팀의 ' + formatDate(weekDates[0]) + ' ~ ' + formatDate(weekDates[6]) + ' 주간 근무표를 확정할까요?')) return;
 
         const record = {
             teamId: selectedTeam,
@@ -578,13 +639,13 @@ export default function Calendar({ onBack }) {
                                 </div>
                             )}
 
-                            <div className="schedule-table-scroll max-h-[70vh] w-full overflow-auto">
+                            <div className="schedule-table-scroll max-h-[62vh] w-full overflow-auto md:max-h-[70vh]">
                                 <table className="w-full min-w-[1120px] border-separate border-spacing-0 text-sm">
                                     <thead>
                                         <tr>
-                                            <th className="sticky top-0 z-40 w-[140px] min-w-[140px] max-w-[140px] border-b border-r border-slate-200 bg-slate-50 px-3 py-3 text-left font-black" style={{ left: 0 }}>직원 이름</th>
-                                            <th className="sticky top-0 z-40 w-[88px] min-w-[88px] max-w-[88px] border-b border-r border-slate-200 bg-slate-50 px-3 py-3 text-center font-black" style={{ left: 140 }}>팀</th>
-                                            <th className="sticky top-0 z-40 w-[130px] min-w-[130px] max-w-[130px] border-b border-r border-slate-200 bg-slate-50 px-3 py-3 text-left font-black" style={{ left: 228 }}>노선</th>
+                                            <th className="sticky top-0 z-40 w-[104px] min-w-[104px] max-w-[104px] border-b border-r border-slate-200 bg-slate-50 px-2 py-3 text-left font-black md:w-[140px] md:min-w-[140px] md:max-w-[140px] md:px-3" style={{ left: 0 }}>직원 이름</th>
+                                            <th className="sticky top-0 z-40 w-[56px] min-w-[56px] max-w-[56px] border-b border-r border-slate-200 bg-slate-50 px-1 py-3 text-center font-black md:w-[88px] md:min-w-[88px] md:max-w-[88px] md:px-3" style={{ left: 'var(--schedule-name-width)' }}>팀</th>
+                                            <th className="sticky top-0 z-40 w-[86px] min-w-[86px] max-w-[86px] border-b border-r border-slate-200 bg-slate-50 px-1 py-3 text-left font-black md:w-[130px] md:min-w-[130px] md:max-w-[130px] md:px-3" style={{ left: 'calc(var(--schedule-name-width) + var(--schedule-team-width))' }}>노선</th>
                                             {weekDates.map(function (date) {
                                                 const isOutside = date.getMonth() + 1 !== month || date.getFullYear() !== year;
                                                 return (
@@ -600,17 +661,17 @@ export default function Calendar({ onBack }) {
                                         {filteredEmployees.map(function (employee) {
                                             return (
                                                 <tr key={employee.id} className="group">
-                                                    <th scope="row" className="sticky z-20 w-[140px] min-w-[140px] max-w-[140px] border-b border-r border-slate-100 bg-white px-3 py-3 text-left font-bold group-hover:bg-indigo-50" style={{ left: 0 }}>
+                                                    <th scope="row" className="sticky z-20 w-[104px] min-w-[104px] max-w-[104px] border-b border-r border-slate-100 bg-white px-2 py-3 text-left font-bold group-hover:bg-indigo-50 md:w-[140px] md:min-w-[140px] md:max-w-[140px] md:px-3" style={{ left: 0 }}>
                                                         <div>{employee.name}</div>
                                                         <div className={'mt-1 text-[10px] font-bold ' + (getEmployeeType(employee) === 'sub' ? 'text-amber-600' : 'text-indigo-600')}>
                                                             {getEmployeeType(employee) === 'sub' ? '대체 직원' : '고정 직원'}
                                                         </div>
                                                     </th>
-                                                    <td className="sticky z-20 w-[88px] min-w-[88px] max-w-[88px] border-b border-r border-slate-100 bg-white px-3 py-3 text-center text-xs font-semibold text-slate-500 group-hover:bg-indigo-50" style={{ left: 140 }}>
+                                                    <td className="sticky z-20 w-[56px] min-w-[56px] max-w-[56px] border-b border-r border-slate-100 bg-white px-1 py-3 text-center text-[10px] font-semibold text-slate-500 group-hover:bg-indigo-50 md:w-[88px] md:min-w-[88px] md:max-w-[88px] md:px-3 md:text-xs" style={{ left: 'var(--schedule-name-width)' }}>
                                                         {(teams.find(function (team) { return String(team.id) === String(employee.team_id); }) || {}).name || '미배정'}
                                                     </td>
-                                                    <td className="sticky z-20 w-[130px] min-w-[130px] max-w-[130px] border-b border-r border-slate-100 bg-white px-3 py-3 text-left text-xs font-semibold text-slate-600 group-hover:bg-indigo-50" style={{ left: 228 }}>
-                                                        <span className="block max-w-[120px] truncate" title={getEmployeeRoute(employee, routes)}>{getEmployeeRoute(employee, routes)}</span>
+                                                    <td className="sticky z-20 w-[86px] min-w-[86px] max-w-[86px] border-b border-r border-slate-100 bg-white px-1 py-3 text-left text-[10px] font-semibold text-slate-600 group-hover:bg-indigo-50 md:w-[130px] md:min-w-[130px] md:max-w-[130px] md:px-3 md:text-xs" style={{ left: 'calc(var(--schedule-name-width) + var(--schedule-team-width))' }}>
+                                                        <span className="block max-w-full truncate" title={getEmployeeRoute(employee, routes)}>{getEmployeeRoute(employee, routes)}</span>
                                                     </td>
                                                     {weekDates.map(function (date) {
                                                         return (
@@ -661,7 +722,7 @@ export default function Calendar({ onBack }) {
                                     return <div key={weekday} className={'py-2 text-xs font-black ' + (index === 5 ? 'text-blue-600' : index === 6 ? 'text-rose-600' : 'text-slate-500')}>{weekday}</div>;
                                 })}
                                 {calendarDays.map(function (day, index) {
-                                    if (!day) return <div key={'empty-' + index} className="min-h-[82px] rounded-lg bg-transparent md:min-h-[108px]"></div>;
+                                    if (!day) return <div key={'empty-' + index} className="min-h-[66px] rounded-lg bg-transparent sm:min-h-[82px] md:min-h-[108px]"></div>;
                                     const date = new Date(year, month - 1, day);
                                     const dayRecord = getDayRecord(generatedSchedule, date, year, month);
                                     const isSelected = selectedDay === day;
@@ -671,7 +732,7 @@ export default function Calendar({ onBack }) {
                                         <button
                                             key={day}
                                             onClick={function () { setSelectedDay(day); setCurrentDate(date); }}
-                                            className={'flex min-h-[82px] flex-col items-start rounded-xl border p-2 text-left transition md:min-h-[108px] md:p-3 ' + (
+                                            className={'flex min-h-[66px] flex-col items-start rounded-lg border p-1 text-left transition sm:min-h-[82px] sm:rounded-xl sm:p-2 md:min-h-[108px] md:p-3 ' + (
                                                 isSelected
                                                     ? 'border-indigo-400 bg-indigo-50 ring-1 ring-indigo-200'
                                                     : isError
