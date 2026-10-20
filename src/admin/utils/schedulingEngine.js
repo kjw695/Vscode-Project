@@ -235,9 +235,12 @@ function getWorkDaysForWeek(employee, weekIndex) {
     const match = pattern.match(/[1-6]/);
     const parsedDays = match ? Number(match[0]) : 6;
 
-    // 격주 5일 근무는 6일 근무 주와 5일 근무 주를 번갈아 적용합니다.
-    if (pattern.indexOf('격주') >= 0 && parsedDays === 5) {
-        return Math.abs(weekIndex % 2) === 0 ? 6 : 5;
+    // '격주 5일'은 6일 근무 주와 5일 근무 주를 번갈아 적용합니다.
+    // 주차는 1970-01-04(일요일) 기준으로 고정해 월이 바뀌어도 교대가 유지됩니다.
+    if (pattern.includes('격주')) {
+        const targetDays = Math.min(6, Math.max(1, parsedDays));
+        const alternateDays = targetDays === 6 ? 5 : 6;
+        return Math.abs(weekIndex % 2) === 0 ? alternateDays : targetDays;
     }
     return Math.min(6, Math.max(1, parsedDays));
 }
@@ -250,7 +253,7 @@ function getWeeksInMonth(year, month) {
     for (let day = 1; day <= daysInMonth; day += 1) {
         const date = new Date(year, month - 1, day);
         currentWeek.push(formatDate(year, month, day));
-        if (date.getDay() === 0 || day === daysInMonth) {
+        if (date.getDay() === 6 || day === daysInMonth) {
             weeks.push(currentWeek);
             currentWeek = [];
         }
@@ -361,11 +364,11 @@ function getSunday(date) {
     return result;
 }
 
-function getStableWeekIndex(monday) {
+function getStableWeekIndex(sunday) {
     const weekMilliseconds = 7 * 24 * 60 * 60 * 1000;
-    const currentMondayUtc = Date.UTC(monday.getFullYear(), monday.getMonth(), monday.getDate());
-    const anchorMondayUtc = Date.UTC(1970, 0, 5);
-    return Math.floor((currentMondayUtc - anchorMondayUtc) / weekMilliseconds);
+    const currentSundayUtc = Date.UTC(sunday.getFullYear(), sunday.getMonth(), sunday.getDate());
+    const anchorSundayUtc = Date.UTC(1970, 0, 4);
+    return Math.floor((currentSundayUtc - anchorSundayUtc) / weekMilliseconds);
 }
 
 function formatDate(year, month, day) {
