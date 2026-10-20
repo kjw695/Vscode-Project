@@ -160,6 +160,7 @@ export default function Calendar({ onBack }) {
     const [generatedSchedule, setGeneratedSchedule] = useState({});
     const [warnings, setWarnings] = useState([]);
     const [savedRecord, setSavedRecord] = useState(null);
+    const [warningsAcknowledged, setWarningsAcknowledged] = useState(false);
 
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth() + 1;
@@ -314,6 +315,7 @@ export default function Calendar({ onBack }) {
     });
 
     const selectedAssignments = selectedRecord && Array.isArray(selectedRecord.subs) ? selectedRecord.subs : [];
+    const selectedAssignmentNames = selectedAssignments.map(function (assignment) { return assignment.targetBaseName || assignment.routeName || assignment.subName; }).filter(Boolean);
 
     const handleMonthChange = function (offset) {
         const nextDate = new Date(year, currentDate.getMonth() + offset, 1);
@@ -336,6 +338,7 @@ export default function Calendar({ onBack }) {
     };
 
     const handleStartAutoSchedule = function () {
+        setWarningsAcknowledged(false);
         if (activeTeamEmployees.length === 0) {
             window.alert('선택한 팀에 등록된 직원이 없습니다.');
             return;
@@ -361,6 +364,7 @@ export default function Calendar({ onBack }) {
 
             setGeneratedSchedule(result.schedule || {});
             setWarnings(result.warnings || []);
+            setWarningsAcknowledged(false);
             setScheduleStatus('generated');
             setSavedRecord(null);
         } catch (error) {
@@ -406,8 +410,8 @@ export default function Calendar({ onBack }) {
             window.alert('근무표를 먼저 생성한 뒤 임시 저장해주세요.');
             return;
         }
-        if (warnings.length > 0) {
-            window.alert('백업 인원 확인 또는 근무 패턴 미충족 경고가 ' + warnings.length + '건 있습니다. 백업을 확인한 뒤 확정해주세요.');
+        if (warnings.length > 0 && !warningsAcknowledged) {
+            window.alert('경고 내용을 확인하고 아래 확인란에 체크한 뒤 근무표를 확정해주세요.');
             return;
         }
         if (!window.confirm('선택한 팀의 ' + formatDate(weekDates[0]) + ' ~ ' + formatDate(weekDates[6]) + ' 주간 근무표를 확정할까요?')) return;
@@ -467,8 +471,6 @@ export default function Calendar({ onBack }) {
             window.alert('먼저 선택 주 자동 생성으로 근무표를 만든 뒤, 날짜 칸을 눌러 휴무를 지정해주세요.');
             return;
         }
-        if (scheduleStatus === 'confirmed' && !window.confirm('확정된 근무표를 수정하면 초안 상태로 바뀝니다. 계속할까요?')) return;
-
         const dateKey = formatDate(date);
         const oldRecord = generatedSchedule[dateKey];
         if (!oldRecord) {
@@ -478,6 +480,10 @@ export default function Calendar({ onBack }) {
 
         const oldOffIds = Array.isArray(oldRecord.offEmployeeIds) ? oldRecord.offEmployeeIds.slice() : [];
         const wasOff = oldOffIds.some(function (id) { return String(id) === String(employee.id); });
+        const currentStatus = wasOff ? '휴무' : '근무';
+        const nextStatus = wasOff ? '근무' : '휴무';
+        if (!window.confirm(employee.name + ' ' + currentStatus + '를 ' + nextStatus + '로 변경하시겠습니까?')) return;
+        if (scheduleStatus === 'confirmed' && !window.confirm('확정된 근무표를 수정하면 초안 상태로 바뀝니다. 계속할까요?')) return;
         const nextOffIds = wasOff
             ? oldOffIds.filter(function (id) { return String(id) !== String(employee.id); })
             : oldOffIds.concat([employee.id]);
@@ -602,7 +608,7 @@ export default function Calendar({ onBack }) {
             : info.status === 'off'
                 ? '휴무'
                 : info.status === 'backup'
-                    ? '백업근무'
+                    ? ((info.assignment && info.assignment.targetBaseName) || '백업')
                     : '근무';
         const title = info.status === 'off' ? '누르면 근무로 변경' : '누르면 휴무 지정';
         const colorClass = info.status === 'off'
@@ -618,7 +624,7 @@ export default function Calendar({ onBack }) {
                 type="button"
                 onClick={function () { handleToggleOff(employee, date); }}
                 title={title}
-                className={'inline-flex min-w-[34px] items-center justify-center rounded-md border px-0.5 py-1 text-[9px] font-black leading-tight transition hover:brightness-95 md:min-w-[62px] md:px-2 md:py-1.5 md:text-[11px] ' + colorClass}
+                className={'inline-flex min-w-[34px] max-w-full items-center justify-center rounded-md border px-0.5 py-1 text-[8px] font-black leading-tight transition hover:brightness-95 md:min-w-[62px] md:px-2 md:py-1.5 md:text-[11px] ' + colorClass}
             >
                 <span className="md:hidden">{label === '백업근무' ? '백업' : label === '미생성' ? '미정' : label}</span>
                 <span className="hidden md:inline">{label}</span>
@@ -696,7 +702,7 @@ export default function Calendar({ onBack }) {
                             ) : (
                                 <button
                                     onClick={handleConfirmSchedule}
-                                    disabled={!isScheduleGenerated || scheduleStatus !== 'saved' || warnings.length > 0}
+                                    disabled={!isScheduleGenerated || scheduleStatus !== 'saved' || (warnings.length > 0 && !warningsAcknowledged)}
                                     className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                                 >
                                     <CheckCircle2 size={17} /> 근무표 확정
@@ -728,8 +734,8 @@ export default function Calendar({ onBack }) {
                 </section>
 
                 <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                    <div className="flex flex-col gap-3 border-b border-slate-200 p-3 md:flex-row md:items-center md:justify-between md:p-4">
-                        <div className="inline-flex w-fit rounded-xl bg-slate-100 p-1">
+                    <div className="flex flex-col items-center gap-3 border-b border-slate-200 p-3 md:p-4">
+                        <div className="mx-auto inline-flex w-fit justify-center rounded-xl bg-slate-100 p-1">
                             <button onClick={function () { setView('weekly'); }} className={'rounded-lg px-4 py-2 text-sm font-bold transition ' + (view === 'weekly' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800')}>
                                 주간 근무표
                             </button>
@@ -737,7 +743,7 @@ export default function Calendar({ onBack }) {
                                 월간 휴무 분포
                             </button>
                         </div>
-                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <div className="flex min-w-0 flex-wrap items-center justify-center gap-2">
                             <div className="flex items-center gap-1 rounded-lg border border-slate-200 px-2">
                                 {teams.map(function (team) {
                                     return (
@@ -752,8 +758,8 @@ export default function Calendar({ onBack }) {
 
                     {view === 'weekly' ? (
                         <div>
-                            <div className="flex flex-col gap-3 border-b border-slate-100 p-3 md:flex-row md:items-center md:justify-between md:p-4">
-                                <div className="flex items-center gap-2">
+                            <div className="flex flex-col items-center gap-3 border-b border-slate-100 p-3 md:p-4">
+                                <div className="flex items-center justify-center gap-2">
                                     <button onClick={function () { handleWeekChange(-1); }} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="이전 주">
                                         <ChevronLeft size={18} />
                                     </button>
@@ -765,8 +771,8 @@ export default function Calendar({ onBack }) {
                                         <ChevronRight size={18} />
                                     </button>
                                 </div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <label className="flex min-w-[220px] items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5">
+                                <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-2">
+                                    <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 sm:max-w-sm">
                                         <Search size={16} className="shrink-0 text-slate-400" />
                                         <input value={search} onChange={function (event) { setSearch(event.target.value); }} placeholder="직원 이름 또는 노선 검색" className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400" />
                                     </label>
@@ -775,7 +781,8 @@ export default function Calendar({ onBack }) {
                                         <option value="base">고정 직원</option>
                                         <option value="sub">백업</option>
                                     </select>
-                                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold">
+                                    <label title="선택한 주에 휴무가 하루 이상 지정된 직원만 표시합니다. 휴무 배정과 백업 필요 여부를 빠르게 확인할 때 사용합니다."
+                                        className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold">
                                         <input type="checkbox" checked={offOnly} onChange={function (event) { setOffOnly(event.target.checked); }} className="h-4 w-4 accent-indigo-600" />
                                         휴무자만
                                     </label>
@@ -901,7 +908,7 @@ export default function Calendar({ onBack }) {
                                             {dayRecord ? (
                                                 <>
                                                     <span className="mt-auto rounded-md bg-rose-50 px-1.5 py-1 text-[10px] font-bold text-rose-700 md:text-xs">휴무 {count}</span>
-                                                    {dayRecord.subs && dayRecord.subs.length > 0 && <span className="mt-1 rounded-md bg-amber-50 px-1.5 py-1 text-[10px] font-bold text-amber-700 md:text-xs">백업 {dayRecord.subs.length}</span>}
+                                                    {dayRecord.subs && dayRecord.subs.length > 0 && <span className="mt-1 max-w-full truncate rounded-md bg-amber-50 px-1.5 py-1 text-[10px] font-bold text-amber-800 md:text-xs">{dayRecord.subs.map(function (assignment) { return assignment.targetBaseName || assignment.routeName || '백업'; }).join(', ')}</span>}
                                                     {isError && <span className="mt-1 text-[10px] font-bold text-rose-600">인력 확인</span>}
                                                 </>
                                             ) : (
