@@ -1,6 +1,7 @@
 // src/admin/EmployeeManager.jsx
 import React, { useMemo, useState } from 'react';
 import { Users, Truck, ArrowLeft, UserPlus, X, Copy, CheckCircle2, Plus, Search, ChevronDown } from 'lucide-react';
+import BiweeklyPairManager from './BiweeklyPairManager';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdminData } from './contexts/DataContext';
 
@@ -37,6 +38,7 @@ export default function EmployeeManager({ onBack }) {
     const [editRouteIds, setEditRouteIds] = useState([]);
     const [isRouteListOpen, setIsRouteListOpen] = useState(false);
     const [routeListFilter, setRouteListFilter] = useState('all');
+    const [isBiweeklyPairManagerOpen, setIsBiweeklyPairManagerOpen] = useState(false);
 
     const baseEmployees = employees.filter((employee) => employee.type !== 'sub' && employee.employee_type !== 'substitute');
     const backupEmployees = employees.filter((employee) => employee.type === 'sub' || employee.employee_type === 'substitute');
@@ -70,6 +72,11 @@ export default function EmployeeManager({ onBack }) {
     }, [employeeRows, search, employeeTypeFilter, teamFilter, assignmentFilter]);
     const unassignedBaseCount = employeeRows.filter(({ type, assignedRoutes, isInactive }) => type === 'base' && !isInactive && assignedRoutes.length === 0).length;
     const editingNewEmployee = Boolean(selectedEmployee && !selectedEmployee.id);
+    const unpairedBiweeklyCount = employees.filter((employee) =>
+        employee.active !== false &&
+        String(employee.pattern || employee.work_pattern || '').includes('격주') &&
+        !employee.biweeklyPairId
+    ).length;
 
     const teamRoutes = useMemo(() => routes.filter((route) =>
         String(route.team_id) === String(editTeamId)
@@ -182,6 +189,19 @@ export default function EmployeeManager({ onBack }) {
         const newType = String(formData.get('type') || 'base');
         const routeIds = newType === 'base' ? [...new Set(editRouteIds.map(String))] : [];
         const employeeId = selectedEmployee.id || 'EMP_' + Date.now();
+
+        const previousPattern = String(selectedEmployee.pattern || selectedEmployee.work_pattern || '');
+        const previousDaysMatch = previousPattern.match(/[1-6]/);
+        const preserveBiweeklyPair = Boolean(
+            !editingNewEmployee &&
+            selectedEmployee.biweeklyPairId &&
+            isBiweekly &&
+            previousPattern.includes('격주') &&
+            Number(previousDaysMatch ? previousDaysMatch[0] : 0) === workDays
+        );
+        const pairToClear = !editingNewEmployee && selectedEmployee.biweeklyPairId && !preserveBiweeklyPair
+            ? selectedEmployee.biweeklyPairId
+            : null;
         const finalPattern = (isBiweekly ? '격주 ' : '주 ') + workDays + '일';
         const updatedData = {
             ...selectedEmployee,
@@ -190,6 +210,8 @@ export default function EmployeeManager({ onBack }) {
             team_id: newTeamId,
             type: newType,
             pattern: finalPattern,
+            biweeklyPairId: preserveBiweeklyPair ? selectedEmployee.biweeklyPairId : null,
+            biweeklyWeekOffset: preserveBiweeklyPair ? (Number(selectedEmployee.biweeklyWeekOffset) === 1 ? 1 : 0) : 0,
             hasFixedOffDays,
             fixedOffWeekdays: hasFixedOffDays && !isBiweekly ? [...fixedOffWeekdays].sort((a, b) => a - b) : [],
             fixedOffWeekdaysByWeek: hasFixedOffDays && isBiweekly ? {
@@ -224,6 +246,13 @@ export default function EmployeeManager({ onBack }) {
             setEmployees((previous) => [...previous, updatedData]);
         } else {
             updateEmployee(updatedData);
+            if (pairToClear) {
+                setEmployees((previous) => previous.map((employee) =>
+                    String(employee.biweeklyPairId) === String(pairToClear)
+                        ? { ...employee, biweeklyPairId: null, biweeklyWeekOffset: 0 }
+                        : employee
+                ));
+            }
         }
 
         // 저장 시 이 직원의 노선 배정을 선택 목록과 일치시킵니다.
@@ -273,6 +302,10 @@ export default function EmployeeManager({ onBack }) {
         }
     };
 
+    if (isBiweeklyPairManagerOpen) {
+        return <BiweeklyPairManager onBack={() => setIsBiweeklyPairManagerOpen(false)} />;
+    }
+
     return (
         <div className="admin-safe-top flex min-h-screen w-full flex-col bg-gray-50 font-sans text-slate-800">
             <header className="admin-sticky-safe-header sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-gray-200 bg-white px-3 py-3 shadow-sm sm:px-4">
@@ -301,6 +334,26 @@ export default function EmployeeManager({ onBack }) {
                         <div className="rounded-xl bg-amber-50 p-2"><p className="text-lg font-black text-amber-700">{backupEmployees.length}</p><p className="text-[10px] font-bold text-amber-700">백업 직원</p></div>
                         <div className="rounded-xl bg-rose-50 p-2"><p className="text-lg font-black text-rose-700">{unassignedBaseCount}</p><p className="text-[10px] font-bold text-rose-700">노선 배정 필요</p></div>
                     </div>
+                </section>
+
+                <button
+                    type="button"
+                    onClick={() => setIsBiweeklyPairManagerOpen(true)}
+                    className="flex w-full items-center justify-between gap-3 rounded-2xl border border-indigo-100 bg-indigo-50 p-3 text-left transition-colors hover:border-indigo-300 sm:p-4"
+                >
+                    <span className="flex min-w-0 items-center gap-3">
+                        <span className="rounded-xl bg-indigo-600 p-3 text-white"><Users size={22} /></span>
+                        <span className="min-w-0">
+                            <span className="block text-sm font-black text-indigo-950">격주 짝 관리</span>
+                            <span className="mt-1 block text-xs leading-5 text-indigo-700">짝을 맺으면 두 직원의 격주 근무 주기가 서로 반대로 반복됩니다.</span>
+                        </span>
+                    </span>
+                    <span className="shrink-0 rounded-lg bg-white px-2 py-1.5 text-[11px] font-black text-indigo-700">
+                        {unpairedBiweeklyCount > 0 ? '미설정 ' + unpairedBiweeklyCount + '명' : '관리하기'}
+                    </span>
+                </button>
+
+                <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
                     <label className="mt-3 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                         <Search size={16} className="shrink-0 text-slate-400" />
                         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="직원·팀·노선 검색" className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400" />
