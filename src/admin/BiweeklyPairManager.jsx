@@ -157,7 +157,7 @@ export default function BiweeklyPairManager({ onBack }) {
                 <section className="rounded-2xl border border-indigo-100 bg-indigo-50 p-3 sm:p-4">
                     <h2 className="text-sm font-black text-indigo-950">짝 만드는 방법</h2>
                     <p className="mt-1 text-xs leading-5 text-indigo-800">
-                        근무일 수나 직군이 달라도 격주 직원 두 명이면 짝을 맺을 수 있습니다. 첫 번째 직원은 이번 주 짧은 근무 주, 두 번째 직원은 긴 근무 주로 시작하고 다음 주에는 서로 바뀝니다.
+                        근무일 수·직군·팀이 달라도 격주 직원 두 명이면 짝을 맺을 수 있습니다. 첫 번째 직원은 이번 주 짧은 근무 주, 두 번째 직원은 긴 근무 주로 시작하고 다음 주에는 서로 바뀝니다.
                     </p>
                     <div className="mt-3 flex items-center gap-2 rounded-xl bg-white/80 p-2.5 text-xs font-bold text-indigo-900">
                         <CheckCircle2 size={16} className="shrink-0" />
@@ -237,7 +237,7 @@ export default function BiweeklyPairManager({ onBack }) {
                         </button>
                         {selectedEmployees.length === 1 && (
                             <p className="mt-2 text-center text-[11px] text-slate-500">
-                                근무 패턴과 직군에 관계없이 다른 격주 직원 한 명을 더 선택하세요.
+                                근무 패턴·직군·팀에 관계없이 다른 격주 직원 한 명을 더 선택하세요.
                             </p>
                         )}
                     </div>
