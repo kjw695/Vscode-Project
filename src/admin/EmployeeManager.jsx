@@ -122,6 +122,21 @@ export default function EmployeeManager({ onBack }) {
         setRouteListFilter('all');
     };
 
+    const toggleBiweeklyPattern = () => {
+        if (!isBiweekly) {
+            // 기존 매주 고정 휴무가 있으면 두 주 모두의 기본값으로 가져옵니다.
+            if (fixedOffWeekdays.length > 0) {
+                setFixedOffWeekdaysShortWeek((previous) => previous.length ? previous : [...fixedOffWeekdays]);
+                setFixedOffWeekdaysLongWeek((previous) => previous.length ? previous : [...fixedOffWeekdays]);
+            }
+            setIsBiweekly(true);
+        } else {
+            // 격주를 끄면 두 주에 공통으로 지정된 요일만 매주 고정 휴무로 유지합니다.
+            setFixedOffWeekdays(fixedOffWeekdaysShortWeek.filter((day) => fixedOffWeekdaysLongWeek.includes(day)));
+            setIsBiweekly(false);
+        }
+    };
+
     const handleOpenAdd = () => {
         const defaultType = employeeTypeFilter === 'sub' ? 'sub' : 'base';
         setSelectedEmployee({
@@ -583,21 +598,13 @@ export default function EmployeeManager({ onBack }) {
                                         </button>
                                     ))}
                                 </div>
-                                <button type="button" onClick={() => setIsBiweekly((value) => {
-                                    if (!value) {
-                                        setFixedOffWeekdaysShortWeek((previous) => previous.length ? previous : [...fixedOffWeekdays]);
-                                        setFixedOffWeekdaysLongWeek((previous) => previous.length ? previous : [...fixedOffWeekdays]);
-                                    } else {
-                                        setFixedOffWeekdays((previous) => fixedOffWeekdaysShortWeek.filter((day) => fixedOffWeekdaysLongWeek.includes(day)));
-                                    }
-                                    return !value;
-                                })} className={'mt-2 w-full rounded-xl border px-3 py-2.5 text-sm font-bold ' + (isBiweekly ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-gray-200 bg-white text-gray-500')}>
+                                <button type="button" onClick={toggleBiweeklyPattern} className={'mt-2 w-full rounded-xl border px-3 py-2.5 text-sm font-bold ' + (isBiweekly ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-gray-200 bg-white text-gray-500')}>
                                     {isBiweekly ? '✓ 격주 패턴 적용' : '격주 패턴 적용'}
                                 </button>
                                 <p className="mt-2 text-xs text-gray-500">적용 패턴: <strong>{isBiweekly ? '격주 ' : '주 '}{workDays}일</strong></p>
                                 {isBiweekly && workDays === 6 && (
                                     <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-800">
-                                        격주 6일은 한 주 6일 근무, 다음 주는 7일 근무 기준(휴무 0일)이 됩니다. 7일 연속 근무는 허용되지 않으므로 고정 휴무를 지정하거나 근무 패턴을 조정하세요. 자동 근무표 생성 시에도 경고가 표시됩니다.
+                                        격주 6일은 한 주 6일 근무, 다른 주는 7일 근무 기준(휴무 0일)이 됩니다. 7일 연속 근무는 허용되지 않으므로 고정 휴무를 지정하거나 근무 패턴을 조정하세요. 자동 근무표 생성 시에도 경고가 표시됩니다.
                                     </div>
                                 )}
                             </div>
