@@ -164,10 +164,11 @@ export default function Calendar({ onBack }) {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth() + 1;
     const monthKey = String(year) + '-' + pad2(month);
+    const weekStartKey = formatDate(getMonday(currentDate));
     const weekDates = useMemo(function () {
-        return getWeekDates(currentDate);
-    }, [currentDate]);
-    const weekStartKey = formatDate(weekDates[0]);
+        const parts = weekStartKey.split('-').map(Number);
+        return getWeekDates(new Date(parts[0], parts[1] - 1, parts[2]));
+    }, [weekStartKey]);
     const scheduleKey = 'my_schedule_' + String(selectedTeam) + '_' + weekStartKey;
 
     useEffect(function () {
@@ -226,7 +227,7 @@ export default function Calendar({ onBack }) {
             setSavedRecord(null);
             setScheduleStatus('ready');
         }
-    }, [scheduleKey, monthKey]);
+    }, [scheduleKey, monthKey, weekDates, year, month, selectedTeam]);
 
     const activeTeamEmployees = useMemo(function () {
         return employees.filter(function (employee) {
