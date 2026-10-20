@@ -48,6 +48,7 @@ export default function Settings({ onBack }) {
     const [editing, setEditing] = useState(null);
     const [notice, setNotice] = useState('');
     const [addedTeamId, setAddedTeamId] = useState(null);
+    const [keyboardOffset, setKeyboardOffset] = useState(0);
 
     const regionCardRefs = useRef({});
     const teamFormRefs = useRef({});
@@ -59,6 +60,28 @@ export default function Settings({ onBack }) {
     const addingTeamRegionRef = useRef(addingTeamRegion);
     editingRef.current = editing;
     addingTeamRegionRef.current = addingTeamRegion;
+
+    // Android WebView의 키보드가 열리면 하단 검색창을 키보드 바로 위로 올립니다.
+    useEffect(() => {
+        const viewport = window.visualViewport;
+        if (!viewport) return undefined;
+
+        const updateKeyboardOffset = () => {
+            const coveredHeight = window.innerHeight - viewport.height - viewport.offsetTop;
+            setKeyboardOffset(Math.max(0, Math.round(coveredHeight)));
+        };
+
+        viewport.addEventListener('resize', updateKeyboardOffset);
+        viewport.addEventListener('scroll', updateKeyboardOffset);
+        window.addEventListener('resize', updateKeyboardOffset);
+        updateKeyboardOffset();
+
+        return () => {
+            viewport.removeEventListener('resize', updateKeyboardOffset);
+            viewport.removeEventListener('scroll', updateKeyboardOffset);
+            window.removeEventListener('resize', updateKeyboardOffset);
+        };
+    }, []);
 
     const regionList = useMemo(() => [...new Set([
         ...regions,
@@ -581,9 +604,9 @@ export default function Settings({ onBack }) {
                 </section>
             </main>
 
-            <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur">
+            <div style={{ bottom: `${keyboardOffset}px` }} className="fixed left-0 right-0 z-30 border-t border-indigo-200 bg-white/95 px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-4px_18px_rgba(79,70,229,0.09)] backdrop-blur transition-[bottom] duration-100">
                 <div className="mx-auto w-full max-w-3xl">
-                    <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100">
+                    <label className="flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50/60 px-3 py-2.5 shadow-sm transition-colors focus-within:border-indigo-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-100">
                         <Search size={17} className="shrink-0 text-slate-400" />
                         <input
                             value={search}
