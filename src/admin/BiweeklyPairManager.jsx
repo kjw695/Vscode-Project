@@ -31,11 +31,16 @@ function getCurrentStableWeekIndex() {
 }
 
 function getWorkDaysForWeek(employee, weekIndex) {
-    const pattern = getPattern(employee);
     const days = getBiweeklyDays(employee);
     if (days === null) return days;
     const offset = Number(employee.biweeklyWeekOffset) === 1 ? 1 : 0;
     return Math.abs((weekIndex + offset) % 2) === 0 ? days + 1 : days;
+}
+
+function getOffsetForThisWeek(weekIndex, shouldBeLongWeek) {
+    const isEvenWeek = Math.abs(weekIndex % 2) === 0;
+    if (shouldBeLongWeek) return isEvenWeek ? 0 : 1;
+    return isEvenWeek ? 1 : 0;
 }
 
 export default function BiweeklyPairManager({ onBack }) {
@@ -76,8 +81,12 @@ export default function BiweeklyPairManager({ onBack }) {
         .filter(Boolean);
     const selectedPatternDays = selectedEmployees.length ? getBiweeklyDays(selectedEmployees[0]) : null;
     const selectedPatternType = selectedEmployees.length ? getEmployeeType(selectedEmployees[0]) : null;
+    const selectedSecondPatternDays = selectedEmployees.length === 2 ? getBiweeklyDays(selectedEmployees[1]) : null;
+    const selectedPatternGap = selectedEmployees.length === 2
+        ? Math.abs(selectedPatternDays - selectedSecondPatternDays)
+        : null;
     const canCreatePair = selectedEmployees.length === 2 &&
-        getBiweeklyDays(selectedEmployees[1]) === selectedPatternDays &&
+        selectedPatternGap <= 1 &&
         getEmployeeType(selectedEmployees[1]) === selectedPatternType;
 
     const handleSelectEmployee = (employee) => {
@@ -92,8 +101,8 @@ export default function BiweeklyPairManager({ onBack }) {
         }
         if (selectedEmployees.length === 1) {
             const first = selectedEmployees[0];
-            if (getBiweeklyDays(first) !== getBiweeklyDays(employee)) {
-                window.alert('같은 격주 근무 패턴끼리 짝을 만들 수 있습니다. 예: 격주 5일 직원끼리');
+            if (Math.abs(getBiweeklyDays(first) - getBiweeklyDays(employee)) > 1) {
+                window.alert('격주 근무 일수가 같거나 1일 차이인 직원끼리 짝을 만들 수 있습니다. 예: 격주 4일과 격주 5일');
                 return;
             }
             if (getEmployeeType(first) !== getEmployeeType(employee)) {
@@ -111,24 +120,37 @@ export default function BiweeklyPairManager({ onBack }) {
         }
         const [first, second] = selectedEmployees;
         const currentWeekIndex = getCurrentStableWeekIndex();
-        // 이번 주를 짧은 근무 주로 시작하는 첫 번째 직원과, 반대 주기의 두 번째 직원을 지정합니다.
-        const shortWeekOffset = Math.abs(currentWeekIndex % 2) === 0 ? 1 : 0;
+        const firstDays = getBiweeklyDays(first);
+        const secondDays = getBiweeklyDays(second);
+        // 같은 패턴이면 첫 번째 직원은 짧은 주, 두 번째는 긴 주로 시작합니다.
+        // 패턴 차이가 1일이면 겹치는 근무일 수(예: 격주 4일의 5일 주와 격주 5일의 5일 주)를 이번 주에 맞춥니다.
+        const firstStartsLong = firstDays < secondDays;
+        const firstOffset = getOffsetForThisWeek(currentWeekIndex, firstStartsLong);
+        const secondOffset = getOffsetForThisWeek(currentWeekIndex, !firstStartsLong);
         const pairId = 'BIWEEKLY_' + Date.now() + '_' + String(first.id) + '_' + String(second.id);
         setEmployees((previous) => previous.map((employee) => {
             if (String(employee.id) === String(first.id)) {
-                return { ...employee, biweeklyPairId: pairId, biweeklyWeekOffset: shortWeekOffset };
+                return { ...employee, biweeklyPairId: pairId, biweeklyWeekOffset: firstOffset };
             }
             if (String(employee.id) === String(second.id)) {
-                return { ...employee, biweeklyPairId: pairId, biweeklyWeekOffset: 1 - shortWeekOffset };
+                return { ...employee, biweeklyPairId: pairId, biweeklyWeekOffset: secondOffset };
             }
             return employee;
         }));
         setSelectedIds([]);
-        const nextLongDays = selectedPatternDays + 1;
+        const firstWithOffset = { ...first, biweeklyWeekOffset: firstOffset };
+        const secondWithOffset = { ...second, biweeklyWeekOffset: secondOffset };
+        const firstThisWeek = getWorkDaysForWeek(firstWithOffset, currentWeekIndex);
+        const secondThisWeek = getWorkDaysForWeek(secondWithOffset, currentWeekIndex);
+        const firstNextWeek = getWorkDaysForWeek(firstWithOffset, currentWeekIndex + 1);
+        const secondNextWeek = getWorkDaysForWeek(secondWithOffset, currentWeekIndex + 1);
         window.alert(
-            first.name + '님은 이번 주 ' + selectedPatternDays + '일 근무, ' +
-            second.name + '님은 이번 주 ' + nextLongDays + '일 근무로 설정했습니다. 다음 주에는 서로 반대로 바뀝니다.' +
-            (selectedPatternDays === 6 ? '\n주의: 한 주는 7일 근무 기준이므로 자동 근무표에서 경고가 표시됩니다.' : '')
+            first.name + '님: 이번 주 ' + firstThisWeek + '일 → 다음 주 ' + firstNextWeek + '일\n' +
+            second.name + '님: 이번 주 ' + secondThisWeek + '일 → 다음 주 ' + secondNextWeek + '일\n' +
+            '설정한 주기는 매주 자동으로 번갈아 적용됩니다.' +
+            (Math.max(firstThisWeek, secondThisWeek, firstNextWeek, secondNextWeek) >= 7
+                ? '\n주의: 7일 근무 주가 포함되어 자동 근무표에 경고가 표시됩니다.'
+                : '')
         );
     };
 
@@ -161,7 +183,7 @@ export default function BiweeklyPairManager({ onBack }) {
                 <section className="rounded-2xl border border-indigo-100 bg-indigo-50 p-3 sm:p-4">
                     <h2 className="text-sm font-black text-indigo-950">짝 만드는 방법</h2>
                     <p className="mt-1 text-xs leading-5 text-indigo-800">
-                        같은 격주 근무 패턴의 직원 두 명을 선택하세요. 선택한 첫 번째 직원은 이번 주 짧은 근무 주, 두 번째 직원은 긴 근무 주로 시작하고 다음 주에는 서로 바뀝니다.
+                        근무 패턴이 같거나 1일 차이인 직원 두 명을 선택하세요. 패턴이 다르면 공통 근무일 수(예: 격주 4일·5일의 5일 주)를 이번 주에 맞추고, 다음 주에는 각자의 반대 근무 주가 적용됩니다.
                     </p>
                     <div className="mt-3 flex items-center gap-2 rounded-xl bg-white/80 p-2.5 text-xs font-bold text-indigo-900">
                         <CheckCircle2 size={16} className="shrink-0" />
@@ -199,7 +221,7 @@ export default function BiweeklyPairManager({ onBack }) {
                             const isSelected = selectedIds.includes(String(employee.id));
                             const patternDays = getBiweeklyDays(employee);
                             const matchesSelected = selectedEmployees.length === 0 ||
-                                (getBiweeklyDays(selectedEmployees[0]) === patternDays &&
+                                (Math.abs(getBiweeklyDays(selectedEmployees[0]) - patternDays) <= 1 &&
                                     getEmployeeType(selectedEmployees[0]) === getEmployeeType(employee));
                             const thisWeekDays = getWorkDaysForWeek(employee, currentWeekIndex);
                             return (
@@ -246,7 +268,7 @@ export default function BiweeklyPairManager({ onBack }) {
                         </button>
                         {selectedEmployees.length === 1 && (
                             <p className="mt-2 text-center text-[11px] text-slate-500">
-                                {selectedEmployees[0].name}님과 같은 격주 {selectedPatternDays}일 패턴을 선택해주세요.
+                                {selectedEmployees[0].name}님과 격주 {selectedPatternDays}일 또는 {Math.max(1, selectedPatternDays - 1)}일 · {Math.min(6, selectedPatternDays + 1)}일 패턴 차이가 1일인 직원이 짝을 맺을 수 있습니다. 같은 직군이어야 합니다.
                             </p>
                         )}
                     </div>
