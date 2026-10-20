@@ -15,8 +15,8 @@ export default function EmployeeManager({ onBack }) {
         teams = [],
         routes = [],
         setEmployees,
-        updateEmployee,
-        assignRoute
+        setRoutes,
+        updateEmployee
     } = useAdminData();
 
     const [employeeTypeFilter, setEmployeeTypeFilter] = useState('all');
@@ -29,7 +29,7 @@ export default function EmployeeManager({ onBack }) {
     const [isBiweekly, setIsBiweekly] = useState(false);
     const [editType, setEditType] = useState('base');
     const [editTeamId, setEditTeamId] = useState(teams[0]?.id || '');
-    const [editRouteId, setEditRouteId] = useState('');
+    const [editRouteIds, setEditRouteIds] = useState([]);
     const [isRouteListOpen, setIsRouteListOpen] = useState(false);
     const [routeListFilter, setRouteListFilter] = useState('all');
 
@@ -69,6 +69,9 @@ export default function EmployeeManager({ onBack }) {
     const teamRoutes = useMemo(() => routes.filter((route) =>
         String(route.team_id) === String(editTeamId)
     ), [routes, editTeamId]);
+    const selectedTeamRoutes = useMemo(() => teamRoutes.filter((route) =>
+        editRouteIds.includes(String(route.id))
+    ), [teamRoutes, editRouteIds]);
     const teamsByRegion = useMemo(() => teams.reduce((groups, team) => {
         const region = getTeamRegion(team);
         groups[region] = groups[region] || [];
@@ -88,8 +91,13 @@ export default function EmployeeManager({ onBack }) {
         setWorkDays(match ? Number(match[0]) : 5);
         setEditType(safeEmployee.type);
         setEditTeamId(safeEmployee.team_id || teams[0]?.id || '');
-        const assignedRoute = routes.find((route) => String(route.assigned_emp_id) === String(safeEmployee.id));
-        setEditRouteId(assignedRoute ? String(assignedRoute.id) : '');
+        const assignedRouteIds = routes
+            .filter((route) =>
+                String(route.assigned_emp_id) === String(safeEmployee.id) &&
+                String(route.team_id) === String(safeEmployee.team_id)
+            )
+            .map((route) => String(route.id));
+        setEditRouteIds(assignedRouteIds);
         setIsRouteListOpen(false);
         setRouteListFilter('all');
     };
@@ -109,7 +117,7 @@ export default function EmployeeManager({ onBack }) {
         setIsBiweekly(false);
         setEditType(defaultType);
         setEditTeamId(teams[0]?.id || '');
-        setEditRouteId('');
+        setEditRouteIds([]);
         setIsRouteListOpen(false);
         setRouteListFilter('all');
     };
@@ -126,7 +134,7 @@ export default function EmployeeManager({ onBack }) {
 
         const newTeamId = String(formData.get('team_id') || '');
         const newType = String(formData.get('type') || 'base');
-        const routeId = String(formData.get('route_id') || '');
+        const routeIds = newType === 'base' ? [...new Set(editRouteIds.map(String))] : [];
         const employeeId = selectedEmployee.id || 'EMP_' + Date.now();
         const finalPattern = (isBiweekly ? '격주 ' : '주 ') + workDays + '일';
         const updatedData = {
@@ -141,11 +149,23 @@ export default function EmployeeManager({ onBack }) {
             target: newType === 'sub' ? String(formData.get('target') || '').trim() : ''
         };
 
-        const selectedRoute = routes.find((route) => String(route.id) === routeId);
-        if (newType === 'base' && selectedRoute && selectedRoute.assigned_emp_id != null &&
-            String(selectedRoute.assigned_emp_id) !== String(employeeId)) {
-            const currentDriver = employees.find((employee) => String(employee.id) === String(selectedRoute.assigned_emp_id));
-            if (!window.confirm(selectedRoute.name + ' 노선은 현재 ' + (currentDriver?.name || '다른 직원') + '에게 배정되어 있습니다. 이 직원에게 옮길까요?')) return;
+        const selectedRoutesForTeam = routes.filter((route) =>
+            routeIds.includes(String(route.id)) &&
+            String(route.team_id) === String(newTeamId)
+        );
+        const conflictingRoutes = selectedRoutesForTeam.filter((route) =>
+            route.assigned_emp_id != null &&
+            route.assigned_emp_id !== '' &&
+            String(route.assigned_emp_id) !== String(employeeId)
+        );
+        if (conflictingRoutes.length > 0) {
+            const conflictDetails = conflictingRoutes.map((route) => {
+                const currentDriver = employees.find((employee) =>
+                    String(employee.id) === String(route.assigned_emp_id)
+                );
+                return route.name + ' (' + (currentDriver?.name || '다른 직원') + ')';
+            }).join(', ');
+            if (!window.confirm(conflictDetails + ' 노선은 다른 직원에게 배정되어 있습니다. 선택한 노선을 이 직원에게 옮길까요?')) return;
         }
 
         if (editingNewEmployee) {
@@ -154,10 +174,34 @@ export default function EmployeeManager({ onBack }) {
             updateEmployee(updatedData);
         }
 
-        // 노선은 저장 시 함께 배정합니다. 백업 직원은 고정 노선을 갖지 않습니다.
-        if (newType === 'base' && routeId) {
-            assignRoute(routeId, employeeId);
-        }
+        // 저장 시 이 직원의 노선 배정을 선택 목록과 일치시킵니다.
+        // 체크를 해제한 노선은 미배정으로 되돌리고, 다른 직원의 노선은 확인 후 넘깁니다.
+        const selectedRouteIdSet = new Set(selectedRoutesForTeam.map((route) => String(route.id)));
+        const normalizedEmployeeId = String(employeeId).trim() !== '' && Number.isFinite(Number(employeeId))
+            ? Number(employeeId)
+            : employeeId;
+        setRoutes((previous) => previous.map((route) => {
+            const isSelectedForThisTeam =
+                newType === 'base' &&
+                selectedRouteIdSet.has(String(route.id)) &&
+                String(route.team_id) === String(newTeamId);
+
+            if (isSelectedForThisTeam) {
+                return { ...route, assigned_emp_id: normalizedEmployeeId };
+            }
+
+            const assignedToThisEmployee =
+                route.assigned_emp_id != null &&
+                String(route.assigned_emp_id) === String(employeeId);
+            const belongsToEditedTeam =
+                String(route.team_id) === String(newTeamId) ||
+                String(route.team_id) === String(selectedEmployee.team_id);
+
+            if (assignedToThisEmployee && (newType === 'sub' || belongsToEditedTeam)) {
+                return { ...route, assigned_emp_id: null };
+            }
+            return route;
+        }));
 
         setSelectedEmployee(null);
     };
@@ -229,35 +273,23 @@ export default function EmployeeManager({ onBack }) {
 
                 {filteredEmployeeRows.map(({ employee, type, assignedRoutes, teamName, isInactive }) => {
                     const isUnassignedBase = type === 'base' && assignedRoutes.length === 0;
+                    const routeNames = assignedRoutes.length > 0 ? assignedRoutes.map((route) => route.name).join(', ') : '미배정';
                     return (
                         <button key={employee.id} type="button" onClick={() => handleOpenModal(employee)}
                             className={'flex w-full items-center justify-between gap-3 rounded-xl border bg-white p-3 text-left shadow-sm transition-colors hover:border-indigo-300 sm:p-4 ' + (isUnassignedBase && !isInactive ? 'border-rose-200' : 'border-gray-200')}>
-                            <span className="flex min-w-0 flex-1 items-start gap-2">
+                            <span className="flex min-w-0 items-start gap-2">
                                 <span className={'mt-0.5 rounded-lg p-2 ' + (type === 'base' ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600')}>
                                     <Users size={17} />
                                 </span>
-                                <span className="min-w-0 flex-1">
+                                <span className="min-w-0">
                                     <span className="flex flex-wrap items-center gap-1 font-bold text-slate-800">
                                         {employee.name}
                                         <span className="text-xs font-medium text-slate-400">· {teamName}</span>
                                         {String(employee.id) === String(profile?.id) && <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-black text-green-700">나</span>}
                                     </span>
-                                    {type === 'base' ? (
-                                        assignedRoutes.length > 0 ? (
-                                            <span className="mt-2 flex flex-wrap gap-1.5">
-                                                {assignedRoutes.map((route) => (
-                                                    <span key={route.id} className="inline-flex max-w-full items-center rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[11px] font-bold leading-tight text-indigo-800">
-                                                        <Truck size={11} className="mr-1 shrink-0 text-indigo-500" />
-                                                        <span className="break-all">{route.name}</span>
-                                                    </span>
-                                                ))}
-                                            </span>
-                                        ) : (
-                                            <span className="mt-1 block text-xs font-medium text-rose-600">담당 노선 없음</span>
-                                        )
-                                    ) : (
-                                        <span className="mt-1 block text-xs text-slate-500">백업 가능 범위: {employee.target || '미설정'}</span>
-                                    )}
+                                    <span className="mt-1 block truncate text-xs text-slate-500">
+                                        {type === 'base' ? <><Truck size={12} className="mr-1 inline" />노선: {routeNames}</> : '백업 가능 범위: ' + (employee.target || '미설정')}
+                                    </span>
                                 </span>
                             </span>
                             <span className="flex shrink-0 flex-col items-end gap-1">
@@ -323,7 +355,7 @@ export default function EmployeeManager({ onBack }) {
                                 </div>
                                 <div>
                                     <label className="mb-1 block truncate text-xs font-black text-gray-600">소속 팀</label>
-                                    <select name="team_id" value={editTeamId} onChange={(event) => { setEditTeamId(event.target.value); setEditRouteId(''); }} className="w-full rounded-xl border border-gray-200 bg-gray-50 px-2.5 py-3 text-sm font-semibold outline-none focus:border-indigo-500">
+                                    <select name="team_id" value={editTeamId} onChange={(event) => { setEditTeamId(event.target.value); setEditRouteIds([]); setIsRouteListOpen(false); setRouteListFilter('all'); }} className="w-full rounded-xl border border-gray-200 bg-gray-50 px-2.5 py-3 text-sm font-semibold outline-none focus:border-indigo-500">
                                         {Object.entries(teamsByRegion).map(([region, regionTeams]) => (
                                             <optgroup key={region} label={region}>
                                                 {regionTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
@@ -347,27 +379,62 @@ export default function EmployeeManager({ onBack }) {
 
                             {editType === 'base' && (
                                 <div>
-                                    <label className="mb-1 block text-xs font-black text-gray-600">담당 노선 배정</label>
-                                    <input type="hidden" name="route_id" value={editRouteId} />
-                                    <button type="button" onClick={() => setIsRouteListOpen((value) => !value)} className="flex w-full items-center justify-between gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-3 text-left text-sm font-semibold text-slate-800">
-                                        <span className="truncate">{editRouteId ? (() => { const route = teamRoutes.find((item) => String(item.id) === String(editRouteId)); return route ? route.name + ' · ' + (employees.find((employee) => String(employee.id) === String(route.assigned_emp_id))?.name || '미배정') : '노선 선택'; })() : '노선 배정 안 함'}</span>
-                                        <ChevronDown size={18} className={'shrink-0 text-slate-500 transition-transform ' + (isRouteListOpen ? 'rotate-180' : '')} />
-                                    </button>
+                                    <div className="mb-2 flex items-center justify-between gap-2">
+                                        <label className="block text-xs font-black text-gray-600">담당 노선 배정</label>
+                                        <span className="rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-black text-indigo-700">{selectedTeamRoutes.length}개 선택</span>
+                                    </div>
+                                    <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-3">
+                                        {selectedTeamRoutes.length > 0 ? (
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {selectedTeamRoutes.map((route) => (
+                                                    <span key={route.id} className="inline-flex max-w-full items-center gap-1 rounded-lg border border-indigo-200 bg-white px-2 py-1.5 text-xs font-bold text-indigo-800">
+                                                        <Truck size={12} className="shrink-0 text-indigo-500" />
+                                                        <span className="break-all">{route.name}</span>
+                                                        <button type="button" onClick={() => setEditRouteIds((previous) => previous.filter((id) => String(id) !== String(route.id)))} className="ml-0.5 rounded p-0.5 text-slate-400 hover:bg-indigo-50 hover:text-indigo-700" aria-label={route.name + ' 선택 해제'}><X size={13} /></button>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="py-1 text-xs text-slate-500">선택된 노선이 없습니다.</p>
+                                        )}
+                                        <button type="button" onClick={() => setIsRouteListOpen((value) => !value)} className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2.5 text-sm font-bold text-indigo-700 hover:bg-indigo-50">
+                                            <Plus size={16} /> 노선 {isRouteListOpen ? '목록 닫기' : '선택 / 추가'}
+                                            <ChevronDown size={17} className={'transition-transform ' + (isRouteListOpen ? 'rotate-180' : '')} />
+                                        </button>
+                                    </div>
                                     {isRouteListOpen && (
                                         <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white">
                                             <div className="grid grid-cols-3 border-b border-slate-100 bg-slate-50 p-1">
                                                 {[['all', '전체'], ['assigned', '배정됨'], ['unassigned', '미배정']].map(([value, label]) => <button key={value} type="button" onClick={() => setRouteListFilter(value)} className={'rounded-lg px-2 py-2 text-xs font-bold ' + (routeListFilter === value ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500')}>{label}</button>)}
                                             </div>
                                             <div className="max-h-48 overflow-y-auto p-2">
-                                                <button type="button" onClick={() => { setEditRouteId(''); setIsRouteListOpen(false); }} className={'mb-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-bold ' + (!editRouteId ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-slate-50 text-slate-600')}>노선 배정 안 함</button>
+                                                <button type="button" onClick={() => setEditRouteIds([])} className="mb-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-bold text-slate-600 hover:bg-slate-50">선택 모두 해제</button>
                                                 {teamRoutes.filter((route) => routeListFilter === 'all' || (routeListFilter === 'assigned' ? route.assigned_emp_id != null && route.assigned_emp_id !== '' : route.assigned_emp_id == null || route.assigned_emp_id === '')).map((route) => {
+                                                    const selected = editRouteIds.includes(String(route.id));
                                                     const assignedEmployee = employees.find((employee) => String(employee.id) === String(route.assigned_emp_id));
-                                                    return <button key={route.id} type="button" onClick={() => { setEditRouteId(String(route.id)); setIsRouteListOpen(false); }} className={'mb-1 flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold ' + (String(editRouteId) === String(route.id) ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-slate-50 text-slate-700')}><span>{route.name}</span><span className={assignedEmployee ? 'text-slate-400' : 'text-emerald-600'}>{assignedEmployee ? assignedEmployee.name : '미배정'}</span></button>;
+                                                    return (
+                                                        <button key={route.id} type="button" onClick={() => setEditRouteIds((previous) => selected ? previous.filter((id) => String(id) !== String(route.id)) : [...previous, String(route.id)])}
+                                                            className={'mb-1 flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold ' + (selected ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50')}>
+                                                            <span className="flex min-w-0 items-center gap-2">
+                                                                <span className={'flex h-5 w-5 shrink-0 items-center justify-center rounded border ' + (selected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 bg-white')}>
+                                                                    {selected && <CheckCircle2 size={14} />}
+                                                                </span>
+                                                                <span className="truncate">{route.name}</span>
+                                                            </span>
+                                                            <span className={'shrink-0 text-[10px] ' + (!assignedEmployee ? 'text-emerald-600' : String(route.assigned_emp_id) === String(selectedEmployee?.id) ? 'text-indigo-600' : 'text-slate-400')}>
+                                                                {!assignedEmployee ? '미배정' : String(route.assigned_emp_id) === String(selectedEmployee?.id) ? '현재 담당' : '담당: ' + assignedEmployee.name}
+                                                            </span>
+                                                        </button>
+                                                    );
                                                 })}
+                                                {teamRoutes.filter((route) => routeListFilter === 'all' || (routeListFilter === 'assigned' ? route.assigned_emp_id != null && route.assigned_emp_id !== '' : route.assigned_emp_id == null || route.assigned_emp_id === '')).length === 0 && (
+                                                    <p className="px-3 py-5 text-center text-xs text-slate-500">조건에 맞는 노선이 없습니다.</p>
+                                                )}
                                             </div>
                                         </div>
                                     )}
                                     {teamRoutes.length === 0 && <p className="mt-2 text-xs text-amber-700">선택한 팀에 등록된 노선이 없습니다.</p>}
+                                    <p className="mt-2 text-[11px] leading-4 text-slate-500">같은 팀의 노선을 여러 개 선택할 수 있습니다. 다른 직원이 담당 중인 노선을 선택하면 저장할 때 확인합니다.</p>
                                 </div>
                             )}
 
