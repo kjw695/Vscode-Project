@@ -108,7 +108,7 @@ function generateScheduleForWeeks(options) {
 
         const commonFixedWeekdays = normalizeWeekdays(employee.fixedOffWeekdays);
         const fixedByWeek = employee.fixedOffWeekdaysByWeek;
-        const employeePattern = String(employee.work_pattern || employee.pattern || '');
+        const employeePattern = String(employee.pattern || employee.work_pattern || '');
         const usesAlternatingWeeks = employeePattern.includes('격주') &&
             fixedByWeek && typeof fixedByWeek === 'object';
 
@@ -299,17 +299,19 @@ function getEmployeeType(employee) {
 }
 
 function getWorkDaysForWeek(employee, weekIndex) {
-    const pattern = String(employee.work_pattern || employee.pattern || '');
+    // 직원관리에서 저장한 pattern을 우선 사용하고, 예전 데이터의 work_pattern은 보조로 읽습니다.
+    const pattern = String(employee.pattern || employee.work_pattern || '');
     const match = pattern.match(/[1-6]/);
     const parsedDays = match ? Number(match[0]) : 6;
 
     // '격주 N일'은 N일 근무 주와 N+1일 근무 주를 번갈아 적용합니다.
-    // N=6이면 6일/7일 패턴으로 계산하고, 7일 근무 주는 별도 경고로 알립니다.
+    // 격주 짝을 맺은 직원은 biweeklyWeekOffset(0/1)으로 서로 반대 주기를 가집니다.
     // 주차는 1970-01-04(일요일) 기준으로 고정해 월이 바뀌어도 교대가 유지됩니다.
     if (pattern.includes('격주')) {
         const targetDays = Math.min(6, Math.max(1, parsedDays));
         const alternateDays = targetDays + 1;
-        return Math.abs(weekIndex % 2) === 0 ? alternateDays : targetDays;
+        const phaseOffset = Number(employee.biweeklyWeekOffset) === 1 ? 1 : 0;
+        return Math.abs((weekIndex + phaseOffset) % 2) === 0 ? alternateDays : targetDays;
     }
     return Math.min(6, Math.max(1, parsedDays));
 }
