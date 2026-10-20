@@ -221,7 +221,7 @@ export default function Calendar({ onBack }) {
             setSavedRecord(null);
             setScheduleStatus('ready');
         }
-    }, [scheduleKey]);
+    }, [scheduleKey, monthKey]);
 
     const activeTeamEmployees = useMemo(function () {
         return employees.filter(function (employee) {
@@ -374,6 +374,8 @@ export default function Calendar({ onBack }) {
             teamId: selectedTeam,
             year: year,
             month: month,
+            weekStart: formatDate(weekDates[0]),
+            weekEnd: formatDate(weekDates[6]),
             status: 'draft',
             version: (savedRecord && savedRecord.version ? savedRecord.version : 0) + 1,
             updatedAt: new Date().toISOString(),
@@ -408,6 +410,8 @@ export default function Calendar({ onBack }) {
             teamId: selectedTeam,
             year: year,
             month: month,
+            weekStart: formatDate(weekDates[0]),
+            weekEnd: formatDate(weekDates[6]),
             status: 'confirmed',
             version: (savedRecord && savedRecord.version ? savedRecord.version : 0) + 1,
             updatedAt: new Date().toISOString(),
@@ -433,6 +437,8 @@ export default function Calendar({ onBack }) {
             teamId: selectedTeam,
             year: year,
             month: month,
+            weekStart: formatDate(weekDates[0]),
+            weekEnd: formatDate(weekDates[6]),
             status: 'draft',
             version: (savedRecord && savedRecord.version ? savedRecord.version : 0) + 1,
             updatedAt: new Date().toISOString(),
@@ -649,7 +655,7 @@ export default function Calendar({ onBack }) {
                                             {weekDates.map(function (date) {
                                                 const isOutside = date.getMonth() + 1 !== month || date.getFullYear() !== year;
                                                 return (
-                                                    <th key={formatDate(date)} className={'sticky top-0 min-w-[112px] border-b border-r border-slate-200 px-3 py-3 text-center font-black ' + (isOutside ? 'bg-slate-100 text-slate-400' : 'bg-slate-50')}>
+                                                    <th key={formatDate(date)} className={'sticky top-0 z-30 min-w-[112px] border-b border-r border-slate-200 px-3 py-3 text-center font-black ' + (isOutside ? 'bg-slate-100 text-slate-400' : 'bg-slate-50')}>
                                                         <div>{WEEKDAYS[date.getDay()]}요일</div>
                                                         <div className="mt-0.5 text-[11px] font-semibold text-slate-500">{date.getMonth() + 1}/{date.getDate()}</div>
                                                     </th>
