@@ -48,7 +48,6 @@ export default function Settings({ onBack }) {
     const [editing, setEditing] = useState(null);
     const [notice, setNotice] = useState('');
     const [addedTeamId, setAddedTeamId] = useState(null);
-    const [keyboardOffset, setKeyboardOffset] = useState(0);
 
     const regionCardRefs = useRef({});
     const teamFormRefs = useRef({});
@@ -60,28 +59,6 @@ export default function Settings({ onBack }) {
     const addingTeamRegionRef = useRef(addingTeamRegion);
     editingRef.current = editing;
     addingTeamRegionRef.current = addingTeamRegion;
-
-    // Android WebView의 키보드가 열리면 하단 검색창을 키보드 바로 위로 올립니다.
-    useEffect(() => {
-        const viewport = window.visualViewport;
-        if (!viewport) return undefined;
-
-        const updateKeyboardOffset = () => {
-            const coveredHeight = window.innerHeight - viewport.height - viewport.offsetTop;
-            setKeyboardOffset(Math.max(0, Math.round(coveredHeight)));
-        };
-
-        viewport.addEventListener('resize', updateKeyboardOffset);
-        viewport.addEventListener('scroll', updateKeyboardOffset);
-        window.addEventListener('resize', updateKeyboardOffset);
-        updateKeyboardOffset();
-
-        return () => {
-            viewport.removeEventListener('resize', updateKeyboardOffset);
-            viewport.removeEventListener('scroll', updateKeyboardOffset);
-            window.removeEventListener('resize', updateKeyboardOffset);
-        };
-    }, []);
 
     const regionList = useMemo(() => [...new Set([
         ...regions,
@@ -437,7 +414,20 @@ export default function Settings({ onBack }) {
                 </div>
             </header>
 
-            <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-3 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:p-5">
+            <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-3 pb-6 sm:p-5">
+                <section className="rounded-2xl border border-indigo-100 bg-white p-3 shadow-sm sm:p-4">
+                    <label className="flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50/60 px-3 py-3 shadow-sm transition-colors focus-within:border-indigo-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-100">
+                        <Search size={18} className="shrink-0 text-indigo-500" />
+                        <input
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder="지역 또는 팀 검색"
+                            aria-label="지역 또는 팀 검색"
+                            className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-slate-500"
+                        />
+                        {search && <button type="button" onClick={() => setSearch('')} className="rounded-md p-1 text-slate-400 hover:bg-slate-100" aria-label="검색어 지우기"><X size={15} /></button>}
+                    </label>
+                </section>
                 <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <h2 className="mb-1 flex items-center gap-2 font-black text-slate-800">
                         <MapPin size={18} className="text-indigo-600" /> 지역 목록
@@ -604,22 +594,7 @@ export default function Settings({ onBack }) {
                 </section>
             </main>
 
-            <div style={{ bottom: `${keyboardOffset}px` }} className="fixed left-0 right-0 z-30 border-t border-indigo-200 bg-white/95 px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-4px_18px_rgba(79,70,229,0.09)] backdrop-blur transition-[bottom] duration-100">
-                <div className="mx-auto w-full max-w-3xl">
-                    <label className="flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50/60 px-3 py-2.5 shadow-sm transition-colors focus-within:border-indigo-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-100">
-                        <Search size={17} className="shrink-0 text-slate-400" />
-                        <input
-                            value={search}
-                            onChange={(event) => setSearch(event.target.value)}
-                            placeholder="지역 또는 팀 검색"
-                            aria-label="지역 또는 팀 검색"
-                            className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-slate-400"
-                        />
-                        {search && <button type="button" onClick={() => setSearch('')} className="rounded-md p-1 text-slate-400 hover:bg-slate-100" aria-label="검색어 지우기"><X size={15} /></button>}
-                    </label>
-                    <p className="mt-1.5 text-center text-[10px] text-slate-500">지역·팀 변경 사항은 현재 기기에 자동 저장됩니다.</p>
-                </div>
-            </div>
+
 
             {editing && (
                 <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/50 px-3 pt-[max(12px,env(safe-area-inset-top))] pb-3 sm:items-center" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditing(null); }}>
