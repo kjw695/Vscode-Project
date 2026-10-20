@@ -106,7 +106,7 @@ function generateScheduleForWeeks(options) {
 
         weeks.forEach(function (weekDates) {
             weekDates.forEach(function (dateKey) {
-                const match = String(dateKey).match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
+                const match = String(dateKey).match(/^(\d{4})-(\d{2})-(\d{2})$/);
                 if (!match) return;
                 const weekday = new Date(
                     Number(match[1]),
