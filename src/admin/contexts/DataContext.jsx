@@ -4,51 +4,88 @@ import useTempInitData from '../utils/tempInitData';
 
 const DataContext = createContext();
 
+const readInitialRegions = () => {
+    try {
+        const storedRegions = localStorage.getItem('my_regions');
+        if (storedRegions !== null) {
+            const parsedRegions = JSON.parse(storedRegions);
+            if (Array.isArray(parsedRegions)) {
+                return [...new Set(parsedRegions.filter((region) => typeof region === 'string' && region.trim()))];
+            }
+        }
+
+        // 기존 버전에서 지역 목록을 별도로 저장하지 않았던 경우,
+        // 저장된 팀의 지역 정보를 이용해 목록을 복구합니다.
+        const storedTeams = JSON.parse(localStorage.getItem('my_teams') || '[]');
+        if (Array.isArray(storedTeams)) {
+            return [...new Set(storedTeams.map((team) => team?.region || '기본 지역').filter(Boolean))];
+        }
+    } catch (error) {
+        console.warn('지역 설정을 불러오지 못했습니다.', error);
+    }
+    return [];
+};
+
 export function DataProvider({ children }) {
     const [teams, setTeams] = useState(() => JSON.parse(localStorage.getItem('my_teams')) || []);
+    const [regions, setRegions] = useState(readInitialRegions);
     const [employees, setEmployees] = useState(() => JSON.parse(localStorage.getItem('my_employees')) || []);
     const [routes, setRoutes] = useState(() => JSON.parse(localStorage.getItem('my_routes')) || []);
 
     // 임시 초기 데이터 주입기 (추후 실제 DB 연동 시 이 줄만 삭제)
     useTempInitData(teams, setTeams, employees, setEmployees, routes, setRoutes);
 
-    // 로컬 스토리지 동기화 (Single Source of Truth 영구 금고)
+    // 기존 팀에 등록된 지역이 지역 목록에서도 누락되지 않도록 동기화합니다.
+    useEffect(() => {
+        const teamRegions = teams.map((team) => team?.region || '기본 지역').filter(Boolean);
+        setRegions((currentRegions) => {
+            const current = Array.isArray(currentRegions) ? currentRegions : [];
+            const next = [...new Set([...current, ...teamRegions])];
+            const unchanged = next.length === current.length && next.every((region, index) => region === current[index]);
+            return unchanged ? currentRegions : next;
+        });
+    }, [teams]);
+
+    // 로컬 스토리지 동기화 (현재 기기의 브라우저 저장소)
     useEffect(() => { localStorage.setItem('my_teams', JSON.stringify(teams)); }, [teams]);
+    useEffect(() => { localStorage.setItem('my_regions', JSON.stringify(regions)); }, [regions]);
     useEffect(() => { localStorage.setItem('my_employees', JSON.stringify(employees)); }, [employees]);
     useEffect(() => { localStorage.setItem('my_routes', JSON.stringify(routes)); }, [routes]);
 
-    // ✨ [규칙 4] 직원 정보 수정 (소속 변경 또는 대체직 전환 시 기존 고정 노선 강제 회수)
+    // 직원 소속 변경 또는 대체직 전환 시 기존 고정 노선 배정을 회수합니다.
     const updateEmployee = (updatedEmp) => {
-        const oldEmp = employees.find(e => String(e.id) === String(updatedEmp.id));
-        
-        setEmployees(prev => prev.map(e => String(e.id) === String(updatedEmp.id) ? updatedEmp : e));
+        const oldEmp = employees.find((employee) => String(employee.id) === String(updatedEmp.id));
 
-        if ((oldEmp && oldEmp.team_id !== updatedEmp.team_id) || updatedEmp.type === 'sub') {
-            setRoutes(prev => prev.map(route => 
-                String(route.assigned_emp_id) === String(updatedEmp.id) 
-                    ? { ...route, assigned_emp_id: null } 
+        setEmployees((previous) => previous.map((employee) =>
+            String(employee.id) === String(updatedEmp.id) ? updatedEmp : employee
+        ));
+
+        if ((oldEmp && String(oldEmp.team_id) !== String(updatedEmp.team_id)) || updatedEmp.type === 'sub') {
+            setRoutes((previous) => previous.map((route) =>
+                String(route.assigned_emp_id) === String(updatedEmp.id)
+                    ? { ...route, assigned_emp_id: null }
                     : route
             ));
         }
     };
 
-    // ✨ [규칙 1, 3] 노선 배정 (문자/숫자 ID 무결성 및 다중 배차 대응)
+    // 노선 배정 (문자/숫자 ID를 통일해 비교합니다.)
     const assignRoute = (routeId, empId) => {
-        const finalEmpId = empId === "" ? null : (isNaN(Number(empId)) ? empId : Number(empId));
-        setRoutes(prev => prev.map(route => 
-            route.id === routeId ? { ...route, assigned_emp_id: finalEmpId } : route
+        const finalEmpId = empId === '' ? null : (isNaN(Number(empId)) ? empId : Number(empId));
+        setRoutes((previous) => previous.map((route) =>
+            String(route.id) === String(routeId) ? { ...route, assigned_emp_id: finalEmpId } : route
         ));
     };
 
-    // ✨ [규칙 2] SSOT 기반: 노선 테이블을 훑어서 해당 기사님의 모든 노선 이름을 쉼표로 조립
     const getEmployeeRouteNames = (empId) => {
-        const myRoutes = routes.filter(r => String(r.assigned_emp_id) === String(empId));
-        return myRoutes.length > 0 ? myRoutes.map(r => r.name).join(', ') : '미지정';
+        const myRoutes = routes.filter((route) => String(route.assigned_emp_id) === String(empId));
+        return myRoutes.length > 0 ? myRoutes.map((route) => route.name).join(', ') : '미지정';
     };
 
     return (
         <DataContext.Provider value={{
             teams, setTeams,
+            regions, setRegions,
             employees, setEmployees, updateEmployee,
             routes, setRoutes, assignRoute, getEmployeeRouteNames
         }}>
@@ -58,5 +95,5 @@ export function DataProvider({ children }) {
 }
 
 export const useData = () => useContext(DataContext);
-// 🛡️ 혹시 모를 다른 파일과의 충돌을 막기 위해 두 이름 모두 동일하게 지원합니다.
+// 두 이름을 모두 지원해 기존 컴포넌트와의 호환성을 유지합니다.
 export const useAdminData = useData;
