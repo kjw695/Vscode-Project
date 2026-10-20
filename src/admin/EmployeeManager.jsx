@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAdminData } from './contexts/DataContext';
 
 const DEFAULT_PATTERN = '주 5일';
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const getTeamRegion = (team) => team?.region || '기본 지역';
 const getTeamLabel = (team) => team ? getTeamRegion(team) + ' · ' + team.name : '미배정';
 
@@ -27,6 +28,8 @@ export default function EmployeeManager({ onBack }) {
     const [selectedEmployee, setSelectedEmployee] = useState(null);
     const [workDays, setWorkDays] = useState(5);
     const [isBiweekly, setIsBiweekly] = useState(false);
+    const [hasFixedOffDays, setHasFixedOffDays] = useState(false);
+    const [fixedOffWeekdays, setFixedOffWeekdays] = useState([]);
     const [editType, setEditType] = useState('base');
     const [editTeamId, setEditTeamId] = useState(teams[0]?.id || '');
     const [editRouteIds, setEditRouteIds] = useState([]);
@@ -87,6 +90,11 @@ export default function EmployeeManager({ onBack }) {
         };
         setSelectedEmployee(safeEmployee);
         setIsBiweekly(String(safeEmployee.pattern).includes('격주'));
+        const savedFixedOffWeekdays = Array.isArray(safeEmployee.fixedOffWeekdays)
+            ? [...new Set(safeEmployee.fixedOffWeekdays.map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))]
+            : [];
+        setFixedOffWeekdays(savedFixedOffWeekdays);
+        setHasFixedOffDays(Boolean(safeEmployee.hasFixedOffDays || savedFixedOffWeekdays.length > 0));
         const match = String(safeEmployee.pattern).match(/[1-6]/);
         setWorkDays(match ? Number(match[0]) : 5);
         setEditType(safeEmployee.type);
@@ -115,6 +123,8 @@ export default function EmployeeManager({ onBack }) {
         });
         setWorkDays(5);
         setIsBiweekly(false);
+        setHasFixedOffDays(false);
+        setFixedOffWeekdays([]);
         setEditType(defaultType);
         setEditTeamId(teams[0]?.id || '');
         setEditRouteIds([]);
@@ -131,6 +141,10 @@ export default function EmployeeManager({ onBack }) {
             window.alert('직원 이름을 입력해주세요.');
             return;
         }
+        if (hasFixedOffDays && fixedOffWeekdays.length === 0) {
+            window.alert('고정 휴무를 사용하려면 쉬는 요일을 하나 이상 선택해주세요.');
+            return;
+        }
 
         const newTeamId = String(formData.get('team_id') || '');
         const newType = String(formData.get('type') || 'base');
@@ -144,6 +158,8 @@ export default function EmployeeManager({ onBack }) {
             team_id: newTeamId,
             type: newType,
             pattern: finalPattern,
+            hasFixedOffDays,
+            fixedOffWeekdays: hasFixedOffDays ? [...fixedOffWeekdays].sort((a, b) => a - b) : [],
             active: selectedEmployee.active !== false,
             vehicle_number: String(formData.get('vehicle_number') || '').trim(),
             target: newType === 'sub' ? String(formData.get('target') || '').trim() : ''
@@ -337,8 +353,8 @@ export default function EmployeeManager({ onBack }) {
             )}
 
             {selectedEmployee && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3">
-                    <div className="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/50 px-3 pt-[max(12px,env(safe-area-inset-top))] pb-3">
+                    <div className="flex max-h-[calc(100dvh-32px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
                         <div className="flex items-center justify-between gap-3 border-b p-4">
                             <h2 className="flex items-center gap-2 font-black">
                                 {editingNewEmployee ? <Plus size={18} /> : <Users size={18} />}
@@ -444,6 +460,52 @@ export default function EmployeeManager({ onBack }) {
                                     <input name="target" defaultValue={selectedEmployee.target || ''} placeholder="예: 전지역 또는 206a, 206b" className="w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm outline-none focus:border-amber-500" />
                                 </div>
                             )}
+
+                            <section className="rounded-xl border border-slate-200 bg-white p-3">
+                                <label className="flex cursor-pointer items-center gap-2.5">
+                                    <input
+                                        type="checkbox"
+                                        checked={hasFixedOffDays}
+                                        onChange={(event) => setHasFixedOffDays(event.target.checked)}
+                                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-sm font-black text-slate-700">고정 휴무가 있어요</span>
+                                </label>
+                                {hasFixedOffDays && (
+                                    <div className="mt-3 border-t border-slate-100 pt-3">
+                                        <p className="mb-2 text-xs leading-5 text-slate-500">매주 쉬는 요일을 선택하세요. 선택한 요일은 자동 근무표에서도 휴무로 고정됩니다.</p>
+                                        <div className="grid grid-cols-7 gap-1">
+                                            {WEEKDAYS.map((day, weekdayIndex) => {
+                                                const isSelected = fixedOffWeekdays.includes(weekdayIndex);
+                                                return (
+                                                    <button
+                                                        key={day}
+                                                        type="button"
+                                                        aria-pressed={isSelected}
+                                                        onClick={() => setFixedOffWeekdays((previous) =>
+                                                            isSelected
+                                                                ? previous.filter((value) => value !== weekdayIndex)
+                                                                : [...previous, weekdayIndex].sort((a, b) => a - b)
+                                                        )}
+                                                        className={'min-w-0 rounded-lg border px-1 py-2.5 text-sm font-black transition-colors ' + (
+                                                            isSelected
+                                                                ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                                                                : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-indigo-300'
+                                                        )}
+                                                    >
+                                                        {day}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        <p className="mt-2 text-xs font-bold text-indigo-700">
+                                            {fixedOffWeekdays.length > 0
+                                                ? WEEKDAYS.filter((_, dayIndex) => fixedOffWeekdays.includes(dayIndex)).join(' · ') + '요일 고정 휴무'
+                                                : '쉬는 요일을 선택해주세요.'}
+                                        </p>
+                                    </div>
+                                )}
+                            </section>
 
                             <div>
                                 <label className="mb-2 block text-xs font-black text-gray-600">주간 근무 패턴</label>
