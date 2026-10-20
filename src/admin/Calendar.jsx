@@ -407,7 +407,7 @@ export default function Calendar({ onBack }) {
             return;
         }
         if (warnings.length > 0) {
-            window.alert('인력 부족 또는 근무 패턴 미충족 경고가 ' + warnings.length + '건 있습니다. 경고를 해결한 뒤 확정해주세요.');
+            window.alert('백업 인원 확인 또는 근무 패턴 미충족 경고가 ' + warnings.length + '건 있습니다. 백업을 확인한 뒤 확정해주세요.');
             return;
         }
         if (!window.confirm('선택한 팀의 ' + formatDate(weekDates[0]) + ' ~ ' + formatDate(weekDates[6]) + ' 주간 근무표를 확정할까요?')) return;
