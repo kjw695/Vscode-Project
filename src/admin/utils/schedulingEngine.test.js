@@ -82,6 +82,11 @@ describe('generateMonthlySchedule', () => {
 
         expect(result.warnings.length).toBeGreaterThan(0);
         expect(result.warnings.join(' ')).toMatch(/미충족|인력 부족/);
+        // 백업이 없어도 고정 직원의 휴무는 지정하고, 근무 가능한 백업 부족을 따로 알려야 합니다.
+        expect(Object.values(result.schedule).some((day) =>
+            day.offEmployeeIds.map(String).includes('1')
+        )).toBe(true);
+        expect(result.warnings.join(' ')).toMatch(/백업/);
     });
 });
 
@@ -109,6 +114,21 @@ describe('generateWeeklySchedule', () => {
             '2026-10-04'
         ]);
         expect(Object.values(result.schedule).every((record) => record.date)).toBe(true);
+    });
+
+    test('still schedules the fixed employee rest day when no backup staff exist', () => {
+        const result = generateWeeklySchedule({
+            weekStart: '2026-10-19',
+            employees: [createEmployee(1, '고정 기사', 'base', '주 5일')],
+            substitutePermissions: [],
+            fixedDaysOff: [],
+            substituteWorkHistory: []
+        });
+
+        expect(Object.values(result.schedule).some((day) =>
+            day.offEmployeeIds.map(String).includes('1')
+        )).toBe(true);
+        expect(result.warnings.join(' ')).toMatch(/백업/);
     });
 
     test('keeps a substitute off on their scheduled rest day', () => {
