@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { generateWeeklySchedule } from './utils/schedulingEngine';
 import { useAdminData } from './contexts/DataContext';
+import { App as CapacitorApp } from '@capacitor/app';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const MONTH_WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'];
@@ -48,7 +49,7 @@ function getWeekDates(date) {
 
 function getEmployeeType(employee) {
     const type = String(employee.type || employee.employee_type || employee.employeeType || '').toLowerCase();
-    return ['sub', 'substitute', 'backup', '대체'].includes(type) ? 'sub' : 'base';
+    return ['sub', 'substitute', 'backup', '대체', '백업'].includes(type) ? 'sub' : 'base';
 }
 
 function getEmployeeRoute(employee, routes) {
@@ -58,7 +59,7 @@ function getEmployeeRoute(employee, routes) {
     if (assignedRoutes.length > 0) {
         return assignedRoutes.map(function (route) { return route.name; }).join(', ');
     }
-    if (getEmployeeType(employee) === 'sub') return '대체 투입';
+    if (getEmployeeType(employee) === 'sub') return '백업';
     return employee.route || employee.routeName || employee.route_name || '미지정';
 }
 
@@ -462,27 +463,169 @@ export default function Calendar({ onBack }) {
         }
     };
 
+    const handleToggleOff = function (employee, date) {
+        if (!isScheduleGenerated) {
+            window.alert('먼저 선택 주 자동 생성으로 근무표를 만든 뒤, 날짜 칸을 눌러 휴무를 지정해주세요.');
+            return;
+        }
+        if (scheduleStatus === 'confirmed' && !window.confirm('확정된 근무표를 수정하면 초안 상태로 바뀝니다. 계속할까요?')) return;
+
+        const dateKey = formatDate(date);
+        const oldRecord = generatedSchedule[dateKey];
+        if (!oldRecord) {
+            window.alert('선택한 날짜의 일정이 없습니다. 해당 주를 다시 생성해주세요.');
+            return;
+        }
+
+        const oldOffIds = Array.isArray(oldRecord.offEmployeeIds) ? oldRecord.offEmployeeIds.slice() : [];
+        const wasOff = oldOffIds.some(function (id) { return String(id) === String(employee.id); });
+        const nextOffIds = wasOff
+            ? oldOffIds.filter(function (id) { return String(id) !== String(employee.id); })
+            : oldOffIds.concat([employee.id]);
+
+        const baseOffEmployees = activeTeamEmployees.filter(function (item) {
+            return getEmployeeType(item) === 'base' && nextOffIds.some(function (id) { return String(id) === String(item.id); });
+        });
+        const backupEmployees = activeTeamEmployees.filter(function (item) {
+            return getEmployeeType(item) === 'sub';
+        });
+        const nextAssignments = [];
+        const coverageWarnings = [];
+
+        baseOffEmployees.forEach(function (baseEmployee) {
+            const existing = (oldRecord.subs || []).find(function (assignment) {
+                return String(assignment.targetBaseId) === String(baseEmployee.id);
+            });
+            const existingBackup = existing && backupEmployees.find(function (backup) {
+                return String(backup.id) === String(existing.subId);
+            });
+            const existingBackupUsable = existingBackup &&
+                !nextOffIds.some(function (id) { return String(id) === String(existingBackup.id); }) &&
+                !nextAssignments.some(function (assignment) { return String(assignment.subId) === String(existingBackup.id); });
+
+            if (existingBackupUsable) {
+                nextAssignments.push(existing);
+                return;
+            }
+
+            const candidates = backupEmployees.filter(function (backup) {
+                if (nextOffIds.some(function (id) { return String(id) === String(backup.id); })) return false;
+                if (nextAssignments.some(function (assignment) { return String(assignment.subId) === String(backup.id); })) return false;
+
+                const rulesForBackup = substitutePermissions.filter(function (permission) {
+                    return String(permission.substitute_employee_id) === String(backup.id);
+                });
+                if (rulesForBackup.length > 0) {
+                    return rulesForBackup.some(function (permission) {
+                        return String(permission.base_employee_id) === String(baseEmployee.id);
+                    });
+                }
+
+                const target = String(backup.target || '').trim().toLowerCase();
+                if (!target) return true;
+                if (['전지역', '전체', '모든', '백업', '대체', '팀 전체', 'all'].some(function (word) { return target.includes(word); })) return true;
+                const routeName = getEmployeeRoute(baseEmployee, routes).toLowerCase();
+                return target.includes(String(baseEmployee.name || '').toLowerCase()) ||
+                    (routeName && routeName !== '미지정' && target.includes(routeName));
+            });
+
+            if (candidates.length > 0) {
+                const chosen = candidates[0];
+                nextAssignments.push({
+                    subId: chosen.id,
+                    subName: chosen.name,
+                    targetBaseId: baseEmployee.id,
+                    targetBaseName: baseEmployee.name,
+                    routeName: getEmployeeRoute(baseEmployee, routes)
+                });
+            } else {
+                coverageWarnings.push(
+                    '[백업 인원 확인 필요] ' + dateKey + ': ' + baseEmployee.name +
+                    ' 휴무가 지정됐지만 근무 가능한 백업이 없습니다. 백업 인원을 확인하거나 휴무일을 변경하세요.'
+                );
+            }
+        });
+
+        const updatedRecord = {
+            ...oldRecord,
+            date: dateKey,
+            offEmployeeIds: nextOffIds,
+            offs: activeTeamEmployees.filter(function (item) {
+                return getEmployeeType(item) === 'base' && nextOffIds.some(function (id) { return String(id) === String(item.id); });
+            }).map(function (item) { return item.name; }),
+            subOffs: backupEmployees.filter(function (item) {
+                return nextOffIds.some(function (id) { return String(id) === String(item.id); });
+            }).map(function (item) { return item.name; }),
+            subs: nextAssignments,
+            status: coverageWarnings.length > 0 ? 'error' : 'ok'
+        };
+
+        const nextSchedule = { ...generatedSchedule, [dateKey]: updatedRecord };
+        setGeneratedSchedule(nextSchedule);
+        setWarnings(function (previousWarnings) {
+            const otherWarnings = previousWarnings.filter(function (warning) {
+                return !String(warning).startsWith('[인력 부족]') &&
+                    !String(warning).startsWith('[백업 인원 확인 필요]');
+            });
+            return Array.from(new Set(otherWarnings.concat(coverageWarnings)));
+        });
+        setScheduleStatus('generated');
+        setSavedRecord(null);
+    };
+
     const renderStatusCell = function (employee, date) {
         const info = getCellStatus(employee, date, generatedSchedule, year, month);
         if (info.status === 'outside') {
             return <span className="text-xs text-gray-300">—</span>;
         }
-        if (info.status === 'pending') {
-            return <span className="inline-flex rounded-md bg-gray-100 px-2 py-1 text-[11px] font-semibold text-gray-400">미생성</span>;
-        }
-        if (info.status === 'off') {
-            return <span className="inline-flex rounded-md bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700">휴무</span>;
-        }
-        if (info.status === 'backup') {
-            return (
-                <span className="flex flex-col items-center gap-0.5">
-                    <span className="inline-flex rounded-md bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700">대체근무</span>
-                    <span className="max-w-24 truncate text-[10px] text-gray-500">→ {info.assignment.targetBaseName}</span>
-                </span>
-            );
-        }
-        return <span className="inline-flex rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700">근무</span>;
+
+        const label = info.status === 'pending'
+            ? '미생성'
+            : info.status === 'off'
+                ? '휴무'
+                : info.status === 'backup'
+                    ? '백업근무'
+                    : '근무';
+        const title = info.status === 'off' ? '누르면 근무로 변경' : '누르면 휴무 지정';
+        const colorClass = info.status === 'off'
+            ? 'border-rose-200 bg-rose-50 text-rose-700'
+            : info.status === 'backup'
+                ? 'border-amber-200 bg-amber-50 text-amber-700'
+                : info.status === 'work'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-slate-200 bg-slate-50 text-slate-400';
+
+        return (
+            <button
+                type="button"
+                onClick={function () { handleToggleOff(employee, date); }}
+                title={title}
+                className={'inline-flex min-w-[54px] items-center justify-center rounded-md border px-1.5 py-1.5 text-[10px] font-black leading-tight transition hover:brightness-95 sm:min-w-[62px] sm:px-2 sm:text-[11px] ' + colorClass}
+            >
+                {label}
+            </button>
+        );
     };
+
+    useEffect(function () {
+        let active = true;
+        let listenerHandle = null;
+        CapacitorApp.addListener('backButton', function () {
+            if (onBack) onBack();
+        }).then(function (handle) {
+            if (!active) {
+                handle.remove();
+                return;
+            }
+            listenerHandle = handle;
+        }).catch(function () {
+            // Browser preview may not provide the native Android back-button event.
+        });
+        return function () {
+            active = false;
+            if (listenerHandle) listenerHandle.remove();
+        };
+    }, [onBack]);
 
     return (
         <div className="flex min-h-screen w-full flex-col bg-slate-50 font-sans text-slate-800">
@@ -514,7 +657,7 @@ export default function Calendar({ onBack }) {
                 </div>
             </header>
 
-            <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-4 p-3 md:gap-5 md:p-6">
+            <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-2 p-2 sm:gap-4 sm:p-3 md:gap-5 md:p-6">
                 <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
                     <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
                         <div>
@@ -562,28 +705,26 @@ export default function Calendar({ onBack }) {
                             )}
                         </div>
                     </div>
-                    <div className="mt-3 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-800">
-                        <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                        <p>현재 근무표 저장은 이 기기의 브라우저 저장소를 사용합니다. 직원 기기 간 서버 동기화는 아직 연결되어 있지 않습니다.</p>
+                    <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2 py-1.5 text-[10px] leading-4 text-amber-800">
+                        <AlertCircle size={13} className="shrink-0" />
+                        <p>이 기기에 저장 · 직원 기기 간 서버 동기화는 미연결</p>
                     </div>
                 </section>
 
-                <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-500"><Users size={16} /> 활성 직원</div>
-                        <div className="mt-2 text-2xl font-black">{activeTeamEmployees.length}<span className="ml-1 text-sm font-semibold text-slate-400">명</span></div>
+                <section className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-2 shadow-sm sm:rounded-2xl sm:p-4">
+                        <div className="flex min-w-0 items-center gap-1 text-[10px] font-bold text-slate-500 sm:gap-2 sm:text-sm"><Users size={14} className="shrink-0" /><span className="truncate">활성 직원</span></div>
+                        <div className="mt-1.5 text-xl font-black sm:mt-2 sm:text-2xl">{activeTeamEmployees.length}<span className="ml-0.5 text-[10px] font-semibold text-slate-400 sm:ml-1 sm:text-sm">명</span></div>
                     </div>
-                    <div className="rounded-2xl border border-rose-100 bg-white p-4 shadow-sm">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-500"><CalendarDays size={16} /> 선택일 휴무</div>
-                        <div className="mt-2 text-2xl font-black text-rose-600">
-                            {getRecordOffCount(currentRecord)}<span className="ml-1 text-sm font-semibold text-slate-400">명</span>
-                        </div>
-                        <p className="mt-1 text-xs text-slate-400">{formatDate(currentDate)}</p>
+                    <div className="min-w-0 rounded-xl border border-rose-100 bg-white p-2 shadow-sm sm:rounded-2xl sm:p-4">
+                        <div className="flex min-w-0 items-center gap-1 text-[10px] font-bold text-slate-500 sm:gap-2 sm:text-sm"><CalendarDays size={14} className="shrink-0" /><span className="truncate">선택일 휴무</span></div>
+                        <div className="mt-1.5 text-xl font-black text-rose-600 sm:mt-2 sm:text-2xl">{getRecordOffCount(currentRecord)}<span className="ml-0.5 text-[10px] font-semibold text-slate-400 sm:ml-1 sm:text-sm">명</span></div>
+                        <p className="mt-0.5 truncate text-[9px] text-slate-400 sm:mt-1 sm:text-xs">{formatDate(currentDate)}</p>
                     </div>
-                    <div className="rounded-2xl border border-amber-100 bg-white p-4 shadow-sm">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-500"><Truck size={16} /> 미배정 노선</div>
-                        <div className="mt-2 text-2xl font-black text-amber-600">{unassignedRoutes.length}<span className="ml-1 text-sm font-semibold text-slate-400">개</span></div>
-                        <p className="mt-1 text-xs text-slate-400">선택 팀 기준</p>
+                    <div className="min-w-0 rounded-xl border border-amber-100 bg-white p-2 shadow-sm sm:rounded-2xl sm:p-4">
+                        <div className="flex min-w-0 items-center gap-1 text-[10px] font-bold text-slate-500 sm:gap-2 sm:text-sm"><Truck size={14} className="shrink-0" /><span className="truncate">미배정 노선</span></div>
+                        <div className="mt-1.5 text-xl font-black text-amber-600 sm:mt-2 sm:text-2xl">{unassignedRoutes.length}<span className="ml-0.5 text-[10px] font-semibold text-slate-400 sm:ml-1 sm:text-sm">개</span></div>
+                        <p className="mt-0.5 truncate text-[9px] text-slate-400 sm:mt-1 sm:text-xs">선택 팀 기준</p>
                     </div>
                 </section>
 
@@ -633,7 +774,7 @@ export default function Calendar({ onBack }) {
                                     <select value={employeeTypeFilter} onChange={function (event) { setEmployeeTypeFilter(event.target.value); }} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold outline-none focus:border-indigo-400">
                                         <option value="all">전체 직원</option>
                                         <option value="base">고정 직원</option>
-                                        <option value="sub">대체 직원</option>
+                                        <option value="sub">백업</option>
                                     </select>
                                     <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold">
                                         <input type="checkbox" checked={offOnly} onChange={function (event) { setOffOnly(event.target.checked); }} className="h-4 w-4 accent-indigo-600" />
@@ -644,7 +785,7 @@ export default function Calendar({ onBack }) {
 
                             {warnings.length > 0 && isScheduleGenerated && (
                                 <div className="mx-3 mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 md:mx-4">
-                                    <h4 className="mb-1 flex items-center gap-2 text-sm font-black text-rose-700"><AlertCircle size={16} /> 확인이 필요한 항목 {warnings.length}건</h4>
+                                    <h4 className="mb-1 flex items-center gap-2 text-sm font-black text-rose-700"><AlertCircle size={16} /> {warnings.some(function (warning) { return String(warning).startsWith('[백업 인원 확인 필요]'); }) ? '휴무 지정 완료 · 백업 인원 확인 필요' : '확인이 필요한 항목'} {warnings.length}건</h4>
                                     <ul className="max-h-32 space-y-1 overflow-y-auto text-xs leading-5 text-rose-700">
                                         {warnings.map(function (warning, index) { return <li key={index}>• {warning}</li>; })}
                                     </ul>
@@ -709,8 +850,8 @@ export default function Calendar({ onBack }) {
                                 <span className="font-semibold text-slate-600">표시 {filteredEmployees.length}명 / 전체 {activeTeamEmployees.length}명</span>
                                 <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded bg-emerald-100"></span>근무</span>
                                 <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded bg-rose-100"></span>휴무</span>
-                                <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded bg-amber-100"></span>대체근무</span>
-                                <span className="text-slate-400">이름·팀·노선 열 고정</span>
+                                <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded bg-amber-100"></span>백업근무</span>
+                                <span className="text-slate-400">날짜 칸을 눌러 휴무 지정 · 이름·팀·노선 고정</span>
                             </div>
                         </div>
                     ) : (
@@ -802,7 +943,7 @@ export default function Calendar({ onBack }) {
                                 )}
                                 {selectedAssignments.length > 0 && (
                                     <div className="mt-4">
-                                        <h5 className="mb-2 text-sm font-black text-slate-700">대체근무 배정</h5>
+                                        <h5 className="mb-2 text-sm font-black text-slate-700">백업근무 배정</h5>
                                         <div className="space-y-2">
                                             {selectedAssignments.map(function (assignment, index) {
                                                 return (
