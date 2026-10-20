@@ -34,7 +34,7 @@ export function generateMonthlySchedule(options = {}) {
 }
 
 /**
- * weekStart가 속한 월요일~일요일 7일만 생성합니다.
+ * weekStart가 속한 일요일~토요일 7일만 생성합니다.
  * 반환 객체의 키는 날짜 충돌을 막기 위해 YYYY-MM-DD 형식입니다.
  */
 export function generateWeeklySchedule(options = {}) {
@@ -43,10 +43,10 @@ export function generateWeeklySchedule(options = {}) {
         throw new Error('유효한 주 시작 날짜(YYYY-MM-DD)가 필요합니다.');
     }
 
-    const monday = getMonday(startDate);
+    const sunday = getSunday(startDate);
     const weekDates = Array.from({ length: 7 }, function (_, index) {
-        const date = new Date(monday);
-        date.setDate(monday.getDate() + index);
+        const date = new Date(sunday);
+        date.setDate(sunday.getDate() + index);
         return formatDate(date.getFullYear(), date.getMonth() + 1, date.getDate());
     });
 
@@ -57,7 +57,7 @@ export function generateWeeklySchedule(options = {}) {
         fixedDaysOff: options.fixedDaysOff || [],
         substituteWorkHistory: options.substituteWorkHistory || [],
         // 격주 패턴은 월이 바뀌어도 초기화하지 않고 주차를 연속해서 계산합니다.
-        weekIndexOffset: getStableWeekIndex(monday)
+        weekIndexOffset: getStableWeekIndex(sunday)
     });
 }
 
@@ -355,9 +355,9 @@ function parseDateInput(value) {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function getMonday(date) {
+function getSunday(date) {
     const result = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    result.setDate(result.getDate() - ((result.getDay() + 6) % 7));
+    result.setDate(result.getDate() - result.getDay());
     return result;
 }
 
