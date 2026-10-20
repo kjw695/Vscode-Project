@@ -81,7 +81,7 @@ describe('generateMonthlySchedule', () => {
         ]);
 
         expect(result.warnings.length).toBeGreaterThan(0);
-        expect(result.warnings.join(' ')).toMatch(/미충족|인력 부족/);
+        expect(result.warnings.join(' ')).toMatch(/백업/);
         // 백업이 없어도 고정 직원의 휴무는 지정하고, 근무 가능한 백업 부족을 따로 알려야 합니다.
         expect(Object.values(result.schedule).some((day) =>
             day.offEmployeeIds.map(String).includes('1')
