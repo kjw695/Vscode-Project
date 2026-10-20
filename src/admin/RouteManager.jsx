@@ -106,8 +106,15 @@ export default function RouteManager({ onBack }) {
                     const expanded = String(expandedRouteId) === String(route.id);
                     return (
                         <section key={route.id} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                            <button type="button" onClick={() => setExpandedRouteId(expanded ? null : route.id)}
-                                className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-slate-50 sm:p-4">
+                            <div role="button" tabIndex={0}
+                                onClick={() => setExpandedRouteId(expanded ? null : route.id)}
+                                onKeyDown={(event) => {
+                                    if (event.key === 'Enter' || event.key === ' ') {
+                                        event.preventDefault();
+                                        setExpandedRouteId(expanded ? null : route.id);
+                                    }
+                                }}
+                                className="flex w-full cursor-pointer items-center justify-between gap-3 p-3 text-left hover:bg-slate-50 sm:p-4">
                                 <span className="flex min-w-0 items-start gap-2">
                                     <span className="rounded-lg bg-blue-50 p-2 text-blue-600"><Truck size={17} /></span>
                                     <span className="min-w-0">
@@ -124,7 +131,7 @@ export default function RouteManager({ onBack }) {
                                         <button type="button" onClick={() => handleDeleteRoute(route.id)} aria-label={route.name + ' 삭제'}><Trash2 size={16} /></button>
                                     </span>
                                 </span>
-                            </button>
+                            </div>
 
                             {expanded && (
                                 <div className="border-t border-gray-100 bg-slate-50 p-3">
