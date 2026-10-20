@@ -94,7 +94,7 @@ function generateScheduleForWeeks(options) {
         }
     });
 
-    // 대체 직원의 휴무부터 배치해 대체 가능 인원을 먼저 확보합니다.
+    // 백업 직원의 휴무부터 배치해 대체 가능 인원을 먼저 확보합니다.
     const patternOrder = substitutes.concat(baseEmployees);
     patternOrder.forEach(function (employee) {
         weeks.forEach(function (weekDates, weekIndex) {
@@ -183,7 +183,7 @@ function generateScheduleForWeeks(options) {
             if (candidates.length === 0) {
                 scheduleResult[dateKey].status = 'error';
                 warnings.push(
-                    '[인력 부족] ' + dateKey + ': ' + baseEmployee.name +
+                    '[백업 인원 확인 필요] ' + dateKey + ': ' + baseEmployee.name +
                     ' 담당 노선을 맡을 수 있는 근무 가능 백업이 없습니다.'
                 );
                 return;
