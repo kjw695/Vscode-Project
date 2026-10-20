@@ -179,7 +179,10 @@ export default function Settings({ onBack }) {
         };
         const viewport = window.visualViewport;
         viewport?.addEventListener('resize', scrollToAddedTeam);
-        fallbackTimer = window.setTimeout(scrollToAddedTeam, 280);
+        fallbackTimer = window.setTimeout(() => {
+            // 키보드 닫힘에 따른 viewport 변경 이벤트가 없을 때만 대체 타이머를 사용합니다.
+            if (!settleTimer) scrollToAddedTeam();
+        }, 280);
         return () => {
             viewport?.removeEventListener('resize', scrollToAddedTeam);
             if (settleTimer) window.clearTimeout(settleTimer);
