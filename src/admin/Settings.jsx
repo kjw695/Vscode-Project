@@ -8,15 +8,17 @@ export default function Settings({ onBack }) {
     const { profile } = useAuth();
     const { teams, setTeams } = useData();
     const [newTeamName, setNewTeamName] = useState('');
+    const [newRegionName, setNewRegionName] = useState('');
 
     const handleAddTeam = (e) => {
     e.preventDefault();
     if (!newTeamName.trim()) return;
-    const newTeam = { id: `T${Date.now()}`, name: newTeamName.trim() };
+    const newTeam = { id: `T${Date.now()}`, name: newTeamName.trim(), region: newRegionName.trim() || '기본 지역' };
     
     // teams가 배열이 아닐 경우(데이터 로딩 전 등)를 대비해 안전하게 처리합니다.
     setTeams([...(Array.isArray(teams) ? teams : []), newTeam]);
     setNewTeamName('');
+    setNewRegionName('');
 };
 
     const handleDeleteTeam = (id) => {
@@ -64,11 +66,13 @@ export default function Settings({ onBack }) {
                 </div>
 
                 <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                    <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                        <MapPin size={18} className="text-indigo-600"/> 관리 구역(지역) 설정
+                    <h2 className="font-bold text-gray-800 mb-1 flex items-center gap-2">
+                        <MapPin size={18} className="text-indigo-600"/> 지역 · 팀 설정
                     </h2>
-                    <form onSubmit={handleAddTeam} className="flex gap-2 mb-4">
-                        <input type="text" value={newTeamName} onChange={(e) => setNewTeamName(e.target.value)} placeholder="예: 천안팀, 서울지부" className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 font-medium outline-none focus:border-indigo-500"/>
+                    <p className="mb-4 text-xs text-gray-500">한 지역에 여러 팀을 등록할 수 있습니다.</p>
+                    <form onSubmit={handleAddTeam} className="grid grid-cols-[1fr_1fr_auto] gap-2 mb-4">
+                        <input type="text" value={newRegionName} onChange={(e) => setNewRegionName(e.target.value)} placeholder="지역 (예: 충청권)" className="min-w-0 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 font-medium outline-none focus:border-indigo-500"/>
+                        <input type="text" value={newTeamName} onChange={(e) => setNewTeamName(e.target.value)} placeholder="팀 이름" className="min-w-0 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 font-medium outline-none focus:border-indigo-500"/>
                         <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-1 hover:bg-indigo-700 whitespace-nowrap">
                             <Plus size={18} /> 추가
                         </button>
@@ -76,7 +80,7 @@ export default function Settings({ onBack }) {
                     <div className="space-y-2">
                         {teams?.map(team => (
                             <div key={team.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                <span className="font-bold text-gray-700">{team.name}</span>
+                                <span className="font-bold text-gray-700"><span className="text-xs text-indigo-600">{team.region || '기본 지역'}</span> <span className="text-gray-400">›</span> {team.name}</span>
                                 <button type="button" onClick={() => handleDeleteTeam(team.id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
                                     <Trash2 size={18} />
                                 </button>
