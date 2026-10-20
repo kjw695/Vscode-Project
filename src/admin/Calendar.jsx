@@ -831,6 +831,7 @@ export default function Calendar({ onBack }) {
                     </div>
                 </section>
 
+                {!isSelectedTeamCollapsed && (
                 <section className="mx-auto grid w-full max-w-4xl grid-cols-3 gap-2 sm:gap-3">
                     <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-2 shadow-sm sm:rounded-2xl sm:p-4">
                         <div className="flex min-w-0 items-center gap-1 text-[10px] font-bold text-slate-500 sm:gap-2 sm:text-sm"><Users size={14} className="shrink-0" /><span className="truncate">활성 직원</span></div>
@@ -847,6 +848,7 @@ export default function Calendar({ onBack }) {
                         <p className="mt-0.5 truncate text-[9px] text-slate-400 sm:mt-1 sm:text-xs">선택 팀 기준</p>
                     </div>
                 </section>
+                )}
 
                 <section className="mx-auto w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                     <div className="flex flex-col items-center gap-3 border-b border-slate-200 p-3 md:p-4">
@@ -875,19 +877,20 @@ export default function Calendar({ onBack }) {
                         </div>
                     </div>
 
-                    {!isSelectedTeamCollapsed && (view === 'weekly' ? (
+                    {view === 'weekly' ? (
                         <div className="weekly-schedule-capture">
-                            <div className="flex flex-col items-center gap-3 border-b border-slate-100 p-3 md:p-4">
-                                <div className="w-full">
+                            <div className="border-b border-slate-100 p-3 md:p-4">
+                                <div className="grid grid-cols-[40px_minmax(0,1fr)_40px] items-center">
+                                    <div aria-hidden="true" />
                                     <div className="text-center">
                                         <h3 className="font-black">주간 근무표</h3>
                                         <p className="text-xs text-slate-500">{formatDate(weekDates[0])} ~ {formatDate(weekDates[6])}</p>
                                     </div>
-                                    <div className="mt-3 flex items-center justify-center gap-3">
-                                        <button onClick={function () { handleWeekChange(-1); }} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="이전 주"><ChevronLeft size={18} /></button>
-                                        <button type="button" onClick={handleDownloadScheduleImage} className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-700 shadow-sm hover:bg-slate-50" aria-label="근무표 이미지 다운로드" title="근무표 이미지 다운로드"><Download size={18} /></button>
-                                        <button onClick={function () { handleWeekChange(1); }} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="다음 주"><ChevronRight size={18} /></button>
-                                    </div>
+                                    <button type="button" onClick={handleDownloadScheduleImage} className="inline-flex h-10 w-10 shrink-0 items-center justify-center justify-self-end rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50" aria-label="근무표 이미지 다운로드" title="근무표 이미지 다운로드"><Download size={18} /></button>
+                                </div>
+                                <div className="mt-3 flex items-center justify-center gap-3">
+                                    <button onClick={function () { handleWeekChange(-1); }} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="이전 주"><ChevronLeft size={18} /></button>
+                                    <button onClick={function () { handleWeekChange(1); }} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="다음 주"><ChevronRight size={18} /></button>
                                 </div>
                                 <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-2">
                                     <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 sm:max-w-sm">
@@ -1075,7 +1078,7 @@ export default function Calendar({ onBack }) {
                                 )}
                             </div>
                         </div>
-                    ))}
+                    )}
                 </section>
             </main>
         </div>
