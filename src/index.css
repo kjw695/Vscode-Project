@@ -25,3 +25,34 @@
   padding: 8px 12px !important;
   font-size: 12px !important;
 }
+
+/* 근무표: 모바일에서도 이름/팀/노선 고정 영역이 날짜 영역을 지나치게 밀어내지 않도록 조정 */
+.schedule-table-scroll {
+  --schedule-name-width: 104px;
+  --schedule-team-width: 56px;
+  --schedule-route-width: 86px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 768px) {
+  .schedule-table-scroll {
+    --schedule-name-width: 140px;
+    --schedule-team-width: 88px;
+    --schedule-route-width: 130px;
+  }
+}
+
+.schedule-table-scroll table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.schedule-table-scroll th,
+.schedule-table-scroll td {
+  white-space: nowrap;
+}
+
