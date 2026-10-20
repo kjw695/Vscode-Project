@@ -229,23 +229,35 @@ export default function EmployeeManager({ onBack }) {
 
                 {filteredEmployeeRows.map(({ employee, type, assignedRoutes, teamName, isInactive }) => {
                     const isUnassignedBase = type === 'base' && assignedRoutes.length === 0;
-                    const routeNames = assignedRoutes.length > 0 ? assignedRoutes.map((route) => route.name).join(', ') : '미배정';
                     return (
                         <button key={employee.id} type="button" onClick={() => handleOpenModal(employee)}
                             className={'flex w-full items-center justify-between gap-3 rounded-xl border bg-white p-3 text-left shadow-sm transition-colors hover:border-indigo-300 sm:p-4 ' + (isUnassignedBase && !isInactive ? 'border-rose-200' : 'border-gray-200')}>
-                            <span className="flex min-w-0 items-start gap-2">
+                            <span className="flex min-w-0 flex-1 items-start gap-2">
                                 <span className={'mt-0.5 rounded-lg p-2 ' + (type === 'base' ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600')}>
                                     <Users size={17} />
                                 </span>
-                                <span className="min-w-0">
+                                <span className="min-w-0 flex-1">
                                     <span className="flex flex-wrap items-center gap-1 font-bold text-slate-800">
                                         {employee.name}
                                         <span className="text-xs font-medium text-slate-400">· {teamName}</span>
                                         {String(employee.id) === String(profile?.id) && <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-black text-green-700">나</span>}
                                     </span>
-                                    <span className="mt-1 block truncate text-xs text-slate-500">
-                                        {type === 'base' ? <><Truck size={12} className="mr-1 inline" />노선: {routeNames}</> : '백업 가능 범위: ' + (employee.target || '미설정')}
-                                    </span>
+                                    {type === 'base' ? (
+                                        assignedRoutes.length > 0 ? (
+                                            <span className="mt-2 flex flex-wrap gap-1.5">
+                                                {assignedRoutes.map((route) => (
+                                                    <span key={route.id} className="inline-flex max-w-full items-center rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[11px] font-bold leading-tight text-indigo-800">
+                                                        <Truck size={11} className="mr-1 shrink-0 text-indigo-500" />
+                                                        <span className="break-all">{route.name}</span>
+                                                    </span>
+                                                ))}
+                                            </span>
+                                        ) : (
+                                            <span className="mt-1 block text-xs font-medium text-rose-600">담당 노선 없음</span>
+                                        )
+                                    ) : (
+                                        <span className="mt-1 block text-xs text-slate-500">백업 가능 범위: {employee.target || '미설정'}</span>
+                                    )}
                                 </span>
                             </span>
                             <span className="flex shrink-0 flex-col items-end gap-1">
