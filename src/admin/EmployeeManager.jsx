@@ -553,11 +553,25 @@ export default function EmployeeManager({ onBack }) {
                                                                         key={day}
                                                                         type="button"
                                                                         aria-pressed={isSelected}
-                                                                        onClick={() => week.setter((previous) =>
-                                                                            isSelected
-                                                                                ? previous.filter((value) => value !== weekdayIndex)
-                                                                                : [...previous, weekdayIndex].sort((a, b) => a - b)
-                                                                        )}
+                                                                        onClick={() => {
+                                                                            if (isSelected) {
+                                                                                week.setter((previous) => previous.filter((value) => value !== weekdayIndex));
+                                                                                return;
+                                                                            }
+
+                                                                            const weekWorkDays = week.key === 'shortWeek' ? workDays : workDays + 1;
+                                                                            const maxFixedOffDays = Math.max(0, 7 - weekWorkDays);
+                                                                            if (week.days.length >= maxFixedOffDays) {
+                                                                                window.alert(
+                                                                                    maxFixedOffDays === 0
+                                                                                        ? week.title + '는 7일 근무 주라 휴무가 0일입니다. 고정 휴무를 선택할 수 없습니다.'
+                                                                                        : week.title + '는 고정 휴무를 최대 ' + maxFixedOffDays + '일까지만 선택할 수 있습니다.'
+                                                                                );
+                                                                                return;
+                                                                            }
+
+                                                                            week.setter((previous) => [...previous, weekdayIndex].sort((a, b) => a - b));
+                                                                        }}
                                                                         className={'min-w-0 rounded-lg border px-1 py-2.5 text-sm font-black transition-colors ' + (
                                                                             isSelected
                                                                                 ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
@@ -582,11 +596,20 @@ export default function EmployeeManager({ onBack }) {
                                                                 key={day}
                                                                 type="button"
                                                                 aria-pressed={isSelected}
-                                                                onClick={() => setFixedOffWeekdays((previous) =>
-                                                                    isSelected
-                                                                        ? previous.filter((value) => value !== weekdayIndex)
-                                                                        : [...previous, weekdayIndex].sort((a, b) => a - b)
-                                                                )}
+                                                                onClick={() => {
+                                                                    if (isSelected) {
+                                                                        setFixedOffWeekdays((previous) => previous.filter((value) => value !== weekdayIndex));
+                                                                        return;
+                                                                    }
+
+                                                                    const maxFixedOffDays = Math.max(0, 7 - workDays);
+                                                                    if (fixedOffWeekdays.length >= maxFixedOffDays) {
+                                                                        window.alert('주 ' + workDays + '일 근무 패턴에서는 고정 휴무를 최대 ' + maxFixedOffDays + '일까지만 선택할 수 있습니다.');
+                                                                        return;
+                                                                    }
+
+                                                                    setFixedOffWeekdays((previous) => [...previous, weekdayIndex].sort((a, b) => a - b));
+                                                                }}
                                                                 className={'min-w-0 rounded-lg border px-1 py-2.5 text-sm font-black transition-colors ' + (
                                                                     isSelected
                                                                         ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
