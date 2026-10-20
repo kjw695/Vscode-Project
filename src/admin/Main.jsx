@@ -2,11 +2,12 @@
 import React, { useEffect, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { useAuth } from '../contexts/AuthContext';
-import { Users, Calendar as CalendarIcon, Settings, LogOut, ShieldCheck, AlertCircle, Map } from 'lucide-react';
+import { Users, Calendar as CalendarIcon, Settings, LogOut, ShieldCheck, AlertCircle, Map, CalendarDays } from 'lucide-react';
 import EmployeeManager from './EmployeeManager'; 
 import Calendar from './Calendar'; 
 import AdminSettings from './Settings';
 import RouteManager from './RouteManager';
+import FixedOffStatus from './FixedOffStatus';
 import { DataProvider, useAdminData } from './contexts/DataContext';
 
 // 👑 자식 컴포넌트들을 감싸는 메인 대시보드 껍데기 (✨ onBack 추가)
@@ -53,6 +54,7 @@ function AdminDashboard({ onBack }) {
     if (currentView === 'route') return <RouteManager onBack={() => setCurrentView('main')} />;
     if (currentView === 'schedule') return <Calendar onBack={() => setCurrentView('main')} />; 
     if (currentView === 'settings') return <AdminSettings onBack={() => setCurrentView('main')} />;
+    if (currentView === 'fixedOff') return <FixedOffStatus onBack={() => setCurrentView('main')} />;
 
     return (
         <div className="admin-safe-top w-full h-full min-h-screen bg-gray-100 p-5 flex flex-col font-sans">
@@ -116,6 +118,16 @@ function AdminDashboard({ onBack }) {
                         <div className="text-left">
                             <h2 className="font-bold text-lg">직원 관리</h2>
                             <p className="text-xs text-gray-500 mt-1">초대코드 발급, 주 1~6일 및 격주 패턴 설정</p>
+                        </div>
+                    </div>
+                </button>
+
+                <button onClick={() => setCurrentView('fixedOff')} className="w-full p-5 bg-white text-gray-800 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-emerald-300 transition-colors">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><CalendarDays size={24} /></div>
+                        <div className="text-left">
+                            <h2 className="font-bold text-lg">고정 휴무 현황</h2>
+                            <p className="text-xs text-gray-500 mt-1">요일별 휴무 인원 · 직원별 고정 휴무 조회</p>
                         </div>
                     </div>
                 </button>
