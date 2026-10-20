@@ -1,9 +1,8 @@
 // src/admin/Settings.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ArrowLeft,
     Settings as SettingsIcon,
-    Save,
     RefreshCw,
     Plus,
     Trash2,
@@ -38,22 +37,155 @@ export default function Settings({ onBack }) {
     const [newTeamName, setNewTeamName] = useState('');
     const [addingTeamRegion, setAddingTeamRegion] = useState('');
     const [search, setSearch] = useState('');
-    const [expandedRegions, setExpandedRegions] = useState({});
+    const [expandedRegions, setExpandedRegions] = useState(() => {
+        try {
+            const saved = window.localStorage.getItem('admin_settings_expanded_regions');
+            return saved === null ? null : JSON.parse(saved);
+        } catch (error) {
+            return {};
+        }
+    });
     const [editing, setEditing] = useState(null);
     const [notice, setNotice] = useState('');
+    const [addedTeamId, setAddedTeamId] = useState(null);
 
-    // 첫 진입 때 첫 지역만 펼쳐서 목록이 지나치게 길어지지 않게 합니다.
-    useEffect(() => {
-        if (regions.length > 0 && Object.keys(expandedRegions).length === 0) {
-            setExpandedRegions({ [regions[0]]: true });
-        }
-    }, [regions, expandedRegions]);
+    const regionCardRefs = useRef({});
+    const teamFormRefs = useRef({});
+    const teamInputRefs = useRef({});
+    const teamRowRefs = useRef({});
+    const editDialogRef = useRef(null);
+    const editNameInputRef = useRef(null);
+    const editingRef = useRef(editing);
+    const addingTeamRegionRef = useRef(addingTeamRegion);
+    editingRef.current = editing;
+    addingTeamRegionRef.current = addingTeamRegion;
 
-    const regionList = [...new Set([
+    const regionList = useMemo(() => [...new Set([
         ...regions,
         ...teams.map((team) => getTeamRegion(team))
-    ])];
+    ])], [regions, teams]);
     const keyword = search.trim().toLocaleLowerCase();
+
+    // 첫 실행 때만 첫 지역을 펼칩니다. 이후 접기/펼치기 상태는 기기에 저장됩니다.
+    useEffect(() => {
+        if (expandedRegions === null) {
+            if (regionList.length === 0) return;
+            const initial = { [regionList[0]]: true };
+            setExpandedRegions(initial);
+            try {
+                window.localStorage.setItem('admin_settings_expanded_regions', JSON.stringify(initial));
+            } catch (error) {
+                // 저장이 제한된 환경에서도 화면 조작은 계속 가능하게 합니다.
+            }
+            return;
+        }
+        try {
+            window.localStorage.setItem('admin_settings_expanded_regions', JSON.stringify(expandedRegions));
+        } catch (error) {
+            // 저장이 제한된 환경에서도 화면 조작은 계속 가능하게 합니다.
+        }
+    }, [expandedRegions, regionList]);
+
+    // 편집창 또는 팀 추가 입력 중 Android 뒤로가기는 현재 팝업/입력만 닫습니다.
+    useEffect(() => {
+        const closeOverlay = () => {
+            if (editingRef.current) {
+                setEditing(null);
+                return;
+            }
+            if (addingTeamRegionRef.current) {
+                setAddingTeamRegion('');
+                setNewTeamName('');
+            }
+        };
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape' && window.__adminSettingsHasOverlay) {
+                event.preventDefault();
+                closeOverlay();
+            }
+        };
+        window.addEventListener('admin-settings-back', closeOverlay);
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('admin-settings-back', closeOverlay);
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, []);
+
+    useEffect(() => {
+        window.__adminSettingsHasOverlay = Boolean(editing || addingTeamRegion);
+    }, [editing, addingTeamRegion]);
+
+    useEffect(() => () => {
+        window.__adminSettingsHasOverlay = false;
+    }, []);
+
+    // 편집창은 모바일에서 위쪽에 고정하고, 입력창 포커스가 페이지를 임의로 움직이지 않게 합니다.
+    const editingKey = editing
+        ? editing.type + ':' + (editing.type === 'team' ? editing.id : editing.originalName)
+        : '';
+    useEffect(() => {
+        if (!editingKey) return undefined;
+        const frame = window.requestAnimationFrame(() => {
+            const dialog = editDialogRef.current;
+            if (dialog) {
+                const bounds = dialog.getBoundingClientRect();
+                const top = window.scrollY + bounds.top - 15;
+                if (Math.abs(bounds.top - 15) > 8) {
+                    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+                }
+            }
+            if (editNameInputRef.current) {
+                editNameInputRef.current.focus({ preventScroll: true });
+            }
+        });
+        return () => window.cancelAnimationFrame(frame);
+    }, [editingKey]);
+
+    // 팀 추가 입력란이 열리면 먼저 상단 15px 지점으로 부드럽게 이동한 후 키보드를 엽니다.
+    useEffect(() => {
+        if (!addingTeamRegion) return undefined;
+        let focusTimer;
+        const frame = window.requestAnimationFrame(() => {
+            const form = teamFormRefs.current[addingTeamRegion];
+            if (!form) return;
+            const top = window.scrollY + form.getBoundingClientRect().top - 15;
+            window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+            focusTimer = window.setTimeout(() => {
+                teamInputRefs.current[addingTeamRegion]?.focus({ preventScroll: true });
+            }, 320);
+        });
+        return () => {
+            window.cancelAnimationFrame(frame);
+            if (focusTimer) window.clearTimeout(focusTimer);
+        };
+    }, [addingTeamRegion]);
+
+    // 팀 저장 후 키보드가 닫히고 화면 크기 변경이 끝난 뒤, 방금 추가한 팀을 상단 15px에 표시합니다.
+    useEffect(() => {
+        if (!addedTeamId) return undefined;
+        let settleTimer;
+        let fallbackTimer;
+        const scrollToAddedTeam = () => {
+            if (settleTimer) window.clearTimeout(settleTimer);
+            settleTimer = window.setTimeout(() => {
+                const row = teamRowRefs.current[addedTeamId];
+                if (row) {
+                    const top = window.scrollY + row.getBoundingClientRect().top - 15;
+                    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+                }
+                setAddedTeamId(null);
+            }, 120);
+        };
+        const viewport = window.visualViewport;
+        viewport?.addEventListener('resize', scrollToAddedTeam);
+        fallbackTimer = window.setTimeout(scrollToAddedTeam, 280);
+        return () => {
+            viewport?.removeEventListener('resize', scrollToAddedTeam);
+            if (settleTimer) window.clearTimeout(settleTimer);
+            if (fallbackTimer) window.clearTimeout(fallbackTimer);
+        };
+    }, [addedTeamId, teams]);
 
     const visibleRegions = regionList.filter((region) => {
         if (!keyword || region.toLocaleLowerCase().includes(keyword)) return true;
@@ -77,7 +209,7 @@ export default function Settings({ onBack }) {
 
         setRegions((previous) => [...(Array.isArray(previous) ? previous : []), region]);
         setNewRegionName('');
-        setExpandedRegions((previous) => ({ ...previous, [region]: true }));
+        setExpandedRegions((previous) => ({ ...(previous || {}), [region]: true }));
         setNotice(region + ' 지역을 추가했습니다.');
     };
 
@@ -102,10 +234,13 @@ export default function Settings({ onBack }) {
             name,
             region
         };
+        teamInputRefs.current[region]?.blur();
+        window.__adminSettingsHasOverlay = false;
         setTeams((previous) => [...(Array.isArray(previous) ? previous : []), newTeam]);
         setNewTeamName('');
         setAddingTeamRegion('');
-        setExpandedRegions((previous) => ({ ...previous, [region]: true }));
+        setExpandedRegions((previous) => ({ ...(previous || {}), [region]: true }));
+        setAddedTeamId(newTeam.id);
         setNotice(region + ' 지역에 ' + name + ' 팀을 추가했습니다.');
     };
 
@@ -119,7 +254,7 @@ export default function Settings({ onBack }) {
 
         setRegions((previous) => previous.filter((item) => item !== region));
         setExpandedRegions((previous) => {
-            const next = { ...previous };
+            const next = { ...(previous || {}) };
             delete next[region];
             return next;
         });
@@ -148,10 +283,12 @@ export default function Settings({ onBack }) {
     };
 
     const openRegionEditor = (region) => {
+        window.__adminSettingsHasOverlay = true;
         setEditing({ type: 'region', originalName: region, name: region });
     };
 
     const openTeamEditor = (team) => {
+        window.__adminSettingsHasOverlay = true;
         setEditing({
             type: 'team',
             id: team.id,
@@ -186,7 +323,7 @@ export default function Settings({ onBack }) {
                     getTeamRegion(team) === originalName ? { ...team, region: name } : team
                 ));
                 setExpandedRegions((previous) => {
-                    const next = { ...previous };
+                    const next = { ...(previous || {}) };
                     if (Object.prototype.hasOwnProperty.call(next, originalName)) {
                         next[name] = next[originalName];
                         delete next[originalName];
@@ -220,18 +357,8 @@ export default function Settings({ onBack }) {
                 : editing.originalName + ' 팀 정보를 수정했습니다.');
         }
 
+        window.__adminSettingsHasOverlay = false;
         setEditing(null);
-    };
-
-    const handleSaveAll = () => {
-        try {
-            // DataContext에서도 자동 저장하지만, 버튼을 누르면 즉시 한 번 더 기록합니다.
-            window.localStorage.setItem('my_teams', JSON.stringify(teams));
-            window.localStorage.setItem('my_regions', JSON.stringify(regionList));
-            window.alert('지역과 팀 설정을 현재 기기에 저장했습니다. 다른 기기와 공유하려면 서버 동기화 연결이 필요합니다.');
-        } catch (error) {
-            window.alert('저장하지 못했습니다. 브라우저 저장 공간을 확인해주세요.');
-        }
     };
 
     return (
@@ -248,7 +375,7 @@ export default function Settings({ onBack }) {
                 </div>
             </header>
 
-            <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-3 pb-28 sm:p-5">
+            <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-3 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:p-5">
                 <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <h2 className="mb-1 flex items-center gap-2 font-black text-slate-800">
                         <MapPin size={18} className="text-indigo-600" /> 지역 목록
@@ -269,17 +396,6 @@ export default function Settings({ onBack }) {
                         </button>
                     </form>
 
-                    <label className="mt-3 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-                        <Search size={16} className="shrink-0 text-slate-400" />
-                        <input
-                            value={search}
-                            onChange={(event) => setSearch(event.target.value)}
-                            placeholder="지역 또는 팀 검색"
-                            aria-label="지역 또는 팀 검색"
-                            className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-slate-400"
-                        />
-                        {search && <button type="button" onClick={() => setSearch('')} className="rounded-md p-1 text-slate-400 hover:bg-slate-100" aria-label="검색어 지우기"><X size={15} /></button>}
-                    </label>
                 </section>
 
                 {notice && (
@@ -299,18 +415,18 @@ export default function Settings({ onBack }) {
                         const regionTeams = teams.filter((team) => getTeamRegion(team) === region);
                         const regionTeamIds = regionTeams.map((team) => String(team.id));
                         const employeeCount = employees.filter((employee) => regionTeamIds.includes(String(employee.team_id))).length;
-                        const isExpanded = Boolean(expandedRegions[region]);
+                        const isExpanded = Boolean(expandedRegions?.[region]);
                         const regionMatchesSearch = Boolean(keyword && region.toLocaleLowerCase().includes(keyword));
                         const visibleTeams = regionTeams.filter((team) =>
                             !keyword || regionMatchesSearch || String(team.name || '').toLocaleLowerCase().includes(keyword)
                         );
 
                         return (
-                            <article key={region} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                            <article key={region} ref={(node) => { regionCardRefs.current[region] = node; }} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                                 <div className="flex items-center gap-2 bg-slate-50 px-3 py-3 sm:px-4">
                                     <button
                                         type="button"
-                                        onClick={() => setExpandedRegions((previous) => ({ ...previous, [region]: !previous[region] }))}
+                                        onClick={() => setExpandedRegions((previous) => ({ ...(previous || {}), [region]: !previous?.[region] }))}
                                         className="flex min-w-0 flex-1 items-center gap-3 text-left"
                                         aria-expanded={isExpanded}
                                     >
@@ -335,7 +451,7 @@ export default function Settings({ onBack }) {
                                             const teamEmployeeCount = employees.filter((employee) => String(employee.team_id) === String(team.id)).length;
                                             const teamRouteCount = routes.filter((route) => String(route.team_id) === String(team.id)).length;
                                             return (
-                                                <div key={team.id} className="flex items-center gap-2 rounded-xl border border-slate-100 bg-white p-3">
+                                                <div key={team.id} ref={(node) => { teamRowRefs.current[team.id] = node; }} className="flex items-center gap-2 rounded-xl border border-slate-100 bg-white p-3">
                                                     <span className="rounded-lg bg-slate-100 p-2 text-slate-500"><Users size={17} /></span>
                                                     <div className="min-w-0 flex-1">
                                                         <p className="truncate text-sm font-bold text-slate-800">{team.name}</p>
@@ -359,11 +475,11 @@ export default function Settings({ onBack }) {
                                         )}
 
                                         {addingTeamRegion === region ? (
-                                            <form onSubmit={(event) => handleAddTeam(event, region)} className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-3">
+                                            <form ref={(node) => { teamFormRefs.current[region] = node; }} onSubmit={(event) => handleAddTeam(event, region)} className="scroll-mt-[15px] rounded-xl border border-indigo-200 bg-indigo-50/50 p-3">
                                                 <label className="mb-1.5 block text-xs font-bold text-slate-600" htmlFor={'new-team-' + region}>{region}에 추가할 팀 이름</label>
                                                 <input
                                                     id={'new-team-' + region}
-                                                    autoFocus
+                                                    ref={(node) => { teamInputRefs.current[region] = node; }}
                                                     value={newTeamName}
                                                     onChange={(event) => setNewTeamName(event.target.value)}
                                                     placeholder="팀 이름 입력"
@@ -381,7 +497,7 @@ export default function Settings({ onBack }) {
                                         ) : (
                                             <button
                                                 type="button"
-                                                onClick={() => { setAddingTeamRegion(region); setNewTeamName(''); }}
+                                                onClick={() => { window.__adminSettingsHasOverlay = true; setAddingTeamRegion(region); setNewTeamName(''); }}
                                                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-indigo-300 bg-indigo-50/50 px-3 py-3 text-sm font-black text-indigo-700 hover:border-indigo-400 hover:bg-indigo-50"
                                             >
                                                 <Plus size={17} /> {region}에 팀 추가
@@ -426,18 +542,26 @@ export default function Settings({ onBack }) {
                 </section>
             </main>
 
-            <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 p-3 backdrop-blur">
-                <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
-                    <p className="min-w-0 flex-1 text-[11px] leading-4 text-slate-500">지역·팀 변경은 현재 기기에 자동 저장됩니다.</p>
-                    <button onClick={handleSaveAll} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-black text-white hover:bg-indigo-700">
-                        <Save size={17} /> 설정 저장
-                    </button>
+            <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur">
+                <div className="mx-auto w-full max-w-3xl">
+                    <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100">
+                        <Search size={17} className="shrink-0 text-slate-400" />
+                        <input
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder="지역 또는 팀 검색"
+                            aria-label="지역 또는 팀 검색"
+                            className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-slate-400"
+                        />
+                        {search && <button type="button" onClick={() => setSearch('')} className="rounded-md p-1 text-slate-400 hover:bg-slate-100" aria-label="검색어 지우기"><X size={15} /></button>}
+                    </label>
+                    <p className="mt-1.5 text-center text-[10px] text-slate-500">지역·팀 변경 사항은 현재 기기에 자동 저장됩니다.</p>
                 </div>
             </div>
 
             {editing && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditing(null); }}>
-                    <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="edit-dialog-title">
+                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/50 px-3 pt-[max(12px,env(safe-area-inset-top))] pb-3 sm:items-center" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditing(null); }}>
+                    <div ref={editDialogRef} className="my-0 w-full max-w-md max-h-[calc(100dvh-24px)] overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-2xl sm:my-auto" role="dialog" aria-modal="true" aria-labelledby="edit-dialog-title">
                         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
                             <h2 id="edit-dialog-title" className="font-black text-slate-800">{editing.type === 'region' ? '지역 편집' : '팀 편집'}</h2>
                             <button type="button" onClick={() => setEditing(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="편집 창 닫기"><X size={20} /></button>
@@ -446,7 +570,7 @@ export default function Settings({ onBack }) {
                             <div>
                                 <label className="mb-1.5 block text-xs font-bold text-slate-600">{editing.type === 'region' ? '지역 이름' : '팀 이름'}</label>
                                 <input
-                                    autoFocus
+                                    ref={editNameInputRef}
                                     value={editing.name}
                                     onChange={(event) => setEditing((previous) => ({ ...previous, name: event.target.value }))}
                                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-medium outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
