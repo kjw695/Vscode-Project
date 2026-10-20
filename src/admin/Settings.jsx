@@ -142,47 +142,81 @@ export default function Settings({ onBack }) {
         return () => window.cancelAnimationFrame(frame);
     }, [editingKey]);
 
-    // 팀 추가 입력란이 열리면 먼저 상단 15px 지점으로 부드럽게 이동한 후 키보드를 엽니다.
+    // 팀 추가 입력란과 저장된 새 팀은 현재 보이는 화면 높이의 약 30% 지점에 표시합니다.
     useEffect(() => {
         if (!addingTeamRegion) return undefined;
         let focusTimer;
         const frame = window.requestAnimationFrame(() => {
             const form = teamFormRefs.current[addingTeamRegion];
-            if (!form) return;
-            const top = window.scrollY + form.getBoundingClientRect().top - 15;
-            window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+            const input = teamInputRefs.current[addingTeamRegion];
+            if (!form || !input) return;
+
+            let resizeTimer;
+            let fallbackTimer;
+            let viewportChanged = false;
+            const alignForm = () => {
+                if (resizeTimer) window.clearTimeout(resizeTimer);
+                resizeTimer = window.setTimeout(() => {
+                    const viewportHeight = window.visualViewport?.height || window.innerHeight;
+                    const documentTop = window.scrollY + form.getBoundingClientRect().top;
+                    window.scrollTo({
+                        top: Math.max(0, documentTop - viewportHeight * 0.30),
+                        behavior: 'smooth'
+                    });
+                }, 90);
+            };
+            const viewport = window.visualViewport;
+            const handleViewportResize = () => {
+                viewportChanged = true;
+                alignForm();
+            };
+
+            // 키보드가 열리기 전에는 화면을 움직이지 않고 먼저 포커스한 뒤,
+            // 실제로 보이는 영역 높이에 맞춰 한 번 부드럽게 정렬합니다.
+            viewport?.addEventListener('resize', handleViewportResize);
             focusTimer = window.setTimeout(() => {
-                teamInputRefs.current[addingTeamRegion]?.focus({ preventScroll: true });
-            }, 320);
+                input.focus({ preventScroll: true });
+                fallbackTimer = window.setTimeout(() => {
+                    if (!viewportChanged) alignForm();
+                }, 380);
+            }, 80);
         });
         return () => {
             window.cancelAnimationFrame(frame);
             if (focusTimer) window.clearTimeout(focusTimer);
+            if (resizeTimer) window.clearTimeout(resizeTimer);
+            if (fallbackTimer) window.clearTimeout(fallbackTimer);
+            window.visualViewport?.removeEventListener('resize', handleViewportResize);
         };
     }, [addingTeamRegion]);
 
-    // 팀 저장 후 키보드가 닫히고 화면 크기 변경이 끝난 뒤, 방금 추가한 팀을 상단 15px에 표시합니다.
+    // 팀 저장 후 키보드가 닫히고 화면 크기 변경이 끝나면 새 팀을 화면 높이의 30% 지점에 표시합니다.
     useEffect(() => {
         if (!addedTeamId) return undefined;
         let settleTimer;
         let fallbackTimer;
+        let viewportChanged = false;
         const scrollToAddedTeam = () => {
+            viewportChanged = true;
             if (settleTimer) window.clearTimeout(settleTimer);
             settleTimer = window.setTimeout(() => {
                 const row = teamRowRefs.current[addedTeamId];
                 if (row) {
-                    const top = window.scrollY + row.getBoundingClientRect().top - 15;
-                    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+                    const viewportHeight = window.visualViewport?.height || window.innerHeight;
+                    const documentTop = window.scrollY + row.getBoundingClientRect().top;
+                    window.scrollTo({
+                        top: Math.max(0, documentTop - viewportHeight * 0.30),
+                        behavior: 'smooth'
+                    });
                 }
                 setAddedTeamId(null);
-            }, 120);
+            }, 180);
         };
         const viewport = window.visualViewport;
         viewport?.addEventListener('resize', scrollToAddedTeam);
         fallbackTimer = window.setTimeout(() => {
-            // 키보드 닫힘에 따른 viewport 변경 이벤트가 없을 때만 대체 타이머를 사용합니다.
-            if (!settleTimer) scrollToAddedTeam();
-        }, 280);
+            if (!viewportChanged) scrollToAddedTeam();
+        }, 480);
         return () => {
             viewport?.removeEventListener('resize', scrollToAddedTeam);
             if (settleTimer) window.clearTimeout(settleTimer);
@@ -365,8 +399,8 @@ export default function Settings({ onBack }) {
     };
 
     return (
-        <div className="flex min-h-screen w-full flex-col bg-slate-50 font-sans text-slate-800">
-            <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-gray-200 bg-white px-4 py-3 shadow-sm">
+        <div className="admin-safe-top flex min-h-screen w-full flex-col bg-slate-50 font-sans text-slate-800">
+            <header className="flex items-center gap-2 border-b border-gray-200 bg-white px-4 py-3 shadow-sm">
                 <button onClick={onBack} className="-ml-2 rounded-full p-2 text-gray-600 hover:bg-gray-100" aria-label="관리자 화면으로 돌아가기">
                     <ArrowLeft size={23} />
                 </button>
