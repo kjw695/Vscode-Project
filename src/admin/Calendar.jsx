@@ -18,7 +18,6 @@ import {
 } from 'lucide-react';
 import { generateWeeklySchedule } from './utils/schedulingEngine';
 import { useAdminData } from './contexts/DataContext';
-import { App as CapacitorApp } from '@capacitor/app';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const MONTH_WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'];
@@ -625,26 +624,6 @@ export default function Calendar({ onBack }) {
             </button>
         );
     };
-
-    useEffect(function () {
-        let active = true;
-        let listenerHandle = null;
-        CapacitorApp.addListener('backButton', function () {
-            if (onBack) onBack();
-        }).then(function (handle) {
-            if (!active) {
-                handle.remove();
-                return;
-            }
-            listenerHandle = handle;
-        }).catch(function () {
-            // Browser preview may not provide the native Android back-button event.
-        });
-        return function () {
-            active = false;
-            if (listenerHandle) listenerHandle.remove();
-        };
-    }, [onBack]);
 
     return (
         <div className="flex min-h-screen w-full flex-col bg-slate-50 font-sans text-slate-800">
