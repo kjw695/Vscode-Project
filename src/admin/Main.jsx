@@ -55,7 +55,7 @@ function AdminDashboard({ onBack }) {
     if (currentView === 'settings') return <AdminSettings onBack={() => setCurrentView('main')} />;
 
     return (
-        <div className="w-full h-full min-h-screen bg-gray-100 p-5 flex flex-col font-sans">
+        <div className="admin-safe-top w-full h-full min-h-screen bg-gray-100 p-5 flex flex-col font-sans">
             <div className="flex justify-between items-center mb-6 mt-4">
                 <div>
                     <h1 className="text-2xl font-black text-gray-800 flex items-center gap-2">
