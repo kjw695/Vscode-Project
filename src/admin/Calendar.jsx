@@ -750,8 +750,8 @@ export default function Calendar({ onBack }) {
     };
 
     return (
-        <div className="flex min-h-screen w-full flex-col bg-slate-50 font-sans text-slate-800">
-            <header className="sticky top-0 z-40 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 shadow-sm md:px-6">
+        <div className="admin-safe-top flex min-h-screen w-full flex-col bg-slate-50 font-sans text-slate-800">
+            <header className="admin-sticky-safe-header sticky top-0 z-40 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 shadow-sm md:px-6">
                 <div className="flex min-w-0 items-center gap-2">
                     <button onClick={onBack} className="rounded-xl p-2 text-slate-600 hover:bg-slate-100" aria-label="관리자 센터로 돌아가기">
                         <ArrowLeft size={22} />
