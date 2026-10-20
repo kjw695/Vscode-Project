@@ -56,3 +56,13 @@
   white-space: nowrap;
 }
 
+/* 관리자 화면은 Android 시스템바와 겹치지 않도록 상단 안전 여백을 둡니다.
+   env 값이 0으로 들어오는 WebView도 고려해 최소 여백을 보장합니다. */
+.admin-safe-top {
+  padding-top: max(32px, calc(env(safe-area-inset-top, 0px) + 12px)) !important;
+}
+
+/* 스크롤 시 고정되는 관리자 헤더도 시스템바 아래에서 멈추게 합니다. */
+.admin-sticky-safe-header {
+  top: max(28px, calc(env(safe-area-inset-top, 0px) + 8px)) !important;
+}
