@@ -736,21 +736,21 @@ export default function Calendar({ onBack }) {
                                 주간 범위: {formatDate(weekDates[0])} ~ {formatDate(weekDates[6])}
                             </p>
                         </div>
-                        <div className="flex flex-wrap items-center justify-center gap-2">
+                        <div className="grid w-full grid-cols-3 items-stretch gap-1.5 sm:flex sm:flex-wrap sm:justify-center sm:gap-2">
                             <button
                                 onClick={handleStartAutoSchedule}
                                 disabled={scheduleStatus === 'processing' || activeTeamEmployees.length === 0}
-                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                                className="inline-flex min-w-0 items-center justify-center gap-1 rounded-xl bg-indigo-600 px-2 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300 sm:gap-2 sm:px-4 sm:py-3 sm:text-sm"
                             >
                                 {scheduleStatus === 'processing' ? <RotateCcw size={17} className="animate-spin" /> : <Play size={17} />}
-                                선택 주 자동 생성
+                                자동 생성
                             </button>
                             <button
                                 onClick={handleSaveDraft}
                                 disabled={!isScheduleGenerated || scheduleStatus === 'confirmed'}
-                                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                className="inline-flex min-w-0 items-center justify-center gap-1 rounded-xl border border-slate-300 bg-white px-2 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:gap-2 sm:px-4 sm:py-3 sm:text-sm"
                             >
-                                <Save size={17} /> 임시 저장
+                                <Save size={15} /> 임시
                             </button>
                             {scheduleStatus === 'confirmed' ? (
                                 <button onClick={handleReopenDraft} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 py-3 text-sm font-bold text-white hover:bg-slate-700">
@@ -760,9 +760,9 @@ export default function Calendar({ onBack }) {
                                 <button
                                     onClick={handleConfirmSchedule}
                                     disabled={!isScheduleGenerated || scheduleStatus !== 'saved' || (warnings.length > 0 && !warningsAcknowledged)}
-                                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                                    className="inline-flex min-w-0 items-center justify-center gap-1 rounded-xl bg-emerald-600 px-2 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 sm:gap-2 sm:px-4 sm:py-3 sm:text-sm"
                                 >
-                                    <CheckCircle2 size={17} /> 근무표 확정
+                                    <CheckCircle2 size={15} /> 확정
                                 </button>
                             )}
                         </div>
