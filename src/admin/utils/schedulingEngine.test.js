@@ -91,9 +91,9 @@ describe('generateMonthlySchedule', () => {
 });
 
 describe('generateWeeklySchedule', () => {
-    test('creates exactly the selected Monday-to-Sunday week, including month boundaries', () => {
+    test('creates exactly the selected Sunday-to-Saturday week, including month boundaries', () => {
         const result = generateWeeklySchedule({
-            weekStart: '2026-09-28',
+            weekStart: '2026-09-27',
             employees: [
                 createEmployee(1, '고정 기사', 'base', '주 5일'),
                 createEmployee(2, '대체 기사', 'sub', '주 5일', '전지역 백업')
@@ -105,13 +105,13 @@ describe('generateWeeklySchedule', () => {
 
         const dates = Object.keys(result.schedule).sort();
         expect(dates).toEqual([
+            '2026-09-27',
             '2026-09-28',
             '2026-09-29',
             '2026-09-30',
             '2026-10-01',
             '2026-10-02',
-            '2026-10-03',
-            '2026-10-04'
+            '2026-10-03'
         ]);
         expect(Object.values(result.schedule).every((record) => record.date)).toBe(true);
     });
@@ -147,4 +147,15 @@ describe('generateWeeklySchedule', () => {
         expect(monday.offEmployeeIds.map(String)).toContain('2');
         expect(monday.subs.map((assignment) => String(assignment.subId))).not.toContain('2');
     });
+});
+
+
+describe('alternating-week work patterns', () => {
+ test('alternates 격주 5일 across Sunday-start weeks', () => {
+  const employee = createEmployee(1, '격주 직원', 'base', '격주 5일');
+  const weeks = ['2026-10-18', '2026-10-25', '2026-11-01'].map((weekStart) => generateWeeklySchedule({ weekStart, employees: [employee], fixedDaysOff: [], substitutePermissions: [], substituteWorkHistory: [] }));
+  const offCounts = weeks.map((result) => Object.values(result.schedule).filter((day) => day.offEmployeeIds.map(String).includes('1')).length);
+  expect(offCounts[0]).not.toBe(offCounts[1]);
+  expect(offCounts[0]).toBe(offCounts[2]);
+ });
 });
