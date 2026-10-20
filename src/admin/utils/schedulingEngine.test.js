@@ -1,4 +1,4 @@
-import { generateMonthlySchedule } from './schedulingEngine';
+import { generateMonthlySchedule, generateWeeklySchedule } from './schedulingEngine';
 
 const createEmployee = (id, name, type, pattern, target) => ({
     id,
@@ -82,5 +82,49 @@ describe('generateMonthlySchedule', () => {
 
         expect(result.warnings.length).toBeGreaterThan(0);
         expect(result.warnings.join(' ')).toMatch(/미충족|인력 부족/);
+    });
+});
+
+describe('generateWeeklySchedule', () => {
+    test('creates exactly the selected Monday-to-Sunday week, including month boundaries', () => {
+        const result = generateWeeklySchedule({
+            weekStart: '2026-09-28',
+            employees: [
+                createEmployee(1, '고정 기사', 'base', '주 5일'),
+                createEmployee(2, '대체 기사', 'sub', '주 5일', '전지역 백업')
+            ],
+            substitutePermissions: [],
+            fixedDaysOff: [],
+            substituteWorkHistory: []
+        });
+
+        const dates = Object.keys(result.schedule).sort();
+        expect(dates).toEqual([
+            '2026-09-28',
+            '2026-09-29',
+            '2026-09-30',
+            '2026-10-01',
+            '2026-10-02',
+            '2026-10-03',
+            '2026-10-04'
+        ]);
+        expect(Object.values(result.schedule).every((record) => record.date)).toBe(true);
+    });
+
+    test('keeps a substitute off on their scheduled rest day', () => {
+        const result = generateWeeklySchedule({
+            weekStart: '2026-10-19',
+            employees: [
+                createEmployee(1, '고정 기사', 'base', '주 5일'),
+                createEmployee(2, '대체 기사', 'sub', '주 5일', '전지역 백업')
+            ],
+            substitutePermissions: [],
+            fixedDaysOff: [{ date: '2026-10-19', employee_id: 2 }],
+            substituteWorkHistory: []
+        });
+
+        const monday = result.schedule['2026-10-19'];
+        expect(monday.offEmployeeIds.map(String)).toContain('2');
+        expect(monday.subs.map((assignment) => String(assignment.subId))).not.toContain('2');
     });
 });
