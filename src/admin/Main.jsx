@@ -1,5 +1,6 @@
 // src/admin/Main.jsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
 import { useAuth } from '../contexts/AuthContext';
 import { Users, Calendar as CalendarIcon, Settings, LogOut, ShieldCheck, AlertCircle, Map } from 'lucide-react';
 import EmployeeManager from './EmployeeManager'; 
@@ -11,7 +12,33 @@ import { DataProvider, useAdminData } from './contexts/DataContext';
 // 👑 자식 컴포넌트들을 감싸는 메인 대시보드 껍데기 (✨ onBack 추가)
 function AdminDashboard({ onBack }) {
     const { profile } = useAuth();
-    const [currentView, setCurrentView] = useState('main'); 
+    const [currentView, setCurrentView] = useState('main');
+
+    // Android 시스템 뒤로가기도 관리자 화면에서 한 단계씩 이동하게 합니다.
+    useEffect(() => {
+        let active = true;
+        let listenerHandle = null;
+        CapacitorApp.addListener('backButton', () => {
+            if (currentView !== 'main') {
+                setCurrentView('main');
+            } else if (onBack) {
+                onBack();
+            }
+        }).then((handle) => {
+            if (!active) {
+                handle.remove();
+                return;
+            }
+            listenerHandle = handle;
+        }).catch(() => {
+            // 웹 브라우저 미리보기에는 네이티브 뒤로가기 이벤트가 없습니다.
+        });
+
+        return () => {
+            active = false;
+            if (listenerHandle) listenerHandle.remove();
+        };
+    }, [currentView, onBack]); 
     
     // ✨ 통제소에서 필요한 데이터와 통계치를 한 줄로 가져옵니다!
     const { employees } = useAdminData();
@@ -72,8 +99,8 @@ function AdminDashboard({ onBack }) {
                             <Map size={24} />
                         </div>
                         <div className="text-left">
-                            <h2 className="font-bold text-lg">노선 및 배치 관리</h2>
-                            <p className="text-xs text-gray-500 mt-1">노선 추가, 구역 설명 작성, 고정 기사 배정</p>
+                            <h2 className="font-bold text-lg">노선 배치</h2>
+                            <p className="text-xs text-gray-500 mt-1">노선 추가, 구역 설명 작성, 고정 직원 배정</p>
                         </div>
                     </div>
                 </button>
@@ -82,7 +109,7 @@ function AdminDashboard({ onBack }) {
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl"><Users size={24} /></div>
                         <div className="text-left">
-                            <h2 className="font-bold text-lg">직원 및 근무 패턴 관리</h2>
+                            <h2 className="font-bold text-lg">직원 관리</h2>
                             <p className="text-xs text-gray-500 mt-1">초대코드 발급, 주 1~6일 및 격주 패턴 설정</p>
                         </div>
                     </div>
