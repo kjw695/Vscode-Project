@@ -21,7 +21,7 @@ export function generateMonthlySchedule(options = {}) {
         substitutePermissions: options.substitutePermissions || [],
         fixedDaysOff: options.fixedDaysOff || [],
         substituteWorkHistory: options.substituteWorkHistory || [],
-        weekIndexOffset: 0
+        weekIndexOffset: getStableWeekIndex(getSunday(new Date(year, month - 1, 1)))
     });
 
     const monthSchedule = {};
@@ -94,17 +94,38 @@ function generateScheduleForWeeks(options) {
         }
     });
 
-    // 직원 설정에서 지정한 고정 휴무 요일을 매주 먼저 반영합니다.
-    // 0=일요일, 1=월요일 ... 6=토요일입니다.
+    // 직원 설정에서 지정한 고정 휴무 요일을 먼저 반영합니다.
+    // 일반 패턴은 매주 같은 요일을, 격주 패턴은 짧은 주/긴 주별 설정을 적용합니다.
+    // 요일 번호: 0=일요일, 1=월요일 ... 6=토요일
     activeEmployees.forEach(function (employee) {
-        const fixedOffWeekdays = Array.isArray(employee.fixedOffWeekdays)
-            ? Array.from(new Set(employee.fixedOffWeekdays.map(Number).filter(function (day) {
-                return Number.isInteger(day) && day >= 0 && day <= 6;
-            })))
-            : [];
-        if (fixedOffWeekdays.length === 0) return;
+        const normalizeWeekdays = function (values) {
+            return Array.isArray(values)
+                ? Array.from(new Set(values.map(Number).filter(function (day) {
+                    return Number.isInteger(day) && day >= 0 && day <= 6;
+                })))
+                : [];
+        };
 
-        weeks.forEach(function (weekDates) {
+        const commonFixedWeekdays = normalizeWeekdays(employee.fixedOffWeekdays);
+        const fixedByWeek = employee.fixedOffWeekdaysByWeek;
+        const employeePattern = String(employee.work_pattern || employee.pattern || '');
+        const usesAlternatingWeeks = employeePattern.includes('격주') &&
+            fixedByWeek && typeof fixedByWeek === 'object';
+
+        weeks.forEach(function (weekDates, weekIndex) {
+            let fixedOffWeekdays = commonFixedWeekdays;
+
+            if (usesAlternatingWeeks) {
+                const workDaysThisWeek = getWorkDaysForWeek(employee, weekIndexOffset + weekIndex);
+                const match = employeePattern.match(/[1-6]/);
+                const targetDays = match ? Number(match[0]) : 6;
+                const isShortWorkWeek = workDaysThisWeek === targetDays;
+                const selectedWeekdays = isShortWorkWeek ? fixedByWeek.shortWeek : fixedByWeek.longWeek;
+                fixedOffWeekdays = normalizeWeekdays(selectedWeekdays);
+            }
+
+            if (fixedOffWeekdays.length === 0) return;
+
             weekDates.forEach(function (dateKey) {
                 const match = String(dateKey).match(/^(\d{4})-(\d{2})-(\d{2})$/);
                 if (!match) return;
@@ -129,6 +150,13 @@ function generateScheduleForWeeks(options) {
         weeks.forEach(function (weekDates, weekIndex) {
             const workDays = getWorkDaysForWeek(employee, weekIndexOffset + weekIndex);
             const targetOffCount = Math.max(0, weekDates.length - Math.min(workDays, weekDates.length));
+            if (workDays >= 7) {
+                warnings.push(
+                    '[휴무 없음 경고] ' + employee.name + ': ' + weekDates[0] +
+                    ' 주간은 격주 6일 패턴에 따라 7일 근무 기준(휴무 0일)이 됩니다. ' +
+                    '7일 연속 근무는 허용되지 않으므로 고정 휴무를 지정하거나 근무 패턴을 조정하세요.'
+                );
+            }
             const alreadyOffCount = weekDates.filter(function (dateKey) {
                 return containsId(allOffs[dateKey] || [], employee.id);
             }).length;
@@ -276,11 +304,11 @@ function getWorkDaysForWeek(employee, weekIndex) {
     const parsedDays = match ? Number(match[0]) : 6;
 
     // '격주 N일'은 N일 근무 주와 N+1일 근무 주를 번갈아 적용합니다.
-    // 6일 근무는 최대치이므로 5일/6일을 번갈아 적용합니다.
+    // N=6이면 6일/7일 패턴으로 계산하고, 7일 근무 주는 별도 경고로 알립니다.
     // 주차는 1970-01-04(일요일) 기준으로 고정해 월이 바뀌어도 교대가 유지됩니다.
     if (pattern.includes('격주')) {
         const targetDays = Math.min(6, Math.max(1, parsedDays));
-        const alternateDays = targetDays === 6 ? 5 : targetDays + 1;
+        const alternateDays = targetDays + 1;
         return Math.abs(weekIndex % 2) === 0 ? alternateDays : targetDays;
     }
     return Math.min(6, Math.max(1, parsedDays));
