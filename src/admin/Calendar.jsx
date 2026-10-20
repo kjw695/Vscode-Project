@@ -11,6 +11,8 @@ import {
     CheckCircle2,
     ChevronLeft,
     ChevronRight,
+    ChevronDown,
+    ChevronUp,
     Search,
     Save,
     LockKeyhole,
@@ -870,9 +872,8 @@ export default function Calendar({ onBack }) {
                                     );
                                 })}
                             </div>
-                            <button type="button" onClick={toggleSelectedTeamSchedule} aria-expanded={!isSelectedTeamCollapsed} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">
-                                {isSelectedTeamCollapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
-                                {isSelectedTeamCollapsed ? '팀 펼치기' : '팀 접기'}
+                            <button type="button" onClick={toggleSelectedTeamSchedule} aria-expanded={!isSelectedTeamCollapsed} aria-label={isSelectedTeamCollapsed ? '팀 요약 펼치기' : '팀 요약 접기'} title={isSelectedTeamCollapsed ? '팀 요약 펼치기' : '팀 요약 접기'} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">
+                                {isSelectedTeamCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
                             </button>
                         </div>
                     </div>
