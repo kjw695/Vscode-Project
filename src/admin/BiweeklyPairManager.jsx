@@ -268,7 +268,7 @@ export default function BiweeklyPairManager({ onBack }) {
                         </button>
                         {selectedEmployees.length === 1 && (
                             <p className="mt-2 text-center text-[11px] text-slate-500">
-                                {selectedEmployees[0].name}님과 격주 {selectedPatternDays}일 또는 {Math.max(1, selectedPatternDays - 1)}일 · {Math.min(6, selectedPatternDays + 1)}일 패턴 차이가 1일인 직원이 짝을 맺을 수 있습니다. 같은 직군이어야 합니다.
+                                {selectedEmployees[0].name}님과 근무 패턴이 같거나 1일 차이인 격주 직원을 선택하세요. 같은 직군이어야 합니다.
                             </p>
                         )}
                     </div>
