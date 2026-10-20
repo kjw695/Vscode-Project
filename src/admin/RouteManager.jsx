@@ -82,8 +82,8 @@ export default function RouteManager({ onBack }) {
     };
 
     return (
-        <div className="flex min-h-screen w-full flex-col bg-slate-50 font-sans text-slate-800">
-            <header className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-gray-200 bg-white px-3 py-3 shadow-sm sm:px-4">
+        <div className="admin-safe-top flex min-h-screen w-full flex-col bg-slate-50 font-sans text-slate-800">
+            <header className="admin-sticky-safe-header sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-gray-200 bg-white px-3 py-3 shadow-sm sm:px-4">
                 <div className="flex min-w-0 items-center gap-2">
                     <button onClick={onBack} className="rounded-full p-2 text-gray-600 hover:bg-gray-100" aria-label="관리자 화면으로 돌아가기"><ArrowLeft size={22} /></button>
                     <div className="min-w-0">
