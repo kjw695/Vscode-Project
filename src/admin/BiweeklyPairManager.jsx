@@ -348,7 +348,7 @@ export default function BiweeklyPairManager({ onBack }) {
                     <div className="mb-3 flex items-center justify-between gap-2">
                         <div>
                             <h2 className="text-sm font-black">현재 설정된 짝</h2>
-                            <p className="mt-1 text-xs text-slate-500">지역별로 묶고, 팀 이름은 팀마다 한 번만 표시합니다. 짝 기능은 오른쪽에서 바로 사용할 수 있습니다.</p>
+                            <p className="mt-1 text-xs text-slate-500">근무일수는 금주 → 차주 순서입니다. 지역·팀별로 묶고 짝 기능은 오른쪽에서 바로 사용할 수 있습니다.</p>
                         </div>
                         <span className="shrink-0 rounded-lg bg-emerald-50 px-2 py-1 text-xs font-black text-emerald-700">{pairGroups.length}쌍</span>
                     </div>
@@ -400,24 +400,27 @@ export default function BiweeklyPairManager({ onBack }) {
                                                                 return (
                                                                     <div key={id} className="rounded-xl border border-slate-200 bg-white p-3">
                                                                         <div className="flex items-center gap-3">
-                                                                            <div className="min-w-0 flex-1">
-                                                                                <p className="truncate text-sm font-black text-slate-800">
-                                                                                    {first?.name || '이름 미등록'}{first?.active === false ? ' · 비활성' : ''} ↔ {second?.name || '연결 직원 없음'}{second?.active === false ? ' · 비활성' : ''}
-                                                                                </p>
-                                                                                <div className="mt-2 space-y-1">
-                                                                                    {first && (
-                                                                                        <p className="text-xs font-bold text-indigo-700">
-                                                                                            <span className="text-slate-500">{first.name || '이름 미등록'}</span>
-                                                                                            <span className="ml-2">이번 주 {firstThisWeek}일 <span className="text-indigo-300">→</span> 다음 주 {firstNextWeek}일</span>
+                                                                            <div className="min-w-0 flex-1 space-y-2">
+                                                                                {first && (
+                                                                                    <div className="flex min-w-0 items-center justify-between gap-2">
+                                                                                        <p className="min-w-0 truncate text-xs font-bold text-slate-600">
+                                                                                            {first.name || '이름 미등록'}{first.active === false ? ' · 비활성' : ''}
                                                                                         </p>
-                                                                                    )}
-                                                                                    {second && (
-                                                                                        <p className="text-xs font-bold text-violet-700">
-                                                                                            <span className="text-slate-500">{second.name || '이름 미등록'}</span>
-                                                                                            <span className="ml-2">이번 주 {secondThisWeek}일 <span className="text-violet-300">→</span> 다음 주 {secondNextWeek}일</span>
+                                                                                        <p className="shrink-0 whitespace-nowrap text-xs font-black text-indigo-700">
+                                                                                            {firstThisWeek}일 <span className="text-indigo-300">→</span> {firstNextWeek}일
                                                                                         </p>
-                                                                                    )}
-                                                                                </div>
+                                                                                    </div>
+                                                                                )}
+                                                                                {second && (
+                                                                                    <div className="flex min-w-0 items-center justify-between gap-2">
+                                                                                        <p className="min-w-0 truncate text-xs font-bold text-slate-600">
+                                                                                            {second.name || '이름 미등록'}{second.active === false ? ' · 비활성' : ''}
+                                                                                        </p>
+                                                                                        <p className="shrink-0 whitespace-nowrap text-xs font-black text-violet-700">
+                                                                                            {secondThisWeek}일 <span className="text-violet-300">→</span> {secondNextWeek}일
+                                                                                        </p>
+                                                                                    </div>
+                                                                                )}
                                                                                 {!scopeMatches && (
                                                                                     <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] leading-4 text-amber-800">
                                                                                         지역 또는 팀이 일치하지 않는 기존 짝입니다. 짝 해제 후 같은 지역·팀으로 다시 설정해주세요.
