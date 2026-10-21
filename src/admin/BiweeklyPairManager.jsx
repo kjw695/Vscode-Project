@@ -348,7 +348,7 @@ export default function BiweeklyPairManager({ onBack }) {
                     <div className="mb-3 flex items-center justify-between gap-2">
                         <div>
                             <h2 className="text-sm font-black">현재 설정된 짝</h2>
-                            <p className="mt-1 text-xs text-slate-500">근무일수는 금주 → 차주 순서입니다. 지역·팀별로 묶고 짝 기능은 오른쪽에서 바로 사용할 수 있습니다.</p>
+                            <p className="mt-1 text-xs text-slate-500">지역별로 짝을 확인하고 관리합니다.</p>
                         </div>
                         <span className="shrink-0 rounded-lg bg-emerald-50 px-2 py-1 text-xs font-black text-emerald-700">{pairGroups.length}쌍</span>
                     </div>
@@ -387,6 +387,7 @@ export default function BiweeklyPairManager({ onBack }) {
                                                         <div className="mb-2 flex items-center gap-2 border-b border-slate-200 pb-2">
                                                             <span className="text-xs font-black text-slate-700">{team.name}</span>
                                                             <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">{team.pairs.length}쌍</span>
+                                                            <span className="ml-auto shrink-0 text-[11px] font-medium text-slate-400">금주 <span className="px-0.5">→</span> 차주</span>
                                                         </div>
                                                         <div className="space-y-2">
                                                             {team.pairs.map(({ id, members, scopeMatches }) => {
