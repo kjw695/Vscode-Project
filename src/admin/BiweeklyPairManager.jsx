@@ -387,7 +387,7 @@ export default function BiweeklyPairManager({ onBack }) {
                                                         <div className="mb-2 flex items-center gap-2 border-b border-slate-200 pb-2">
                                                             <span className="text-xs font-black text-slate-700">{team.name}</span>
                                                             <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">{team.pairs.length}쌍</span>
-                                                            <span className="ml-auto shrink-0 text-[11px] font-medium text-slate-400">금주 <span className="px-0.5">→</span> 차주</span>
+                                                            <span className="ml-auto shrink-0 rounded-md bg-red-50 px-2 py-1 text-[11px] font-black text-red-600">금주 <span className="px-0.5">→</span> 차주</span>
                                                         </div>
                                                         <div className="space-y-2">
                                                             {team.pairs.map(({ id, members, scopeMatches }) => {
@@ -403,7 +403,7 @@ export default function BiweeklyPairManager({ onBack }) {
                                                                         <div className="flex items-center gap-3">
                                                                             <div className="min-w-0 flex-1 space-y-2">
                                                                                 {first && (
-                                                                                    <div className="flex min-w-0 items-center justify-between gap-2">
+                                                                                    <div className="flex min-w-0 items-center justify-start gap-2">
                                                                                         <p className="min-w-0 truncate text-xs font-bold text-slate-600">
                                                                                             {first.name || '이름 미등록'}{first.active === false ? ' · 비활성' : ''}
                                                                                         </p>
@@ -413,7 +413,7 @@ export default function BiweeklyPairManager({ onBack }) {
                                                                                     </div>
                                                                                 )}
                                                                                 {second && (
-                                                                                    <div className="flex min-w-0 items-center justify-between gap-2">
+                                                                                    <div className="flex min-w-0 items-center justify-start gap-2">
                                                                                         <p className="min-w-0 truncate text-xs font-bold text-slate-600">
                                                                                             {second.name || '이름 미등록'}{second.active === false ? ' · 비활성' : ''}
                                                                                         </p>
