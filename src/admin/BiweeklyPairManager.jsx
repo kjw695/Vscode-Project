@@ -61,7 +61,7 @@ export default function BiweeklyPairManager({ onBack }) {
     const [selectedIds, setSelectedIds] = useState([]);
     const [search, setSearch] = useState('');
     const [teamFilter, setTeamFilter] = useState('all');
-    const [expandedPairId, setExpandedPairId] = useState(null);
+    const [collapsedRegions, setCollapsedRegions] = useState(() => new Set());
 
     const activeBiweeklyEmployees = useMemo(() => employees.filter((employee) =>
         employee.active !== false && getBiweeklyDays(employee) !== null
@@ -89,6 +89,49 @@ export default function BiweeklyPairManager({ onBack }) {
         return Array.from(groups, ([id, members]) => ({ id, members }))
             .sort((a, b) => String(a.members[0]?.name || '').localeCompare(String(b.members[0]?.name || ''), 'ko'));
     }, [employees]);
+
+    // 현재 짝을 지역 > 팀 순서로 묶어 지역 이름과 팀 이름이 짝마다 반복되지 않게 합니다.
+    const regionGroups = useMemo(() => {
+        const regions = new Map();
+
+        pairGroups.forEach((pair) => {
+            const first = pair.members[0];
+            const second = pair.members[1];
+            const team = first ? getTeamInfo(first, teams) : null;
+            const regionName = String(team?.region || '지역 미설정').trim() || '지역 미설정';
+            const teamName = String(team?.name || '팀 미설정').trim() || '팀 미설정';
+            const teamKey = team ? String(team.id) : 'unassigned:' + teamName;
+
+            if (!regions.has(regionName)) {
+                regions.set(regionName, { name: regionName, pairCount: 0, teams: new Map() });
+            }
+            const region = regions.get(regionName);
+            if (!region.teams.has(teamKey)) {
+                region.teams.set(teamKey, { key: teamKey, name: teamName, pairs: [] });
+            }
+
+            const pairEntry = {
+                ...pair,
+                scopeMatches: pair.members.length === 2 && hasSameRegionAndTeam(first, second, teams),
+            };
+            region.teams.get(teamKey).pairs.push(pairEntry);
+            region.pairCount += 1;
+        });
+
+        return Array.from(regions.values())
+            .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+            .map((region) => ({
+                ...region,
+                teams: Array.from(region.teams.values())
+                    .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+                    .map((team) => ({
+                        ...team,
+                        pairs: team.pairs.sort((a, b) =>
+                            String(a.members[0]?.name || '').localeCompare(String(b.members[0]?.name || ''), 'ko')
+                        ),
+                    })),
+            }));
+    }, [pairGroups, teams]);
 
     const selectedEmployees = selectedIds
         .map((id) => activeBiweeklyEmployees.find((employee) => String(employee.id) === String(id)))
@@ -305,96 +348,109 @@ export default function BiweeklyPairManager({ onBack }) {
                     <div className="mb-3 flex items-center justify-between gap-2">
                         <div>
                             <h2 className="text-sm font-black">현재 설정된 짝</h2>
-                            <p className="mt-1 text-xs text-slate-500">지역 · 팀은 한 번만 표시하고, 근무일은 접힌 상태에서도 확인할 수 있습니다.</p>
+                            <p className="mt-1 text-xs text-slate-500">지역별로 묶고, 팀 이름은 팀마다 한 번만 표시합니다. 짝 기능은 오른쪽에서 바로 사용할 수 있습니다.</p>
                         </div>
                         <span className="shrink-0 rounded-lg bg-emerald-50 px-2 py-1 text-xs font-black text-emerald-700">{pairGroups.length}쌍</span>
                     </div>
                     {pairGroups.length === 0 ? (
                         <p className="rounded-xl bg-slate-50 p-4 text-center text-xs text-slate-500">아직 설정된 격주 짝이 없습니다.</p>
                     ) : (
-                        <div className="overflow-hidden rounded-xl border border-slate-200 divide-y divide-slate-200">
-                            {pairGroups.map(({ id, members }) => {
-                                const first = members[0];
-                                const second = members[1];
-                                const isExpanded = expandedPairId === id;
-                                const scopeMatches = members.length === 2 && hasSameRegionAndTeam(first, second, teams);
-                                const firstThisWeek = getWorkDaysForWeek(first, currentWeekIndex);
-                                const firstNextWeek = getWorkDaysForWeek(first, currentWeekIndex + 1);
-                                const secondThisWeek = second ? getWorkDaysForWeek(second, currentWeekIndex) : null;
-                                const secondNextWeek = second ? getWorkDaysForWeek(second, currentWeekIndex + 1) : null;
+                        <div className="space-y-3">
+                            {regionGroups.map((region) => {
+                                const isRegionCollapsed = collapsedRegions.has(region.name);
                                 return (
-                                    <div key={id} className="bg-white">
+                                    <section key={region.name} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
                                         <button
                                             type="button"
-                                            aria-expanded={isExpanded}
-                                            onClick={() => setExpandedPairId((previous) => previous === id ? null : id)}
-                                            className="w-full p-3 text-left transition-colors hover:bg-slate-50 sm:p-4"
+                                            aria-expanded={!isRegionCollapsed}
+                                            onClick={() => setCollapsedRegions((previous) => {
+                                                const next = new Set(previous);
+                                                if (next.has(region.name)) next.delete(region.name);
+                                                else next.add(region.name);
+                                                return next;
+                                            })}
+                                            className="flex w-full items-center justify-between gap-3 bg-slate-100 px-3 py-3 text-left hover:bg-slate-200/70 sm:px-4"
                                         >
-                                            <div className="mb-2 flex items-center justify-between gap-2">
-                                                <span className={'truncate text-xs font-black ' + (scopeMatches ? 'text-slate-500' : 'text-amber-700')}>
-                                                    {scopeMatches ? getTeamLabel(first, teams) : '지역 · 팀 확인 필요'}
-                                                </span>
-                                                {isExpanded
-                                                    ? <ChevronUp size={18} className="shrink-0 text-slate-500" />
-                                                    : <ChevronDown size={18} className="shrink-0 text-slate-500" />}
-                                            </div>
-                                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                                <div className="min-w-0 rounded-lg bg-indigo-50 px-3 py-2">
-                                                    <p className="truncate text-sm font-black text-slate-800">
-                                                        {first?.name || '이름 미등록'}{first?.active === false ? ' · 비활성' : ''}
-                                                    </p>
-                                                    <p className="mt-1 flex flex-wrap items-center gap-1 text-xs font-bold text-indigo-700">
-                                                        <span>이번 주 {firstThisWeek}일</span><span className="text-indigo-300">→</span><span>다음 주 {firstNextWeek}일</span>
-                                                    </p>
-                                                </div>
-                                                {second ? (
-                                                    <div className="min-w-0 rounded-lg bg-violet-50 px-3 py-2">
-                                                        <p className="truncate text-sm font-black text-slate-800">
-                                                            {second.name || '이름 미등록'}{second.active === false ? ' · 비활성' : ''}
-                                                        </p>
-                                                        <p className="mt-1 flex flex-wrap items-center gap-1 text-xs font-bold text-violet-700">
-                                                            <span>이번 주 {secondThisWeek}일</span><span className="text-violet-300">→</span><span>다음 주 {secondNextWeek}일</span>
-                                                        </p>
-                                                    </div>
-                                                ) : (
-                                                    <div className="rounded-lg border border-dashed border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
-                                                        연결된 직원이 한 명뿐입니다.
-                                                    </div>
-                                                )}
-                                            </div>
+                                            <span className="flex min-w-0 items-center gap-2">
+                                                {isRegionCollapsed
+                                                    ? <ChevronDown size={18} className="shrink-0 text-slate-500" />
+                                                    : <ChevronUp size={18} className="shrink-0 text-slate-500" />}
+                                                <span className="truncate text-sm font-black text-slate-900">{region.name}</span>
+                                            </span>
+                                            <span className="shrink-0 rounded-lg bg-white px-2 py-1 text-xs font-black text-slate-600">{region.pairCount}쌍</span>
                                         </button>
-                                        {isExpanded && (
-                                            <div className="border-t border-slate-100 bg-slate-50 p-3 sm:p-4">
-                                                {!scopeMatches && (
-                                                    <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800">
-                                                        이 짝은 현재의 같은 지역 · 같은 팀 규칙과 맞지 않습니다. 기존 설정을 자동으로 해제하지는 않았습니다. 아래에서 짝을 해제한 후 올바른 지역과 팀으로 다시 설정해주세요.
-                                                        <div className="mt-2 space-y-1 font-bold">
-                                                            {members.map((employee) => (
-                                                                <p key={employee.id}>{employee.name || '이름 미등록'} · {getTeamLabel(employee, teams)}</p>
-                                                            ))}
+
+                                        {!isRegionCollapsed && (
+                                            <div className="space-y-3 p-3 sm:p-4">
+                                                {region.teams.map((team) => (
+                                                    <section key={team.key} className="min-w-0">
+                                                        <div className="mb-2 flex items-center gap-2 border-b border-slate-200 pb-2">
+                                                            <span className="text-xs font-black text-slate-700">{team.name}</span>
+                                                            <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">{team.pairs.length}쌍</span>
                                                         </div>
-                                                    </div>
-                                                )}
-                                                <div className="flex flex-col gap-2 sm:flex-row">
-                                                    <button
-                                                        type="button"
-                                                        disabled={!scopeMatches}
-                                                        onClick={() => handleSwapOrder(id, members)}
-                                                        className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-xs font-black text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
-                                                    >
-                                                        <RefreshCw size={15} /> 순서 바꾸기
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleUnpair(id, members)}
-                                                        className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-black text-slate-600 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
-                                                    >
-                                                        <Unlink size={15} /> 짝 해제
-                                                    </button>
-                                                </div>
+                                                        <div className="space-y-2">
+                                                            {team.pairs.map(({ id, members, scopeMatches }) => {
+                                                                const first = members[0];
+                                                                const second = members[1];
+                                                                const firstThisWeek = first ? getWorkDaysForWeek(first, currentWeekIndex) : null;
+                                                                const firstNextWeek = first ? getWorkDaysForWeek(first, currentWeekIndex + 1) : null;
+                                                                const secondThisWeek = second ? getWorkDaysForWeek(second, currentWeekIndex) : null;
+                                                                const secondNextWeek = second ? getWorkDaysForWeek(second, currentWeekIndex + 1) : null;
+
+                                                                return (
+                                                                    <div key={id} className="rounded-xl border border-slate-200 bg-white p-3">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className="min-w-0 flex-1">
+                                                                                <p className="truncate text-sm font-black text-slate-800">
+                                                                                    {first?.name || '이름 미등록'}{first?.active === false ? ' · 비활성' : ''} ↔ {second?.name || '연결 직원 없음'}{second?.active === false ? ' · 비활성' : ''}
+                                                                                </p>
+                                                                                <div className="mt-2 space-y-1">
+                                                                                    {first && (
+                                                                                        <p className="text-xs font-bold text-indigo-700">
+                                                                                            <span className="text-slate-500">{first.name || '이름 미등록'}</span>
+                                                                                            <span className="ml-2">이번 주 {firstThisWeek}일 <span className="text-indigo-300">→</span> 다음 주 {firstNextWeek}일</span>
+                                                                                        </p>
+                                                                                    )}
+                                                                                    {second && (
+                                                                                        <p className="text-xs font-bold text-violet-700">
+                                                                                            <span className="text-slate-500">{second.name || '이름 미등록'}</span>
+                                                                                            <span className="ml-2">이번 주 {secondThisWeek}일 <span className="text-violet-300">→</span> 다음 주 {secondNextWeek}일</span>
+                                                                                        </p>
+                                                                                    )}
+                                                                                </div>
+                                                                                {!scopeMatches && (
+                                                                                    <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] leading-4 text-amber-800">
+                                                                                        지역 또는 팀이 일치하지 않는 기존 짝입니다. 짝 해제 후 같은 지역·팀으로 다시 설정해주세요.
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                            <div className="flex w-[92px] shrink-0 flex-col gap-2">
+                                                                                <button
+                                                                                    type="button"
+                                                                                    disabled={!scopeMatches}
+                                                                                    onClick={() => handleSwapOrder(id, members)}
+                                                                                    className="flex w-full items-center justify-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-2 text-[11px] font-black text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                                >
+                                                                                    <RefreshCw size={13} /> 순서 변경
+                                                                                </button>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => handleUnpair(id, members)}
+                                                                                    className="flex w-full items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-2 text-[11px] font-black text-slate-600 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                                                                                >
+                                                                                    <Unlink size={13} /> 짝 해제
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </section>
+                                                ))}
                                             </div>
                                         )}
-                                    </div>
+                                    </section>
                                 );
                             })}
                         </div>
