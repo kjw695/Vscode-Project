@@ -7,7 +7,9 @@ const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 function getTeamName(employee, teams) {
     const team = teams.find((item) => String(item.id) === String(employee.team_id));
-    return team ? [team.region, team.name].filter(Boolean).join(' · ') : '미배정';
+    const shift = String(team?.shift || team?.workShift || team?.work_shift || '').toLowerCase();
+    const shiftLabel = shift === 'night' || shift === '야간' ? '야간' : '주간';
+    return team ? [team.region || '기본 지역', shiftLabel, team.name].filter(Boolean).join(' · ') : '미배정';
 }
 
 function getRoutes(employee, routes) {
