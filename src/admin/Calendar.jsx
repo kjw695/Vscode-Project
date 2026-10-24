@@ -321,7 +321,7 @@ export default function Calendar({ onBack }) {
                 });
             });
 
-            const scanDate = getSunday(new Date(year, month - 1, 1));            const scanDate = getSunday(new Date(year, month - 1, 1));
+            const scanDate = getSunday(new Date(year, month - 1, 1));
             const lastDate = new Date(year, month - 1, new Date(year, month, 0).getDate());
             while (scanDate <= lastDate) {
                 const weeklyKey = 'my_schedule_' + String(selectedTeam) + '_' + formatDate(scanDate);
