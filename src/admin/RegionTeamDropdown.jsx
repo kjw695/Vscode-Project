@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle2, ChevronDown } from 'lucide-react';
 
 /**
  * 지역별로 팀을 묶어 보여주는 공통 관리자 드롭다운.
  * 선택된 항목은 "청주 1팀"처럼 지역과 팀 이름을 함께 표시합니다.
+ * 팝업은 portal로 렌더링해 스크롤 가능한 모달 안에서도 잘리지 않게 합니다.
  */
 export default function RegionTeamDropdown({
     teams = [],
@@ -19,7 +21,10 @@ export default function RegionTeamDropdown({
     disabled = false,
 }) {
     const [isOpen, setIsOpen] = useState(false);
+    const [menuPosition, setMenuPosition] = useState(null);
     const dropdownRef = useRef(null);
+    const triggerRef = useRef(null);
+    const menuRef = useRef(null);
 
     const regionGroups = useMemo(() => {
         const groups = new Map();
@@ -47,25 +52,56 @@ export default function RegionTeamDropdown({
             : '';
 
     useEffect(() => {
-        if (!isOpen) return undefined;
+        if (!isOpen) {
+            setMenuPosition(null);
+            return undefined;
+        }
+
+        const updateMenuPosition = () => {
+            const rect = triggerRef.current?.getBoundingClientRect();
+            if (!rect) return;
+
+            const viewportPadding = 8;
+            const maxAllowedWidth = Math.max(160, window.innerWidth - viewportPadding * 2);
+            const width = Math.min(Math.max(rect.width, 200), maxAllowedWidth);
+            const left = Math.max(
+                viewportPadding,
+                Math.min(rect.left, window.innerWidth - width - viewportPadding)
+            );
+            const spaceBelow = window.innerHeight - rect.bottom - viewportPadding;
+            const spaceAbove = rect.top - viewportPadding;
+            const openAbove = spaceBelow < 180 && spaceAbove > spaceBelow;
+            const availableSpace = openAbove ? spaceAbove : spaceBelow;
+            const maxHeight = Math.max(96, Math.min(288, availableSpace));
+            const top = openAbove
+                ? Math.max(viewportPadding, rect.top - maxHeight - 4)
+                : rect.bottom + 4;
+
+            setMenuPosition({ top, left, width, maxHeight });
+        };
 
         const handleOutsideClick = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setIsOpen(false);
-            }
+            const clickedTrigger = dropdownRef.current?.contains(event.target);
+            const clickedMenu = menuRef.current?.contains(event.target);
+            if (!clickedTrigger && !clickedMenu) setIsOpen(false);
         };
         const handleEscape = (event) => {
             if (event.key === 'Escape') setIsOpen(false);
         };
 
+        updateMenuPosition();
         document.addEventListener('mousedown', handleOutsideClick);
         document.addEventListener('touchstart', handleOutsideClick);
         document.addEventListener('keydown', handleEscape);
+        window.addEventListener('resize', updateMenuPosition);
+        window.addEventListener('scroll', updateMenuPosition, true);
 
         return () => {
             document.removeEventListener('mousedown', handleOutsideClick);
             document.removeEventListener('touchstart', handleOutsideClick);
             document.removeEventListener('keydown', handleEscape);
+            window.removeEventListener('resize', updateMenuPosition);
+            window.removeEventListener('scroll', updateMenuPosition, true);
         };
     }, [isOpen]);
 
@@ -82,6 +118,7 @@ export default function RegionTeamDropdown({
         <div ref={dropdownRef} className={'relative min-w-0 ' + className}>
             {name && <input type="hidden" name={name} value={value ?? ''} />}
             <button
+                ref={triggerRef}
                 type="button"
                 disabled={disabled}
                 aria-haspopup="listbox"
@@ -95,11 +132,19 @@ export default function RegionTeamDropdown({
                 <ChevronDown size={16} className={'shrink-0 text-slate-500 transition-transform ' + (isOpen ? 'rotate-180' : '')} />
             </button>
 
-            {isOpen && !disabled && (
+            {isOpen && menuPosition && createPortal(
                 <div
+                    ref={menuRef}
                     role="listbox"
                     aria-label="지역 및 팀 선택"
-                    className="absolute left-0 z-50 mt-1 max-h-72 w-full min-w-[180px] overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+                    style={{
+                        position: 'fixed',
+                        top: menuPosition.top,
+                        left: menuPosition.left,
+                        width: menuPosition.width,
+                        maxHeight: menuPosition.maxHeight,
+                    }}
+                    className="z-[100] overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
                 >
                     {includeAll && (
                         <button
@@ -136,8 +181,9 @@ export default function RegionTeamDropdown({
                                 );
                             })}
                         </div>
-                    )}
-                </div>
+                    ))}
+                </div>,
+                document.body
             )}
         </div>
     );
