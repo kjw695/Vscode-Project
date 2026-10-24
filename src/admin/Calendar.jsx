@@ -20,7 +20,8 @@ import {
     Truck,
     CalendarDays,
     RotateCcw,
-    Download
+    Download,
+    Images
 } from 'lucide-react';
 import { generateWeeklySchedule } from './utils/schedulingEngine';
 import { useAdminData } from './contexts/DataContext';
@@ -181,9 +182,16 @@ export default function Calendar({ onBack }) {
     const [warnings, setWarnings] = useState([]);
     const [savedRecord, setSavedRecord] = useState(null);
     const [warningsAcknowledged, setWarningsAcknowledged] = useState(false);
-    const [collapsedTeams, setCollapsedTeams] = useState(function () {
-        try { return JSON.parse(localStorage.getItem('admin_schedule_collapsed_teams') || '{}'); }
-        catch (error) { return {}; }
+    const [isScheduleSectionCollapsed, setIsScheduleSectionCollapsed] = useState(function () {
+        try {
+            const saved = localStorage.getItem('admin_schedule_section_collapsed');
+            if (saved !== null) return saved === 'true';
+            // 이전 버전의 팀별 접힘 기록이 있다면 접힘 상태를 공통 설정으로 이어받습니다.
+            const legacy = JSON.parse(localStorage.getItem('admin_schedule_collapsed_teams') || '{}');
+            return Object.values(legacy).some(Boolean);
+        } catch (error) {
+            return false;
+        }
     });
 
     const selectedTeamRecord = teams.find(function (team) { return String(team.id) === String(selectedTeam); }) || null;
@@ -196,12 +204,12 @@ export default function Calendar({ onBack }) {
         return getWeekDates(new Date(parts[0], parts[1] - 1, parts[2]));
     }, [weekStartKey]);
     const scheduleKey = 'my_schedule_' + String(selectedTeam) + '_' + weekStartKey;
-    const isSelectedTeamCollapsed = Boolean(collapsedTeams[String(selectedTeam)]);
+    const isSelectedTeamCollapsed = isScheduleSectionCollapsed;
     const toggleSelectedTeamSchedule = function () {
-        setCollapsedTeams(function (previous) {
-            const next = Object.assign({}, previous, { [String(selectedTeam)]: !previous[String(selectedTeam)] });
-            try { localStorage.setItem('admin_schedule_collapsed_teams', JSON.stringify(next)); }
-            catch (error) { console.warn('팀별 접힘 상태를 저장하지 못했습니다.', error); }
+        setIsScheduleSectionCollapsed(function (previous) {
+            const next = !previous;
+            try { localStorage.setItem('admin_schedule_section_collapsed', String(next)); }
+            catch (error) { console.warn('접힘 상태를 저장하지 못했습니다.', error); }
             return next;
         });
     };
@@ -944,6 +952,7 @@ export default function Calendar({ onBack }) {
                         <div className="weekly-schedule-capture">
                             <div className="border-b border-slate-100 p-3 md:p-4">
                                 <div className="relative flex min-h-10 items-center justify-center">
+                                    <button type="button" onClick={handleDownloadScheduleImage} className="absolute left-0 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-indigo-600 shadow-sm hover:bg-indigo-50" aria-label="근무표 이미지 저장 및 갤러리로 공유" title="근무표 이미지 저장 및 갤러리로 공유"><Images size={19} /></button>
                                     <div className="flex items-center gap-2">
                                         <button onClick={function () { handleWeekChange(-1); }} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="이전 주"><ChevronLeft size={18} /></button>
                                         <div className="text-center">
@@ -952,7 +961,7 @@ export default function Calendar({ onBack }) {
                                         </div>
                                         <button onClick={function () { handleWeekChange(1); }} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="다음 주"><ChevronRight size={18} /></button>
                                     </div>
-                                    <button type="button" onClick={handleDownloadScheduleImage} className="absolute right-0 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50" aria-label="근무표 이미지 다운로드" title="근무표 이미지 다운로드"><Download size={18} /></button>
+                                    <button type="button" className="absolute right-0 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50" aria-label="추가 기능 영역" title="추가 기능 예정"><Download size={18} /></button>
                                 </div>
                                 <div className="mt-3 flex w-full min-w-0 flex-wrap items-center justify-center gap-2">
                                     <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 sm:max-w-sm">
