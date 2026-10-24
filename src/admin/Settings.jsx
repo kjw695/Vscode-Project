@@ -237,7 +237,8 @@ export default function Settings({ onBack }) {
         if (!keyword || region.toLocaleLowerCase().includes(keyword)) return true;
         return teams.some((team) =>
             getTeamRegion(team) === region &&
-            String(team.name || '').toLocaleLowerCase().includes(keyword)
+            (String(team.name || '').toLocaleLowerCase().includes(keyword) ||
+                getShiftLabel(getTeamShift(team)).toLocaleLowerCase().includes(keyword))
         );
     });
 
@@ -290,7 +291,7 @@ export default function Settings({ onBack }) {
         setAddingTeamRegion('');
         setExpandedRegions((previous) => ({ ...(previous || {}), [region]: true }));
         setAddedTeamId(newTeam.id);
-        setNotice(region + ' 지역에 ' + name + ' 팀을 추가했습니다.');
+        setNotice(region + ' 지역에 ' + getShiftLabel(newTeam.shift) + ' ' + name + ' 팀을 추가했습니다.');
     };
 
     const handleDeleteRegion = (region) => {
