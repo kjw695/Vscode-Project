@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowLeft, Search, Users, Link2, Unlink, CheckCircle2, AlertCircle, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Search, Users, Link2, Unlink, CheckCircle2, AlertCircle, RefreshCw, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useAdminData } from './contexts/DataContext';
 
 function getPattern(employee) {
@@ -62,6 +62,21 @@ export default function BiweeklyPairManager({ onBack }) {
     const [search, setSearch] = useState('');
     const [teamFilter, setTeamFilter] = useState('all');
     const [collapsedRegions, setCollapsedRegions] = useState(() => new Set());
+
+    const teamDropdownGroups = useMemo(() => {
+        const groups = new Map();
+        teams.forEach((team) => {
+            const regionName = String(team.region || '기본 지역').trim() || '기본 지역';
+            if (!groups.has(regionName)) groups.set(regionName, []);
+            groups.get(regionName).push(team);
+        });
+        return Array.from(groups.entries())
+            .sort(([a], [b]) => a.localeCompare(b, 'ko'))
+            .map(([regionName, regionTeams]) => ({
+                regionName,
+                teams: regionTeams.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ko')),
+            }));
+    }, [teams]);
 
     const activeBiweeklyEmployees = useMemo(() => employees.filter((employee) =>
         employee.active !== false && getBiweeklyDays(employee) !== null
@@ -277,10 +292,26 @@ export default function BiweeklyPairManager({ onBack }) {
                     <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                         <Search size={16} className="shrink-0 text-slate-400" />
                         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="직원·팀·근무 패턴 검색" className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-slate-400" />
+                        {search && (
+                            <button
+                                type="button"
+                                aria-label="검색어 지우기"
+                                onClick={() => setSearch('')}
+                                className="shrink-0 rounded-full p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                            >
+                                <X size={16} />
+                            </button>
+                        )}
                     </label>
                     <select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold outline-none">
                         <option value="all">모든 팀</option>
-                        {teams.map((team) => <option key={team.id} value={team.id}>{[team.region, team.name].filter(Boolean).join(' · ')}</option>)}
+                        {teamDropdownGroups.map(({ regionName, teams: regionTeams }) => (
+                            <optgroup key={regionName} label={regionName}>
+                                {regionTeams.map((team) => (
+                                    <option key={team.id} value={team.id}>{team.name || '이름 없는 팀'}</option>
+                                ))}
+                            </optgroup>
+                        ))}
                     </select>
 
                     <div className="mt-3 space-y-2">
