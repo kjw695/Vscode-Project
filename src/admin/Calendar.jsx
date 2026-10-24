@@ -1050,7 +1050,7 @@ export default function Calendar({ onBack }) {
                             <div className="mb-4 flex items-center justify-between">
                                 <div>
                                     <h3 className="font-black">월간 휴무 분포</h3>
-                                    <p className="mt-1 text-xs text-slate-500">날짜를 선택하면 휴무자와 백업 배정 내역을 확인합니다.</p>
+                                    <p className="mt-1 text-xs leading-5 text-slate-500">달력에는 인원 수를 표시하고, 날짜를 누르면 직원 이름 전체를 확인할 수 있습니다.</p>
                                 </div>
                                 <div className="flex items-center gap-1">
                                     <button onClick={function () { handleMonthChange(-1); }} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50" aria-label="이전 달">
@@ -1089,9 +1089,9 @@ export default function Calendar({ onBack }) {
                                             <span className={'text-xs font-black md:text-sm ' + (isSelected ? 'text-indigo-700' : 'text-slate-700')}>{day}</span>
                                             {dayRecord ? (
                                                 <>
-                                                    <span className="mt-auto rounded-md bg-rose-50 px-1.5 py-1 text-[10px] font-bold text-rose-700 md:text-xs">휴무 {count}</span>
-                                                    {dayRecord.subs && dayRecord.subs.length > 0 && <span className="mt-1 max-w-full truncate rounded-md bg-amber-50 px-1.5 py-1 text-[10px] font-bold text-amber-800 md:text-xs">{dayRecord.subs.map(function (assignment) { return assignment.targetBaseName || assignment.routeName || '백업'; }).join(', ')}</span>}
-                                                    {isError && <span className="mt-1 text-[10px] font-bold text-rose-600">인력 확인</span>}
+                                                    <span className="mt-auto whitespace-nowrap rounded-md bg-rose-50 px-1 py-1 text-[9px] font-bold leading-none text-rose-700 sm:px-1.5 sm:text-[10px] md:text-xs">휴무 {count}</span>
+                                                    {dayRecord.subs && dayRecord.subs.length > 0 && <span className="mt-1 whitespace-nowrap rounded-md bg-amber-50 px-1 py-1 text-[9px] font-bold leading-none text-amber-800 sm:px-1.5 sm:text-[10px] md:text-xs">백업 {dayRecord.subs.length}</span>}
+                                                    {isError && <span className="mt-1 whitespace-nowrap text-[9px] font-bold text-rose-600 md:text-[10px]">인력 확인</span>}
                                                 </>
                                             ) : (
                                                 <span className="mt-auto text-[10px] text-slate-300">미생성</span>
@@ -1101,9 +1101,9 @@ export default function Calendar({ onBack }) {
                                 })}
                             </div>
 
-                            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                <div className="mb-3 flex items-center justify-between">
-                                    <div>
+                            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:mt-5 sm:p-4">
+                                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                    <div className="min-w-0">
                                         <h4 className="font-black">{month}월 {selectedDay}일 휴무 내역</h4>
                                         <p className="mt-1 text-xs text-slate-500">{selectedRecord ? '생성된 근무표 기준' : '이 날짜의 근무표가 아직 생성되지 않았습니다.'}</p>
                                     </div>
@@ -1112,17 +1112,17 @@ export default function Calendar({ onBack }) {
                                     </button>
                                 </div>
                                 {selectedOffEmployees.length > 0 ? (
-                                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                    <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 sm:gap-2 lg:grid-cols-3">
                                         {selectedOffEmployees.map(function (employee) {
                                             return (
-                                                <div key={employee.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3">
-                                                    <div>
-                                                        <div className="font-bold">{employee.name}</div>
-                                                        <div className="mt-1 text-xs text-slate-500">
+                                                <div key={employee.id} className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="whitespace-nowrap break-keep text-sm font-bold leading-5 text-slate-800">{employee.name}</div>
+                                                        <div className="mt-0.5 break-keep text-[11px] leading-4 text-slate-500">
                                                             {getTeamDisplayName(teams.find(function (team) { return String(team.id) === String(employee.team_id); }) || null)} · {getEmployeeRoute(employee, routes)}
                                                         </div>
                                                     </div>
-                                                    <span className="rounded-lg bg-rose-50 px-2 py-1 text-xs font-bold text-rose-700">휴무</span>
+                                                    <span className="shrink-0 rounded-lg bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700">휴무</span>
                                                 </div>
                                             );
                                         })}
@@ -1135,12 +1135,12 @@ export default function Calendar({ onBack }) {
                                 {selectedAssignments.length > 0 && (
                                     <div className="mt-4">
                                         <h5 className="mb-2 text-sm font-black text-slate-700">백업근무 배정</h5>
-                                        <div className="space-y-2">
+                                        <div className="space-y-1.5">
                                             {selectedAssignments.map(function (assignment, index) {
                                                 return (
-                                                    <div key={String(assignment.subId) + '-' + index} className="flex flex-col gap-1 rounded-xl border border-amber-200 bg-amber-50 p-3 sm:flex-row sm:items-center sm:justify-between">
-                                                        <span className="font-bold text-amber-900">{assignment.subName}</span>
-                                                        <span className="text-xs text-amber-800">→ {assignment.targetBaseName} · {assignment.routeName || '노선 미지정'}</span>
+                                                    <div key={String(assignment.subId) + '-' + index} className="flex min-w-0 flex-col gap-1 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                                                        <span className="whitespace-nowrap break-keep text-sm font-bold leading-5 text-amber-900">{assignment.subName}</span>
+                                                        <span className="break-keep text-[11px] leading-4 text-amber-800">→ {assignment.targetBaseName} · {assignment.routeName || '노선 미지정'}</span>
                                                     </div>
                                                 );
                                             })}
