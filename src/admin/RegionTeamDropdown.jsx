@@ -183,7 +183,7 @@ export default function RegionTeamDropdown({
                                             key={shift}
                                             type="button"
                                             aria-pressed={active}
-                                            onClick={() => { if (!active && onShiftChange) onShiftChange(shift); }}
+                                            onClick={() => { if (!active && onShiftChange) { setSearchQuery(''); onShiftChange(shift); } }}
                                             className={'inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-bold transition-colors ' + (active ? (shift === 'night' ? 'border-teal-300 bg-teal-50 text-teal-800' : 'border-indigo-300 bg-indigo-50 text-indigo-800') : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}
                                         >
                                             <ShiftIcon size={16} /> {getShiftLabel(shift)}
