@@ -916,7 +916,7 @@ export default function Calendar({ onBack }) {
                                 {isSelectedTeamCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
                             </button>
                         </div>
-                        <div className="mt-3 flex w-full min-w-0 flex-wrap items-center justify-center gap-2">
+                        <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-2">
                             <div className="w-full min-w-0 max-w-md">
                                 <label className="mb-1.5 block text-left text-xs font-bold text-slate-500">지역 · 근무조 · 팀</label>
                                 <RegionTeamDropdown
@@ -954,7 +954,7 @@ export default function Calendar({ onBack }) {
                                     </div>
                                     <button type="button" onClick={handleDownloadScheduleImage} className="absolute right-0 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50" aria-label="근무표 이미지 다운로드" title="근무표 이미지 다운로드"><Download size={18} /></button>
                                 </div>
-                                <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-2">
+                                <div className="mt-3 flex w-full min-w-0 flex-wrap items-center justify-center gap-2">
                                     <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 sm:max-w-sm">
                                         <Search size={16} className="shrink-0 text-slate-400" />
                                         <input value={search} onChange={function (event) { setSearch(event.target.value); }} placeholder="직원 이름 또는 노선 검색" className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400" />
