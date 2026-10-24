@@ -18,7 +18,10 @@ function getTeamInfo(employee, teams) {
 
 function getTeamLabel(employee, teams) {
     const team = getTeamInfo(employee, teams);
-    return team ? [team.region || '기본 지역', team.name].filter(Boolean).join(' · ') : '지역·팀 미설정';
+    if (!team) return '지역·팀 미설정';
+    const shift = String(team.shift || team.workShift || team.work_shift || '').toLowerCase();
+    const shiftLabel = shift === 'night' || shift === '야간' ? '야간' : '주간';
+    return [team.region || '기본 지역', shiftLabel, team.name].filter(Boolean).join(' · ');
 }
 
 function normalizeTeamValue(value) {
@@ -107,7 +110,9 @@ export default function BiweeklyPairManager({ onBack }) {
             }
             const region = regions.get(regionName);
             if (!region.teams.has(teamKey)) {
-                region.teams.set(teamKey, { key: teamKey, name: teamName, pairs: [] });
+                const shift = String(team?.shift || team?.workShift || team?.work_shift || '').toLowerCase();
+                const shiftLabel = shift === 'night' || shift === '야간' ? '야간' : '주간';
+                region.teams.set(teamKey, { key: teamKey, name: teamName + ' · ' + shiftLabel, pairs: [] });
             }
 
             const pairEntry = {
