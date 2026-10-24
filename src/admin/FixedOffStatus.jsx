@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, Search, CalendarDays, Users, Filter, X } from 'lucide-react';
 import { useAdminData } from './contexts/DataContext';
+import RegionTeamDropdown from './RegionTeamDropdown';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -147,13 +148,17 @@ export default function FixedOffStatus({ onBack }) {
                         <Search size={16} className="shrink-0 text-slate-400" />
                         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="직원·팀·노선 검색" className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-slate-400" />
                     </label>
-                    <label className="mt-2 flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-2">
+                    <div className="mt-2 flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-1.5">
                         <Filter size={14} className="shrink-0 text-slate-400" />
-                        <select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)} className="min-w-0 flex-1 bg-transparent text-xs font-bold outline-none">
-                            <option value="all">전체 팀</option>
-                            {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
-                        </select>
-                    </label>
+                        <RegionTeamDropdown
+                            teams={teams}
+                            value={teamFilter}
+                            onChange={setTeamFilter}
+                            allLabel="전체 팀"
+                            className="min-w-0 flex-1"
+                            buttonClassName="border-0 bg-transparent px-1 py-1.5 shadow-none focus:ring-0"
+                        />
+                    </div>
                 </section>
 
                 {filtered.length === 0 ? (
