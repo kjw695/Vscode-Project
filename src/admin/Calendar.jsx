@@ -24,9 +24,24 @@ import {
 } from 'lucide-react';
 import { generateWeeklySchedule } from './utils/schedulingEngine';
 import { useAdminData } from './contexts/DataContext';
+import RegionTeamDropdown from './RegionTeamDropdown';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const MONTH_WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'];
+
+function getTeamShift(team) {
+    const shift = String(team?.shift || team?.workShift || team?.work_shift || '').toLowerCase();
+    return shift === 'night' || shift === '야간' ? 'night' : 'day';
+}
+
+function getShiftLabel(shift) {
+    return shift === 'night' ? '야간' : '주간';
+}
+
+function getTeamDisplayName(team) {
+    if (!team) return '팀';
+    return [team.region || '기본 지역', getShiftLabel(getTeamShift(team)), team.name || '이름 없는 팀'].join(' · ');
+}
 
 function pad2(value) {
     return String(value).padStart(2, '0');
@@ -156,7 +171,8 @@ export default function Calendar({ onBack }) {
 
     const [currentDate, setCurrentDate] = useState(function () { return new Date(); });
     const [selectedDay, setSelectedDay] = useState(function () { return new Date().getDate(); });
-    const [selectedTeam, setSelectedTeam] = useState(teams && teams.length > 0 ? teams[0].id : 'T1');
+    const [selectedTeam, setSelectedTeam] = useState(teams && teams.length > 0 ? teams[0].id : '');
+    const [selectedShift, setSelectedShift] = useState(function () { return getTeamShift(teams && teams[0]); });
     const [view, setView] = useState('weekly');
     const [search, setSearch] = useState('');
     const [employeeTypeFilter, setEmployeeTypeFilter] = useState('all');
@@ -170,6 +186,7 @@ export default function Calendar({ onBack }) {
         catch (error) { return {}; }
     });
 
+    const selectedTeamRecord = teams.find(function (team) { return String(team.id) === String(selectedTeam); }) || null;
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth() + 1;
     const monthKey = String(year) + '-' + pad2(month);
@@ -190,10 +207,11 @@ export default function Calendar({ onBack }) {
     };
 
     useEffect(function () {
-        if (teams.length > 0 && !teams.some(function (team) { return String(team.id) === String(selectedTeam); })) {
-            setSelectedTeam(teams[0].id);
-        }
-    }, [teams, selectedTeam]);
+        const teamsInShift = teams.filter(function (team) { return getTeamShift(team) === selectedShift; });
+        if (teamsInShift.some(function (team) { return String(team.id) === String(selectedTeam); })) return;
+        const nextTeamId = teamsInShift.length > 0 ? teamsInShift[0].id : '';
+        if (String(nextTeamId) !== String(selectedTeam)) setSelectedTeam(nextTeamId);
+    }, [teams, selectedShift, selectedTeam]);
 
     useEffect(function () {
         try {
@@ -344,13 +362,32 @@ export default function Calendar({ onBack }) {
     };
 
     const handleTeamChange = function (teamId) {
+        const nextTeam = teams.find(function (team) { return String(team.id) === String(teamId); });
+        if (nextTeam) setSelectedShift(getTeamShift(nextTeam));
         setSelectedTeam(teamId);
         setSearch('');
         setEmployeeTypeFilter('all');
     };
 
+    const handleShiftChange = function (nextShift) {
+        const teamsInShift = teams.filter(function (team) { return getTeamShift(team) === nextShift; });
+        setSelectedShift(nextShift);
+        setSelectedTeam(teamsInShift.length > 0 ? teamsInShift[0].id : '');
+        setSearch('');
+        setEmployeeTypeFilter('all');
+        setGeneratedSchedule({});
+        setWarnings([]);
+        setSavedRecord(null);
+        setWarningsAcknowledged(false);
+        setScheduleStatus('ready');
+    };
+
     const handleStartAutoSchedule = function () {
         setWarningsAcknowledged(false);
+        if (!selectedTeam) {
+            window.alert(getShiftLabel(selectedShift) + '에 등록된 팀이 없습니다. 팀 및 지역 설정에서 팀을 추가해주세요.');
+            return;
+        }
         if (activeTeamEmployees.length === 0) {
             window.alert('선택한 팀에 등록된 직원이 없습니다.');
             return;
@@ -387,6 +424,10 @@ export default function Calendar({ onBack }) {
     };
 
     const handleSaveDraft = function () {
+        if (!selectedTeam) {
+            window.alert('먼저 근무조에 속한 팀을 선택해주세요.');
+            return;
+        }
         if (!isScheduleGenerated) {
             window.alert('먼저 자동 생성으로 근무표 초안을 만들어주세요.');
             return;
@@ -418,6 +459,10 @@ export default function Calendar({ onBack }) {
     };
 
     const handleConfirmSchedule = function () {
+        if (!selectedTeam) {
+            window.alert('먼저 근무조에 속한 팀을 선택해주세요.');
+            return;
+        }
         if (!isScheduleGenerated || (scheduleStatus !== 'saved' && scheduleStatus !== 'confirmed')) {
             window.alert('근무표를 먼저 생성한 뒤 임시 저장해주세요.');
             return;
@@ -454,6 +499,10 @@ export default function Calendar({ onBack }) {
     };
 
     const handleReopenDraft = function () {
+        if (!selectedTeam) {
+            window.alert('먼저 근무조에 속한 팀을 선택해주세요.');
+            return;
+        }
         if (!window.confirm('확정 상태를 해제하고 다시 초안으로 편집할 수 있도록 변경할까요?')) return;
         const record = {
             teamId: selectedTeam,
@@ -640,10 +689,10 @@ export default function Calendar({ onBack }) {
                 if (fill) { ctx.fillStyle = fill; ctx.fill(); }
                 if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
             };
-            const teamName = (teams.find(function (team) { return String(team.id) === String(selectedTeam); }) || {}).name || '팀';
+            const teamTitle = getTeamDisplayName(selectedTeamRecord);
             roundRect(padding, padding, width - padding * 2, titleHeight + headerHeight + rowHeight * rows.length + legendHeight - 6, 18, '#ffffff', '#e2e8f0');
             ctx.textAlign = 'center'; ctx.fillStyle = '#172033'; ctx.font = 'bold 25px sans-serif';
-            ctx.fillText(teamName + ' 주간 근무표', width / 2, padding + 34);
+            ctx.fillText(teamTitle + ' 근무표', width / 2, padding + 34);
             ctx.fillStyle = '#64748b'; ctx.font = '15px sans-serif';
             ctx.fillText(formatDate(weekDates[0]) + ' ~ ' + formatDate(weekDates[6]), width / 2, padding + 61);
             ctx.fillStyle = '#94a3b8'; ctx.font = '12px sans-serif';
@@ -862,20 +911,31 @@ export default function Calendar({ onBack }) {
                                 월간 휴무 분포
                             </button>
                         </div>
-                        <div className="flex min-w-0 flex-wrap items-center justify-center gap-2">
-                            <div className="flex items-center gap-1 rounded-lg border border-slate-200 px-2">
-                                {teams.map(function (team) {
-                                    return (
-                                        <button key={team.id} onClick={function () { handleTeamChange(team.id); }} className={'whitespace-nowrap px-3 py-2 text-xs font-bold ' + (String(selectedTeam) === String(team.id) ? 'text-indigo-700' : 'text-slate-400 hover:text-slate-700')}>
-                                            {team.name}
-                                        </button>
-                                    );
-                                })}
+                        <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-2">
+                            <div className="w-full min-w-0 max-w-md">
+                                <label className="mb-1.5 block text-left text-xs font-bold text-slate-500">지역 · 근무조 · 팀</label>
+                                <RegionTeamDropdown
+                                    teams={teams}
+                                    value={selectedTeam}
+                                    onChange={handleTeamChange}
+                                    includeAll={false}
+                                    includeShift
+                                    shiftValue={selectedShift}
+                                    onShiftChange={handleShiftChange}
+                                    className="w-full"
+                                    size="comfortable"
+                                />
                             </div>
-                            <button type="button" onClick={toggleSelectedTeamSchedule} aria-expanded={!isSelectedTeamCollapsed} aria-label={isSelectedTeamCollapsed ? '팀 요약 펼치기' : '팀 요약 접기'} title={isSelectedTeamCollapsed ? '팀 요약 펼치기' : '팀 요약 접기'} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">
+                            <button type="button" onClick={toggleSelectedTeamSchedule} disabled={!selectedTeam} aria-expanded={!isSelectedTeamCollapsed} aria-label={isSelectedTeamCollapsed ? '팀 요약 펼치기' : '팀 요약 접기'} title={isSelectedTeamCollapsed ? '팀 요약 펼치기' : '팀 요약 접기'} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
                                 {isSelectedTeamCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
                             </button>
                         </div>
+                        {!selectedTeam && (
+                            <div className="w-full rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-center">
+                                <p className="text-sm font-black text-slate-700">{getShiftLabel(selectedShift)} 팀이 등록되지 않았습니다.</p>
+                                <p className="mt-1 text-xs text-slate-500">팀 및 지역 설정에서 이 근무조에 속한 팀을 추가해주세요.</p>
+                            </div>
+                        )}
                     </div>
 
                     {view === 'weekly' ? (
@@ -1048,7 +1108,7 @@ export default function Calendar({ onBack }) {
                                                     <div>
                                                         <div className="font-bold">{employee.name}</div>
                                                         <div className="mt-1 text-xs text-slate-500">
-                                                            {(teams.find(function (team) { return String(team.id) === String(employee.team_id); }) || {}).name || '미배정'} · {getEmployeeRoute(employee, routes)}
+                                                            {getTeamDisplayName(teams.find(function (team) { return String(team.id) === String(employee.team_id); }) || null)} · {getEmployeeRoute(employee, routes)}
                                                         </div>
                                                     </div>
                                                     <span className="rounded-lg bg-rose-50 px-2 py-1 text-xs font-bold text-rose-700">휴무</span>
