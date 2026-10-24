@@ -290,29 +290,38 @@ export default function Calendar({ onBack }) {
     });
 
     const calendarDays = useMemo(function () {
+        // 월요일 시작 달력: 앞·뒤 달 날짜도 표시해 주간 근무 기록을 달력에서 이어서 확인합니다.
         const firstDayOffset = (new Date(year, month - 1, 1).getDay() + 6) % 7;
         const daysInMonth = new Date(year, month, 0).getDate();
-        const days = [];
-        for (let index = 0; index < firstDayOffset; index += 1) days.push(null);
-        for (let day = 1; day <= daysInMonth; day += 1) days.push(day);
-        return days;
+        const totalCells = Math.ceil((firstDayOffset + daysInMonth) / 7) * 7;
+        return Array.from({ length: totalCells }, function (_, index) {
+            const date = new Date(year, month - 1, 1 - firstDayOffset + index);
+            return {
+                date: date,
+                isCurrentMonth: date.getFullYear() === year && date.getMonth() === month - 1
+            };
+        });
     }, [year, month]);
 
     const monthSchedule = useMemo(function () {
         const combined = {};
         try {
-            // 이전 월간 자료는 달력에 유지하고, 새 주간 저장 자료가 있으면 최신 값이 우선합니다.
-            const legacyKey = 'my_schedule_' + String(selectedTeam) + '_' + monthKey;
-            const legacyRaw = localStorage.getItem(legacyKey);
-            if (legacyRaw) {
+            // 달력 가장자리에 표시할 앞·뒤 달의 레거시 월간 저장 자료도 불러옵니다.
+            // 주간 저장 기록은 아래에서 처리하며, 동일 날짜가 있으면 주간 기록이 우선합니다.
+            [-1, 0, 1].forEach(function (offset) {
+                const legacyMonth = new Date(year, month - 1 + offset, 1);
+                const legacyMonthKey = String(legacyMonth.getFullYear()) + '-' + pad2(legacyMonth.getMonth() + 1);
+                const legacyKey = 'my_schedule_' + String(selectedTeam) + '_' + legacyMonthKey;
+                const legacyRaw = localStorage.getItem(legacyKey);
+                if (!legacyRaw) return;
                 const legacyRecord = JSON.parse(legacyRaw);
                 Object.keys(legacyRecord.schedule || {}).forEach(function (dayKey) {
                     const record = legacyRecord.schedule[dayKey];
                     if (record && record.date) combined[record.date] = record;
                 });
-            }
+            });
 
-            const scanDate = getSunday(new Date(year, month - 1, 1));
+            const scanDate = getSunday(new Date(year, month - 1, 1));            const scanDate = getSunday(new Date(year, month - 1, 1));
             const lastDate = new Date(year, month - 1, new Date(year, month, 0).getDate());
             while (scanDate <= lastDate) {
                 const weeklyKey = 'my_schedule_' + String(selectedTeam) + '_' + formatDate(scanDate);
@@ -1065,28 +1074,32 @@ export default function Calendar({ onBack }) {
                                 {MONTH_WEEKDAYS.map(function (weekday, index) {
                                     return <div key={weekday} className={'py-2 text-xs font-black ' + (index === 5 ? 'text-blue-600' : index === 6 ? 'text-rose-600' : 'text-slate-500')}>{weekday}</div>;
                                 })}
-                                {calendarDays.map(function (day, index) {
-                                    if (!day) return <div key={'empty-' + index} className="min-h-[66px] rounded-lg bg-transparent sm:min-h-[82px] md:min-h-[108px]"></div>;
-                                    const date = new Date(year, month - 1, day);
+                                {calendarDays.map(function (calendarDay) {
+                                    const date = calendarDay.date;
+                                    const day = date.getDate();
+                                    const isCurrentMonth = calendarDay.isCurrentMonth;
                                     const dayRecord = getDayRecord(monthSchedule, date, year, month);
-                                    const isSelected = selectedDay === day;
+                                    const isSelected = isCurrentMonth && selectedDay === day;
                                     const isError = dayRecord && dayRecord.status === 'error';
                                     const count = getRecordOffCount(dayRecord);
                                     return (
                                         <button
-                                            key={day}
+                                            key={formatDate(date)}
                                             onClick={function () { setSelectedDay(day); setCurrentDate(date); }}
+                                            aria-label={String(date.getMonth() + 1) + '월 ' + String(day) + '일' + (dayRecord ? ', 휴무 ' + count + '명' : '')}
                                             className={'flex min-h-[66px] flex-col items-start rounded-lg border p-1 text-left transition sm:min-h-[82px] sm:rounded-xl sm:p-2 md:min-h-[108px] md:p-3 ' + (
                                                 isSelected
                                                     ? 'border-indigo-400 bg-indigo-50 ring-1 ring-indigo-200'
                                                     : isError
                                                         ? 'border-rose-200 bg-rose-50 hover:border-rose-300'
                                                         : dayRecord && count > 0
-                                                            ? 'border-slate-200 bg-white hover:border-indigo-200'
-                                                            : 'border-slate-100 bg-slate-50 hover:border-slate-300'
+                                                            ? (isCurrentMonth ? 'border-slate-200 bg-white hover:border-indigo-200' : 'border-slate-200 bg-slate-50 hover:border-indigo-200')
+                                                            : isCurrentMonth
+                                                                ? 'border-slate-100 bg-slate-50 hover:border-slate-300'
+                                                                : 'border-slate-100 bg-slate-50/60 text-slate-400 hover:border-slate-300'
                                             )}
                                         >
-                                            <span className={'text-xs font-black md:text-sm ' + (isSelected ? 'text-indigo-700' : 'text-slate-700')}>{day}</span>
+                                            <span className={'text-xs font-black md:text-sm ' + (isSelected ? 'text-indigo-700' : isCurrentMonth ? 'text-slate-700' : 'text-slate-400')}>{day}</span>
                                             {dayRecord ? (
                                                 <>
                                                     <span className="mt-auto whitespace-nowrap rounded-md bg-rose-50 px-1 py-1 text-[9px] font-bold leading-none text-rose-700 sm:px-1.5 sm:text-[10px] md:text-xs">휴무 {count}</span>
@@ -1094,7 +1107,7 @@ export default function Calendar({ onBack }) {
                                                     {isError && <span className="mt-1 whitespace-nowrap text-[9px] font-bold text-rose-600 md:text-[10px]">인력 확인</span>}
                                                 </>
                                             ) : (
-                                                <span className="mt-auto text-[10px] text-slate-300">미생성</span>
+                                                isCurrentMonth && <span className="mt-auto text-[10px] text-slate-300">미생성</span>
                                             )}
                                         </button>
                                     );
