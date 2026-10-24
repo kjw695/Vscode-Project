@@ -1,12 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle2, ChevronDown } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Sun, Moon } from 'lucide-react';
 
 /**
- * 지역별로 팀을 묶어 보여주는 공통 관리자 드롭다운.
- * 선택된 항목은 "청주 1팀"처럼 지역과 팀 이름을 함께 표시합니다.
- * 팝업은 portal로 렌더링해 스크롤 가능한 모달 안에서도 잘리지 않게 합니다.
+ * 지역별로 팀을 묶고, 필요한 화면에서는 근무조별 팀 선택을 제공합니다.
+ * 선택 항목에는 지역·주간/야간·팀 이름을 표시합니다.
+ * 팝업은 portal로 렌더링해 모달이나 스크롤 영역에 잘리지 않게 합니다.
  */
+const getTeamShift = (team) => {
+    const shift = String(team?.shift || team?.workShift || team?.work_shift || '').toLowerCase();
+    return shift === 'night' || shift === '야간' ? 'night' : 'day';
+};
+const getShiftLabel = (shift) => shift === 'night' ? '야간' : '주간';
+
 export default function RegionTeamDropdown({
     teams = [],
     value = 'all',
@@ -19,6 +25,9 @@ export default function RegionTeamDropdown({
     buttonClassName = '',
     size = 'compact',
     disabled = false,
+    includeShift = false,
+    shiftValue = 'day',
+    onShiftChange,
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [menuPosition, setMenuPosition] = useState(null);
@@ -26,9 +35,14 @@ export default function RegionTeamDropdown({
     const triggerRef = useRef(null);
     const menuRef = useRef(null);
 
+    const visibleTeams = useMemo(() => includeShift
+        ? teams.filter((team) => getTeamShift(team) === shiftValue)
+        : teams,
+    [teams, includeShift, shiftValue]);
+
     const regionGroups = useMemo(() => {
         const groups = new Map();
-        teams.forEach((team) => {
+        visibleTeams.forEach((team) => {
             const regionName = String(team.region || '기본 지역').trim() || '기본 지역';
             if (!groups.has(regionName)) groups.set(regionName, []);
             groups.get(regionName).push(team);
@@ -42,14 +56,14 @@ export default function RegionTeamDropdown({
                     String(a.name || '').localeCompare(String(b.name || ''), 'ko')
                 ),
             }));
-    }, [teams]);
+    }, [visibleTeams]);
 
     const selectedTeam = teams.find((team) => String(team.id) === String(value));
     const selectedLabel = includeAll && String(value) === String(allValue)
         ? allLabel
         : selectedTeam
-            ? [selectedTeam.region || '기본 지역', selectedTeam.name || '이름 없는 팀'].join(' ')
-            : '';
+            ? [selectedTeam.region || '기본 지역', getShiftLabel(getTeamShift(selectedTeam)), selectedTeam.name || '이름 없는 팀'].join(' · ')
+            : (includeShift ? getShiftLabel(shiftValue) + ' 팀이 없습니다' : '');
 
     useEffect(() => {
         if (!isOpen) {
@@ -146,6 +160,29 @@ export default function RegionTeamDropdown({
                     }}
                     className="z-[100] overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
                 >
+                    {includeShift && (
+                        <div className="border-b border-slate-100 px-3 py-3">
+                            <div className="mb-2 text-xs font-black text-slate-500">근무조 선택</div>
+                            <div className="grid grid-cols-2 gap-2">
+                                {['day', 'night'].map((shift) => {
+                                    const active = shiftValue === shift;
+                                    const ShiftIcon = shift === 'night' ? Moon : Sun;
+                                    return (
+                                        <button
+                                            key={shift}
+                                            type="button"
+                                            aria-pressed={active}
+                                            onClick={() => { if (!active && onShiftChange) onShiftChange(shift); }}
+                                            className={'inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-bold transition-colors ' + (active ? (shift === 'night' ? 'border-teal-300 bg-teal-50 text-teal-800' : 'border-indigo-300 bg-indigo-50 text-indigo-800') : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}
+                                        >
+                                            <ShiftIcon size={16} /> {getShiftLabel(shift)}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
                     {includeAll && (
                         <button
                             type="button"
@@ -157,6 +194,12 @@ export default function RegionTeamDropdown({
                             <span>{allLabel}</span>
                             {String(value) === String(allValue) && <CheckCircle2 size={15} className="shrink-0" />}
                         </button>
+                    )}
+
+                    {regionGroups.length === 0 && includeShift && (
+                        <div className="px-4 py-5 text-center text-sm text-slate-500">
+                            {getShiftLabel(shiftValue)}에 등록된 팀이 없습니다.
+                        </div>
                     )}
 
                     {regionGroups.map(({ regionName, teams: regionTeams }) => (
@@ -175,7 +218,10 @@ export default function RegionTeamDropdown({
                                         onClick={() => choose(team.id)}
                                         className={'flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-sm transition-colors hover:bg-indigo-50 ' + (isSelected ? 'bg-indigo-50 font-bold text-indigo-700' : 'text-slate-700')}
                                     >
-                                        <span className="min-w-0 break-words">{team.name || '이름 없는 팀'}</span>
+                                        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2 break-words">
+                                            <span>{team.name || '이름 없는 팀'}</span>
+                                            {!includeShift && <span className={'rounded-md px-1.5 py-0.5 text-[10px] font-bold ' + (getTeamShift(team) === 'night' ? 'bg-teal-50 text-teal-700' : 'bg-indigo-50 text-indigo-700')}>{getShiftLabel(getTeamShift(team))}</span>}
+                                        </span>
                                         {isSelected && <CheckCircle2 size={15} className="shrink-0" />}
                                     </button>
                                 );
