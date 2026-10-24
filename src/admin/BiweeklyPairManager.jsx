@@ -403,21 +403,21 @@ export default function BiweeklyPairManager({ onBack }) {
                                                                         <div className="flex items-center gap-3">
                                                                             <div className="min-w-0 flex-1 space-y-2">
                                                                                 {first && (
-                                                                                    <div className="flex min-w-0 items-center justify-start gap-2">
-                                                                                        <p className="min-w-0 truncate text-xs font-bold text-slate-600">
+                                                                                    <div className="flex min-w-0 items-start gap-2">
+                                                                                        <p className="min-w-0 flex-1 whitespace-normal break-words text-sm font-bold leading-5 text-slate-700">
                                                                                             {first.name || '이름 미등록'}{first.active === false ? ' · 비활성' : ''}
                                                                                         </p>
-                                                                                        <p className="shrink-0 whitespace-nowrap text-xs font-black text-indigo-700">
+                                                                                        <p className="w-[92px] shrink-0 whitespace-nowrap text-sm font-black leading-5 text-indigo-700">
                                                                                             {firstThisWeek}일 <span className="text-indigo-300">→</span> {firstNextWeek}일
                                                                                         </p>
                                                                                     </div>
                                                                                 )}
                                                                                 {second && (
-                                                                                    <div className="flex min-w-0 items-center justify-start gap-2">
-                                                                                        <p className="min-w-0 truncate text-xs font-bold text-slate-600">
+                                                                                    <div className="flex min-w-0 items-start gap-2">
+                                                                                        <p className="min-w-0 flex-1 whitespace-normal break-words text-sm font-bold leading-5 text-slate-700">
                                                                                             {second.name || '이름 미등록'}{second.active === false ? ' · 비활성' : ''}
                                                                                         </p>
-                                                                                        <p className="shrink-0 whitespace-nowrap text-xs font-black text-violet-700">
+                                                                                        <p className="w-[92px] shrink-0 whitespace-nowrap text-sm font-black leading-5 text-violet-700">
                                                                                             {secondThisWeek}일 <span className="text-violet-300">→</span> {secondNextWeek}일
                                                                                         </p>
                                                                                     </div>
