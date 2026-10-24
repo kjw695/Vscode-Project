@@ -62,6 +62,7 @@ export default function BiweeklyPairManager({ onBack }) {
     const [selectedIds, setSelectedIds] = useState([]);
     const [search, setSearch] = useState('');
     const [teamFilter, setTeamFilter] = useState('all');
+    const [collapsedRegions, setCollapsedRegions] = useState(() => new Set());
     const activeBiweeklyEmployees = useMemo(() => employees.filter((employee) =>
         employee.active !== false && getBiweeklyDays(employee) !== null
     ), [employees]);
