@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { Users, Truck, ArrowLeft, UserPlus, X, Copy, CheckCircle2, Plus, Search, ChevronDown } from 'lucide-react';
 import BiweeklyPairManager from './BiweeklyPairManager';
+import RegionTeamDropdown from './RegionTeamDropdown';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdminData } from './contexts/DataContext';
 
@@ -358,10 +359,14 @@ export default function EmployeeManager({ onBack }) {
                         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="직원·팀·노선 검색" className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400" />
                     </label>
                     <div className="mt-2 grid grid-cols-3 gap-2">
-                        <select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)} className="min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-bold outline-none">
-                            <option value="all">모든 팀</option>
-                            {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
-                        </select>
+                        <RegionTeamDropdown
+                            teams={teams}
+                            value={teamFilter}
+                            onChange={setTeamFilter}
+                            allLabel="모든 팀"
+                            className="min-w-0"
+                            buttonClassName="px-2 py-2"
+                        />
                         <select value={employeeTypeFilter} onChange={(event) => setEmployeeTypeFilter(event.target.value)} className="min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-bold outline-none">
                             <option value="all">전체 직군</option><option value="base">고정</option><option value="sub">백업</option>
                         </select>
@@ -459,13 +464,20 @@ export default function EmployeeManager({ onBack }) {
                                 </div>
                                 <div>
                                     <label className="mb-1 block truncate text-xs font-black text-gray-600">소속 팀</label>
-                                    <select name="team_id" value={editTeamId} onChange={(event) => { setEditTeamId(event.target.value); setEditRouteIds([]); setIsRouteListOpen(false); setRouteListFilter('all'); }} className="w-full rounded-xl border border-gray-200 bg-gray-50 px-2.5 py-3 text-sm font-semibold outline-none focus:border-indigo-500">
-                                        {Object.entries(teamsByRegion).map(([region, regionTeams]) => (
-                                            <optgroup key={region} label={region}>
-                                                {regionTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
-                                            </optgroup>
-                                        ))}
-                                    </select>
+                                    <RegionTeamDropdown
+                                        name="team_id"
+                                        teams={teams}
+                                        value={editTeamId}
+                                        includeAll={false}
+                                        size="comfortable"
+                                        buttonClassName="rounded-xl bg-gray-50 focus:border-indigo-500"
+                                        onChange={(value) => {
+                                            setEditTeamId(value);
+                                            setEditRouteIds([]);
+                                            setIsRouteListOpen(false);
+                                            setRouteListFilter('all');
+                                        }}
+                                    />
                                 </div>
                                 <div>
                                     <label className="mb-1 block text-xs font-black text-gray-600">구분</label>
