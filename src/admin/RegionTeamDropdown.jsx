@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle2, ChevronDown, Sun, Moon } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Sun, Moon, Search, X } from 'lucide-react';
 
 /**
  * 지역별로 팀을 묶고, 필요한 화면에서는 근무조별 팀 선택을 제공합니다.
@@ -31,14 +31,23 @@ export default function RegionTeamDropdown({
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [menuPosition, setMenuPosition] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
     const dropdownRef = useRef(null);
     const triggerRef = useRef(null);
     const menuRef = useRef(null);
 
-    const visibleTeams = useMemo(() => includeShift
-        ? teams.filter((team) => getTeamShift(team) === shiftValue)
-        : teams,
-    [teams, includeShift, shiftValue]);
+    const visibleTeams = useMemo(() => {
+        const shiftTeams = includeShift
+            ? teams.filter((team) => getTeamShift(team) === shiftValue)
+            : teams;
+        const keyword = searchQuery.trim().toLocaleLowerCase();
+        if (!keyword) return shiftTeams;
+        return shiftTeams.filter((team) => [
+            team.region || '기본 지역',
+            team.name || '이름 없는 팀',
+            getShiftLabel(getTeamShift(team))
+        ].some((value) => String(value).toLocaleLowerCase().includes(keyword)));
+    }, [teams, includeShift, shiftValue, searchQuery]);
 
     const regionGroups = useMemo(() => {
         const groups = new Map();
@@ -68,6 +77,7 @@ export default function RegionTeamDropdown({
     useEffect(() => {
         if (!isOpen) {
             setMenuPosition(null);
+            setSearchQuery((previous) => previous ? '' : previous);
             return undefined;
         }
 
@@ -121,6 +131,7 @@ export default function RegionTeamDropdown({
 
     const choose = (nextValue) => {
         if (onChange) onChange(String(nextValue));
+        setSearchQuery('');
         setIsOpen(false);
     };
 
@@ -183,6 +194,24 @@ export default function RegionTeamDropdown({
                         </div>
                     )}
 
+                    <div className="border-b border-slate-100 bg-white px-3 py-2.5">
+                        <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 focus-within:border-indigo-300 focus-within:bg-white">
+                            <Search size={15} className="shrink-0 text-slate-400" />
+                            <input
+                                value={searchQuery}
+                                onChange={(event) => setSearchQuery(event.target.value)}
+                                placeholder="지역 또는 팀 검색"
+                                aria-label="지역 또는 팀 검색"
+                                className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-slate-400"
+                            />
+                            {searchQuery && (
+                                <button type="button" onClick={() => setSearchQuery('')} className="rounded p-0.5 text-slate-400 hover:bg-slate-200" aria-label="검색어 지우기">
+                                    <X size={14} />
+                                </button>
+                            )}
+                        </label>
+                    </div>
+
                     {includeAll && (
                         <button
                             type="button"
@@ -196,9 +225,13 @@ export default function RegionTeamDropdown({
                         </button>
                     )}
 
-                    {regionGroups.length === 0 && includeShift && (
+                    {regionGroups.length === 0 && (
                         <div className="px-4 py-5 text-center text-sm text-slate-500">
-                            {getShiftLabel(shiftValue)}에 등록된 팀이 없습니다.
+                            {searchQuery.trim()
+                                ? '검색 결과가 없습니다.'
+                                : includeShift
+                                    ? getShiftLabel(shiftValue) + '에 등록된 팀이 없습니다.'
+                                    : '등록된 팀이 없습니다.'}
                         </div>
                     )}
 
