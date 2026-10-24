@@ -19,7 +19,6 @@ export default function RouteManager({ onBack }) {
     const [notice, setNotice] = useState('');
     const [search, setSearch] = useState('');
 
-    const selectedTeamRecord = teams.find((team) => String(team.id) === String(selectedTeam));
     const shiftTeams = useMemo(() => teams.filter((team) => getTeamShift(team) === selectedShift), [teams, selectedShift]);
 
     useEffect(() => {
