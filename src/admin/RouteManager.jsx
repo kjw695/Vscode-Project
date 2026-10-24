@@ -1,15 +1,41 @@
 // src/admin/RouteManager.jsx
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Truck, Plus, Trash2, X, CheckCircle2, ChevronDown, ChevronUp, UserRound, Search } from 'lucide-react';
 import { useAdminData } from './contexts/DataContext';
+import RegionTeamDropdown from './RegionTeamDropdown';
+
+const getTeamShift = (team) => {
+    const shift = String(team?.shift || team?.workShift || team?.work_shift || '').toLowerCase();
+    return shift === 'night' || shift === '야간' ? 'night' : 'day';
+};
+const getShiftLabel = (shift) => shift === 'night' ? '야간' : '주간';
 
 export default function RouteManager({ onBack }) {
     const { routes = [], setRoutes, employees = [], assignRoute, teams = [] } = useAdminData();
-    const [selectedTeam, setSelectedTeam] = useState(teams[0]?.id || 'T1');
+    const [selectedTeam, setSelectedTeam] = useState(teams[0]?.id ?? '');
+    const [selectedShift, setSelectedShift] = useState(() => getTeamShift(teams[0]));
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [expandedRouteId, setExpandedRouteId] = useState(null);
     const [notice, setNotice] = useState('');
     const [search, setSearch] = useState('');
+
+    const selectedTeamRecord = teams.find((team) => String(team.id) === String(selectedTeam));
+    const shiftTeams = useMemo(() => teams.filter((team) => getTeamShift(team) === selectedShift), [teams, selectedShift]);
+
+    useEffect(() => {
+        if (shiftTeams.some((team) => String(team.id) === String(selectedTeam))) return;
+        setSelectedTeam(shiftTeams[0]?.id ?? '');
+        setExpandedRouteId(null);
+        setSearch('');
+    }, [shiftTeams, selectedTeam]);
+
+    const handleShiftChange = (nextShift) => {
+        setSelectedShift(nextShift);
+        const nextTeams = teams.filter((team) => getTeamShift(team) === nextShift);
+        setSelectedTeam(nextTeams[0]?.id ?? '');
+        setExpandedRouteId(null);
+        setSearch('');
+    };
 
     const filteredRoutes = useMemo(
         () => routes.filter((route) => String(route.team_id) === String(selectedTeam)),
@@ -59,6 +85,10 @@ export default function RouteManager({ onBack }) {
 
     const handleAddRoute = (event) => {
         event.preventDefault();
+        if (!selectedTeam) {
+            window.alert('먼저 팀 및 지역 설정에서 선택한 근무조의 팀을 추가해주세요.');
+            return;
+        }
         const formData = new FormData(event.currentTarget);
         const name = String(formData.get('name') || '').trim();
         if (!name) return;
@@ -91,18 +121,26 @@ export default function RouteManager({ onBack }) {
                         <p className="text-xs text-slate-500">전체 배치 현황을 보고 노선을 눌러 담당자를 바꾸세요</p>
                     </div>
                 </div>
-                <button onClick={() => setIsAddModalOpen(true)} className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-black text-white">
+                <button onClick={() => { if (!selectedTeam) { setNotice(getShiftLabel(selectedShift) + '에 등록된 팀이 없습니다. 팀 및 지역 설정에서 팀을 추가해주세요.'); return; } setIsAddModalOpen(true); }} disabled={!selectedTeam} className={'inline-flex shrink-0 items-center gap-1 rounded-xl px-3 py-2 text-xs font-black text-white ' + (selectedTeam ? 'bg-indigo-600 hover:bg-indigo-700' : 'cursor-not-allowed bg-slate-300')}>
                     <Plus size={16} /> 노선 추가
                 </button>
             </header>
 
-            <div className="flex gap-2 overflow-x-auto border-b border-gray-200 bg-white px-3 py-2 sm:px-4">
-                {teams.map((team) => (
-                    <button key={team.id} onClick={() => { setSelectedTeam(team.id); setExpandedRouteId(null); setSearch(''); }}
-                        className={'shrink-0 rounded-lg px-3 py-2 text-xs font-black ' + (String(selectedTeam) === String(team.id) ? 'bg-indigo-50 text-indigo-700' : 'text-gray-500 hover:bg-gray-50')}>
-                        {team.name}
-                    </button>
-                ))}
+            <div className="border-b border-slate-200 bg-white px-3 py-3 sm:px-4">
+                <div className="mx-auto w-full max-w-6xl">
+                    <label className="mb-1.5 block text-xs font-bold text-slate-500">지역 · 근무조 · 팀</label>
+                    <RegionTeamDropdown
+                        teams={teams}
+                        value={selectedTeam}
+                        onChange={(teamId) => { setSelectedTeam(teamId); setExpandedRouteId(null); setSearch(''); }}
+                        includeAll={false}
+                        includeShift
+                        shiftValue={selectedShift}
+                        onShiftChange={handleShiftChange}
+                        className="w-full max-w-md"
+                        size="comfortable"
+                    />
+                </div>
             </div>
 
             <main className="mx-auto w-full max-w-6xl flex-1 p-3 pb-6 sm:p-4">
@@ -132,7 +170,14 @@ export default function RouteManager({ onBack }) {
                     </label>
                 </section>
 
-                <div className="grid grid-cols-2 content-start gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">
+                {!selectedTeam && (
+                    <div className="mb-3 rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center">
+                        <p className="text-sm font-black text-slate-700">{getShiftLabel(selectedShift)} 팀이 등록되지 않았습니다.</p>
+                        <p className="mt-1 text-xs text-slate-500">팀 및 지역 설정에서 이 근무조의 팀을 추가해주세요.</p>
+                    </div>
+                )}
+
+                {selectedTeam && <div className="grid grid-cols-2 content-start gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">
                 {visibleRoutes.map((route) => {
                     const assignedEmployee = employees.find((employee) => String(employee.id) === String(route.assigned_emp_id));
                     const expanded = String(expandedRouteId) === String(route.id);
@@ -185,9 +230,9 @@ export default function RouteManager({ onBack }) {
                         </section>
                     );
                 })}
-                </div>
+                </div>}
 
-                {visibleRoutes.length === 0 && (
+                {selectedTeam && visibleRoutes.length === 0 && (
                     <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-slate-500">
                         {filteredRoutes.length === 0 ? '이 팀에 등록된 노선이 없습니다. 위의 노선 추가를 눌러 등록하세요.' : '검색 조건에 맞는 노선이 없습니다.'}
                     </div>
