@@ -9,7 +9,11 @@ import { useAdminData } from './contexts/DataContext';
 const DEFAULT_PATTERN = '주 5일';
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const getTeamRegion = (team) => team?.region || '기본 지역';
-const getTeamLabel = (team) => team ? getTeamRegion(team) + ' · ' + team.name : '미배정';
+const getTeamShift = (team) => {
+    const shift = String(team?.shift || team?.workShift || team?.work_shift || '').toLowerCase();
+    return shift === 'night' || shift === '야간' ? '야간' : '주간';
+};
+const getTeamLabel = (team) => team ? [getTeamRegion(team), getTeamShift(team), team.name].join(' · ') : '미배정';
 
 export default function EmployeeManager({ onBack }) {
     const { profile } = useAuth();
