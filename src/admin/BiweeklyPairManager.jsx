@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Search, Users, Link2, Unlink, CheckCircle2, AlertCircle, RefreshCw, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useAdminData } from './contexts/DataContext';
 
@@ -61,7 +61,31 @@ export default function BiweeklyPairManager({ onBack }) {
     const [selectedIds, setSelectedIds] = useState([]);
     const [search, setSearch] = useState('');
     const [teamFilter, setTeamFilter] = useState('all');
+    const [isTeamDropdownOpen, setIsTeamDropdownOpen] = useState(false);
+    const teamDropdownRef = useRef(null);
     const [collapsedRegions, setCollapsedRegions] = useState(() => new Set());
+
+    useEffect(() => {
+        if (!isTeamDropdownOpen) return undefined;
+
+        const handleOutsideClick = (event) => {
+            if (teamDropdownRef.current && !teamDropdownRef.current.contains(event.target)) {
+                setIsTeamDropdownOpen(false);
+            }
+        };
+        const handleEscape = (event) => {
+            if (event.key === 'Escape') setIsTeamDropdownOpen(false);
+        };
+
+        document.addEventListener('mousedown', handleOutsideClick);
+        document.addEventListener('touchstart', handleOutsideClick);
+        document.addEventListener('keydown', handleEscape);
+        return () => {
+            document.removeEventListener('mousedown', handleOutsideClick);
+            document.removeEventListener('touchstart', handleOutsideClick);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [isTeamDropdownOpen]);
 
     const teamDropdownGroups = useMemo(() => {
         const groups = new Map();
@@ -303,16 +327,67 @@ export default function BiweeklyPairManager({ onBack }) {
                             </button>
                         )}
                     </label>
-                    <select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold outline-none">
-                        <option value="all">모든 팀</option>
-                        {teamDropdownGroups.map(({ regionName, teams: regionTeams }) => (
-                            <optgroup key={regionName} label={regionName}>
-                                {regionTeams.map((team) => (
-                                    <option key={team.id} value={team.id}>{team.name || '이름 없는 팀'}</option>
+                    <div ref={teamDropdownRef} className="relative mt-2">
+                        <button
+                            type="button"
+                            aria-haspopup="listbox"
+                            aria-expanded={isTeamDropdownOpen}
+                            onClick={() => setIsTeamDropdownOpen((previous) => !previous)}
+                            className="flex w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-left text-xs font-bold text-slate-700 outline-none transition-colors hover:border-slate-300 focus:ring-2 focus:ring-indigo-100"
+                        >
+                            <span className="min-w-0 truncate">
+                                {teamFilter === 'all'
+                                    ? '모든 팀'
+                                    : (() => {
+                                        const selectedTeam = teams.find((team) => String(team.id) === String(teamFilter));
+                                        return selectedTeam
+                                            ? [selectedTeam.region || '기본 지역', selectedTeam.name || '이름 없는 팀'].join(' ')
+                                            : '모든 팀';
+                                    })()}
+                            </span>
+                            <ChevronDown size={16} className={'shrink-0 text-slate-500 transition-transform ' + (isTeamDropdownOpen ? 'rotate-180' : '')} />
+                        </button>
+
+                        {isTeamDropdownOpen && (
+                            <div role="listbox" aria-label="지역 및 팀 선택" className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                                <button
+                                    type="button"
+                                    role="option"
+                                    aria-selected={teamFilter === 'all'}
+                                    onClick={() => {
+                                        setTeamFilter('all');
+                                        setIsTeamDropdownOpen(false);
+                                    }}
+                                    className={'w-full px-3 py-2.5 text-left text-sm font-bold transition-colors hover:bg-indigo-50 ' + (teamFilter === 'all' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700')}
+                                >
+                                    모든 팀
+                                </button>
+                                {teamDropdownGroups.map(({ regionName, teams: regionTeams }) => (
+                                    <div key={regionName}>
+                                        <div className="border-y border-slate-100 bg-slate-50 px-3 py-2 text-xs font-black text-slate-500">
+                                            {regionName}
+                                        </div>
+                                        {regionTeams.map((team) => (
+                                            <button
+                                                key={team.id}
+                                                type="button"
+                                                role="option"
+                                                aria-selected={String(teamFilter) === String(team.id)}
+                                                onClick={() => {
+                                                    setTeamFilter(String(team.id));
+                                                    setIsTeamDropdownOpen(false);
+                                                }}
+                                                className={'flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-sm transition-colors hover:bg-indigo-50 ' + (String(teamFilter) === String(team.id) ? 'bg-indigo-50 font-bold text-indigo-700' : 'text-slate-700')}
+                                            >
+                                                <span>{team.name || '이름 없는 팀'}</span>
+                                                {String(teamFilter) === String(team.id) && <CheckCircle2 size={15} className="shrink-0" />}
+                                            </button>
+                                        ))}
+                                    </div>
                                 ))}
-                            </optgroup>
-                        ))}
-                    </select>
+                            </div>
+                        )}
+                    </div>
 
                     <div className="mt-3 space-y-2">
                         {unpairedEmployees.length === 0 ? (
