@@ -32,6 +32,7 @@ export default function RegionTeamDropdown({
     const [isOpen, setIsOpen] = useState(false);
     const [menuPosition, setMenuPosition] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [collapsedRegions, setCollapsedRegions] = useState(() => new Set());
     const dropdownRef = useRef(null);
     const triggerRef = useRef(null);
     const menuRef = useRef(null);
@@ -94,9 +95,11 @@ export default function RegionTeamDropdown({
             );
             const spaceBelow = window.innerHeight - rect.bottom - viewportPadding;
             const spaceAbove = rect.top - viewportPadding;
-            const openAbove = spaceBelow < 180 && spaceAbove > spaceBelow;
+            // 모바일에서도 목록이 너무 작게 잘리지 않도록 화면 높이의 최대 72%까지 사용합니다.
+            const preferredHeight = Math.min(560, Math.max(96, window.innerHeight - viewportPadding * 2), window.innerHeight * 0.72);
+            const openAbove = spaceBelow < Math.min(360, preferredHeight) && spaceAbove > spaceBelow;
             const availableSpace = openAbove ? spaceAbove : spaceBelow;
-            const maxHeight = Math.max(96, Math.min(288, availableSpace));
+            const maxHeight = Math.max(96, Math.min(preferredHeight, availableSpace));
             const top = openAbove
                 ? Math.max(viewportPadding, rect.top - maxHeight - 4)
                 : rect.bottom + 4;
@@ -235,12 +238,28 @@ export default function RegionTeamDropdown({
                         </div>
                     )}
 
-                    {regionGroups.map(({ regionName, teams: regionTeams }) => (
+                    {regionGroups.map(({ regionName, teams: regionTeams }) => {
+                        const isCollapsed = collapsedRegions.has(regionName) && !searchQuery.trim();
+                        return (
                         <div key={regionName}>
-                            <div className="border-y border-slate-100 bg-slate-50 px-3 py-2 text-xs font-black text-slate-500">
-                                {regionName}
-                            </div>
-                            {regionTeams.map((team) => {
+                            <button
+                                type="button"
+                                aria-expanded={!isCollapsed}
+                                onClick={() => setCollapsedRegions((previous) => {
+                                    const next = new Set(previous);
+                                    if (next.has(regionName)) next.delete(regionName);
+                                    else next.add(regionName);
+                                    return next;
+                                })}
+                                className="flex w-full items-center justify-between gap-2 border-y border-slate-100 bg-slate-50 px-3 py-3 text-left text-sm font-black text-slate-600 hover:bg-slate-100"
+                            >
+                                <span className="min-w-0 truncate">{regionName}</span>
+                                <span className="flex shrink-0 items-center gap-2 text-xs font-bold text-slate-400">
+                                    {regionTeams.length}개 팀
+                                    <ChevronDown size={16} className={'transition-transform ' + (isCollapsed ? '' : 'rotate-180')} />
+                                </span>
+                            </button>
+                            {!isCollapsed && regionTeams.map((team) => {
                                 const isSelected = String(value) === String(team.id);
                                 return (
                                     <button
@@ -260,7 +279,8 @@ export default function RegionTeamDropdown({
                                 );
                             })}
                         </div>
-                    ))}
+                    );
+                    })}
                 </div>,
                 document.body
             )}
