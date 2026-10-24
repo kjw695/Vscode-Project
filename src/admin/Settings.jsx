@@ -20,6 +20,11 @@ import { useAdminData } from './contexts/DataContext';
 
 const DEFAULT_REGION = '기본 지역';
 const getTeamRegion = (team) => team?.region || DEFAULT_REGION;
+const getTeamShift = (team) => {
+    const shift = String(team?.shift || team?.workShift || team?.work_shift || '').toLowerCase();
+    return shift === 'night' || shift === '야간' ? 'night' : 'day';
+};
+const getShiftLabel = (shift) => shift === 'night' ? '야간' : '주간';
 const normalizeName = (value) => String(value || '').trim().toLocaleLowerCase();
 
 export default function Settings({ onBack }) {
@@ -35,6 +40,7 @@ export default function Settings({ onBack }) {
 
     const [newRegionName, setNewRegionName] = useState('');
     const [newTeamName, setNewTeamName] = useState('');
+    const [newTeamShift, setNewTeamShift] = useState('day');
     const [addingTeamRegion, setAddingTeamRegion] = useState('');
     const [search, setSearch] = useState('');
     const [expandedRegions, setExpandedRegions] = useState(() => {
@@ -96,6 +102,7 @@ export default function Settings({ onBack }) {
             if (addingTeamRegionRef.current) {
                 setAddingTeamRegion('');
                 setNewTeamName('');
+                setNewTeamShift('day');
             }
         };
         const handleKeyDown = (event) => {
@@ -261,6 +268,7 @@ export default function Settings({ onBack }) {
         }
         const duplicate = teams.some((team) =>
             getTeamRegion(team) === region &&
+            getTeamShift(team) === newTeamShift &&
             normalizeName(team.name) === normalizeName(name)
         );
         if (duplicate) {
@@ -271,12 +279,14 @@ export default function Settings({ onBack }) {
         const newTeam = {
             id: 'T' + Date.now(),
             name,
-            region
+            region,
+            shift: newTeamShift
         };
         teamInputRefs.current[region]?.blur();
         window.__adminSettingsHasOverlay = false;
         setTeams((previous) => [...(Array.isArray(previous) ? previous : []), newTeam]);
         setNewTeamName('');
+        setNewTeamShift('day');
         setAddingTeamRegion('');
         setExpandedRegions((previous) => ({ ...(previous || {}), [region]: true }));
         setAddedTeamId(newTeam.id);
@@ -333,7 +343,8 @@ export default function Settings({ onBack }) {
             id: team.id,
             originalName: team.name,
             name: team.name,
-            region: getTeamRegion(team)
+            region: getTeamRegion(team),
+            shift: getTeamShift(team)
         });
     };
 
@@ -375,9 +386,11 @@ export default function Settings({ onBack }) {
             }
         } else {
             const targetRegion = editing.region;
+            const nextShift = editing.shift || 'day';
             const duplicate = teams.some((team) =>
                 String(team.id) !== String(editing.id) &&
                 getTeamRegion(team) === targetRegion &&
+                getTeamShift(team) === nextShift &&
                 normalizeName(team.name) === normalizeName(name)
             );
             if (duplicate) {
@@ -387,7 +400,7 @@ export default function Settings({ onBack }) {
 
             setTeams((previous) => previous.map((team) =>
                 String(team.id) === String(editing.id)
-                    ? { ...team, name, region: targetRegion }
+                    ? { ...team, name, region: targetRegion, shift: nextShift }
                     : team
             ));
             setExpandedRegions((previous) => ({ ...previous, [targetRegion]: true }));
@@ -471,7 +484,9 @@ export default function Settings({ onBack }) {
                         const isExpanded = Boolean(expandedRegions?.[region]);
                         const regionMatchesSearch = Boolean(keyword && region.toLocaleLowerCase().includes(keyword));
                         const visibleTeams = regionTeams.filter((team) =>
-                            !keyword || regionMatchesSearch || String(team.name || '').toLocaleLowerCase().includes(keyword)
+                            !keyword || regionMatchesSearch ||
+                            String(team.name || '').toLocaleLowerCase().includes(keyword) ||
+                            getShiftLabel(getTeamShift(team)).toLocaleLowerCase().includes(keyword)
                         );
 
                         return (
@@ -507,7 +522,10 @@ export default function Settings({ onBack }) {
                                                 <div key={team.id} ref={(node) => { teamRowRefs.current[team.id] = node; }} className="flex items-center gap-2 rounded-xl border border-slate-100 bg-white p-3">
                                                     <span className="rounded-lg bg-slate-100 p-2 text-slate-500"><Users size={17} /></span>
                                                     <div className="min-w-0 flex-1">
-                                                        <p className="truncate text-sm font-bold text-slate-800">{team.name}</p>
+                                                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                                            <p className="min-w-0 break-words text-sm font-bold text-slate-800">{team.name}</p>
+                                                            <span className={'shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-black ' + (getTeamShift(team) === 'night' ? 'bg-teal-50 text-teal-700' : 'bg-indigo-50 text-indigo-700')}>{getShiftLabel(getTeamShift(team))}</span>
+                                                        </div>
                                                         <p className="mt-0.5 text-xs text-slate-500">직원 {teamEmployeeCount}명 · 노선 {teamRouteCount}개</p>
                                                     </div>
                                                     <button type="button" onClick={() => openTeamEditor(team)} className="rounded-lg p-2 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600" aria-label={team.name + ' 팀 편집'} title="팀 편집">
@@ -538,11 +556,22 @@ export default function Settings({ onBack }) {
                                                     placeholder="팀 이름 입력"
                                                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
                                                 />
+                                                <div className="mt-3">
+                                                    <label className="mb-1.5 block text-xs font-bold text-slate-600">근무조</label>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        {['day', 'night'].map((shift) => (
+                                                            <button key={shift} type="button" onClick={() => setNewTeamShift(shift)} aria-pressed={newTeamShift === shift}
+                                                                className={'rounded-lg border px-3 py-2.5 text-sm font-bold ' + (newTeamShift === shift ? (shift === 'night' ? 'border-teal-300 bg-teal-50 text-teal-800' : 'border-indigo-300 bg-indigo-50 text-indigo-800') : 'border-slate-200 bg-white text-slate-600')}>
+                                                                {getShiftLabel(shift)}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
                                                 <div className="mt-2 flex gap-2">
                                                     <button type="submit" className="inline-flex flex-1 items-center justify-center gap-1 rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-black text-white hover:bg-indigo-700">
                                                         <Check size={16} /> 팀 저장
                                                     </button>
-                                                    <button type="button" onClick={() => { setAddingTeamRegion(''); setNewTeamName(''); }} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50">
+                                                    <button type="button" onClick={() => { setAddingTeamRegion(''); setNewTeamName(''); setNewTeamShift('day'); }} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50">
                                                         취소
                                                     </button>
                                                 </div>
@@ -550,7 +579,7 @@ export default function Settings({ onBack }) {
                                         ) : (
                                             <button
                                                 type="button"
-                                                onClick={() => { window.__adminSettingsHasOverlay = true; setAddingTeamRegion(region); setNewTeamName(''); }}
+                                                onClick={() => { window.__adminSettingsHasOverlay = true; setAddingTeamRegion(region); setNewTeamName(''); setNewTeamShift('day'); }}
                                                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-indigo-300 bg-indigo-50/50 px-3 py-3 text-sm font-black text-indigo-700 hover:border-indigo-400 hover:bg-indigo-50"
                                             >
                                                 <Plus size={17} /> {region}에 팀 추가
@@ -616,6 +645,19 @@ export default function Settings({ onBack }) {
                             </div>
                             {editing.type === 'team' && (
                                 <div>
+                                    <label className="mb-1.5 block text-xs font-bold text-slate-600">근무조</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {['day', 'night'].map((shift) => (
+                                            <button key={shift} type="button" onClick={() => setEditing((previous) => ({ ...previous, shift }))} aria-pressed={(editing.shift || 'day') === shift}
+                                                className={'rounded-lg border px-3 py-2.5 text-sm font-bold ' + ((editing.shift || 'day') === shift ? (shift === 'night' ? 'border-teal-300 bg-teal-50 text-teal-800' : 'border-indigo-300 bg-indigo-50 text-indigo-800') : 'border-slate-200 bg-white text-slate-600')}>
+                                                {getShiftLabel(shift)}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {editing.type === 'team' && (
+                                <div>
                                     <label className="mb-1.5 block text-xs font-bold text-slate-600">소속 지역</label>
                                     <select
                                         value={editing.region}
@@ -630,7 +672,7 @@ export default function Settings({ onBack }) {
                                 <p className="text-xs leading-5 text-slate-500">지역 이름을 바꾸면 해당 지역에 속한 모든 팀의 소속 지역도 함께 변경됩니다.</p>
                             )}
                             {editing.type === 'team' && (
-                                <p className="text-xs leading-5 text-slate-500">팀의 이름이나 소속 지역을 바꿔도 직원·노선의 팀 연결 ID는 유지됩니다.</p>
+                                <p className="text-xs leading-5 text-slate-500">팀의 이름, 근무조 또는 소속 지역을 바꿔도 직원·노선의 팀 연결 ID는 유지됩니다.</p>
                             )}
                             <div className="flex gap-2 pt-1">
                                 <button type="submit" className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-black text-white hover:bg-indigo-700">
