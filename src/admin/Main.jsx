@@ -91,65 +91,65 @@ function AdminDashboard({ onBack }) {
                 </div>
             </div>
 
-            <div className="space-y-4">
-                <button onClick={() => setCurrentView('schedule')} className="w-full p-5 bg-indigo-600 text-white rounded-2xl shadow-md flex items-center justify-between hover:bg-indigo-700 transition-colors">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-white/20 rounded-xl"><CalendarIcon size={24} /></div>
-                        <div className="text-left">
-                            <h2 className="font-bold text-lg">근무표 관리</h2>
-                            <p className="text-xs text-indigo-100 mt-1">주간 근무표 · 월간 휴무 분포 · 자동 배정</p>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <button onClick={() => setCurrentView('schedule')} className="h-full min-w-0 w-full p-3 sm:p-4 bg-indigo-600 text-white rounded-2xl shadow-md flex items-center justify-between hover:bg-indigo-700 transition-colors">
+                    <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                        <div className="shrink-0 p-2 sm:p-3 bg-white/20 rounded-xl"><CalendarIcon size={24} /></div>
+                        <div className="min-w-0 flex-1 text-left">
+                            <h2 className="break-words text-sm font-bold leading-tight sm:text-base lg:text-lg">근무표 관리</h2>
+                            <p className="mt-1 break-words text-[10px] leading-4 text-indigo-100 sm:text-xs">주간 근무표 · 월간 휴무 분포 · 자동 배정</p>
                         </div>
                     </div>
                 </button>
 
-                <button onClick={() => setCurrentView('backupDemand')} className="w-full p-5 bg-white text-gray-800 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-emerald-300 transition-colors">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><BarChart3 size={24} /></div>
-                        <div className="text-left">
-                            <h2 className="font-bold text-lg">백업 수요 분석</h2>
-                            <p className="text-xs text-gray-500 mt-1">근무 패턴 기반 최소 백업 인원 · 노선 추가 시뮬레이션</p>
+                <button onClick={() => setCurrentView('backupDemand')} className="h-full min-w-0 w-full p-3 sm:p-4 bg-white text-gray-800 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-emerald-300 transition-colors">
+                    <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                        <div className="shrink-0 p-2 sm:p-3 bg-emerald-50 text-emerald-600 rounded-xl"><BarChart3 size={24} /></div>
+                        <div className="min-w-0 flex-1 text-left">
+                            <h2 className="break-words text-sm font-bold leading-tight sm:text-base lg:text-lg">백업 수요 분석</h2>
+                            <p className="mt-1 break-words text-[10px] leading-4 text-gray-500 sm:text-xs">근무 패턴 기반 최소 백업 인원 · 노선 추가 시뮬레이션</p>
                         </div>
                     </div>
                 </button>
 
-                <button onClick={() => setCurrentView('route')} className="w-full p-5 bg-white text-gray-800 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-blue-300 transition-colors">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                <button onClick={() => setCurrentView('route')} className="h-full min-w-0 w-full p-3 sm:p-4 bg-white text-gray-800 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-blue-300 transition-colors">
+                    <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                        <div className="shrink-0 p-2 sm:p-3 bg-blue-50 text-blue-600 rounded-xl">
                             <Map size={24} />
                         </div>
-                        <div className="text-left">
-                            <h2 className="font-bold text-lg">노선 배치</h2>
-                            <p className="text-xs text-gray-500 mt-1">노선 추가, 구역 설명 작성, 고정 직원 배정</p>
+                        <div className="min-w-0 flex-1 text-left">
+                            <h2 className="break-words text-sm font-bold leading-tight sm:text-base lg:text-lg">노선 배치</h2>
+                            <p className="mt-1 break-words text-[10px] leading-4 text-gray-500 sm:text-xs">노선 추가, 구역 설명 작성, 고정 직원 배정</p>
                         </div>
                     </div>
                 </button>
 
-                <button onClick={() => setCurrentView('employee')} className="w-full p-5 bg-white text-gray-800 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-indigo-300 transition-colors">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl"><Users size={24} /></div>
-                        <div className="text-left">
-                            <h2 className="font-bold text-lg">직원 관리</h2>
-                            <p className="text-xs text-gray-500 mt-1">초대코드 발급, 주 1~6일 및 격주 패턴 설정</p>
+                <button onClick={() => setCurrentView('employee')} className="h-full min-w-0 w-full p-3 sm:p-4 bg-white text-gray-800 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-indigo-300 transition-colors">
+                    <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                        <div className="shrink-0 p-2 sm:p-3 bg-indigo-50 text-indigo-600 rounded-xl"><Users size={24} /></div>
+                        <div className="min-w-0 flex-1 text-left">
+                            <h2 className="break-words text-sm font-bold leading-tight sm:text-base lg:text-lg">직원 관리</h2>
+                            <p className="mt-1 break-words text-[10px] leading-4 text-gray-500 sm:text-xs">초대코드 발급, 주 1~6일 및 격주 패턴 설정</p>
                         </div>
                     </div>
                 </button>
 
-                <button onClick={() => setCurrentView('fixedOff')} className="w-full p-5 bg-white text-gray-800 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-emerald-300 transition-colors">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><CalendarDays size={24} /></div>
-                        <div className="text-left">
-                            <h2 className="font-bold text-lg">고정 휴무 현황</h2>
-                            <p className="text-xs text-gray-500 mt-1">요일별 휴무 인원 · 직원별 고정 휴무 조회</p>
+                <button onClick={() => setCurrentView('fixedOff')} className="h-full min-w-0 w-full p-3 sm:p-4 bg-white text-gray-800 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-emerald-300 transition-colors">
+                    <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                        <div className="shrink-0 p-2 sm:p-3 bg-emerald-50 text-emerald-600 rounded-xl"><CalendarDays size={24} /></div>
+                        <div className="min-w-0 flex-1 text-left">
+                            <h2 className="break-words text-sm font-bold leading-tight sm:text-base lg:text-lg">고정 휴무 현황</h2>
+                            <p className="mt-1 break-words text-[10px] leading-4 text-gray-500 sm:text-xs">요일별 휴무 인원 · 직원별 고정 휴무 조회</p>
                         </div>
                     </div>
                 </button>
 
-                <button onClick={() => setCurrentView('settings')} className="w-full p-5 bg-white text-gray-800 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-indigo-300 transition-colors">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-gray-100 text-gray-600 rounded-xl"><Settings size={24} /></div>
-                        <div className="text-left">
-                            <h2 className="font-bold text-lg">팀 및 지역 설정</h2>
-                            <p className="text-xs text-gray-500 mt-1">관리 지역 추가/삭제, 팀 기본 정보 확인</p>
+                <button onClick={() => setCurrentView('settings')} className="h-full min-w-0 w-full p-3 sm:p-4 bg-white text-gray-800 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-indigo-300 transition-colors">
+                    <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                        <div className="shrink-0 p-2 sm:p-3 bg-gray-100 text-gray-600 rounded-xl"><Settings size={24} /></div>
+                        <div className="min-w-0 flex-1 text-left">
+                            <h2 className="break-words text-sm font-bold leading-tight sm:text-base lg:text-lg">팀 및 지역 설정</h2>
+                            <p className="mt-1 break-words text-[10px] leading-4 text-gray-500 sm:text-xs">관리 지역 추가/삭제, 팀 기본 정보 확인</p>
                         </div>
                     </div>
                 </button>
