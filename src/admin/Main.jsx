@@ -97,7 +97,7 @@ function AdminDashboard({ onBack }) {
                         <div className="shrink-0 p-2 sm:p-3 bg-white/20 rounded-xl"><CalendarIcon size={24} /></div>
                         <div className="min-w-0 flex-1 text-left">
                             <h2 className="break-words text-sm font-bold leading-tight sm:text-base lg:text-lg">근무표 관리</h2>
-                            <p className="mt-1 break-words text-[10px] leading-4 text-indigo-100 sm:text-xs">주간 근무표 · 월간 휴무 분포 · 자동 배정</p>
+                            <p className="mt-1 whitespace-nowrap text-[clamp(7px,2.2vw,10px)] leading-4 text-indigo-100 sm:text-xs">주간·월간 근무표 관리</p>
                         </div>
                     </div>
                 </button>
@@ -107,7 +107,7 @@ function AdminDashboard({ onBack }) {
                         <div className="shrink-0 p-2 sm:p-3 bg-emerald-50 text-emerald-600 rounded-xl"><BarChart3 size={24} /></div>
                         <div className="min-w-0 flex-1 text-left">
                             <h2 className="break-words text-sm font-bold leading-tight sm:text-base lg:text-lg">백업 수요 분석</h2>
-                            <p className="mt-1 break-words text-[10px] leading-4 text-gray-500 sm:text-xs">근무 패턴 기반 최소 백업 인원 · 노선 추가 시뮬레이션</p>
+                            <p className="mt-1 whitespace-nowrap text-[clamp(7px,2.2vw,10px)] leading-4 text-gray-500 sm:text-xs">부족량 계산</p>
                         </div>
                     </div>
                 </button>
@@ -119,7 +119,7 @@ function AdminDashboard({ onBack }) {
                         </div>
                         <div className="min-w-0 flex-1 text-left">
                             <h2 className="break-words text-sm font-bold leading-tight sm:text-base lg:text-lg">노선 배치</h2>
-                            <p className="mt-1 break-words text-[10px] leading-4 text-gray-500 sm:text-xs">노선 추가, 구역 설명 작성, 고정 직원 배정</p>
+                            <p className="mt-1 whitespace-nowrap text-[clamp(7px,2.2vw,10px)] leading-4 text-gray-500 sm:text-xs">노선 관리</p>
                         </div>
                     </div>
                 </button>
@@ -129,7 +129,7 @@ function AdminDashboard({ onBack }) {
                         <div className="shrink-0 p-2 sm:p-3 bg-indigo-50 text-indigo-600 rounded-xl"><Users size={24} /></div>
                         <div className="min-w-0 flex-1 text-left">
                             <h2 className="break-words text-sm font-bold leading-tight sm:text-base lg:text-lg">직원 관리</h2>
-                            <p className="mt-1 break-words text-[10px] leading-4 text-gray-500 sm:text-xs">초대코드 발급, 주 1~6일 및 격주 패턴 설정</p>
+                            <p className="mt-1 whitespace-nowrap text-[clamp(7px,2.2vw,10px)] leading-4 text-gray-500 sm:text-xs">직원 등록 및 수정</p>
                         </div>
                     </div>
                 </button>
@@ -139,7 +139,7 @@ function AdminDashboard({ onBack }) {
                         <div className="shrink-0 p-2 sm:p-3 bg-emerald-50 text-emerald-600 rounded-xl"><CalendarDays size={24} /></div>
                         <div className="min-w-0 flex-1 text-left">
                             <h2 className="break-words text-sm font-bold leading-tight sm:text-base lg:text-lg">고정 휴무 현황</h2>
-                            <p className="mt-1 break-words text-[10px] leading-4 text-gray-500 sm:text-xs">요일별 휴무 인원 · 직원별 고정 휴무 조회</p>
+                            <p className="mt-1 whitespace-nowrap text-[clamp(7px,2.2vw,10px)] leading-4 text-gray-500 sm:text-xs">요일별 휴무 확인</p>
                         </div>
                     </div>
                 </button>
@@ -149,7 +149,7 @@ function AdminDashboard({ onBack }) {
                         <div className="shrink-0 p-2 sm:p-3 bg-gray-100 text-gray-600 rounded-xl"><Settings size={24} /></div>
                         <div className="min-w-0 flex-1 text-left">
                             <h2 className="break-words text-sm font-bold leading-tight sm:text-base lg:text-lg">팀 및 지역 설정</h2>
-                            <p className="mt-1 break-words text-[10px] leading-4 text-gray-500 sm:text-xs">관리 지역 추가/삭제, 팀 기본 정보 확인</p>
+                            <p className="mt-1 whitespace-nowrap text-[clamp(7px,2.2vw,10px)] leading-4 text-gray-500 sm:text-xs">조직 관리</p>
                         </div>
                     </div>
                 </button>
