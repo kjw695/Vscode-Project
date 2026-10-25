@@ -613,14 +613,25 @@ export default function BackupDemandAnalysis({ onBack }) {
                                 <p className="mt-1 text-xl font-black text-violet-700 sm:text-2xl">부족 {formatDays(requiredExtraBackupWorkDays)}일</p>
                                 <div className="my-2 border-t border-violet-200 sm:my-3" />
                                 <div className="mx-auto flex w-full max-w-full flex-wrap items-center justify-center gap-1.5">
-                                    {(recommendedHires > 0 ? recommendedPattern + ' 추가' : '초과 0일로 충원 가능한 조합 없음').split(' + ').map((item, index) => (
-                                        <React.Fragment key={item + '-' + index}>
-                                            {index > 0 && <span className="px-0.5 text-sm font-black text-violet-700 sm:text-lg">+</span>}
-                                            <span className="inline-flex max-w-full items-center whitespace-nowrap rounded-lg border border-violet-200 bg-white/80 px-2 py-1 text-[clamp(0.7rem,3.6vw,1.5rem)] font-black leading-tight text-violet-900 sm:px-3 sm:py-1.5 sm:text-2xl">
-                                                {item}
+                                    {recommendedHires > 0 ? (
+                                        <>
+                                            {recommendedPattern.split(' + ').map((item, index) => (
+                                                <React.Fragment key={item + '-' + index}>
+                                                    {index > 0 && <span className="px-0.5 text-sm font-black text-violet-700 sm:text-lg">+</span>}
+                                                    <span className="inline-flex max-w-full items-center whitespace-nowrap rounded-lg border border-violet-200 bg-white/80 px-2 py-1 text-[clamp(0.7rem,3.6vw,1.5rem)] font-black leading-tight text-violet-900 sm:px-3 sm:py-1.5 sm:text-2xl">
+                                                        {item}
+                                                    </span>
+                                                </React.Fragment>
+                                            ))}
+                                            <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-lg bg-violet-700 px-2 py-1 text-[clamp(0.7rem,3.6vw,1rem)] font-black leading-tight text-white sm:px-3 sm:py-1.5 sm:text-base">
+                                                추가
                                             </span>
-                                        </React.Fragment>
-                                    ))}
+                                        </>
+                                    ) : (
+                                        <span className="inline-flex max-w-full items-center rounded-lg border border-violet-200 bg-white/80 px-2 py-1 text-[clamp(0.7rem,3.6vw,1.5rem)] font-black leading-tight text-violet-900 sm:px-3 sm:py-1.5 sm:text-2xl">
+                                            초과 0일로 충원 가능한 조합 없음
+                                        </span>
+                                    )}
                                 </div>
                                 <p className="mt-1 text-xs font-medium text-violet-700 sm:text-sm">
                                     추가 충원 {formatDays(recommendedSuppliedDays)}일 · 초과 {formatDays(recommendedExcessDays)}일
