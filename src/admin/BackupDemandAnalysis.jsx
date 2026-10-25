@@ -107,15 +107,36 @@ function PatternChooser({ value, onSelect }) {
             (shownDays % 6) + 1
         ];
 
+        let touchStartY = null;
+        let didSwipe = false;
+
         return (
             <div
                 className="flex min-w-0 flex-col items-center px-1"
-                onWheel={(event) => cycleDays(kind, event.deltaY > 0 ? 1 : -1)}
-                onTouchStart={(event) => { event.currentTarget.dataset.startY = String(event.touches[0].clientY); }}
+                style={{ touchAction: 'pan-x' }}
+                onWheel={(event) => {
+                    event.preventDefault();
+                    cycleDays(kind, event.deltaY > 0 ? 1 : -1);
+                }}
+                onTouchStart={(event) => {
+                    touchStartY = event.touches[0].clientY;
+                    didSwipe = false;
+                }}
                 onTouchEnd={(event) => {
-                    const startY = Number(event.currentTarget.dataset.startY);
-                    const delta = startY - event.changedTouches[0].clientY;
-                    if (Math.abs(delta) > 18) cycleDays(kind, delta > 0 ? 1 : -1);
+                    if (touchStartY === null) return;
+                    const delta = touchStartY - event.changedTouches[0].clientY;
+                    if (Math.abs(delta) > 24) {
+                        didSwipe = true;
+                        cycleDays(kind, delta > 0 ? 1 : -1);
+                    }
+                    touchStartY = null;
+                }}
+                onClickCapture={(event) => {
+                    if (didSwipe) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        didSwipe = false;
+                    }
                 }}
             >
                 <span className={'mb-1 text-[11px] font-black ' + (isBiweekly ? 'text-violet-700' : 'text-indigo-700')}>
@@ -156,7 +177,7 @@ function PatternChooser({ value, onSelect }) {
                 {renderCycle('regular')}
                 {renderCycle('biweekly')}
             </div>
-            <p className="mt-2 text-center text-[10px] text-slate-400">위아래로 밀거나 마우스 휠로 1~6일 순환 선택</p>
+            <p className="mt-2 text-center text-[10px] text-slate-400">위아래로 밀거나 마우스 휠로 1~6일 순환 선택 · 가운데 항목을 눌러도 선택됩니다</p>
         </div>
     );
 }
@@ -371,7 +392,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                                             </div>
                                             {isEditorOpen && (
                                                 <div className="border-t border-slate-100 p-2">
-                                                    <PatternChooser value={route.pattern} onSelect={(pattern) => { updateRoutePattern(route.id, pattern); setOpenPatternEditor(null); }} />
+                                                    <PatternChooser value={route.pattern} onSelect={(pattern) => { updateRoutePattern(route.id, pattern); }} />
                                                 </div>
                                             )}
                                         </div>
@@ -428,7 +449,6 @@ export default function BackupDemandAnalysis({ onBack }) {
                                                         value={employee.pattern}
                                                         onSelect={(pattern) => {
                                                             setPatternOverrides((current) => ({ ...current, [employee.id]: pattern }));
-                                                            setOpenPatternEditor(null);
                                                         }}
                                                     />
                                                     <p className="mt-2 text-center text-[10px] text-slate-400">분석용 임시 변경이며 실제 직원 설정은 저장하지 않습니다.</p>
