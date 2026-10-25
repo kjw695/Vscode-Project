@@ -388,10 +388,10 @@ export default function BackupDemandAnalysis({ onBack }) {
                         </div>
                         <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">2주 기준</span>
                     </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
                         <label className="block min-w-0">
                             <span className="mb-1 block text-xs font-bold text-slate-500">지역</span>
-                            <select value={selectedRegion} onChange={(event) => setSelectedRegion(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-indigo-400">
+                            <select value={selectedRegion} onChange={(event) => setSelectedRegion(event.target.value)} className="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-2.5 text-sm outline-none focus:border-indigo-400 sm:rounded-xl sm:px-3 sm:py-3">
                                 {regions.map((region) => <option key={region} value={region}>{region}</option>)}
                             </select>
                         </label>
@@ -410,7 +410,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                             </select>
                         </label>
                     </div>
-                    <p className="mt-3 flex items-start gap-2 rounded-xl bg-indigo-50 px-3 py-2.5 text-xs leading-5 text-indigo-800">
+                    <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-2 text-[11px] leading-4 text-indigo-800 sm:mt-3 sm:gap-2 sm:rounded-xl sm:px-3 sm:py-2.5 sm:text-xs sm:leading-5">
                         <AlertCircle size={15} className="mt-0.5 shrink-0" />
                         <span>고정 휴무 요일과 날짜별 고정 휴무는 모두 무시합니다. 직원별 주간·격주 근무 횟수는 유지하고, 2주 동안 휴무 요일을 자동 배치해 비교합니다.</span>
                     </p>
@@ -421,7 +421,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                         <h2 className="text-sm font-black">노선 추가 시뮬레이션</h2>
                         <p className="mt-0.5 text-xs leading-5 text-slate-500">실제 노선이나 직원 정보는 변경하지 않습니다. 가상 노선을 추가해 백업 수요 변화만 계산합니다.</p>
                     </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
                         <label className="block">
                             <span className="mb-1 block text-xs font-bold text-slate-500">추가할 노선 수</span>
                             <select value={extraRouteCount} onChange={(event) => setExtraRouteCount(Number(event.target.value))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-indigo-400">
@@ -435,27 +435,27 @@ export default function BackupDemandAnalysis({ onBack }) {
                             </select>
                         </label>
                     </div>
-                    <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
+                    <p className="mt-2 rounded-lg bg-slate-50 px-2.5 py-2 text-[11px] leading-4 text-slate-600 sm:mt-3 sm:rounded-xl sm:px-3 sm:py-2.5 sm:text-xs sm:leading-5">
                         추가 백업의 근무 패턴은 자동으로 적용합니다: <strong>{getPatternLabel(backupPattern)}</strong>
                         {currentBackups.length === 0 ? ' (등록된 백업이 없어 주 5회 기준)' : ' (현재 백업 직원의 대표 패턴 기준)'}.
                     </p>
                 </section>
 
-                <section className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                        <div className="flex items-center gap-2 text-xs font-bold text-slate-500"><Users size={15} />현재 백업 직원</div>
-                        <div className="mt-2 text-2xl font-black">{selectedTeamId ? totalCurrentBackupCount + '명' : '—'}</div>
-                        <p className="mt-1 text-[11px] text-slate-400">선택 팀의 활성 백업</p>
+                <section className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                    <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm sm:rounded-2xl sm:p-4">
+                        <div className="flex items-center gap-1 text-[10px] font-bold leading-4 text-slate-500 sm:gap-2 sm:text-xs"><Users size={13} />현재 백업</div>
+                        <div className="mt-1 text-xl font-black sm:mt-2 sm:text-2xl">{selectedTeamId ? totalCurrentBackupCount + '명' : '—'}</div>
+                        <p className="mt-1 hidden text-[11px] text-slate-400 sm:block">선택 팀의 활성 백업</p>
                     </div>
-                    <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 shadow-sm">
-                        <div className="flex items-center gap-2 text-xs font-bold text-indigo-700"><CheckCircle2 size={15} />최소 필요 백업(예상)</div>
-                        <div className="mt-2 text-2xl font-black text-indigo-800">{!selectedTeamId || noAssignedRoutes || totalBackupCount == null ? '—' : totalBackupCount + '명'}</div>
-                        <p className="mt-1 text-[11px] text-indigo-700">현재 인원 + 추가 필요 인원</p>
+                    <div className="min-w-0 rounded-xl border border-indigo-200 bg-indigo-50 p-2.5 shadow-sm sm:rounded-2xl sm:p-4">
+                        <div className="flex items-center gap-1 text-[10px] font-bold leading-4 text-indigo-700 sm:gap-2 sm:text-xs"><CheckCircle2 size={13} />필요 백업</div>
+                        <div className="mt-1 text-xl font-black text-indigo-800 sm:mt-2 sm:text-2xl">{!selectedTeamId || noAssignedRoutes || totalBackupCount == null ? '—' : totalBackupCount + '명'}</div>
+                        <p className="mt-1 hidden text-[11px] text-indigo-700 sm:block">현재 인원 + 추가 필요 인원</p>
                     </div>
                     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                        <div className="flex items-center gap-2 text-xs font-bold text-slate-500"><TrendingDown size={15} />현재 인원 기준 부족</div>
+                        <div className="flex items-center gap-1 text-[10px] font-bold leading-4 text-slate-500 sm:gap-2 sm:text-xs"><TrendingDown size={13} />부족 횟수</div>
                         <div className="mt-2 text-2xl font-black">{!analysis || noAssignedRoutes ? '—' : String(analysis.currentScenario?.shortageCount || 0) + '회'}</div>
-                        <p className="mt-1 text-[11px] text-slate-400">2주 동안 배정하지 못하는 노선 근무</p>
+                        <p className="mt-1 hidden text-[11px] text-slate-400 sm:block">2주 동안 배정하지 못하는 노선 근무</p>
                     </div>
                 </section>
 
@@ -470,17 +470,17 @@ export default function BackupDemandAnalysis({ onBack }) {
                         <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
                             <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                                 <div>
-                                    <h2 className="text-sm font-black">2주간 요일별 백업 수요</h2>
+                                    <h2 className="text-sm font-black">2주간 백업 수요</h2>
                                     <p className="mt-0.5 text-xs text-slate-500">휴무는 자동 분산한 가상 근무표 기준입니다.</p>
                                 </div>
                                 <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">2주 필요 {analysis.currentScenario?.totalRequired || 0}회</span>
                             </div>
                             {[weekOneRows, weekTwoRows].map((weekRows, weekIndex) => (
                                 <div key={weekIndex} className={weekIndex === 0 ? 'mb-4' : ''}>
-                                    <h3 className="mb-2 text-xs font-black text-slate-600">{weekIndex === 0 ? '1주 차' : '2주 차'} · {weekRows[0]?.date || '날짜 없음'} ~ {weekRows[6]?.date || '날짜 없음'}</h3>
-                                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+                                    <h3 className="mb-2 text-xs font-black text-slate-600">{weekIndex === 0 ? '1주차' : '2주차'} · {weekRows[0]?.date || '날짜 없음'} ~ {weekRows[6]?.date || '날짜 없음'}</h3>
+                                    <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-7 sm:gap-2">
                                         {weekRows.map((row) => (
-                                            <div key={row.date} className={'rounded-xl border p-2.5 ' + (row.shortage > 0 ? 'border-rose-200 bg-rose-50' : 'border-slate-200 bg-slate-50')}>
+                                            <div key={row.date} className={'min-w-0 rounded-lg border px-2 py-1.5 sm:rounded-xl sm:p-2.5 ' + (row.shortage > 0 ? 'border-rose-200 bg-rose-50' : 'border-slate-200 bg-slate-50')}>
                                                 <div className="flex items-center justify-between gap-1">
                                                     <span className="text-xs font-black">{row.weekday}</span>
                                                     <span className="text-[10px] text-slate-500">{row.date.slice(5)}</span>
@@ -507,7 +507,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                                     return (
                                         <div key={scenario.extraBackupCount} className={'flex items-center justify-between gap-3 rounded-xl border p-3 ' + (isMinimum ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-white')}>
                                             <div className="min-w-0">
-                                                <div className="flex flex-wrap items-center gap-2">
+                                                <div className="flex min-w-0 items-center gap-1.5">
                                                     <span className="text-sm font-black">{scenario.extraBackupCount === 0 ? '추가 채용 없음' : '백업 +' + scenario.extraBackupCount + '명'}</span>
                                                     {isMinimum && <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-black text-emerald-800">최소 충족</span>}
                                                 </div>
@@ -548,19 +548,19 @@ export default function BackupDemandAnalysis({ onBack }) {
                         <div className="space-y-1.5">
                             {filteredEmployeeRows.map((employee) => (
                                 <div key={employee.id} className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
-                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-xs font-black text-indigo-700">
+                                    <div className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-xs font-black text-indigo-700 sm:flex">
                                         {String(employee.name || '?').slice(0, 1)}
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <span className="break-keep text-sm font-black text-slate-800">{employee.name}</span>
+                                            <span className="max-w-[5.5rem] truncate text-xs font-black text-slate-800 sm:max-w-none sm:text-sm">{employee.name}</span>
                                             {employee.isCounted
                                                 ? <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">계산 포함</span>
                                                 : <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">노선 미배정</span>}
                                         </div>
-                                        <p className="mt-0.5 break-words text-xs text-slate-600">{employee.routeLabel}</p>
+                                        <p className="truncate text-[11px] text-slate-600 sm:mt-0.5 sm:text-xs">{employee.routeLabel}</p>
                                     </div>
-                                    <span className="shrink-0 rounded-lg bg-white px-2 py-1.5 text-[11px] font-black text-slate-700">{getPatternLabel(employee.pattern || employee.work_pattern)}</span>
+                                    <span className="shrink-0 rounded-md bg-white px-1.5 py-1 text-[10px] font-black text-slate-700 sm:rounded-lg sm:px-2 sm:py-1.5 sm:text-[11px]">{getPatternLabel(employee.pattern || employee.work_pattern)}</span>
                                 </div>
                             ))}
                         </div>
