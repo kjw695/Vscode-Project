@@ -539,7 +539,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                             <div className="grid min-w-0 grid-cols-2 divide-x divide-blue-100">
                                 <div className="min-w-0 p-2 text-center sm:p-3">
                                     <p className="text-xs font-medium text-slate-600 sm:text-sm">현재 인원</p>
-                                    <p className="mt-1 text-xl font-black tabular-nums text-slate-800 sm:text-2xl">{fixedEmployeeRows.length}<span className="ml-0.5 text-xs font-bold sm:text-sm">명</span></p>
+                                    <p className="mt-1 flex min-w-0 items-baseline justify-center gap-0.5 whitespace-nowrap text-[clamp(1rem,5vw,1.25rem)] font-black leading-none tabular-nums text-slate-800 sm:text-2xl">{fixedEmployeeRows.length}<span className="shrink-0 text-[clamp(0.625rem,2.8vw,0.875rem)] font-bold sm:text-sm">명</span></p>
                                 </div>
                                 <div className="min-w-0 p-2 text-center sm:p-3">
                                     <p className="text-xs font-medium text-slate-600 sm:text-sm">휴무</p>
@@ -556,7 +556,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                             <div className="grid min-w-0 grid-cols-2 divide-x divide-emerald-100">
                                 <div className="min-w-0 p-2 text-center sm:p-3">
                                     <p className="text-xs font-medium text-slate-600 sm:text-sm">추가 인원</p>
-                                    <p className="mt-1 text-xl font-black tabular-nums text-slate-800 sm:text-2xl">{plannedRoutes.length}<span className="ml-0.5 text-xs font-bold sm:text-sm">명</span></p>
+                                    <p className="mt-1 flex min-w-0 items-baseline justify-center gap-0.5 whitespace-nowrap text-[clamp(1rem,5vw,1.25rem)] font-black leading-none tabular-nums text-slate-800 sm:text-2xl">{plannedRoutes.length}<span className="shrink-0 text-[clamp(0.625rem,2.8vw,0.875rem)] font-bold sm:text-sm">명</span></p>
                                 </div>
                                 <div className="min-w-0 p-2 text-center sm:p-3">
                                     <p className="text-xs font-medium text-slate-600 sm:text-sm">추가 휴무</p>
@@ -574,7 +574,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                         <div className="grid grid-cols-2 divide-x divide-teal-200">
                             <div className="min-w-0 p-2 text-center sm:p-3">
                                 <p className="text-xs font-medium text-slate-600 sm:text-sm">전체 인원</p>
-                                <p className="mt-1 text-2xl font-black tabular-nums text-slate-800 sm:text-3xl">{fixedEmployeeRows.length + plannedRoutes.length}<span className="ml-0.5 text-xs font-bold sm:text-sm">명</span></p>
+                                <p className="mt-1 flex min-w-0 items-baseline justify-center gap-0.5 whitespace-nowrap text-[clamp(1rem,5vw,1.5rem)] font-black leading-none tabular-nums text-slate-800 sm:text-3xl">{fixedEmployeeRows.length + plannedRoutes.length}<span className="shrink-0 text-[clamp(0.625rem,2.8vw,0.875rem)] font-bold sm:text-sm">명</span></p>
                             </div>
                             <div className="min-w-0 p-2 text-center sm:p-3">
                                 <p className="text-xs font-medium text-slate-600 sm:text-sm">전체 휴무</p>
@@ -591,7 +591,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                         <div className="grid grid-cols-2 divide-x divide-slate-200">
                             <div className="min-w-0 p-2 text-center sm:p-3">
                                 <p className="text-xs font-medium text-slate-600 sm:text-sm">현재 백업</p>
-                                <p className="mt-1 text-xl font-black tabular-nums text-slate-800 sm:text-2xl">{currentBackups.length}<span className="ml-0.5 text-xs font-bold sm:text-sm">명</span></p>
+                                <p className="mt-1 flex min-w-0 items-baseline justify-center gap-0.5 whitespace-nowrap text-[clamp(1rem,5vw,1.25rem)] font-black leading-none tabular-nums text-slate-800 sm:text-2xl">{currentBackups.length}<span className="shrink-0 text-[clamp(0.625rem,2.8vw,0.875rem)] font-bold sm:text-sm">명</span></p>
                             </div>
                             <div className="min-w-0 p-2 text-center sm:p-3">
                                 <p className="text-xs font-medium text-slate-600 sm:text-sm">백업 근무</p>
