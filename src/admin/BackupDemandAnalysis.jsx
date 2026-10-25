@@ -224,21 +224,11 @@ export default function BackupDemandAnalysis({ onBack }) {
         0
     ), [plannedRoutes]);
 
-    // 기존 노선과 신규 노선의 주간 휴무 수요에서 현재 백업 공급량을 뺍니다.
-    const totalOffDays = fixedOffDays + extraOffDays;
-    const requiredExtraBackupWorkDays = Math.max(0, totalOffDays - currentBackupWorkDays);
-
-    // 부족 일수가 5일 미만이면 그 일수에 맞는 근무 패턴을 추천합니다.
-    // 5일 이상이면 이해하기 쉬운 부족 일수가 6.5일 이하이면 해당 일수에 맞는 패턴을 추천하고, 그보다 크면 주 5일 기준으로 채용 인원을 계산합니다.
-    const canCoverWithOnePattern = requiredExtraBackupWorkDays > 0 && requiredExtraBackupWorkDays <= 6.5;
-    const recommendedPattern = canCoverWithOnePattern
-        ? (Number.isInteger(requiredExtraBackupWorkDays)
-            ? '주 ' + requiredExtraBackupWorkDays + '일'
-            : '격주 ' + Math.floor(requiredExtraBackupWorkDays) + '일')
-        : '주 5일';
-    const recommendedPatternDays = canCoverWithOnePattern
-        ? requiredExtraBackupWorkDays
-        : 5;
+    // 신규 노선의 휴무 보충 수요는 기존 백업 인원과 분리해 표시합니다.
+    // 기존 백업은 현재 노선 운영에 필요한 인원으로 보고, 신규 노선 수요는 추가 채용으로 계산합니다.
+    const requiredExtraBackupWorkDays = extraOffDays;
+    const recommendedPattern = '주 5일';
+    const recommendedPatternDays = 5;
     const recommendedHires = requiredExtraBackupWorkDays > 0
         ? Math.ceil(requiredExtraBackupWorkDays / recommendedPatternDays)
         : 0;
@@ -424,74 +414,67 @@ export default function BackupDemandAnalysis({ onBack }) {
                 </section>
 
                 <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-                    <div className="mb-3 flex items-center justify-between gap-2">
-                        <div>
-                            <h2 className="text-sm font-black">백업 수요 요약</h2>
-                            <p className="mt-0.5 text-[11px] text-slate-500">주간 평균 기준으로 계산</p>
-                        </div>
-                        <CalendarDays size={18} className="shrink-0 text-indigo-600" />
+                    <div className="mb-3 text-center">
+                        <h2 className="text-sm font-black">백업 수요 요약</h2>
                     </div>
 
                     <div className="overflow-hidden rounded-xl border border-slate-200">
-                        <div className="flex items-center justify-between gap-2 bg-slate-50 px-3 py-2">
+                        <div className="bg-slate-50 px-3 py-2 text-center">
                             <span className="text-xs font-black text-slate-700">현재 운영</span>
-                            <span className="text-[10px] font-medium text-slate-500">고정 노선 기준</span>
                         </div>
                         <div className="grid grid-cols-2 divide-x divide-y divide-slate-100 sm:grid-cols-4 sm:divide-y-0">
                             <div className="p-3 text-center">
-                                <p className="text-center text-[11px] font-medium text-slate-500">고정 노선</p>
-                                <p className="mt-1 text-center text-lg font-black tabular-nums text-slate-800">{fixedRouteCount}<span className="ml-0.5 text-xs font-bold">개</span></p>
+                                <p className="text-[11px] font-medium text-slate-500">현재 노선</p>
+                                <p className="mt-1 text-lg font-black tabular-nums text-slate-800">{fixedRouteCount}<span className="ml-0.5 text-xs font-bold">개</span></p>
                             </div>
                             <div className="p-3 text-center">
-                                <p className="text-center text-[11px] font-medium text-slate-500">휴무</p>
-                                <p className="mt-1 text-center text-lg font-black tabular-nums text-slate-800">{formatDays(fixedOffDays)}<span className="ml-0.5 text-xs font-bold">일/주</span></p>
+                                <p className="text-[11px] font-medium text-slate-500">휴무 보충</p>
+                                <p className="mt-1 text-lg font-black tabular-nums text-slate-800">{formatDays(fixedOffDays)}<span className="ml-0.5 text-xs font-bold">일/주</span></p>
                             </div>
                             <div className="p-3 text-center">
-                                <p className="text-center text-[11px] font-medium text-slate-500">현재 백업</p>
-                                <p className="mt-1 text-center text-lg font-black tabular-nums text-slate-800">{currentBackups.length}<span className="ml-0.5 text-xs font-bold">명</span></p>
+                                <p className="text-[11px] font-medium text-slate-500">현재 백업</p>
+                                <p className="mt-1 text-lg font-black tabular-nums text-slate-800">{currentBackups.length}<span className="ml-0.5 text-xs font-bold">명</span></p>
                             </div>
                             <div className="p-3 text-center">
-                                <p className="text-center text-[11px] font-medium text-slate-500">백업 근무</p>
-                                <p className="mt-1 text-center text-lg font-black tabular-nums text-slate-800">{formatDays(currentBackupWorkDays)}<span className="ml-0.5 text-xs font-bold">일/주</span></p>
+                                <p className="text-[11px] font-medium text-slate-500">백업 근무</p>
+                                <p className="mt-1 text-lg font-black tabular-nums text-slate-800">{formatDays(currentBackupWorkDays)}<span className="ml-0.5 text-xs font-bold">일/주</span></p>
                             </div>
                         </div>
                     </div>
 
                     <div className="mt-3 overflow-hidden rounded-xl border border-indigo-200">
-                        <div className="flex items-center justify-between gap-2 bg-indigo-50 px-3 py-2">
-                            <span className="text-xs font-black text-indigo-800">노선 추가 시</span>
-                            <span className="rounded-md bg-white px-2 py-0.5 text-[10px] font-bold text-indigo-700">{plannedRoutes.length}개 추가</span>
+                        <div className="bg-indigo-50 px-3 py-2 text-center">
+                            <span className="text-xs font-black text-indigo-800">추가 노선</span>
                         </div>
                         <div className="grid grid-cols-2 divide-x divide-indigo-100">
                             <div className="p-3 text-center">
-                                <p className="text-center text-[11px] font-medium text-slate-500">추가 노선</p>
-                                <p className="mt-1 text-center text-lg font-black tabular-nums text-slate-800">{plannedRoutes.length}<span className="ml-0.5 text-xs font-bold">개</span></p>
+                                <p className="text-[11px] font-medium text-slate-500">추가 노선</p>
+                                <p className="mt-1 text-lg font-black tabular-nums text-slate-800">{plannedRoutes.length}<span className="ml-0.5 text-xs font-bold">개</span></p>
                             </div>
                             <div className="p-3 text-center">
-                                <p className="text-center text-[11px] font-medium text-slate-500">추가 휴무</p>
-                                <p className="mt-1 text-center text-lg font-black tabular-nums text-slate-800">{formatDays(extraOffDays)}<span className="ml-0.5 text-xs font-bold">일/주</span></p>
+                                <p className="text-[11px] font-medium text-slate-500">추가 휴무 보충</p>
+                                <p className="mt-1 text-lg font-black tabular-nums text-slate-800">{formatDays(extraOffDays)}<span className="ml-0.5 text-xs font-bold">일/주</span></p>
                             </div>
                         </div>
                         <div className="border-t border-indigo-100 bg-indigo-50/40 p-3 text-center">
-                            <p className="text-center text-[11px] font-bold text-indigo-700">추가 채용 추천</p>
-                            {requiredExtraBackupWorkDays > 0 ? (
+                            <p className="text-[11px] font-bold text-indigo-700">추가 채용 추천</p>
+                            {plannedRoutes.length > 0 && requiredExtraBackupWorkDays > 0 ? (
                                 <>
-                                    <p className="mt-1 text-center text-xl font-black leading-7 text-indigo-900">
-                                        {recommendedPatternDays === requiredExtraBackupWorkDays ? getPatternLabel(recommendedPattern) : getPatternLabel(recommendedPattern)} 백업 {recommendedHires}명 추가
+                                    <p className="mt-1 text-xl font-black leading-7 text-indigo-900">
+                                        주 5일 백업 {recommendedHires}명 추가
                                     </p>
-                                    <p className="mt-1 text-center text-[11px] leading-4 text-slate-500">
-                                        부족 {formatDays(requiredExtraBackupWorkDays)}일/주 · 주 5일 기준 채용 계산
+                                    <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                                        부족 {formatDays(requiredExtraBackupWorkDays)}일/주
                                     </p>
                                 </>
                             ) : (
-                                <p className="mt-1 text-center text-sm font-bold text-slate-600">
-                                    {plannedRoutes.length > 0 ? '현재 백업으로 추가 노선까지 충족 가능' : '현재 백업으로 운영 수요 충족 가능'}
+                                <p className="mt-1 text-sm font-bold text-slate-600">
+                                    {plannedRoutes.length > 0 ? '추가 휴무 보충이 없습니다.' : '노선을 추가하면 필요한 인원이 표시됩니다.'}
                                 </p>
                             )}
                         </div>
                     </div>
-
-                    <p className="mt-3 text-[10px] leading-4 text-slate-400">
+                    <p className="mt-3 text-center text-[10px] leading-4 text-slate-400">
                         격주 근무는 평균 근무일수(예: 5.5일)로 계산합니다.
                     </p>
                 </section>
