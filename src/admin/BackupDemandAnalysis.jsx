@@ -242,13 +242,14 @@ export default function BackupDemandAnalysis({ onBack }) {
     const requiredExtraBackupWorkDays = Math.max(0, totalOffDays - currentBackupWorkDays);
 
     // 부족 일수가 5일 미만이면 그 일수에 맞는 근무 패턴을 추천합니다.
-    // 5일 이상이면 이해하기 쉬운 주 5일 기준으로 채용 인원을 계산합니다.
-    const recommendedPattern = requiredExtraBackupWorkDays > 0 && requiredExtraBackupWorkDays < 5
+    // 5일 이상이면 이해하기 쉬운 부족 일수가 6.5일 이하이면 해당 일수에 맞는 패턴을 추천하고, 그보다 크면 주 5일 기준으로 채용 인원을 계산합니다.
+    const canCoverWithOnePattern = requiredExtraBackupWorkDays > 0 && requiredExtraBackupWorkDays <= 6.5;
+    const recommendedPattern = canCoverWithOnePattern
         ? (Number.isInteger(requiredExtraBackupWorkDays)
             ? '주 ' + requiredExtraBackupWorkDays + '일'
             : '격주 ' + Math.floor(requiredExtraBackupWorkDays) + '일')
         : '주 5일';
-    const recommendedPatternDays = requiredExtraBackupWorkDays > 0 && requiredExtraBackupWorkDays < 5
+    const recommendedPatternDays = canCoverWithOnePattern
         ? requiredExtraBackupWorkDays
         : 5;
     const recommendedHires = requiredExtraBackupWorkDays > 0
