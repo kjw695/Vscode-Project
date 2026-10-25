@@ -90,7 +90,7 @@ function PatternChooser({ value, onSelect }) {
     const regularListRef = React.useRef(null);
     const biweeklyListRef = React.useRef(null);
 
-    // 기본으로 4·5·6일을 보여주고, 위로 스크롤하면 1·2·3일을 확인할 수 있습니다.
+    // 한 번에 3개 패턴만 보이고, 스크롤로 나머지 패턴을 확인할 수 있습니다.
     useEffect(() => {
         [regularListRef, biweeklyListRef].forEach((listRef) => {
             if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
@@ -102,7 +102,7 @@ function PatternChooser({ value, onSelect }) {
             <div className="grid grid-cols-2 divide-x divide-slate-300">
                 <div className="min-w-0 px-1.5 pr-2">
                     <div className="mb-2 rounded-md bg-indigo-100 px-1 py-2 text-center text-[11px] font-black text-indigo-800">일반 근무</div>
-                    <div ref={regularListRef} className="max-h-[132px] space-y-1.5 overflow-y-auto overscroll-contain pr-1">
+                    <div ref={regularListRef} className="h-[108px] space-y-1.5 overflow-y-auto overscroll-contain pr-1">
                         {daysOptions.map((days) => {
                             const pattern = '주 ' + days + '일';
                             const selected = selectedPattern === pattern;
