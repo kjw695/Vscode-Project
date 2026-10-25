@@ -449,20 +449,20 @@ export default function BackupDemandAnalysis({ onBack }) {
                     </div>
                 </section>
 
-                <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+                <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:p-4">
                     <div className="mb-3 text-center">
                         <h2 className="text-sm font-black">백업 수요 요약</h2>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div className="overflow-hidden rounded-xl border border-blue-200 bg-white">
-                            <div className="bg-blue-50 px-3 py-2 text-center">
-                                <span className="text-xs font-black text-blue-800">현재 운영</span>
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                        <div className="min-w-0 overflow-hidden rounded-xl border border-blue-200 bg-white">
+                            <div className="bg-blue-50 px-1.5 py-2 text-center sm:px-3">
+                                <span className="text-[11px] font-black text-blue-800 sm:text-xs">현재 운영</span>
                             </div>
-                            <div className="grid grid-cols-2 divide-x divide-blue-100">
-                                <div className="p-3 text-center">
-                                    <p className="text-[11px] font-medium text-slate-500">현재 인원</p>
-                                    <p className="mt-1 text-lg font-black tabular-nums text-slate-800">{fixedEmployeeRows.length}<span className="ml-0.5 text-xs font-bold">명</span></p>
+                            <div className="grid min-w-0 grid-cols-2 divide-x divide-blue-100">
+                                <div className="min-w-0 p-2 text-center sm:p-3">
+                                    <p className="text-[10px] font-medium text-slate-500 sm:text-[11px]">현재 인원</p>
+                                    <p className="mt-1 text-base font-black tabular-nums text-slate-800 sm:text-lg">{fixedEmployeeRows.length}<span className="ml-0.5 text-[10px] font-bold sm:text-xs">명</span></p>
                                 </div>
                                 <div className="p-3 text-center">
                                     <p className="text-[11px] font-medium text-slate-500">휴무</p>
@@ -471,11 +471,11 @@ export default function BackupDemandAnalysis({ onBack }) {
                             </div>
                         </div>
 
-                        <div className="overflow-hidden rounded-xl border border-emerald-200 bg-white">
-                            <div className="bg-emerald-50 px-3 py-2 text-center">
-                                <span className="text-xs font-black text-emerald-800">추가 인원</span>
+                        <div className="min-w-0 overflow-hidden rounded-xl border border-emerald-200 bg-white">
+                            <div className="bg-emerald-50 px-1.5 py-2 text-center sm:px-3">
+                                <span className="text-[11px] font-black text-emerald-800 sm:text-xs">추가 인원</span>
                             </div>
-                            <div className="grid grid-cols-2 divide-x divide-emerald-100">
+                            <div className="grid min-w-0 grid-cols-2 divide-x divide-emerald-100">
                                 <div className="p-3 text-center">
                                     <p className="text-[11px] font-medium text-slate-500">추가 인원</p>
                                     <p className="mt-1 text-lg font-black tabular-nums text-slate-800">{plannedRoutes.length}<span className="ml-0.5 text-xs font-bold">명</span></p>
@@ -488,7 +488,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                         </div>
                     </div>
 
-                    <div className="mt-3 overflow-hidden rounded-xl border border-teal-200 bg-teal-50/40">
+                    <div className="mt-2 overflow-hidden rounded-xl border border-teal-200 bg-teal-50/40 sm:mt-3">
                         <div className="bg-teal-50 px-3 py-2 text-center">
                             <span className="text-xs font-black text-teal-800">합계 (현재 + 추가)</span>
                         </div>
@@ -504,7 +504,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                         </div>
                     </div>
 
-                    <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50/80">
+                    <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-slate-50/80 sm:mt-3">
                         <div className="px-3 py-2 text-center">
                             <span className="text-xs font-black text-slate-700">백업 현황</span>
                         </div>
@@ -520,7 +520,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                         </div>
                     </div>
 
-                    <div className="mt-3 overflow-hidden rounded-xl border border-violet-300 bg-violet-50/60 p-3 text-center">
+                    <div className="mt-2 overflow-hidden rounded-xl border border-violet-300 bg-violet-50/60 p-2 text-center sm:mt-3 sm:p-3">
                         <p className="text-xs font-black text-violet-800">부족 일수 및 추가 채용 추천</p>
                         <p className="mt-2 text-[11px] text-slate-600">
                             전체 휴무 {formatDays(totalOffDays)}일/주 − 현재 백업 근무 {formatDays(currentBackupWorkDays)}일/주
@@ -529,7 +529,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                             <>
                                 <p className="mt-1 text-sm font-bold text-violet-700">부족 {formatDays(requiredExtraBackupWorkDays)}일/주</p>
                                 <div className="my-3 border-t border-violet-200" />
-                                <p className="text-xl font-black leading-7 text-violet-900">
+                                <p className="break-words text-lg font-black leading-6 text-violet-900 sm:text-xl sm:leading-7">
                                     주 5일 백업 {recommendedHires}명 추가
                                 </p>
                             </>
@@ -539,7 +539,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                             </p>
                         )}
                     </div>
-                    <p className="mt-3 text-center text-[10px] leading-4 text-slate-400">
+                    <p className="mt-2 text-center text-[10px] leading-4 text-slate-400 sm:mt-3">
                         격주 근무는 평균 근무일수(예: 5.5일)로 계산합니다.
                     </p>
                 </section>
