@@ -8,8 +8,7 @@ import {
     Trash2,
     Truck,
     Users,
-    CalendarDays,
-    UserRound
+    CalendarDays
 } from 'lucide-react';
 import { useAdminData } from './contexts/DataContext';
 
