@@ -2,12 +2,13 @@
 import React, { useEffect, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { useAuth } from '../contexts/AuthContext';
-import { Users, Calendar as CalendarIcon, Settings, LogOut, ShieldCheck, AlertCircle, Map, CalendarDays } from 'lucide-react';
+import { Users, Calendar as CalendarIcon, Settings, LogOut, ShieldCheck, AlertCircle, Map, CalendarDays, BarChart3 } from 'lucide-react';
 import EmployeeManager from './EmployeeManager'; 
 import Calendar from './Calendar'; 
 import AdminSettings from './Settings';
 import RouteManager from './RouteManager';
 import FixedOffStatus from './FixedOffStatus';
+import BackupDemandAnalysis from './BackupDemandAnalysis';
 import { DataProvider, useAdminData } from './contexts/DataContext';
 
 // 👑 자식 컴포넌트들을 감싸는 메인 대시보드 껍데기 (✨ onBack 추가)
@@ -55,6 +56,7 @@ function AdminDashboard({ onBack }) {
     if (currentView === 'schedule') return <Calendar onBack={() => setCurrentView('main')} />; 
     if (currentView === 'settings') return <AdminSettings onBack={() => setCurrentView('main')} />;
     if (currentView === 'fixedOff') return <FixedOffStatus onBack={() => setCurrentView('main')} />;
+    if (currentView === 'backupDemand') return <BackupDemandAnalysis onBack={() => setCurrentView('main')} />;
 
     return (
         <div className="admin-safe-top w-full h-full min-h-screen bg-gray-100 p-5 flex flex-col font-sans">
@@ -96,6 +98,16 @@ function AdminDashboard({ onBack }) {
                         <div className="text-left">
                             <h2 className="font-bold text-lg">근무표 관리</h2>
                             <p className="text-xs text-indigo-100 mt-1">주간 근무표 · 월간 휴무 분포 · 자동 배정</p>
+                        </div>
+                    </div>
+                </button>
+
+                <button onClick={() => setCurrentView('backupDemand')} className="w-full p-5 bg-white text-gray-800 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-emerald-300 transition-colors">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><BarChart3 size={24} /></div>
+                        <div className="text-left">
+                            <h2 className="font-bold text-lg">백업 수요 분석</h2>
+                            <p className="text-xs text-gray-500 mt-1">근무 패턴 기반 최소 백업 인원 · 노선 추가 시뮬레이션</p>
                         </div>
                     </div>
                 </button>
