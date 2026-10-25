@@ -409,7 +409,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                         <p className="mt-0.5 text-xs text-slate-500">신규 인원과 기존 인원의 근무 패턴을 설정하세요.</p>
                     </div>
 
-                    <div id="new-personnel-section" className="scroll-mt-3 overflow-hidden rounded-xl border border-slate-200">
+                    <div id="new-personnel-section" className="scroll-mt-24 overflow-hidden rounded-xl border border-slate-200">
                         <div className="flex items-stretch gap-2 bg-slate-50 p-2">
                             <button type="button" onClick={() => setNewRoutesExpanded((open) => !open)} className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg px-1 py-1 text-left hover:bg-slate-100">
                                 <span className="flex min-w-0 items-center gap-2">
@@ -463,7 +463,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                         )}
                     </div>
 
-                    <div id="existing-personnel-section" className="mt-2 scroll-mt-3 overflow-hidden rounded-xl border border-slate-200">
+                    <div id="existing-personnel-section" className="mt-2 scroll-mt-24 overflow-hidden rounded-xl border border-slate-200">
                         <button type="button" onClick={() => setExistingEmployeesExpanded((open) => !open)} className="flex w-full items-center justify-between gap-2 bg-slate-50 px-3 py-3 text-left hover:bg-slate-100">
                             <span className="flex min-w-0 items-center gap-2">
                                 <Users size={17} className="shrink-0 text-slate-600" />
@@ -524,7 +524,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                     </div>
                 </section>
 
-                <section id="demand-prediction-section" className="min-w-0 scroll-mt-3 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:p-4">
+                <section id="demand-prediction-section" className="min-w-0 scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:p-4">
                     <div className="mb-2 flex items-center justify-center gap-2 sm:mb-3">
                         <Users size={22} className="shrink-0 text-indigo-600 sm:h-7 sm:w-7" />
                         <h2 className="text-lg font-black text-slate-800 sm:text-2xl">백업 수요 요약</h2>
@@ -651,11 +651,11 @@ export default function BackupDemandAnalysis({ onBack }) {
 
             <nav aria-label="수요 분석 바로가기" className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 shadow-[0_-4px_14px_rgba(15,23,42,0.08)] backdrop-blur">
                 <div className="mx-auto grid max-w-5xl grid-cols-3 gap-1 px-2 pt-2 sm:gap-2 sm:px-4" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
-                    <button type="button" onClick={() => document.getElementById('new-personnel-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-indigo-700 transition-colors hover:bg-indigo-50">
+                    <button type="button" onClick={() => { setNewRoutesExpanded(true); document.getElementById('new-personnel-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }} className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-indigo-700 transition-colors hover:bg-indigo-50">
                         <Truck size={18} className="shrink-0" />
                         <span className="whitespace-nowrap text-[clamp(0.65rem,2.8vw,0.875rem)] font-black">신규 인원</span>
                     </button>
-                    <button type="button" onClick={() => document.getElementById('existing-personnel-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-slate-700 transition-colors hover:bg-slate-100">
+                    <button type="button" onClick={() => { setExistingEmployeesExpanded(true); document.getElementById('existing-personnel-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }} className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-slate-700 transition-colors hover:bg-slate-100">
                         <Users size={18} className="shrink-0" />
                         <span className="whitespace-nowrap text-[clamp(0.65rem,2.8vw,0.875rem)] font-black">기존 인원</span>
                     </button>
