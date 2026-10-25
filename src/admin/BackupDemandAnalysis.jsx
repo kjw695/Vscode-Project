@@ -452,9 +452,9 @@ export default function BackupDemandAnalysis({ onBack }) {
                         <div className="mt-1 text-xl font-black text-indigo-800 sm:mt-2 sm:text-2xl">{!selectedTeamId || noAssignedRoutes || totalBackupCount == null ? '—' : totalBackupCount + '명'}</div>
                         <p className="mt-1 hidden text-[11px] text-indigo-700 sm:block">현재 인원 + 추가 필요 인원</p>
                     </div>
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm sm:rounded-2xl sm:p-4">
                         <div className="flex items-center gap-1 text-[10px] font-bold leading-4 text-slate-500 sm:gap-2 sm:text-xs"><TrendingDown size={13} />부족 횟수</div>
-                        <div className="mt-2 text-2xl font-black">{!analysis || noAssignedRoutes ? '—' : String(analysis.currentScenario?.shortageCount || 0) + '회'}</div>
+                        <div className="mt-1 text-xl font-black sm:mt-2 sm:text-2xl">{!analysis || noAssignedRoutes ? '—' : String(analysis.currentScenario?.shortageCount || 0) + '회'}</div>
                         <p className="mt-1 hidden text-[11px] text-slate-400 sm:block">2주 동안 배정하지 못하는 노선 근무</p>
                     </div>
                 </section>
@@ -485,9 +485,8 @@ export default function BackupDemandAnalysis({ onBack }) {
                                                     <span className="text-xs font-black">{row.weekday}</span>
                                                     <span className="text-[10px] text-slate-500">{row.date.slice(5)}</span>
                                                 </div>
-                                                <div className="mt-2 text-[11px] leading-5 text-slate-600">필요 {row.needed}명</div>
-                                                <div className="text-[11px] leading-5 text-slate-600">배정 {row.assigned}명</div>
-                                                <div className={'mt-1 text-xs font-black ' + (row.shortage > 0 ? 'text-rose-700' : 'text-emerald-700')}>부족 {row.shortage}명</div>
+                                                <div className="mt-1 text-[10px] leading-4 text-slate-600 sm:mt-2 sm:text-[11px] sm:leading-5">필요 {row.needed} · 배정 {row.assigned}</div>
+                                                <div className={'text-[10px] font-black sm:text-xs ' + (row.shortage > 0 ? 'text-rose-700' : 'text-emerald-700')}>부족 {row.shortage}명</div>
                                             </div>
                                         ))}
                                     </div>
@@ -547,12 +546,12 @@ export default function BackupDemandAnalysis({ onBack }) {
                     {filteredEmployeeRows.length > 0 ? (
                         <div className="space-y-1.5">
                             {filteredEmployeeRows.map((employee) => (
-                                <div key={employee.id} className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
+                                <div key={employee.id} className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-2 py-2 sm:gap-3 sm:rounded-xl sm:px-3 sm:py-2.5">
                                     <div className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-xs font-black text-indigo-700 sm:flex">
                                         {String(employee.name || '?').slice(0, 1)}
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                        <div className="flex flex-wrap items-center gap-2">
+                                        <div className="flex min-w-0 items-center gap-1.5">
                                             <span className="max-w-[5.5rem] truncate text-xs font-black text-slate-800 sm:max-w-none sm:text-sm">{employee.name}</span>
                                             {employee.isCounted
                                                 ? <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">계산 포함</span>
