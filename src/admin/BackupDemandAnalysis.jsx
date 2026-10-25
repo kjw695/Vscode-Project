@@ -55,6 +55,26 @@ function formatDays(value) {
     return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
+function getCurrentWeekIndex(date = new Date()) {
+    const sunday = new Date(date.getFullYear(), date.getMonth(), date.getDate() - date.getDay());
+    const sundayUtc = Date.UTC(sunday.getFullYear(), sunday.getMonth(), sunday.getDate());
+    const anchorSundayUtc = Date.UTC(1970, 0, 4);
+    return Math.floor((sundayUtc - anchorSundayUtc) / (7 * 24 * 60 * 60 * 1000));
+}
+
+// 근무표 생성 엔진과 같은 기준으로 특정 주의 실제 근무일을 계산합니다.
+function getWorkDaysForWeek(pattern, weekIndex, biweeklyWeekOffset = 0) {
+    const value = normalizePattern(pattern);
+    const match = value.match(/[1-6]/);
+    const days = match ? Number(match[0]) : 5;
+    if (!value.includes('격주')) return days;
+
+    const targetDays = Math.min(6, Math.max(1, days));
+    const alternateDays = targetDays + 1;
+    const phaseOffset = Number(biweeklyWeekOffset) === 1 ? 1 : 0;
+    return Math.abs((weekIndex + phaseOffset) % 2) === 0 ? alternateDays : targetDays;
+}
+
 function getDefaultBackupPattern(backups) {
     if (!backups.length) return '주 5일';
 
@@ -89,7 +109,7 @@ function PatternChooser({ value, onSelect }) {
     const match = selectedPattern.match(/[1-6]/);
     const selectedDays = match ? Number(match[0]) : 5;
     const [isBiweeklySelected, setIsBiweeklySelected] = useState(selectedPattern.includes('격주'));
-    const daysOptions = [1, 2, 3, 4, 5, 6];
+    // 격주 6일은 한 주가 7일 근무가 되므로 선택지에서 제외합니다.\n    const daysOptions = isBiweeklySelected ? [1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, 6];
 
     const selectPatternType = (isBiweekly) => {
         // Switching tabs only changes the visible options; keep the picker open.
@@ -225,7 +245,8 @@ export default function BackupDemandAnalysis({ onBack }) {
                 routeName: employee.routeNames.join(', '),
                 routeNames: employee.routeNames,
                 originalPattern,
-                pattern: patternOverrides[id] || originalPattern
+                pattern: patternOverrides[id] || originalPattern,
+                biweeklyWeekOffset: employee.biweeklyWeekOffset
             };
         }),
     [employeeRows, patternOverrides]);
@@ -245,6 +266,9 @@ export default function BackupDemandAnalysis({ onBack }) {
         [currentBackups]
     );
 
+    const currentWeekIndex = useMemo(() => getCurrentWeekIndex(), []);
+
+    // 이 값들은 요약 카드에 표시하는 0.5 단위 환산값입니다.
     const fixedOffDays = useMemo(() => fixedEmployeeRows.reduce(
         (sum, route) => sum + (7 - getAverageWorkDays(route.pattern)),
         0
@@ -260,73 +284,162 @@ export default function BackupDemandAnalysis({ onBack }) {
         0
     ), [plannedRoutes]);
 
-    // 현재 인원과 추가 인원의 전체 휴무일수에서 현재 백업 근무일수를 제외해 부족 일수를 계산합니다.
     const totalOffDays = fixedOffDays + extraOffDays;
-    const requiredExtraBackupWorkDays = Math.max(0, totalOffDays - currentBackupWorkDays);
-    // Half-day units allow regular and biweekly patterns to combine without rounding away 0.5 days.
-    // First minimize excess supply, then headcount, then favor 5-day / biweekly-5-day patterns.
+
+    // 추천은 환산 평균을 기준으로 확정하지 않습니다. 이번 주와 다음 주의 실제 근무일을 각각 계산합니다.
+    const weeklyDemand = useMemo(() => [0, 1].map((weekOffset) => {
+        const weekIndex = currentWeekIndex + weekOffset;
+        const weeklyFixedOffDays = fixedEmployeeRows.reduce(
+            (sum, employee) => sum + (7 - getWorkDaysForWeek(employee.pattern, weekIndex, employee.biweeklyWeekOffset)),
+            0
+        );
+        const weeklyExtraOffDays = plannedRoutes.reduce(
+            (sum, route) => sum + (7 - getWorkDaysForWeek(route.pattern, weekIndex, route.biweeklyWeekOffset)),
+            0
+        );
+        const weeklyCurrentBackupWorkDays = currentBackups.reduce(
+            (sum, employee) => sum + getWorkDaysForWeek(
+                employee.pattern || employee.work_pattern || '주 5일',
+                weekIndex,
+                employee.biweeklyWeekOffset
+            ),
+            0
+        );
+        const totalOffDaysForWeek = weeklyFixedOffDays + weeklyExtraOffDays;
+        return {
+            totalOffDays: totalOffDaysForWeek,
+            currentBackupWorkDays: weeklyCurrentBackupWorkDays,
+            requiredExtraBackupWorkDays: Math.max(0, totalOffDaysForWeek - weeklyCurrentBackupWorkDays)
+        };
+    }), [currentWeekIndex, fixedEmployeeRows, plannedRoutes, currentBackups]);
+
+    const currentWeekDemand = weeklyDemand[0];
+    const nextWeekDemand = weeklyDemand[1];
+    const maxThisWeekDemand = currentWeekDemand.requiredExtraBackupWorkDays;
+    const maxNextWeekDemand = nextWeekDemand.requiredExtraBackupWorkDays;
+    // 이 환산값은 0.5 단위 참고용이며, 추천 조합을 고르는 데에는 사용하지 않습니다.
+    const requiredExtraBackupWorkDays = (maxThisWeekDemand + maxNextWeekDemand) / 2;
+
     const recommendationPatterns = [
-        { label: '주 3일', days: 3, units: 6, preferred: false, regularFive: false },
-        { label: '주 4일', days: 4, units: 8, preferred: false, regularFive: false },
-        { label: '주 5일', days: 5, units: 10, preferred: true, regularFive: true },
-        { label: '주 6일', days: 6, units: 12, preferred: false, regularFive: false },
-        { label: '격주 3일', days: 3.5, units: 7, preferred: false, regularFive: false },
-        { label: '격주 4일', days: 4.5, units: 9, preferred: false, regularFive: false },
-        { label: '격주 5일', days: 5.5, units: 11, preferred: true, regularFive: false },
-        { label: '격주 6일', days: 6.5, units: 13, preferred: false, regularFive: false }
+        { label: '주 3일', days: 3, biweekly: false, preferred: false, regularFive: false },
+        { label: '주 4일', days: 4, biweekly: false, preferred: false, regularFive: false },
+        { label: '주 5일', days: 5, biweekly: false, preferred: true, regularFive: true },
+        { label: '주 6일', days: 6, biweekly: false, preferred: false, regularFive: false },
+        { label: '격주 3일', days: 3, biweekly: true, preferred: false, regularFive: false },
+        { label: '격주 4일', days: 4, biweekly: true, preferred: false, regularFive: false },
+        { label: '격주 5일', days: 5, biweekly: true, preferred: true, regularFive: false }
     ];
-    const targetUnits = Math.ceil(requiredExtraBackupWorkDays * 2 - 0.000001);
-    const maxUnits = targetUnits + 12;
-    const bestForUnits = Array(maxUnits + 1).fill(null);
-    bestForUnits[0] = { hires: 0, preferredCount: 0, regularFiveCount: 0, counts: Array(recommendationPatterns.length).fill(0) };
-    for (let units = 0; units <= maxUnits; units += 1) {
-        const current = bestForUnits[units];
-        if (!current) continue;
-        recommendationPatterns.forEach((pattern, index) => {
-            const nextUnits = units + pattern.units;
-            if (nextUnits > maxUnits) return;
-            const candidate = {
-                hires: current.hires + 1,
-                preferredCount: current.preferredCount + (pattern.preferred ? 1 : 0),
-                regularFiveCount: current.regularFiveCount + (pattern.regularFive ? 1 : 0),
-                counts: current.counts.map((count, countIndex) => count + (countIndex === index ? 1 : 0))
-            };
-            const existing = bestForUnits[nextUnits];
-            if (
-                !existing ||
-                candidate.hires < existing.hires ||
-                (candidate.hires === existing.hires && candidate.preferredCount > existing.preferredCount) ||
-                (candidate.hires === existing.hires && candidate.preferredCount === existing.preferredCount && candidate.regularFiveCount > existing.regularFiveCount)
-            ) {
-                bestForUnits[nextUnits] = candidate;
-            }
-        });
+
+    // 격주 백업은 주기 시작점을 양쪽으로 검토해, 어느 한 주에 초과가 생기는 조합은 후보에서 제외합니다.
+    const recommendationOptions = recommendationPatterns.flatMap((pattern, index) => {
+        const phaseOffsets = pattern.biweekly ? [0, 1] : [0];
+        return phaseOffsets.map((phaseOffset) => ({
+            ...pattern,
+            index,
+            week1Days: getWorkDaysForWeek(pattern.label, currentWeekIndex, phaseOffset),
+            week2Days: getWorkDaysForWeek(pattern.label, currentWeekIndex + 1, phaseOffset)
+        }));
+    });
+
+    const stateKey = (thisWeek, nextWeek) => thisWeek + '|' + nextWeek;
+    const recommendationStates = new Map();
+    recommendationStates.set(stateKey(0, 0), {
+        supplyThisWeek: 0,
+        supplyNextWeek: 0,
+        hires: 0,
+        preferredCount: 0,
+        regularFiveCount: 0,
+        counts: Array(recommendationPatterns.length).fill(0)
+    });
+
+    const isBetterForSameSupply = (candidate, existing) => {
+        if (!existing) return true;
+        if (candidate.hires !== existing.hires) return candidate.hires < existing.hires;
+        if (candidate.preferredCount !== existing.preferredCount) return candidate.preferredCount > existing.preferredCount;
+        if (candidate.regularFiveCount !== existing.regularFiveCount) return candidate.regularFiveCount > existing.regularFiveCount;
+        return false;
+    };
+
+    // 동적 계획법은 주별 충원량을 따로 기록합니다. 두 주의 부족·초과를 서로 상쇄하지 않습니다.
+    for (let totalSupply = 0; totalSupply <= maxThisWeekDemand + maxNextWeekDemand; totalSupply += 1) {
+        const minThisWeek = Math.max(0, totalSupply - maxNextWeekDemand);
+        const maxThisWeek = Math.min(maxThisWeekDemand, totalSupply);
+        for (let supplyThisWeek = minThisWeek; supplyThisWeek <= maxThisWeek; supplyThisWeek += 1) {
+            const supplyNextWeek = totalSupply - supplyThisWeek;
+            const current = recommendationStates.get(stateKey(supplyThisWeek, supplyNextWeek));
+            if (!current) continue;
+
+            recommendationOptions.forEach((pattern) => {
+                const nextThisWeek = supplyThisWeek + pattern.week1Days;
+                const nextNextWeek = supplyNextWeek + pattern.week2Days;
+
+                // 초과가 한 주라도 발생하면 추천 후보로 사용하지 않습니다.
+                if (nextThisWeek > maxThisWeekDemand || nextNextWeek > maxNextWeekDemand) return;
+
+                const counts = current.counts.slice();
+                counts[pattern.index] += 1;
+                const candidate = {
+                    supplyThisWeek: nextThisWeek,
+                    supplyNextWeek: nextNextWeek,
+                    hires: current.hires + 1,
+                    preferredCount: current.preferredCount + (pattern.preferred ? 1 : 0),
+                    regularFiveCount: current.regularFiveCount + (pattern.regularFive ? 1 : 0),
+                    counts
+                };
+                const key = stateKey(nextThisWeek, nextNextWeek);
+                const existing = recommendationStates.get(key);
+                if (isBetterForSameSupply(candidate, existing)) recommendationStates.set(key, candidate);
+            });
+        }
     }
-    let bestUnits = -1;
-    for (let units = targetUnits; units <= maxUnits; units += 1) {
-        if (!bestForUnits[units]) continue;
-        bestUnits = units;
-        break;
-    }
-    const bestRecommendation = bestUnits >= 0 ? bestForUnits[bestUnits] : null;
-    const recommendedPattern = bestRecommendation
+
+    const bestRecommendation = Array.from(recommendationStates.values()).reduce((best, candidate) => {
+        if (!best) return candidate;
+        const candidateRemainingThisWeek = maxThisWeekDemand - candidate.supplyThisWeek;
+        const candidateRemainingNextWeek = maxNextWeekDemand - candidate.supplyNextWeek;
+        const bestRemainingThisWeek = maxThisWeekDemand - best.supplyThisWeek;
+        const bestRemainingNextWeek = maxNextWeekDemand - best.supplyNextWeek;
+        const candidateTotalRemaining = candidateRemainingThisWeek + candidateRemainingNextWeek;
+        const bestTotalRemaining = bestRemainingThisWeek + bestRemainingNextWeek;
+
+        if (candidateTotalRemaining !== bestTotalRemaining) {
+            return candidateTotalRemaining < bestTotalRemaining ? candidate : best;
+        }
+        const candidateWorstRemaining = Math.max(candidateRemainingThisWeek, candidateRemainingNextWeek);
+        const bestWorstRemaining = Math.max(bestRemainingThisWeek, bestRemainingNextWeek);
+        if (candidateWorstRemaining !== bestWorstRemaining) {
+            return candidateWorstRemaining < bestWorstRemaining ? candidate : best;
+        }
+        if (candidate.hires !== best.hires) return candidate.hires < best.hires ? candidate : best;
+        if (candidate.preferredCount !== best.preferredCount) {
+            return candidate.preferredCount > best.preferredCount ? candidate : best;
+        }
+        if (candidate.regularFiveCount !== best.regularFiveCount) {
+            return candidate.regularFiveCount > best.regularFiveCount ? candidate : best;
+        }
+        return best;
+    }, null);
+
+    const recommendedPattern = bestRecommendation && bestRecommendation.hires > 0
         ? recommendationPatterns
             .map((pattern, index) => bestRecommendation.counts[index] > 0
                 ? pattern.label + ' ' + bestRecommendation.counts[index] + '명'
                 : '')
             .filter(Boolean)
             .join(' + ')
-        : '주 5일';
-    const recommendedHires = bestRecommendation?.hires || 0;
-    const recommendedSuppliedDays = bestUnits >= 0 ? bestUnits / 2 : 0;
-    const recommendedExcessDays = Math.max(0, Math.round((recommendedSuppliedDays - requiredExtraBackupWorkDays) * 10) / 10);
+        : '초과 0일로 충원 가능한 조합 없음';
+    const recommendedSuppliedThisWeek = bestRecommendation?.supplyThisWeek || 0;
+    const recommendedSuppliedNextWeek = bestRecommendation?.supplyNextWeek || 0;
+    const recommendedRemainingThisWeek = maxThisWeekDemand - recommendedSuppliedThisWeek;
+    const recommendedRemainingNextWeek = maxNextWeekDemand - recommendedSuppliedNextWeek;
 
     const addRoute = () => {
         setPlannedRoutes((current) => {
             if (current.length >= MAX_EXTRA_ROUTES) return current;
             return current.concat({
                 id: 'planned-route-' + Date.now() + '-' + current.length,
-                pattern: '주 5일'
+                pattern: '주 5일',
+                biweeklyWeekOffset: 0
             });
         });
         setNewRoutesExpanded(true);
@@ -585,22 +698,33 @@ export default function BackupDemandAnalysis({ onBack }) {
                             <p className="text-sm font-black text-violet-800 sm:text-base">부족 일수 및 추가 채용 추천</p>
                         </div>
                         <p className="mt-2 text-xs text-slate-600 sm:text-sm">
-                            전체 휴무 {formatDays(totalOffDays)}일/주 − 현재 백업 근무 {formatDays(currentBackupWorkDays)}일/주
+                            이번 주 휴무 수요 {formatDays(currentWeekDemand.totalOffDays)}일 − 기존 백업 {formatDays(currentWeekDemand.currentBackupWorkDays)}일
                         </p>
-                        {requiredExtraBackupWorkDays > 0 ? (
+                        <p className="mt-1 text-xs text-slate-600 sm:text-sm">
+                            다음 주 휴무 수요 {formatDays(nextWeekDemand.totalOffDays)}일 − 기존 백업 {formatDays(nextWeekDemand.currentBackupWorkDays)}일
+                        </p>
+                        <p className="mt-1 text-sm font-black text-violet-700 sm:text-base">
+                            이번 주 부족 {formatDays(maxThisWeekDemand)}일 · 다음 주 부족 {formatDays(maxNextWeekDemand)}일
+                        </p>
+                        <p className="mt-1 text-[10px] text-slate-500 sm:text-xs">
+                            0.5 단위 참고값 {formatDays(requiredExtraBackupWorkDays)}일/주 · 추천은 주별 수요를 각각 계산
+                        </p>
+                        {(maxThisWeekDemand > 0 || maxNextWeekDemand > 0) ? (
                             <>
-                                <p className="mt-1 text-xl font-black text-violet-700 sm:text-2xl">부족 {formatDays(requiredExtraBackupWorkDays)}일/주</p>
                                 <div className="my-2 border-t border-violet-200 sm:my-3" />
                                 <p className="break-words text-2xl font-black leading-tight text-violet-900 sm:text-3xl">
-                                    {recommendedPattern} 추가
+                                    {bestRecommendation?.hires > 0 ? recommendedPattern + ' 추가' : '초과 0일로 충원 가능한 조합 없음'}
                                 </p>
                                 <p className="mt-1 text-xs font-medium text-violet-700 sm:text-sm">
-                                    추가 근무 {formatDays(recommendedSuppliedDays)}일/주 · 초과 {formatDays(recommendedExcessDays)}일/주
+                                    이번 주 충원 {formatDays(recommendedSuppliedThisWeek)}/{formatDays(maxThisWeekDemand)}일 · 다음 주 충원 {formatDays(recommendedSuppliedNextWeek)}/{formatDays(maxNextWeekDemand)}일
+                                </p>
+                                <p className="mt-1 text-xs font-medium text-violet-700 sm:text-sm">
+                                    남은 부족 {formatDays(recommendedRemainingThisWeek)}일 / {formatDays(recommendedRemainingNextWeek)}일 · 초과 0일
                                 </p>
                             </>
                         ) : (
                             <p className="mt-2 text-sm font-bold text-slate-700">
-                                현재 백업 근무일수로 수요를 충당할 수 있습니다.
+                                현재 백업 근무일수로 두 주의 수요를 충당할 수 있습니다.
                             </p>
                         )}
                     </div>
