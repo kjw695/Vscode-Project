@@ -334,7 +334,9 @@ export default function BackupDemandAnalysis({ onBack }) {
 
     const weekOneRows = analysis?.currentScenario?.dailyRows.slice(0, 7) || [];
     const weekTwoRows = analysis?.currentScenario?.dailyRows.slice(7, 14) || [];
-    const noAssignedRoutes = Boolean(selectedTeamId) && assignedBaseEmployees.length === 0;
+    const noAssignedRoutes = Boolean(selectedTeamId) &&
+        assignedBaseEmployees.length === 0 &&
+        Number(extraRouteCount) === 0;
     const totalCurrentBackupCount = currentBackups.length;
     const minimumExtraBackups = analysis?.minimumExtraBackups;
     const totalBackupCount = analysis?.totalBackupCount;
