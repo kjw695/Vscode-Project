@@ -2,9 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
     ArrowLeft,
     BarChart3,
-    CalendarDays,
     CheckCircle2,
-    CircleAlert,
+    AlertCircle,
     Search,
     TrendingDown,
     Users
@@ -384,7 +383,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                         </label>
                     </div>
                     <p className="mt-3 flex items-start gap-2 rounded-xl bg-indigo-50 px-3 py-2.5 text-xs leading-5 text-indigo-800">
-                        <CircleAlert size={15} className="mt-0.5 shrink-0" />
+                        <AlertCircle size={15} className="mt-0.5 shrink-0" />
                         <span>고정 휴무 요일과 날짜별 고정 휴무는 모두 무시합니다. 직원별 주간·격주 근무 횟수는 유지하고, 2주 동안 휴무 요일을 자동 배치해 비교합니다.</span>
                     </p>
                 </section>
