@@ -85,49 +85,70 @@ function getRouteNames(employee, routes, teamId) {
 }
 
 function PatternChooser({ value, onSelect }) {
-    const daysOptions = [1, 2, 3, 4, 5, 6];
     const selectedPattern = normalizePattern(value);
-    const regularListRef = React.useRef(null);
-    const biweeklyListRef = React.useRef(null);
-    const scrollList = (listRef, direction) => {
-        if (listRef.current) listRef.current.scrollBy({ top: direction * 76, behavior: 'smooth' });
+    const match = selectedPattern.match(/[1-6]/);
+    const selectedDays = match ? Number(match[0]) : 5;
+    const isBiweeklySelected = selectedPattern.includes('격주');
+
+    const cyclePattern = (kind, direction) => {
+        const isBiweekly = kind === 'biweekly';
+        const currentDays = isBiweeklySelected === isBiweekly ? selectedDays : 5;
+        const nextDays = ((currentDays - 1 + direction + 6) % 6) + 1;
+        onSelect((isBiweekly ? '격주 ' : '주 ') + nextDays + '일');
     };
 
-    const renderPatternList = (kind, listRef) => {
+    const renderCycle = (kind) => {
         const isBiweekly = kind === 'biweekly';
+        const isSelectedKind = isBiweeklySelected === isBiweekly;
+        const shownDays = isSelectedKind ? selectedDays : 5;
+        const label = isBiweekly
+            ? '격주 ' + (shownDays + 0.5).toFixed(1) + '일'
+            : '주 ' + shownDays + '일';
+
         return (
-            <div className="flex min-w-0 flex-col">
-                <div className={'mb-2 rounded-md px-1 py-2 text-center text-[11px] font-black ' + (isBiweekly ? 'bg-violet-100 text-violet-800' : 'bg-indigo-100 text-indigo-800')}>
+            <div className="flex min-w-0 flex-col items-center px-1">
+                <span className={'mb-1 text-[11px] font-black ' + (isBiweekly ? 'text-violet-700' : 'text-indigo-700')}>
                     {isBiweekly ? '격주 근무' : '일반 근무'}
-                </div>
-                <button type="button" onClick={() => scrollList(listRef, -1)} aria-label={(isBiweekly ? '격주' : '일반') + ' 근무 패턴 위로 이동'} className="mb-1 flex w-full items-center justify-center rounded-md border border-slate-200 bg-white py-1 text-slate-500 hover:bg-slate-100">
-                    <ChevronUp size={16} />
+                </span>
+                <button
+                    type="button"
+                    onClick={() => cyclePattern(kind, -1)}
+                    aria-label={(isBiweekly ? '격주' : '일반') + ' 근무일수 줄이기'}
+                    className="flex h-5 w-8 items-center justify-center text-slate-400 hover:text-slate-800"
+                >
+                    <ChevronUp size={15} strokeWidth={2.5} />
                 </button>
-                <div ref={listRef} className="h-[112px] space-y-1.5 overflow-y-auto overscroll-contain px-0.5 py-0.5">
-                    {daysOptions.map((days) => {
-                        const pattern = (isBiweekly ? '격주 ' : '주 ') + days + '일';
-                        const selected = selectedPattern === pattern;
-                        return (
-                            <button key={pattern} type="button" aria-pressed={selected} onClick={() => onSelect(pattern)}
-                                className={'w-full rounded-lg border px-2 py-2 text-center text-xs font-bold transition ' + (selected ? (isBiweekly ? 'border-violet-500 bg-violet-600 text-white shadow-sm' : 'border-indigo-500 bg-indigo-600 text-white shadow-sm') : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:bg-indigo-50')}>
-                                {isBiweekly ? '격주 ' + (days + 0.5).toFixed(1) + '일' : '주 ' + days + '일'}
-                            </button>
-                        );
-                    })}
-                </div>
-                <button type="button" onClick={() => scrollList(listRef, 1)} aria-label={(isBiweekly ? '격주' : '일반') + ' 근무 패턴 아래로 이동'} className="mt-1 flex w-full items-center justify-center rounded-md border border-slate-200 bg-white py-1 text-slate-500 hover:bg-slate-100">
-                    <ChevronDown size={16} />
+                <button
+                    type="button"
+                    onClick={() => onSelect((isBiweekly ? '격주 ' : '주 ') + shownDays + '일')}
+                    aria-pressed={isSelectedKind}
+                    className={'my-0.5 min-w-0 rounded-md px-2 py-1 text-xs font-black ' + (
+                        isSelectedKind
+                            ? (isBiweekly ? 'bg-violet-600 text-white' : 'bg-indigo-600 text-white')
+                            : 'text-slate-500 hover:bg-slate-100'
+                    )}
+                >
+                    {label}
+                </button>
+                <button
+                    type="button"
+                    onClick={() => cyclePattern(kind, 1)}
+                    aria-label={(isBiweekly ? '격주' : '일반') + ' 근무일수 늘리기'}
+                    className="flex h-5 w-8 items-center justify-center text-slate-400 hover:text-slate-800"
+                >
+                    <ChevronDown size={15} strokeWidth={2.5} />
                 </button>
             </div>
         );
     };
 
     return (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-            <div className="grid grid-cols-2 divide-x divide-slate-300">
-                <div className="min-w-0 px-1.5 pr-2">{renderPatternList('regular', regularListRef)}</div>
-                <div className="min-w-0 pl-2">{renderPatternList('biweekly', biweeklyListRef)}</div>
+        <div className="rounded-lg bg-slate-50 px-2 py-1.5">
+            <div className="grid grid-cols-2 divide-x divide-slate-200">
+                {renderCycle('regular')}
+                {renderCycle('biweekly')}
             </div>
+            <p className="mt-1 text-center text-[10px] text-slate-400">화살표로 1~6일 순환 선택</p>
         </div>
     );
 }
@@ -424,19 +445,19 @@ export default function BackupDemandAnalysis({ onBack }) {
                         </div>
                         <div className="grid grid-cols-2 divide-x divide-y divide-slate-100 sm:grid-cols-4 sm:divide-y-0">
                             <div className="p-3 text-center">
-                                <p className="text-[11px] font-medium text-slate-500">현재 노선</p>
+                                <p className="text-center text-[11px] font-medium text-slate-500">현재 노선</p>
                                 <p className="mt-1 text-lg font-black tabular-nums text-slate-800">{fixedRouteCount}<span className="ml-0.5 text-xs font-bold">개</span></p>
                             </div>
                             <div className="p-3 text-center">
-                                <p className="text-[11px] font-medium text-slate-500">휴무 보충</p>
+                                <p className="text-center text-[11px] font-medium text-slate-500">휴무 보충</p>
                                 <p className="mt-1 text-lg font-black tabular-nums text-slate-800">{formatDays(fixedOffDays)}<span className="ml-0.5 text-xs font-bold">일/주</span></p>
                             </div>
                             <div className="p-3 text-center">
-                                <p className="text-[11px] font-medium text-slate-500">현재 백업</p>
+                                <p className="text-center text-[11px] font-medium text-slate-500">현재 백업</p>
                                 <p className="mt-1 text-lg font-black tabular-nums text-slate-800">{currentBackups.length}<span className="ml-0.5 text-xs font-bold">명</span></p>
                             </div>
                             <div className="p-3 text-center">
-                                <p className="text-[11px] font-medium text-slate-500">백업 근무</p>
+                                <p className="text-center text-[11px] font-medium text-slate-500">백업 근무</p>
                                 <p className="mt-1 text-lg font-black tabular-nums text-slate-800">{formatDays(currentBackupWorkDays)}<span className="ml-0.5 text-xs font-bold">일/주</span></p>
                             </div>
                         </div>
@@ -448,11 +469,11 @@ export default function BackupDemandAnalysis({ onBack }) {
                         </div>
                         <div className="grid grid-cols-2 divide-x divide-indigo-100">
                             <div className="p-3 text-center">
-                                <p className="text-[11px] font-medium text-slate-500">추가 노선</p>
+                                <p className="text-center text-[11px] font-medium text-slate-500">추가 노선</p>
                                 <p className="mt-1 text-lg font-black tabular-nums text-slate-800">{plannedRoutes.length}<span className="ml-0.5 text-xs font-bold">개</span></p>
                             </div>
                             <div className="p-3 text-center">
-                                <p className="text-[11px] font-medium text-slate-500">추가 휴무 보충</p>
+                                <p className="text-center text-[11px] font-medium text-slate-500">추가 휴무 보충</p>
                                 <p className="mt-1 text-lg font-black tabular-nums text-slate-800">{formatDays(extraOffDays)}<span className="ml-0.5 text-xs font-bold">일/주</span></p>
                             </div>
                         </div>
