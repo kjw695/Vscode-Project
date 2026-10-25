@@ -88,11 +88,12 @@ function PatternChooser({ value, onSelect }) {
     const selectedPattern = normalizePattern(value);
     const match = selectedPattern.match(/[1-6]/);
     const selectedDays = match ? Number(match[0]) : 5;
-    const isBiweeklySelected = selectedPattern.includes('격주');
+    const [isBiweeklySelected, setIsBiweeklySelected] = useState(selectedPattern.includes('격주'));
     const daysOptions = [1, 2, 3, 4, 5, 6];
 
     const selectPatternType = (isBiweekly) => {
-        onSelect((isBiweekly ? '격주 ' : '주 ') + selectedDays + '일');
+        // Switching tabs only changes the visible options; keep the picker open.
+        setIsBiweeklySelected(isBiweekly);
     };
 
     const selectDays = (days) => {
@@ -262,42 +263,63 @@ export default function BackupDemandAnalysis({ onBack }) {
     // 현재 인원과 추가 인원의 전체 휴무일수에서 현재 백업 근무일수를 제외해 부족 일수를 계산합니다.
     const totalOffDays = fixedOffDays + extraOffDays;
     const requiredExtraBackupWorkDays = Math.max(0, totalOffDays - currentBackupWorkDays);
-    // Prefer combinations of regular 5-day and biweekly 5-day (5.5-day average) staff.
-    // Search combinations so half-day weekly averages are included and excess coverage is minimized.
-    const recommendationOptions = [];
-    if (requiredExtraBackupWorkDays > 0) {
-        const maxHires = Math.ceil(requiredExtraBackupWorkDays / 5) + 2;
-        for (let regularFiveDay = 0; regularFiveDay <= maxHires; regularFiveDay += 1) {
-            for (let biweeklyFiveDay = 0; biweeklyFiveDay <= maxHires; biweeklyFiveDay += 1) {
-                const hires = regularFiveDay + biweeklyFiveDay;
-                if (hires === 0) continue;
-                const suppliedDays = regularFiveDay * 5 + biweeklyFiveDay * 5.5;
-                if (suppliedDays < requiredExtraBackupWorkDays) continue;
-                recommendationOptions.push({
-                    regularFiveDay,
-                    biweeklyFiveDay,
-                    hires,
-                    suppliedDays,
-                    excessDays: Math.round((suppliedDays - requiredExtraBackupWorkDays) * 10) / 10
-                });
+    // Half-day units allow regular and biweekly patterns to combine without rounding away 0.5 days.
+    // First minimize excess supply, then headcount, then favor 5-day / biweekly-5-day patterns.
+    const recommendationPatterns = [
+        { label: '주 3일', days: 3, units: 6, preferred: false, regularFive: false },
+        { label: '주 4일', days: 4, units: 8, preferred: false, regularFive: false },
+        { label: '주 5일', days: 5, units: 10, preferred: true, regularFive: true },
+        { label: '주 6일', days: 6, units: 12, preferred: false, regularFive: false },
+        { label: '격주 3일', days: 3.5, units: 7, preferred: false, regularFive: false },
+        { label: '격주 4일', days: 4.5, units: 9, preferred: false, regularFive: false },
+        { label: '격주 5일', days: 5.5, units: 11, preferred: true, regularFive: false },
+        { label: '격주 6일', days: 6.5, units: 13, preferred: false, regularFive: false }
+    ];
+    const targetUnits = Math.ceil(requiredExtraBackupWorkDays * 2 - 0.000001);
+    const maxUnits = targetUnits + 12;
+    const bestForUnits = Array(maxUnits + 1).fill(null);
+    bestForUnits[0] = { hires: 0, preferredCount: 0, regularFiveCount: 0, counts: Array(recommendationPatterns.length).fill(0) };
+    for (let units = 0; units <= maxUnits; units += 1) {
+        const current = bestForUnits[units];
+        if (!current) continue;
+        recommendationPatterns.forEach((pattern, index) => {
+            const nextUnits = units + pattern.units;
+            if (nextUnits > maxUnits) return;
+            const candidate = {
+                hires: current.hires + 1,
+                preferredCount: current.preferredCount + (pattern.preferred ? 1 : 0),
+                regularFiveCount: current.regularFiveCount + (pattern.regularFive ? 1 : 0),
+                counts: current.counts.map((count, countIndex) => count + (countIndex === index ? 1 : 0))
+            };
+            const existing = bestForUnits[nextUnits];
+            if (
+                !existing ||
+                candidate.hires < existing.hires ||
+                (candidate.hires === existing.hires && candidate.preferredCount > existing.preferredCount) ||
+                (candidate.hires === existing.hires && candidate.preferredCount === existing.preferredCount && candidate.regularFiveCount > existing.regularFiveCount)
+            ) {
+                bestForUnits[nextUnits] = candidate;
             }
-        }
+        });
     }
-    const bestRecommendation = recommendationOptions
-        .sort((a, b) =>
-            a.excessDays - b.excessDays ||
-            a.hires - b.hires ||
-            b.biweeklyFiveDay - a.biweeklyFiveDay
-        )[0];
+    let bestUnits = -1;
+    for (let units = targetUnits; units <= maxUnits; units += 1) {
+        if (!bestForUnits[units]) continue;
+        bestUnits = units;
+        break;
+    }
+    const bestRecommendation = bestUnits >= 0 ? bestForUnits[bestUnits] : null;
     const recommendedPattern = bestRecommendation
-        ? [
-            bestRecommendation.regularFiveDay > 0 ? '주 5일 ' + bestRecommendation.regularFiveDay + '명' : '',
-            bestRecommendation.biweeklyFiveDay > 0 ? '격주 5일 ' + bestRecommendation.biweeklyFiveDay + '명' : ''
-        ].filter(Boolean).join(' + ')
+        ? recommendationPatterns
+            .map((pattern, index) => bestRecommendation.counts[index] > 0
+                ? pattern.label + ' ' + bestRecommendation.counts[index] + '명'
+                : '')
+            .filter(Boolean)
+            .join(' + ')
         : '주 5일';
     const recommendedHires = bestRecommendation?.hires || 0;
-    const recommendedSuppliedDays = bestRecommendation?.suppliedDays || 0;
-    const recommendedExcessDays = bestRecommendation?.excessDays || 0;
+    const recommendedSuppliedDays = bestUnits >= 0 ? bestUnits / 2 : 0;
+    const recommendedExcessDays = Math.max(0, Math.round((recommendedSuppliedDays - requiredExtraBackupWorkDays) * 10) / 10);
 
     const addRoute = () => {
         setPlannedRoutes((current) => {
