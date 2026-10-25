@@ -286,7 +286,7 @@ export default function BackupDemandAnalysis({ onBack }) {
         counts: Array(recommendationPatterns.length).fill(0)
     };
 
-    // 0.5 단위 조합 중 필요한 수요를 넘지 않고 정확히 채우는 구성을 우선합니다.
+    // 필요한 수요 이상을 충족하는 조합 중 초과량이 가장 작은 구성을 우선합니다.
     for (let units = 0; units <= maxUnits; units += 1) {
         const current = bestForUnits[units];
         if (!current) continue;
