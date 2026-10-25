@@ -529,7 +529,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                     </div>
 
                     <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-slate-50/80 sm:mt-3">
-                        <div className="flex items-center justify-center gap-1.5 px-3 py-2 sm:justify-start sm:px-4">
+                        <div className="flex items-center justify-center gap-1.5 px-3 py-2 sm:px-4">
                             <Users size={19} className="shrink-0 text-slate-600 sm:h-6 sm:w-6" />
                             <span className="text-sm font-black text-slate-800 sm:text-base">백업 현황</span>
                         </div>
