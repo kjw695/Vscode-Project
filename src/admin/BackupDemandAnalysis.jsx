@@ -12,7 +12,6 @@ import { useAdminData } from './contexts/DataContext';
 import { generateWeeklySchedule } from './utils/schedulingEngine';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
-const BACKUP_PATTERNS = ['주 5일', '주 6일', '격주 5일', '격주 6일'];
 const MAX_EXTRA_BACKUPS = 30;
 
 function getEmployeeType(employee) {
@@ -52,6 +51,34 @@ function getPatternLabel(pattern) {
     const match = value.match(/[1-6]/);
     const days = match ? Number(match[0]) : 5;
     return value.includes('격주') ? '격주 ' + days + '/' + Math.min(7, days + 1) + '회' : '주 ' + days + '회';
+}
+
+function normalizePattern(pattern) {
+    const value = String(pattern || '주 5일');
+    const match = value.match(/[1-6]/);
+    const days = match ? Number(match[0]) : 5;
+    return (value.includes('격주') ? '격주 ' : '주 ') + days + '일';
+}
+
+function getDefaultBackupPattern(backups) {
+    // 추가 채용 패턴은 별도 선택 없이 현재 백업의 대표 패턴을 따릅니다.
+    // 현재 백업이 없을 때는 직원관리의 기본 근무 패턴인 주 5일을 가정합니다.
+    if (!backups.length) return '주 5일';
+
+    const counts = new Map();
+    backups.forEach((employee) => {
+        const pattern = normalizePattern(employee.pattern || employee.work_pattern || '주 5일');
+        counts.set(pattern, (counts.get(pattern) || 0) + 1);
+    });
+
+    return Array.from(counts.entries()).sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1];
+        const aMatch = a[0].match(/[1-6]/);
+        const bMatch = b[0].match(/[1-6]/);
+        const aDays = (aMatch ? Number(aMatch[0]) : 5) + (a[0].includes('격주') ? 0.5 : 0);
+        const bDays = (bMatch ? Number(bMatch[0]) : 5) + (b[0].includes('격주') ? 0.5 : 0);
+        return aDays - bDays;
+    })[0][0];
 }
 
 function removeFixedOffs(employee) {
@@ -204,8 +231,8 @@ export default function BackupDemandAnalysis({ onBack }) {
     const [selectedRegion, setSelectedRegion] = useState(() => getRegion(teams[0]));
     const [selectedShift, setSelectedShift] = useState(() => getShift(teams[0]));
     const [selectedTeamId, setSelectedTeamId] = useState(() => teams[0]?.id || '');
-    const [weekStart, setWeekStart] = useState(() => getSundayString(formatDate(new Date())));
-    const [backupPattern, setBackupPattern] = useState('주 6일');
+    // 날짜를 선택할 필요 없이 현재 주를 기준으로 격주 패턴의 2주 주기를 자동 분석합니다.
+    const [weekStart] = useState(() => getSundayString(formatDate(new Date())));
     const [extraRouteCount, setExtraRouteCount] = useState(0);
     const [extraRoutePattern, setExtraRoutePattern] = useState('주 6일');
     const [search, setSearch] = useState('');
@@ -254,6 +281,10 @@ export default function BackupDemandAnalysis({ onBack }) {
     const currentBackups = useMemo(() => teamEmployees
         .filter((employee) => getEmployeeType(employee) === 'sub'),
     [teamEmployees]);
+    const backupPattern = useMemo(
+        () => getDefaultBackupPattern(currentBackups),
+        [currentBackups]
+    );
 
     const filteredEmployeeRows = useMemo(() => {
         const keyword = search.trim().toLocaleLowerCase();
@@ -357,7 +388,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                         </div>
                         <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">2주 기준</span>
                     </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         <label className="block min-w-0">
                             <span className="mb-1 block text-xs font-bold text-slate-500">지역</span>
                             <select value={selectedRegion} onChange={(event) => setSelectedRegion(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-indigo-400">
@@ -377,10 +408,6 @@ export default function BackupDemandAnalysis({ onBack }) {
                                 {filteredTeams.length === 0 && <option value="">등록된 팀 없음</option>}
                                 {filteredTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
                             </select>
-                        </label>
-                        <label className="block min-w-0">
-                            <span className="mb-1 block text-xs font-bold text-slate-500">분석 시작 주</span>
-                            <input type="date" value={weekStart} onChange={(event) => setWeekStart(getSundayString(event.target.value))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-indigo-400" />
                         </label>
                     </div>
                     <p className="mt-3 flex items-start gap-2 rounded-xl bg-indigo-50 px-3 py-2.5 text-xs leading-5 text-indigo-800">
@@ -408,12 +435,10 @@ export default function BackupDemandAnalysis({ onBack }) {
                             </select>
                         </label>
                     </div>
-                    <label className="mt-3 block">
-                        <span className="mb-1 block text-xs font-bold text-slate-500">추가 백업 인력의 근무 패턴</span>
-                        <select value={backupPattern} onChange={(event) => setBackupPattern(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-indigo-400 sm:max-w-sm">
-                            {BACKUP_PATTERNS.map((pattern) => <option key={pattern} value={pattern}>{getPatternLabel(pattern)}</option>)}
-                        </select>
-                    </label>
+                    <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
+                        추가 백업의 근무 패턴은 자동으로 적용합니다: <strong>{getPatternLabel(backupPattern)}</strong>
+                        {currentBackups.length === 0 ? ' (등록된 백업이 없어 주 5회 기준)' : ' (현재 백업 직원의 대표 패턴 기준)'}.
+                    </p>
                 </section>
 
                 <section className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -473,7 +498,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                         <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
                             <div className="mb-3">
                                 <h2 className="text-sm font-black">백업 인원 비교</h2>
-                                <p className="mt-0.5 text-xs leading-5 text-slate-500">기존 백업 직원은 근무 패턴을 유지하고 고정 휴무만 제외합니다. 추가 인원은 위에서 선택한 근무 패턴을 적용합니다.</p>
+                                <p className="mt-0.5 text-xs leading-5 text-slate-500">고정 휴무는 무시합니다. 기존 백업은 등록된 근무 패턴을 유지하고, 추가 인원은 현재 백업의 대표 패턴을 자동 적용합니다.</p>
                             </div>
                             <div className="space-y-2">
                                 {visibleScenarios.map((scenario) => {
