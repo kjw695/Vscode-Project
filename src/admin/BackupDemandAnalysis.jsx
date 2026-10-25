@@ -85,15 +85,24 @@ function getRouteNames(employee, routes, teamId) {
 }
 
 function PatternChooser({ value, onSelect }) {
-    const daysOptions = [3, 4, 5, 6];
+    const daysOptions = [1, 2, 3, 4, 5, 6];
     const selectedPattern = normalizePattern(value);
+    const regularListRef = React.useRef(null);
+    const biweeklyListRef = React.useRef(null);
+
+    // 기본으로 4·5·6일을 보여주고, 위로 스크롤하면 1·2·3일을 확인할 수 있습니다.
+    useEffect(() => {
+        [regularListRef, biweeklyListRef].forEach((listRef) => {
+            if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
+        });
+    }, []);
 
     return (
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-            <div className="grid grid-cols-2 gap-2">
-                <div className="min-w-0">
-                    <div className="mb-1.5 rounded-md bg-white px-1 py-2 text-center text-[11px] font-black text-slate-600">일반 근무</div>
-                    <div className="space-y-1.5">
+            <div className="grid grid-cols-2 divide-x divide-slate-300">
+                <div className="min-w-0 px-1.5 pr-2">
+                    <div className="mb-2 rounded-md bg-indigo-100 px-1 py-2 text-center text-[11px] font-black text-indigo-800">일반 근무</div>
+                    <div ref={regularListRef} className="max-h-[132px] space-y-1.5 overflow-y-auto overscroll-contain pr-1">
                         {daysOptions.map((days) => {
                             const pattern = '주 ' + days + '일';
                             const selected = selectedPattern === pattern;
@@ -103,7 +112,7 @@ function PatternChooser({ value, onSelect }) {
                                     type="button"
                                     aria-pressed={selected}
                                     onClick={() => onSelect(pattern)}
-                                    className={'w-full rounded-lg border px-2 py-2.5 text-center text-xs font-bold transition ' + (selected ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:bg-indigo-50')}
+                                    className={'w-full rounded-lg border px-2 py-2 text-center text-xs font-bold transition ' + (selected ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:bg-indigo-50')}
                                 >
                                     주 {days}일
                                 </button>
@@ -111,9 +120,9 @@ function PatternChooser({ value, onSelect }) {
                         })}
                     </div>
                 </div>
-                <div className="min-w-0">
-                    <div className="mb-1.5 rounded-md bg-white px-1 py-2 text-center text-[11px] font-black text-slate-600">격주 근무</div>
-                    <div className="space-y-1.5">
+                <div className="min-w-0 pl-2">
+                    <div className="mb-2 rounded-md bg-violet-100 px-1 py-2 text-center text-[11px] font-black text-violet-800">격주 근무</div>
+                    <div ref={biweeklyListRef} className="max-h-[132px] space-y-1.5 overflow-y-auto overscroll-contain pl-0.5">
                         {daysOptions.map((days) => {
                             const pattern = '격주 ' + days + '일';
                             const selected = selectedPattern === pattern;
@@ -123,7 +132,7 @@ function PatternChooser({ value, onSelect }) {
                                     type="button"
                                     aria-pressed={selected}
                                     onClick={() => onSelect(pattern)}
-                                    className={'w-full rounded-lg border px-2 py-2.5 text-center text-xs font-bold transition ' + (selected ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:bg-indigo-50')}
+                                    className={'w-full rounded-lg border px-2 py-2 text-center text-xs font-bold transition ' + (selected ? 'border-violet-500 bg-violet-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-violet-300 hover:bg-violet-50')}
                                 >
                                     격주 {(days + 0.5).toFixed(1)}일
                                 </button>
@@ -228,13 +237,22 @@ export default function BackupDemandAnalysis({ onBack }) {
         0
     ), [plannedRoutes]);
 
-    const backupPatternDays = getAverageWorkDays(backupPattern);
-    // 기존 노선의 수요와 신규 노선의 수요를 합산한 뒤 현재 백업의 주간 공급량을 뺍니다.
-    // 고정 직원 패턴을 변경하면 기존 휴무 수요와 채용 추천도 즉시 다시 계산됩니다.
+    // 기존 노선과 신규 노선의 주간 휴무 수요에서 현재 백업 공급량을 뺍니다.
     const totalOffDays = fixedOffDays + extraOffDays;
     const requiredExtraBackupWorkDays = Math.max(0, totalOffDays - currentBackupWorkDays);
+
+    // 부족 일수가 5일 미만이면 그 일수에 맞는 근무 패턴을 추천합니다.
+    // 5일 이상이면 이해하기 쉬운 주 5일 기준으로 채용 인원을 계산합니다.
+    const recommendedPattern = requiredExtraBackupWorkDays > 0 && requiredExtraBackupWorkDays < 5
+        ? (Number.isInteger(requiredExtraBackupWorkDays)
+            ? '주 ' + requiredExtraBackupWorkDays + '일'
+            : '격주 ' + Math.floor(requiredExtraBackupWorkDays) + '일')
+        : '주 5일';
+    const recommendedPatternDays = requiredExtraBackupWorkDays > 0 && requiredExtraBackupWorkDays < 5
+        ? requiredExtraBackupWorkDays
+        : 5;
     const recommendedHires = requiredExtraBackupWorkDays > 0
-        ? Math.ceil(requiredExtraBackupWorkDays / backupPatternDays)
+        ? Math.ceil(requiredExtraBackupWorkDays / recommendedPatternDays)
         : 0;
 
     const addRoute = () => {
@@ -437,7 +455,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                                 <p className="mt-1 text-center text-lg font-black tabular-nums text-slate-800">{fixedRouteCount}<span className="ml-0.5 text-xs font-bold">개</span></p>
                             </div>
                             <div className="p-3 text-center">
-                                <p className="text-center text-[11px] font-medium text-slate-500">휴무 보충 필요</p>
+                                <p className="text-center text-[11px] font-medium text-slate-500">휴무</p>
                                 <p className="mt-1 text-center text-lg font-black tabular-nums text-slate-800">{formatDays(fixedOffDays)}<span className="ml-0.5 text-xs font-bold">일/주</span></p>
                             </div>
                             <div className="p-3 text-center">
@@ -445,7 +463,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                                 <p className="mt-1 text-center text-lg font-black tabular-nums text-slate-800">{currentBackups.length}<span className="ml-0.5 text-xs font-bold">명</span></p>
                             </div>
                             <div className="p-3 text-center">
-                                <p className="text-center text-[11px] font-medium text-slate-500">백업 근무 공급</p>
+                                <p className="text-center text-[11px] font-medium text-slate-500">백업 근무</p>
                                 <p className="mt-1 text-center text-lg font-black tabular-nums text-slate-800">{formatDays(currentBackupWorkDays)}<span className="ml-0.5 text-xs font-bold">일/주</span></p>
                             </div>
                         </div>
@@ -462,7 +480,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                                 <p className="mt-1 text-center text-lg font-black tabular-nums text-slate-800">{plannedRoutes.length}<span className="ml-0.5 text-xs font-bold">개</span></p>
                             </div>
                             <div className="p-3 text-center">
-                                <p className="text-center text-[11px] font-medium text-slate-500">추가 휴무 보충 필요</p>
+                                <p className="text-center text-[11px] font-medium text-slate-500">추가 휴무</p>
                                 <p className="mt-1 text-center text-lg font-black tabular-nums text-slate-800">{formatDays(extraOffDays)}<span className="ml-0.5 text-xs font-bold">일/주</span></p>
                             </div>
                         </div>
@@ -471,10 +489,10 @@ export default function BackupDemandAnalysis({ onBack }) {
                             {requiredExtraBackupWorkDays > 0 ? (
                                 <>
                                     <p className="mt-1 text-center text-xl font-black leading-7 text-indigo-900">
-                                        {getPatternLabel(backupPattern)} 백업 {recommendedHires}명 {plannedRoutes.length > 0 ? '추가 필요' : '부족'}
+                                        {recommendedPatternDays === requiredExtraBackupWorkDays ? getPatternLabel(recommendedPattern) : getPatternLabel(recommendedPattern)} 백업 {recommendedHires}명 추가
                                     </p>
                                     <p className="mt-1 text-center text-[11px] leading-4 text-slate-500">
-                                        총 휴무 보충 {formatDays(totalOffDays)}일 − 현재 백업 공급 {formatDays(currentBackupWorkDays)}일 = 부족 {formatDays(requiredExtraBackupWorkDays)}일/주
+                                        부족 {formatDays(requiredExtraBackupWorkDays)}일/주 · 주 5일 기준 채용 계산
                                     </p>
                                 </>
                             ) : (
@@ -486,7 +504,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                     </div>
 
                     <p className="mt-3 text-[10px] leading-4 text-slate-400">
-                        격주 3~6일 패턴은 주 평균 3.5~6.5일로 환산합니다.
+                        격주 근무는 평균 근무일수(예: 5.5일)로 계산합니다.
                     </p>
                 </section>
                 <p className="px-1 text-[11px] leading-5 text-slate-400">
