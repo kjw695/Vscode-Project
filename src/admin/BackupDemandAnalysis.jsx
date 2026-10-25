@@ -265,35 +265,36 @@ export default function BackupDemandAnalysis({ onBack }) {
     const totalOffDays = fixedOffDays + extraOffDays;
     const requiredExtraBackupWorkDays = Math.max(0, totalOffDays - currentBackupWorkDays);
 
-    // 추천은 한 주의 부족량을 0.5 단위로 바꿔 계산합니다. 다른 주와 비교하지 않습니다.
+    // 한 주의 부족량 그대로 실제 추천 패턴 값과 비교합니다. 0.5일 단위 계산에 별도 배율은 쓰지 않습니다.
     const recommendationPatterns = [
-        { label: '주 3일', days: 3, units: 6, preferred: false, regularFive: false },
-        { label: '주 4일', days: 4, units: 8, preferred: false, regularFive: false },
-        { label: '주 5일', days: 5, units: 10, preferred: true, regularFive: true },
-        { label: '주 6일', days: 6, units: 12, preferred: false, regularFive: false },
-        { label: '격주 3일', days: 3.5, units: 7, preferred: false, regularFive: false },
-        { label: '격주 4일', days: 4.5, units: 9, preferred: false, regularFive: false },
-        { label: '격주 5일', days: 5.5, units: 11, preferred: true, regularFive: false }
+        { label: '주 3일', days: 3, preferred: false, regularFive: false },
+        { label: '주 4일', days: 4, preferred: false, regularFive: false },
+        { label: '주 5일', days: 5, preferred: true, regularFive: true },
+        { label: '주 6일', days: 6, preferred: false, regularFive: false },
+        { label: '격주 3일', days: 3.5, preferred: false, regularFive: false },
+        { label: '격주 4일', days: 4.5, preferred: false, regularFive: false },
+        { label: '격주 5일', days: 5.5, preferred: true, regularFive: false }
     ];
 
-    const targetUnits = Math.ceil(requiredExtraBackupWorkDays * 2 - 0.000001);
-    const maxUnits = targetUnits + 12;
-    const bestForUnits = Array(maxUnits + 1).fill(null);
-    bestForUnits[0] = {
+    const targetDays = requiredExtraBackupWorkDays;
+    const maxDays = targetDays + 6;
+    const dayKey = (value) => Number(value).toFixed(1);
+    const bestForDays = new Map();
+    bestForDays.set(dayKey(0), {
         hires: 0,
         preferredCount: 0,
         regularFiveCount: 0,
         counts: Array(recommendationPatterns.length).fill(0)
-    };
+    });
 
-    // 필요한 수요 이상을 충족하는 조합 중 초과량이 가장 작은 구성을 우선합니다.
-    for (let units = 0; units <= maxUnits; units += 1) {
-        const current = bestForUnits[units];
+    // 각 패턴의 실제 환산 일수를 그대로 더합니다. 초과가 가장 적은 조합을 우선 찾습니다.
+    for (let suppliedDays = 0; suppliedDays <= maxDays; suppliedDays = Number((suppliedDays + 0.5).toFixed(1))) {
+        const current = bestForDays.get(dayKey(suppliedDays));
         if (!current) continue;
 
         recommendationPatterns.forEach((pattern, index) => {
-            const nextUnits = units + pattern.units;
-            if (nextUnits > maxUnits) return;
+            const nextDays = Number((suppliedDays + pattern.days).toFixed(1));
+            if (nextDays > maxDays) return;
 
             const candidate = {
                 hires: current.hires + 1,
@@ -301,26 +302,29 @@ export default function BackupDemandAnalysis({ onBack }) {
                 regularFiveCount: current.regularFiveCount + (pattern.regularFive ? 1 : 0),
                 counts: current.counts.map((count, countIndex) => count + (countIndex === index ? 1 : 0))
             };
-            const existing = bestForUnits[nextUnits];
+            const key = dayKey(nextDays);
+            const existing = bestForDays.get(key);
             if (
                 !existing ||
                 candidate.hires < existing.hires ||
                 (candidate.hires === existing.hires && candidate.preferredCount > existing.preferredCount) ||
                 (candidate.hires === existing.hires && candidate.preferredCount === existing.preferredCount && candidate.regularFiveCount > existing.regularFiveCount)
             ) {
-                bestForUnits[nextUnits] = candidate;
+                bestForDays.set(key, candidate);
             }
         });
     }
 
-    let bestUnits = -1;
-    for (let units = targetUnits; units <= maxUnits; units += 1) {
-        if (!bestForUnits[units]) continue;
-        bestUnits = units;
+    let recommendedSuppliedDays = -1;
+    for (let suppliedDays = targetDays; suppliedDays <= maxDays; suppliedDays = Number((suppliedDays + 0.5).toFixed(1))) {
+        if (!bestForDays.has(dayKey(suppliedDays))) continue;
+        recommendedSuppliedDays = suppliedDays;
         break;
     }
 
-    const bestRecommendation = bestUnits >= 0 ? bestForUnits[bestUnits] : null;
+    const bestRecommendation = recommendedSuppliedDays >= 0
+        ? bestForDays.get(dayKey(recommendedSuppliedDays))
+        : null;
     const recommendedPattern = bestRecommendation && bestRecommendation.hires > 0
         ? recommendationPatterns
             .map((pattern, index) => bestRecommendation.counts[index] > 0
@@ -330,8 +334,7 @@ export default function BackupDemandAnalysis({ onBack }) {
             .join(' + ')
         : '초과 0일로 충원 가능한 조합 없음';
     const recommendedHires = bestRecommendation?.hires || 0;
-    const recommendedSuppliedDays = bestUnits >= 0 ? bestUnits / 2 : 0;
-    const recommendedExcessDays = Math.max(0, Math.round((recommendedSuppliedDays - requiredExtraBackupWorkDays) * 10) / 10);
+    const recommendedExcessDays = Math.max(0, Number((recommendedSuppliedDays - requiredExtraBackupWorkDays).toFixed(1)));
 
     const addRoute = () => {
         setPlannedRoutes((current) => {
