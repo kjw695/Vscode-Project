@@ -89,63 +89,59 @@ function PatternChooser({ value, onSelect }) {
     const match = selectedPattern.match(/[1-6]/);
     const selectedDays = match ? Number(match[0]) : 5;
     const isBiweeklySelected = selectedPattern.includes('격주');
-    const daysOptions = [3, 4, 5, 6];
+    const daysOptions = [1, 2, 3, 4, 5, 6];
 
     const selectPatternType = (isBiweekly) => {
         onSelect((isBiweekly ? '격주 ' : '주 ') + selectedDays + '일');
     };
 
-    const selectDays = (days, isBiweekly = isBiweeklySelected) => {
-        onSelect((isBiweekly ? '격주 ' : '주 ') + days + '일');
+    const selectDays = (days) => {
+        onSelect((isBiweeklySelected ? '격주 ' : '주 ') + days + '일');
     };
 
     return (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <div className="mb-3 grid grid-cols-2 gap-1 rounded-lg bg-slate-200/70 p-1" role="tablist" aria-label="근무 패턴 유형">
+        <div className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
+            <div className="mb-3 grid grid-cols-2 gap-1.5 rounded-2xl bg-slate-100 p-1">
                 <button
                     type="button"
-                    role="tab"
-                    aria-selected={!isBiweeklySelected}
+                    aria-pressed={!isBiweeklySelected}
                     onClick={() => selectPatternType(false)}
-                    className={'rounded-md px-3 py-2.5 text-sm font-bold transition-colors ' + (
+                    className={'rounded-xl px-3 py-3 text-base font-bold transition-colors ' + (
                         !isBiweeklySelected
                             ? 'bg-indigo-600 text-white shadow-sm'
-                            : 'text-slate-600 hover:bg-white/70'
+                            : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
                     )}
                 >
-                    일반 근무
+                    일반
                 </button>
                 <button
                     type="button"
-                    role="tab"
-                    aria-selected={isBiweeklySelected}
+                    aria-pressed={isBiweeklySelected}
                     onClick={() => selectPatternType(true)}
-                    className={'rounded-md px-3 py-2.5 text-sm font-bold transition-colors ' + (
+                    className={'rounded-xl px-3 py-3 text-base font-bold transition-colors ' + (
                         isBiweeklySelected
-                            ? 'bg-violet-600 text-white shadow-sm'
-                            : 'text-slate-600 hover:bg-white/70'
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
                     )}
                 >
-                    격주 근무
+                    격주
                 </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label={isBiweeklySelected ? '격주 평균 근무일수 선택' : '주간 근무일수 선택'}>
+            <div className="grid grid-cols-3 gap-2">
                 {daysOptions.map((days) => {
                     const isSelected = days === selectedDays;
-                    const label = isBiweeklySelected ? (days + 0.5).toFixed(1) + '일' : '주 ' + days + '일';
+                    const label = isBiweeklySelected ? (days + 0.5).toFixed(1) + '일' : days + '일';
                     return (
                         <button
                             key={(isBiweeklySelected ? 'biweekly-' : 'regular-') + days}
                             type="button"
                             onClick={() => selectDays(days)}
                             aria-pressed={isSelected}
-                            className={'flex min-h-11 items-center justify-center rounded-lg border px-2 py-3 text-sm font-bold transition-colors ' + (
+                            className={'flex min-h-[60px] items-center justify-center rounded-2xl border-2 px-2 py-3 text-base font-medium transition-colors ' + (
                                 isSelected
-                                    ? (isBiweeklySelected
-                                        ? 'border-violet-600 bg-violet-600 text-white shadow-sm'
-                                        : 'border-indigo-600 bg-indigo-600 text-white shadow-sm')
-                                    : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:bg-indigo-50'
+                                    ? 'border-indigo-600 bg-indigo-50 text-indigo-600'
+                                    : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-200'
                             )}
                         >
                             {label}
@@ -153,11 +149,6 @@ function PatternChooser({ value, onSelect }) {
                     );
                 })}
             </div>
-            <p className="mt-3 text-center text-[11px] text-slate-500">
-                {isBiweeklySelected
-                    ? '격주 근무는 주별 근무일수의 평균으로 계산합니다.'
-                    : '주 3~6일 중 하나를 선택하세요.'}
-            </p>
         </div>
     );
 }
