@@ -90,7 +90,7 @@ function PatternChooser({ value, onSelect }) {
     const selectedDays = match ? Number(match[0]) : 5;
     const isBiweeklySelected = selectedPattern.includes('격주');
 
-    const cyclePattern = (kind, direction) => {
+    const cycleDays = (kind, direction) => {
         const isBiweekly = kind === 'biweekly';
         const currentDays = isBiweeklySelected === isBiweekly ? selectedDays : 5;
         const nextDays = ((currentDays - 1 + direction + 6) % 6) + 1;
@@ -101,54 +101,62 @@ function PatternChooser({ value, onSelect }) {
         const isBiweekly = kind === 'biweekly';
         const isSelectedKind = isBiweeklySelected === isBiweekly;
         const shownDays = isSelectedKind ? selectedDays : 5;
-        const label = isBiweekly
-            ? '격주 ' + (shownDays + 0.5).toFixed(1) + '일'
-            : '주 ' + shownDays + '일';
+        const visibleDays = [
+            ((shownDays - 2 + 6) % 6) + 1,
+            shownDays,
+            (shownDays % 6) + 1
+        ];
 
         return (
-            <div className="flex min-w-0 flex-col items-center px-1">
+            <div
+                className="flex min-w-0 flex-col items-center px-1"
+                onWheel={(event) => cycleDays(kind, event.deltaY > 0 ? 1 : -1)}
+                onTouchStart={(event) => { event.currentTarget.dataset.startY = String(event.touches[0].clientY); }}
+                onTouchEnd={(event) => {
+                    const startY = Number(event.currentTarget.dataset.startY);
+                    const delta = startY - event.changedTouches[0].clientY;
+                    if (Math.abs(delta) > 18) cycleDays(kind, delta > 0 ? 1 : -1);
+                }}
+            >
                 <span className={'mb-1 text-[11px] font-black ' + (isBiweekly ? 'text-violet-700' : 'text-indigo-700')}>
                     {isBiweekly ? '격주 근무' : '일반 근무'}
                 </span>
-                <button
-                    type="button"
-                    onClick={() => cyclePattern(kind, -1)}
-                    aria-label={(isBiweekly ? '격주' : '일반') + ' 근무일수 줄이기'}
-                    className="flex h-5 w-8 items-center justify-center text-slate-400 hover:text-slate-800"
-                >
-                    <ChevronUp size={15} strokeWidth={2.5} />
-                </button>
-                <button
-                    type="button"
-                    onClick={() => onSelect((isBiweekly ? '격주 ' : '주 ') + shownDays + '일')}
-                    aria-pressed={isSelectedKind}
-                    className={'my-0.5 min-w-0 rounded-md px-2 py-1 text-xs font-black ' + (
-                        isSelectedKind
-                            ? (isBiweekly ? 'bg-violet-600 text-white' : 'bg-indigo-600 text-white')
-                            : 'text-slate-500 hover:bg-slate-100'
-                    )}
-                >
-                    {label}
-                </button>
-                <button
-                    type="button"
-                    onClick={() => cyclePattern(kind, 1)}
-                    aria-label={(isBiweekly ? '격주' : '일반') + ' 근무일수 늘리기'}
-                    className="flex h-5 w-8 items-center justify-center text-slate-400 hover:text-slate-800"
-                >
-                    <ChevronDown size={15} strokeWidth={2.5} />
-                </button>
+                <ChevronUp size={14} className="shrink-0 text-slate-300" aria-hidden="true" />
+                <div className="flex w-full flex-col items-center gap-0.5 py-0.5">
+                    {visibleDays.map((days, index) => {
+                        const isCurrent = index === 1;
+                        const label = isBiweekly ? (days + 0.5).toFixed(1) + '일' : days + '일';
+                        return (
+                            <button
+                                key={kind + '-' + days}
+                                type="button"
+                                onClick={() => onSelect((isBiweekly ? '격주 ' : '주 ') + days + '일')}
+                                aria-pressed={isCurrent && isSelectedKind}
+                                className={'w-full rounded-md px-2 py-1 text-xs transition ' + (
+                                    isCurrent
+                                        ? (isSelectedKind
+                                            ? (isBiweekly ? 'bg-violet-600 text-white font-black' : 'bg-indigo-600 text-white font-black')
+                                            : 'bg-slate-200 text-slate-700 font-black')
+                                        : 'text-slate-400 hover:bg-slate-100'
+                                )}
+                            >
+                                {label}
+                            </button>
+                        );
+                    })}
+                </div>
+                <ChevronDown size={14} className="shrink-0 text-slate-300" aria-hidden="true" />
             </div>
         );
     };
 
     return (
-        <div className="rounded-lg bg-slate-50 px-2 py-1.5">
+        <div className="rounded-lg bg-slate-50 px-2 py-2">
             <div className="grid grid-cols-2 divide-x divide-slate-200">
                 {renderCycle('regular')}
                 {renderCycle('biweekly')}
             </div>
-            <p className="mt-1 text-center text-[10px] text-slate-400">화살표로 1~6일 순환 선택</p>
+            <p className="mt-2 text-center text-[10px] text-slate-400">위아래로 밀거나 마우스 휠로 1~6일 순환 선택</p>
         </div>
     );
 }
