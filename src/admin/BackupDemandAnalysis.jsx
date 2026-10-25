@@ -127,15 +127,23 @@ export default function BackupDemandAnalysis({ onBack }) {
         .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ko')),
     [teamEmployees, routes, selectedTeamId]);
 
-    // 실제 배정된 노선을 직원별 근무 패턴으로 펼쳐, 노선마다 필요한 휴무 보충 일수를 계산합니다.
-    const fixedRouteRows = useMemo(() => employeeRows
+    // 휴무 보충 수요는 노선 수가 아니라 실제 고정 직원 수로 계산합니다.
+    // 한 직원에게 여러 노선이 연결되어도 직원의 근무 패턴과 휴무는 한 번만 합산합니다.
+    const fixedEmployeeRows = useMemo(() => employeeRows
         .filter((employee) => employee.isCounted)
-        .flatMap((employee) => employee.routeNames.map((routeName, index) => ({
-            id: String(employee.id) + '-' + String(index) + '-' + routeName,
+        .map((employee) => ({
+            id: String(employee.id),
             name: employee.name || '이름 미등록',
-            routeName,
+            routeName: employee.routeNames.join(', '),
+            routeNames: employee.routeNames,
             pattern: employee.pattern || employee.work_pattern || '주 5일'
-        }))),
+        })),
+    [employeeRows]);
+
+    // 노선 개수 표시는 유지하되, 휴무 보충 일수 계산에는 중복 적용하지 않습니다.
+    const fixedRouteCount = useMemo(() => employeeRows
+        .filter((employee) => employee.isCounted)
+        .reduce((count, employee) => count + employee.routeNames.length, 0),
     [employeeRows]);
 
     const currentBackups = useMemo(() => teamEmployees
@@ -147,10 +155,10 @@ export default function BackupDemandAnalysis({ onBack }) {
         [currentBackups]
     );
 
-    const fixedOffDays = useMemo(() => fixedRouteRows.reduce(
+    const fixedOffDays = useMemo(() => fixedEmployeeRows.reduce(
         (sum, route) => sum + (7 - getAverageWorkDays(route.pattern)),
         0
-    ), [fixedRouteRows]);
+    ), [fixedEmployeeRows]);
 
     const currentBackupWorkDays = useMemo(() => currentBackups.reduce(
         (sum, employee) => sum + getAverageWorkDays(employee.pattern || employee.work_pattern || '주 5일'),
@@ -279,15 +287,15 @@ export default function BackupDemandAnalysis({ onBack }) {
                             <span className="flex min-w-0 items-center gap-2">
                                 <Users size={17} className="shrink-0 text-slate-600" />
                                 <span className="text-sm font-black">기존 고정 직원</span>
-                                <span className="rounded-md bg-slate-200 px-1.5 py-0.5 text-xs font-bold text-slate-700">{fixedRouteRows.length}개 노선</span>
+                                <span className="rounded-md bg-slate-200 px-1.5 py-0.5 text-xs font-bold text-slate-700">{fixedEmployeeRows.length}명</span>
                             </span>
                             {existingEmployeesExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                         </button>
                         {existingEmployeesExpanded && (
                             <div className="space-y-1.5 p-3">
-                                {fixedRouteRows.length === 0 ? (
+                                {fixedEmployeeRows.length === 0 ? (
                                     <p className="px-2 py-4 text-center text-xs text-slate-400">선택한 팀에 노선이 배정된 고정 직원이 없습니다.</p>
-                                ) : fixedRouteRows.map((route) => (
+                                ) : fixedEmployeeRows.map((route) => (
                                     <div key={route.id} className="flex min-w-0 items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
                                         <div className="min-w-0 flex-1">
                                             <p className="truncate text-xs font-bold text-slate-800">{route.name}</p>
@@ -311,7 +319,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                         <div className="flex items-start gap-2 rounded-xl border border-slate-200 p-3">
                             <Truck size={17} className="mt-0.5 shrink-0 text-slate-500" />
                             <p className="min-w-0 text-sm font-bold leading-6 text-slate-800">
-                                고정 노선 {fixedRouteRows.length}개 · 휴무 보충 {formatDays(fixedOffDays)}일/주 · 현재 백업 {currentBackups.length}명 (주 {formatDays(currentBackupWorkDays)}일 근무)
+                                고정 노선 {fixedRouteCount}개 · 고정 직원 {fixedEmployeeRows.length}명 · 휴무 보충 {formatDays(fixedOffDays)}일/주 · 현재 백업 {currentBackups.length}명 (주 {formatDays(currentBackupWorkDays)}일 근무)
                             </p>
                         </div>
 
