@@ -89,57 +89,44 @@ function PatternChooser({ value, onSelect }) {
     const selectedPattern = normalizePattern(value);
     const regularListRef = React.useRef(null);
     const biweeklyListRef = React.useRef(null);
+    const scrollList = (listRef, direction) => {
+        if (listRef.current) listRef.current.scrollBy({ top: direction * 76, behavior: 'smooth' });
+    };
 
-    // 한 번에 3개 패턴만 보이고, 스크롤로 나머지 패턴을 확인할 수 있습니다.
-    useEffect(() => {
-        [regularListRef, biweeklyListRef].forEach((listRef) => {
-            if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
-        });
-    }, []);
+    const renderPatternList = (kind, listRef) => {
+        const isBiweekly = kind === 'biweekly';
+        return (
+            <div className="flex min-w-0 flex-col">
+                <div className={'mb-2 rounded-md px-1 py-2 text-center text-[11px] font-black ' + (isBiweekly ? 'bg-violet-100 text-violet-800' : 'bg-indigo-100 text-indigo-800')}>
+                    {isBiweekly ? '격주 근무' : '일반 근무'}
+                </div>
+                <button type="button" onClick={() => scrollList(listRef, -1)} aria-label={(isBiweekly ? '격주' : '일반') + ' 근무 패턴 위로 이동'} className="mb-1 flex w-full items-center justify-center rounded-md border border-slate-200 bg-white py-1 text-slate-500 hover:bg-slate-100">
+                    <ChevronUp size={16} />
+                </button>
+                <div ref={listRef} className="h-[112px] space-y-1.5 overflow-y-auto overscroll-contain px-0.5 py-0.5">
+                    {daysOptions.map((days) => {
+                        const pattern = (isBiweekly ? '격주 ' : '주 ') + days + '일';
+                        const selected = selectedPattern === pattern;
+                        return (
+                            <button key={pattern} type="button" aria-pressed={selected} onClick={() => onSelect(pattern)}
+                                className={'w-full rounded-lg border px-2 py-2 text-center text-xs font-bold transition ' + (selected ? (isBiweekly ? 'border-violet-500 bg-violet-600 text-white shadow-sm' : 'border-indigo-500 bg-indigo-600 text-white shadow-sm') : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:bg-indigo-50')}>
+                                {isBiweekly ? '격주 ' + (days + 0.5).toFixed(1) + '일' : '주 ' + days + '일'}
+                            </button>
+                        );
+                    })}
+                </div>
+                <button type="button" onClick={() => scrollList(listRef, 1)} aria-label={(isBiweekly ? '격주' : '일반') + ' 근무 패턴 아래로 이동'} className="mt-1 flex w-full items-center justify-center rounded-md border border-slate-200 bg-white py-1 text-slate-500 hover:bg-slate-100">
+                    <ChevronDown size={16} />
+                </button>
+            </div>
+        );
+    };
 
     return (
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
             <div className="grid grid-cols-2 divide-x divide-slate-300">
-                <div className="min-w-0 px-1.5 pr-2">
-                    <div className="mb-2 rounded-md bg-indigo-100 px-1 py-2 text-center text-[11px] font-black text-indigo-800">일반 근무</div>
-                    <div ref={regularListRef} className="h-[108px] space-y-1.5 overflow-y-auto overscroll-contain pr-1">
-                        {daysOptions.map((days) => {
-                            const pattern = '주 ' + days + '일';
-                            const selected = selectedPattern === pattern;
-                            return (
-                                <button
-                                    key={pattern}
-                                    type="button"
-                                    aria-pressed={selected}
-                                    onClick={() => onSelect(pattern)}
-                                    className={'w-full rounded-lg border px-2 py-2 text-center text-xs font-bold transition ' + (selected ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:bg-indigo-50')}
-                                >
-                                    주 {days}일
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-                <div className="min-w-0 pl-2">
-                    <div className="mb-2 rounded-md bg-violet-100 px-1 py-2 text-center text-[11px] font-black text-violet-800">격주 근무</div>
-                    <div ref={biweeklyListRef} className="max-h-[132px] space-y-1.5 overflow-y-auto overscroll-contain pl-0.5">
-                        {daysOptions.map((days) => {
-                            const pattern = '격주 ' + days + '일';
-                            const selected = selectedPattern === pattern;
-                            return (
-                                <button
-                                    key={pattern}
-                                    type="button"
-                                    aria-pressed={selected}
-                                    onClick={() => onSelect(pattern)}
-                                    className={'w-full rounded-lg border px-2 py-2 text-center text-xs font-bold transition ' + (selected ? 'border-violet-500 bg-violet-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-violet-300 hover:bg-violet-50')}
-                                >
-                                    격주 {(days + 0.5).toFixed(1)}일
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
+                <div className="min-w-0 px-1.5 pr-2">{renderPatternList('regular', regularListRef)}</div>
+                <div className="min-w-0 pl-2">{renderPatternList('biweekly', biweeklyListRef)}</div>
             </div>
         </div>
     );
