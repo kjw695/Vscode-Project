@@ -286,14 +286,27 @@ export default function BackupDemandAnalysis({ onBack }) {
         [currentBackups]
     );
 
+    const plannedRouteRows = useMemo(() => Array.from(
+        { length: Number(extraRouteCount) },
+        (_, index) => ({
+            id: '__planned_route_row_' + String(index + 1),
+            name: '예정' + String(index + 1),
+            routeLabel: '추가 예정 노선',
+            pattern: extraRoutePattern,
+            isCounted: true,
+            isPlanned: true
+        })
+    ), [extraRouteCount, extraRoutePattern]);
+
     const filteredEmployeeRows = useMemo(() => {
         const keyword = search.trim().toLocaleLowerCase();
-        if (!keyword) return employeeRows;
-        return employeeRows.filter((employee) =>
+        const rows = plannedRouteRows.concat(employeeRows);
+        if (!keyword) return rows;
+        return rows.filter((employee) =>
             [employee.name, employee.routeLabel, getPatternLabel(employee.pattern || employee.work_pattern)]
                 .some((value) => String(value || '').toLocaleLowerCase().includes(keyword))
         );
-    }, [employeeRows, search]);
+    }, [employeeRows, plannedRouteRows, search]);
 
     const analysis = useMemo(() => {
         if (!selectedTeamId) return null;
@@ -379,7 +392,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                 <span className="rounded-xl bg-indigo-50 p-2 text-indigo-600"><BarChart3 size={21} /></span>
             </header>
 
-            <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-3 p-3 pb-8 sm:gap-4 sm:p-4">
+            <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-3 p-3 pb-36 sm:gap-4 sm:p-4 sm:pb-32">
                 <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
                     <div className="mb-3 flex items-center justify-between gap-2">
                         <div>
@@ -413,31 +426,6 @@ export default function BackupDemandAnalysis({ onBack }) {
                     <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-2 text-[11px] leading-4 text-indigo-800 sm:mt-3 sm:gap-2 sm:rounded-xl sm:px-3 sm:py-2.5 sm:text-xs sm:leading-5">
                         <AlertCircle size={15} className="mt-0.5 shrink-0" />
                         <span>고정 휴무 요일과 날짜별 고정 휴무는 모두 무시합니다. 직원별 주간·격주 근무 횟수는 유지하고, 2주 동안 휴무 요일을 자동 배치해 비교합니다.</span>
-                    </p>
-                </section>
-
-                <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-                    <div className="mb-3">
-                        <h2 className="text-sm font-black">노선 추가 시뮬레이션</h2>
-                        <p className="mt-0.5 text-xs leading-5 text-slate-500">실제 노선이나 직원 정보는 변경하지 않습니다. 가상 노선을 추가해 백업 수요 변화만 계산합니다.</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                        <label className="block">
-                            <span className="mb-1 block text-xs font-bold text-slate-500">추가할 노선 수</span>
-                            <select value={extraRouteCount} onChange={(event) => setExtraRouteCount(Number(event.target.value))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-indigo-400">
-                                {[0, 1, 2, 3, 4, 5].map((count) => <option key={count} value={count}>{count === 0 ? '추가 없음' : count + '개'}</option>)}
-                            </select>
-                        </label>
-                        <label className="block">
-                            <span className="mb-1 block text-xs font-bold text-slate-500">추가 노선의 근무 패턴</span>
-                            <select value={extraRoutePattern} onChange={(event) => setExtraRoutePattern(event.target.value)} disabled={extraRouteCount === 0} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-indigo-400 disabled:bg-slate-50 disabled:text-slate-400">
-                                {['주 5일', '주 6일', '격주 5일', '격주 6일'].map((pattern) => <option key={pattern} value={pattern}>{getPatternLabel(pattern)}</option>)}
-                            </select>
-                        </label>
-                    </div>
-                    <p className="mt-2 rounded-lg bg-slate-50 px-2.5 py-2 text-[11px] leading-4 text-slate-600 sm:mt-3 sm:rounded-xl sm:px-3 sm:py-2.5 sm:text-xs sm:leading-5">
-                        추가 백업의 근무 패턴은 자동으로 적용합니다: <strong>{getPatternLabel(backupPattern)}</strong>
-                        {currentBackups.length === 0 ? ' (등록된 백업이 없어 주 5회 기준)' : ' (현재 백업 직원의 대표 패턴 기준)'}.
                     </p>
                 </section>
 
@@ -475,23 +463,44 @@ export default function BackupDemandAnalysis({ onBack }) {
                                 </div>
                                 <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">2주 필요 {analysis.currentScenario?.totalRequired || 0}회</span>
                             </div>
-                            {[weekOneRows, weekTwoRows].map((weekRows, weekIndex) => (
-                                <div key={weekIndex} className={weekIndex === 0 ? 'mb-4' : ''}>
-                                    <h3 className="mb-2 text-xs font-black text-slate-600">{weekIndex === 0 ? '1주차' : '2주차'} · {weekRows[0]?.date || '날짜 없음'} ~ {weekRows[6]?.date || '날짜 없음'}</h3>
-                                    <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-7 sm:gap-2">
-                                        {weekRows.map((row) => (
-                                            <div key={row.date} className={'min-w-0 rounded-lg border px-2 py-1.5 sm:rounded-xl sm:p-2.5 ' + (row.shortage > 0 ? 'border-rose-200 bg-rose-50' : 'border-slate-200 bg-slate-50')}>
-                                                <div className="flex items-center justify-between gap-1">
-                                                    <span className="text-xs font-black">{row.weekday}</span>
-                                                    <span className="text-[10px] text-slate-500">{row.date.slice(5)}</span>
-                                                </div>
-                                                <div className="mt-1 text-[10px] leading-4 text-slate-600 sm:mt-2 sm:text-[11px] sm:leading-5">필요 {row.needed} · 배정 {row.assigned}</div>
-                                                <div className={'text-[10px] font-black sm:text-xs ' + (row.shortage > 0 ? 'text-rose-700' : 'text-emerald-700')}>부족 {row.shortage}명</div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
+                            <p className="mb-2 text-[10px] text-slate-500">숫자 순서: 필요 / 배정 / 부족 (명)</p>
+                            <div className="overflow-hidden rounded-xl border border-slate-200">
+                                <table className="w-full table-fixed border-collapse text-center">
+                                    <thead>
+                                        <tr className="bg-slate-50 text-[10px] sm:text-xs">
+                                            <th className="w-[16%] border-b border-slate-200 px-1.5 py-2 text-left font-bold text-slate-500">요일</th>
+                                            <th className="w-[42%] border-b border-r border-slate-200 px-1 py-2 font-black text-indigo-700">
+                                                <div>1주차</div>
+                                                <div className="mt-0.5 text-[9px] font-normal text-slate-500 sm:text-[10px]">{weekOneRows[0]?.date?.slice(5)}~{weekOneRows[6]?.date?.slice(5)}</div>
+                                            </th>
+                                            <th className="w-[42%] border-b border-slate-200 px-1 py-2 font-black text-indigo-700">
+                                                <div>2주차</div>
+                                                <div className="mt-0.5 text-[9px] font-normal text-slate-500 sm:text-[10px]">{weekTwoRows[0]?.date?.slice(5)}~{weekTwoRows[6]?.date?.slice(5)}</div>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {weekOneRows.map((row, dayIndex) => {
+                                            const nextWeekRow = weekTwoRows[dayIndex];
+                                            const cellText = (item) => item ? item.needed + ' / ' + item.assigned + ' / ' + item.shortage : '—';
+                                            return (
+                                                <tr key={row.date} className="border-b border-slate-100 last:border-b-0">
+                                                    <th className="bg-white px-1.5 py-2 text-left text-[11px] font-black text-slate-700 sm:text-xs">
+                                                        {row.weekday}
+                                                        <span className="ml-1 text-[9px] font-normal text-slate-400 sm:text-[10px]">{row.date.slice(5)}</span>
+                                                    </th>
+                                                    <td className={'border-l border-r border-slate-100 px-1 py-2 text-[11px] font-bold tabular-nums sm:text-xs ' + (row.shortage > 0 ? 'bg-rose-50 text-rose-700' : 'text-slate-700')}>
+                                                        {cellText(row)}
+                                                    </td>
+                                                    <td className={'px-1 py-2 text-[11px] font-bold tabular-nums sm:text-xs ' + ((nextWeekRow?.shortage || 0) > 0 ? 'bg-rose-50 text-rose-700' : 'text-slate-700')}>
+                                                        {cellText(nextWeekRow)}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
                         </section>
 
                         <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
@@ -537,7 +546,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                             <h2 className="text-sm font-black">고정 직원 근무 패턴</h2>
                             <p className="mt-0.5 text-xs text-slate-500">이름 · 노선 · 주간/격주 근무 횟수</p>
                         </div>
-                        <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">{employeeRows.length}명</span>
+                        <span className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600 sm:text-xs">직원 {employeeRows.length}명 · 예정 {plannedRouteRows.length}개</span>
                     </div>
                     <label className="mb-3 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
                         <Search size={16} className="text-slate-400" />
@@ -553,9 +562,11 @@ export default function BackupDemandAnalysis({ onBack }) {
                                     <div className="min-w-0 flex-1">
                                         <div className="flex min-w-0 items-center gap-1.5">
                                             <span className="max-w-[5.5rem] truncate text-xs font-black text-slate-800 sm:max-w-none sm:text-sm">{employee.name}</span>
-                                            {employee.isCounted
-                                                ? <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">계산 포함</span>
-                                                : <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">노선 미배정</span>}
+                                            {employee.isPlanned
+                                                ? <span className="rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700">추가 예정</span>
+                                                : employee.isCounted
+                                                    ? <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">계산 포함</span>
+                                                    : <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">노선 미배정</span>}
                                         </div>
                                         <p className="truncate text-[11px] text-slate-600 sm:mt-0.5 sm:text-xs">{employee.routeLabel}</p>
                                     </div>
@@ -572,6 +583,29 @@ export default function BackupDemandAnalysis({ onBack }) {
                     분석은 선택한 팀의 활성 고정 직원에게 노선이 배정된 경우를 기준으로 계산합니다. 노선 미배정 직원은 목록에 표시하지만 수요 계산에서는 제외합니다. 기존 직원의 정보나 고정 휴무 설정은 수정하지 않습니다.
                 </p>
             </main>
+
+            <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 shadow-[0_-4px_14px_rgba(15,23,42,0.08)] backdrop-blur">
+                <div className="mx-auto max-w-6xl px-3 pt-2 sm:px-4" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                        <h2 className="text-xs font-black text-slate-800">노선 추가 시뮬레이션</h2>
+                        <span className="text-[10px] text-slate-500">변경 즉시 반영</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        <label className="min-w-0">
+                            <span className="mb-1 block text-[10px] font-bold text-slate-500">추가할 노선</span>
+                            <select value={extraRouteCount} onChange={(event) => setExtraRouteCount(Number(event.target.value))} className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs outline-none focus:border-indigo-400 sm:text-sm">
+                                {[0, 1, 2, 3, 4, 5].map((count) => <option key={count} value={count}>{count === 0 ? '추가 없음' : count + '개 추가'}</option>)}
+                            </select>
+                        </label>
+                        <label className="min-w-0">
+                            <span className="mb-1 block text-[10px] font-bold text-slate-500">추가 노선 근무 패턴</span>
+                            <select value={extraRoutePattern} onChange={(event) => setExtraRoutePattern(event.target.value)} disabled={extraRouteCount === 0} className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs outline-none focus:border-indigo-400 disabled:bg-slate-50 disabled:text-slate-400 sm:text-sm">
+                                {['주 5일', '주 6일', '격주 5일', '격주 6일'].map((pattern) => <option key={pattern} value={pattern}>{getPatternLabel(pattern)}</option>)}
+                            </select>
+                        </label>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
