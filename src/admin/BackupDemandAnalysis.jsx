@@ -262,31 +262,42 @@ export default function BackupDemandAnalysis({ onBack }) {
     // 현재 인원과 추가 인원의 전체 휴무일수에서 현재 백업 근무일수를 제외해 부족 일수를 계산합니다.
     const totalOffDays = fixedOffDays + extraOffDays;
     const requiredExtraBackupWorkDays = Math.max(0, totalOffDays - currentBackupWorkDays);
-    // Choose a regular 3–6 day pattern that covers the demand with the least excess.
-    const recommendationOptions = [3, 4, 5, 6].map((days) => {
-        const hires = requiredExtraBackupWorkDays > 0
-            ? Math.ceil(requiredExtraBackupWorkDays / days)
-            : 0;
-        const suppliedDays = hires * days;
-        return {
-            pattern: '주 ' + days + '일',
-            days,
-            hires,
-            suppliedDays,
-            excessDays: suppliedDays - requiredExtraBackupWorkDays
-        };
-    });
+    // Prefer combinations of regular 5-day and biweekly 5-day (5.5-day average) staff.
+    // Search combinations so half-day weekly averages are included and excess coverage is minimized.
+    const recommendationOptions = [];
+    if (requiredExtraBackupWorkDays > 0) {
+        const maxHires = Math.ceil(requiredExtraBackupWorkDays / 5) + 2;
+        for (let regularFiveDay = 0; regularFiveDay <= maxHires; regularFiveDay += 1) {
+            for (let biweeklyFiveDay = 0; biweeklyFiveDay <= maxHires; biweeklyFiveDay += 1) {
+                const hires = regularFiveDay + biweeklyFiveDay;
+                if (hires === 0) continue;
+                const suppliedDays = regularFiveDay * 5 + biweeklyFiveDay * 5.5;
+                if (suppliedDays < requiredExtraBackupWorkDays) continue;
+                recommendationOptions.push({
+                    regularFiveDay,
+                    biweeklyFiveDay,
+                    hires,
+                    suppliedDays,
+                    excessDays: Math.round((suppliedDays - requiredExtraBackupWorkDays) * 10) / 10
+                });
+            }
+        }
+    }
     const bestRecommendation = recommendationOptions
-        .slice()
         .sort((a, b) =>
             a.excessDays - b.excessDays ||
             a.hires - b.hires ||
-            b.days - a.days
+            b.biweeklyFiveDay - a.biweeklyFiveDay
         )[0];
-    const recommendedPattern = bestRecommendation?.pattern || '주 5일';
-    const recommendedHires = requiredExtraBackupWorkDays > 0 ? bestRecommendation.hires : 0;
-    const recommendedSuppliedDays = requiredExtraBackupWorkDays > 0 ? bestRecommendation.suppliedDays : 0;
-    const recommendedExcessDays = requiredExtraBackupWorkDays > 0 ? bestRecommendation.excessDays : 0;
+    const recommendedPattern = bestRecommendation
+        ? [
+            bestRecommendation.regularFiveDay > 0 ? '주 5일 ' + bestRecommendation.regularFiveDay + '명' : '',
+            bestRecommendation.biweeklyFiveDay > 0 ? '격주 5일 ' + bestRecommendation.biweeklyFiveDay + '명' : ''
+        ].filter(Boolean).join(' + ')
+        : '주 5일';
+    const recommendedHires = bestRecommendation?.hires || 0;
+    const recommendedSuppliedDays = bestRecommendation?.suppliedDays || 0;
+    const recommendedExcessDays = bestRecommendation?.excessDays || 0;
 
     const addRoute = () => {
         setPlannedRoutes((current) => {
@@ -398,7 +409,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                                             </div>
                                             {isEditorOpen && (
                                                 <div className="border-t border-slate-100 p-2">
-                                                    <PatternChooser value={route.pattern} onSelect={(pattern) => { updateRoutePattern(route.id, pattern); }} />
+                                                    <PatternChooser value={route.pattern} onSelect={(pattern) => { updateRoutePattern(route.id, pattern); setOpenPatternEditor(null); }} />
                                                 </div>
                                             )}
                                         </div>
@@ -456,6 +467,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                                                         value={employee.pattern}
                                                         onSelect={(pattern) => {
                                                             setPatternOverrides((current) => ({ ...current, [employee.id]: pattern }));
+                                                            setOpenPatternEditor(null);
                                                         }}
                                                     />
                                                     <p className="mt-2 text-center text-[10px] text-slate-400">분석용 임시 변경이며 실제 직원 설정은 저장하지 않습니다.</p>
@@ -558,7 +570,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                                 <p className="mt-1 text-xl font-black text-violet-700 sm:text-2xl">부족 {formatDays(requiredExtraBackupWorkDays)}일/주</p>
                                 <div className="my-2 border-t border-violet-200 sm:my-3" />
                                 <p className="break-words text-2xl font-black leading-tight text-violet-900 sm:text-3xl">
-                                    {recommendedPattern} 백업 {recommendedHires}명 추가
+                                    {recommendedPattern} 추가
                                 </p>
                                 <p className="mt-1 text-xs font-medium text-violet-700 sm:text-sm">
                                     추가 근무 {formatDays(recommendedSuppliedDays)}일/주 · 초과 {formatDays(recommendedExcessDays)}일/주
