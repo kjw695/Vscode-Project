@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     ArrowLeft,
     BarChart3,
@@ -89,100 +89,75 @@ function PatternChooser({ value, onSelect }) {
     const match = selectedPattern.match(/[1-6]/);
     const selectedDays = match ? Number(match[0]) : 5;
     const isBiweeklySelected = selectedPattern.includes('격주');
-    const regularRef = useRef(null);
-    const biweeklyRef = useRef(null);
-    const scrollLockRef = useRef({ regular: false, biweekly: false });
-    const scrollTimerRef = useRef({ regular: null, biweekly: null });
+    const daysOptions = [3, 4, 5, 6];
 
-    const scrollToSelected = (kind, pattern) => {
-        const ref = kind === 'biweekly' ? biweeklyRef : regularRef;
-        const daysMatch = normalizePattern(pattern).match(/[1-6]/);
-        const days = daysMatch ? Number(daysMatch[0]) : 5;
-        const element = ref.current;
-        if (!element) return;
-        scrollLockRef.current[kind] = true;
-        element.scrollTop = (days - 1) * 36;
-        requestAnimationFrame(() => {
-            scrollLockRef.current[kind] = false;
-        });
+    const selectPatternType = (isBiweekly) => {
+        onSelect((isBiweekly ? '격주 ' : '주 ') + selectedDays + '일');
     };
 
-    useEffect(() => {
-        scrollToSelected('regular', isBiweeklySelected ? '주 5일' : selectedPattern);
-        scrollToSelected('biweekly', isBiweeklySelected ? selectedPattern : '격주 5일');
-    }, [selectedPattern, isBiweeklySelected]);
-
-    const renderCycle = (kind) => {
-        const isBiweekly = kind === 'biweekly';
-        const isSelectedKind = isBiweeklySelected === isBiweekly;
-        const selected = isSelectedKind ? selectedDays : 5;
-        const ref = isBiweekly ? biweeklyRef : regularRef;
-
-        const handleScroll = () => {
-            if (scrollLockRef.current[kind]) return;
-            if (scrollTimerRef.current[kind]) clearTimeout(scrollTimerRef.current[kind]);
-            scrollTimerRef.current[kind] = setTimeout(() => {
-                const element = ref.current;
-                if (!element) return;
-                const days = Math.max(1, Math.min(6, Math.round(element.scrollTop / 36) + 1));
-                const nextPattern = (isBiweekly ? '격주 ' : '주 ') + days + '일';
-                if (normalizePattern(value) !== nextPattern) onSelect(nextPattern);
-            }, 80);
-        };
-
-        return (
-            <div className="flex min-w-0 flex-col items-center px-1">
-                <span className={'mb-1 text-[11px] font-black ' + (isBiweekly ? 'text-violet-700' : 'text-indigo-700')}>
-                    {isBiweekly ? '격주 근무' : '일반 근무'}
-                </span>
-                <ChevronUp size={14} className="shrink-0 text-slate-300" aria-hidden="true" />
-                <div
-                    ref={ref}
-                    onScroll={handleScroll}
-                    className="h-[108px] w-full overflow-y-auto overscroll-contain scroll-smooth"
-                    style={{ scrollSnapType: 'y mandatory', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
-                >
-                    <div className="h-[36px]" aria-hidden="true" />
-                    {Array.from({ length: 6 }, (_, index) => index + 1).map((days) => {
-                        const isCurrent = days === selected;
-                        const label = isBiweekly ? (days + 0.5).toFixed(1) + '일' : days + '일';
-                        return (
-                            <button
-                                key={kind + '-' + days}
-                                type="button"
-                                onClick={() => {
-                                    const nextPattern = (isBiweekly ? '격주 ' : '주 ') + days + '일';
-                                    onSelect(nextPattern);
-                                    scrollToSelected(kind, nextPattern);
-                                }}
-                                aria-pressed={isCurrent && isSelectedKind}
-                                className={'flex h-[36px] w-full shrink-0 snap-center items-center justify-center rounded-md px-2 text-xs transition-colors ' + (
-                                    isCurrent
-                                        ? (isSelectedKind
-                                            ? (isBiweekly ? 'bg-violet-600 text-white font-black' : 'bg-indigo-600 text-white font-black')
-                                            : 'bg-slate-200 text-slate-700 font-black')
-                                        : 'text-slate-400 hover:bg-slate-100'
-                                )}
-                                style={{ scrollSnapAlign: 'center' }}
-                            >
-                                {label}
-                            </button>
-                        );
-                    })}
-                    <div className="h-[36px]" aria-hidden="true" />
-                </div>
-                <ChevronDown size={14} className="shrink-0 text-slate-300" aria-hidden="true" />
-            </div>
-        );
+    const selectDays = (days, isBiweekly = isBiweeklySelected) => {
+        onSelect((isBiweekly ? '격주 ' : '주 ') + days + '일');
     };
 
     return (
-        <div className="rounded-lg bg-slate-50 px-2 py-2">
-            <div className="grid grid-cols-2 divide-x divide-slate-200">
-                {renderCycle('regular')}
-                {renderCycle('biweekly')}
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div className="mb-3 grid grid-cols-2 gap-1 rounded-lg bg-slate-200/70 p-1" role="tablist" aria-label="근무 패턴 유형">
+                <button
+                    type="button"
+                    role="tab"
+                    aria-selected={!isBiweeklySelected}
+                    onClick={() => selectPatternType(false)}
+                    className={'rounded-md px-3 py-2.5 text-sm font-bold transition-colors ' + (
+                        !isBiweeklySelected
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-slate-600 hover:bg-white/70'
+                    )}
+                >
+                    일반 근무
+                </button>
+                <button
+                    type="button"
+                    role="tab"
+                    aria-selected={isBiweeklySelected}
+                    onClick={() => selectPatternType(true)}
+                    className={'rounded-md px-3 py-2.5 text-sm font-bold transition-colors ' + (
+                        isBiweeklySelected
+                            ? 'bg-violet-600 text-white shadow-sm'
+                            : 'text-slate-600 hover:bg-white/70'
+                    )}
+                >
+                    격주 근무
+                </button>
             </div>
-            <p className="mt-2 text-center text-[10px] text-slate-400">목록을 위아래로 스크롤해 선택하세요. 가운데 항목이 선택됩니다.</p>
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label={isBiweeklySelected ? '격주 평균 근무일수 선택' : '주간 근무일수 선택'}>
+                {daysOptions.map((days) => {
+                    const isSelected = days === selectedDays;
+                    const label = isBiweeklySelected ? (days + 0.5).toFixed(1) + '일' : '주 ' + days + '일';
+                    return (
+                        <button
+                            key={(isBiweeklySelected ? 'biweekly-' : 'regular-') + days}
+                            type="button"
+                            onClick={() => selectDays(days)}
+                            aria-pressed={isSelected}
+                            className={'flex min-h-11 items-center justify-center rounded-lg border px-2 py-3 text-sm font-bold transition-colors ' + (
+                                isSelected
+                                    ? (isBiweeklySelected
+                                        ? 'border-violet-600 bg-violet-600 text-white shadow-sm'
+                                        : 'border-indigo-600 bg-indigo-600 text-white shadow-sm')
+                                    : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:bg-indigo-50'
+                            )}
+                        >
+                            {label}
+                        </button>
+                    );
+                })}
+            </div>
+            <p className="mt-3 text-center text-[11px] text-slate-500">
+                {isBiweeklySelected
+                    ? '격주 근무는 주별 근무일수의 평균으로 계산합니다.'
+                    : '주 3~6일 중 하나를 선택하세요.'}
+            </p>
         </div>
     );
 }
