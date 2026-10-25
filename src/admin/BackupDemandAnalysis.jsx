@@ -342,7 +342,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                         {plannedRoutes.length > 0 ? (
                             <>
                                 <p className="mt-2 text-xl font-black leading-7">
-                                    주 {formatDays(backupPatternDays)}일 백업 {recommendedHires}명 추가
+                                    {getPatternLabel(backupPattern)} 백업 {recommendedHires}명 추가
                                 </p>
                                 <p className="mt-1 text-xs leading-5 text-slate-300">
                                     추가 노선의 주간 휴무 보충 일수를 기준으로 계산한 예상 인원입니다.
