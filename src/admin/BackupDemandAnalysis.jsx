@@ -405,23 +405,29 @@ export default function BackupDemandAnalysis({ onBack }) {
 
                 <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
                     <div className="mb-3">
-                        <h2 className="text-sm font-black">고정 직원 근무 패턴</h2>
-                        <p className="mt-0.5 text-xs text-slate-500">신규 노선은 한 개씩 추가하고, 근무 패턴을 각각 선택합니다.</p>
+                        <h2 className="text-sm font-black">인원 구성</h2>
+                        <p className="mt-0.5 text-xs text-slate-500">신규 인원과 기존 인원의 근무 패턴을 설정하세요.</p>
                     </div>
 
-                    <div className="overflow-hidden rounded-xl border border-slate-200">
-                        <button type="button" onClick={() => setNewRoutesExpanded((open) => !open)} className="flex w-full items-center justify-between gap-2 bg-slate-50 px-3 py-3 text-left hover:bg-slate-100">
-                            <span className="flex min-w-0 items-center gap-2">
-                                <Truck size={17} className="shrink-0 text-indigo-600" />
-                                <span className="text-sm font-black">신규 노선</span>
-                                <span className="rounded-md bg-indigo-100 px-1.5 py-0.5 text-xs font-bold text-indigo-700">{plannedRoutes.length}개</span>
-                            </span>
-                            {newRoutesExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                        </button>
+                    <div id="new-personnel-section" className="scroll-mt-3 overflow-hidden rounded-xl border border-slate-200">
+                        <div className="flex items-stretch gap-2 bg-slate-50 p-2">
+                            <button type="button" onClick={() => setNewRoutesExpanded((open) => !open)} className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg px-1 py-1 text-left hover:bg-slate-100">
+                                <span className="flex min-w-0 items-center gap-2">
+                                    <Truck size={17} className="shrink-0 text-indigo-600" />
+                                    <span className="truncate text-sm font-black">신규 인원</span>
+                                    <span className="shrink-0 rounded-md bg-indigo-100 px-1.5 py-0.5 text-xs font-bold text-indigo-700">{plannedRoutes.length}명</span>
+                                </span>
+                                {newRoutesExpanded ? <ChevronUp size={18} className="shrink-0" /> : <ChevronDown size={18} className="shrink-0" />}
+                            </button>
+                            <button type="button" onClick={addRoute} disabled={plannedRoutes.length >= MAX_EXTRA_ROUTES} className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-2 text-xs font-black text-white shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300 sm:px-3 sm:text-sm">
+                                <Plus size={16} />
+                                추가
+                            </button>
+                        </div>
                         {newRoutesExpanded && (
                             <div className="space-y-2 p-3">
                                 {plannedRoutes.length === 0 ? (
-                                    <p className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-400">아직 추가된 노선이 없습니다. 아래 ‘노선 추가’를 눌러 시작하세요.</p>
+                                    <p className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-400">아직 추가된 인원이 없습니다. 오른쪽 ‘추가’를 눌러 시작하세요.</p>
                                 ) : plannedRoutes.map((route, index) => {
                                     const editorKey = 'new:' + route.id;
                                     const isEditorOpen = openPatternEditor === editorKey;
@@ -457,11 +463,11 @@ export default function BackupDemandAnalysis({ onBack }) {
                         )}
                     </div>
 
-                    <div className="mt-2 overflow-hidden rounded-xl border border-slate-200">
+                    <div id="existing-personnel-section" className="mt-2 scroll-mt-3 overflow-hidden rounded-xl border border-slate-200">
                         <button type="button" onClick={() => setExistingEmployeesExpanded((open) => !open)} className="flex w-full items-center justify-between gap-2 bg-slate-50 px-3 py-3 text-left hover:bg-slate-100">
                             <span className="flex min-w-0 items-center gap-2">
                                 <Users size={17} className="shrink-0 text-slate-600" />
-                                <span className="text-sm font-black">기존 고정 직원</span>
+                                <span className="text-sm font-black">기존 인원</span>
                                 <span className="rounded-md bg-slate-200 px-1.5 py-0.5 text-xs font-bold text-slate-700">{fixedEmployeeRows.length}명</span>
                             </span>
                             {existingEmployeesExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
@@ -518,7 +524,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                     </div>
                 </section>
 
-                <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:p-4">
+                <section id="demand-prediction-section" className="min-w-0 scroll-mt-3 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:p-4">
                     <div className="mb-2 flex items-center justify-center gap-2 sm:mb-3">
                         <Users size={22} className="shrink-0 text-indigo-600 sm:h-7 sm:w-7" />
                         <h2 className="text-lg font-black text-slate-800 sm:text-2xl">백업 수요 요약</h2>
@@ -606,9 +612,16 @@ export default function BackupDemandAnalysis({ onBack }) {
                             <>
                                 <p className="mt-1 text-xl font-black text-violet-700 sm:text-2xl">부족 {formatDays(requiredExtraBackupWorkDays)}일</p>
                                 <div className="my-2 border-t border-violet-200 sm:my-3" />
-                                <p className="break-words text-2xl font-black leading-tight text-violet-900 sm:text-3xl">
-                                    {recommendedHires > 0 ? recommendedPattern + ' 추가' : '초과 0일로 충원 가능한 조합 없음'}
-                                </p>
+                                <div className="mx-auto flex w-full max-w-full flex-wrap items-center justify-center gap-1.5">
+                                    {(recommendedHires > 0 ? recommendedPattern + ' 추가' : '초과 0일로 충원 가능한 조합 없음').split(' + ').map((item, index) => (
+                                        <React.Fragment key={item + '-' + index}>
+                                            {index > 0 && <span className="px-0.5 text-sm font-black text-violet-700 sm:text-lg">+</span>}
+                                            <span className="inline-flex max-w-full items-center whitespace-nowrap rounded-lg border border-violet-200 bg-white/80 px-2 py-1 text-[clamp(0.7rem,3.6vw,1.5rem)] font-black leading-tight text-violet-900 sm:px-3 sm:py-1.5 sm:text-2xl">
+                                                {item}
+                                            </span>
+                                        </React.Fragment>
+                                    ))}
+                                </div>
                                 <p className="mt-1 text-xs font-medium text-violet-700 sm:text-sm">
                                     추가 충원 {formatDays(recommendedSuppliedDays)}일 · 초과 {formatDays(recommendedExcessDays)}일
                                 </p>
@@ -625,18 +638,22 @@ export default function BackupDemandAnalysis({ onBack }) {
                 </p>
             </main>
 
-            <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 shadow-[0_-4px_14px_rgba(15,23,42,0.08)] backdrop-blur">
-                <div className="mx-auto flex max-w-5xl items-center gap-3 px-3 py-2.5 sm:px-4" style={{ paddingBottom: 'max(0.65rem, env(safe-area-inset-bottom))' }}>
-                    <div className="min-w-0 flex-1">
-                        <p className="text-xs font-black text-slate-800">노선 추가 시뮬레이션</p>
-                        <p className="mt-0.5 text-[10px] text-slate-500">한 번에 한 개씩 · 패턴별 자동 계산</p>
-                    </div>
-                    <button type="button" onClick={addRoute} disabled={plannedRoutes.length >= MAX_EXTRA_ROUTES} className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-black text-white shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300">
-                        <Plus size={18} />
-                        노선 추가
+            <nav aria-label="수요 분석 바로가기" className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 shadow-[0_-4px_14px_rgba(15,23,42,0.08)] backdrop-blur">
+                <div className="mx-auto grid max-w-5xl grid-cols-3 gap-1 px-2 pt-2 sm:gap-2 sm:px-4" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
+                    <button type="button" onClick={() => document.getElementById('new-personnel-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-indigo-700 transition-colors hover:bg-indigo-50">
+                        <Truck size={18} className="shrink-0" />
+                        <span className="whitespace-nowrap text-[clamp(0.65rem,2.8vw,0.875rem)] font-black">신규 인원</span>
+                    </button>
+                    <button type="button" onClick={() => document.getElementById('existing-personnel-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-slate-700 transition-colors hover:bg-slate-100">
+                        <Users size={18} className="shrink-0" />
+                        <span className="whitespace-nowrap text-[clamp(0.65rem,2.8vw,0.875rem)] font-black">기존 인원</span>
+                    </button>
+                    <button type="button" onClick={() => document.getElementById('demand-prediction-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-slate-700 transition-colors hover:bg-slate-100">
+                        <BarChart3 size={18} className="shrink-0" />
+                        <span className="whitespace-nowrap text-[clamp(0.65rem,2.8vw,0.875rem)] font-black">수요 예측</span>
                     </button>
                 </div>
-            </div>
+            </nav>
         </div>
     );
 }
