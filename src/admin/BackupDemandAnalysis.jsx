@@ -195,7 +195,6 @@ export default function BackupDemandAnalysis({ onBack }) {
         { value: '격주 6일', label: '격주 6.5일' }
     ];
 
-    const hasNoRoutes = fixedRouteRows.length === 0 && plannedRoutes.length === 0;
 
     return (
         <div className="admin-safe-top flex min-h-screen w-full flex-col bg-slate-50 font-sans text-slate-800">
@@ -309,55 +308,24 @@ export default function BackupDemandAnalysis({ onBack }) {
                     </div>
 
                     <div className="space-y-2">
-                        <div className="rounded-xl border border-slate-200 p-3">
-                            <p className="text-xs font-bold text-slate-500">고정 노선</p>
-                            <p className="mt-1 text-sm font-black leading-6">
-                                고정 노선 {fixedRouteRows.length}개 · 휴무 보충 {formatDays(fixedOffDays)}일/주
-                            </p>
-                            <p className="mt-1 text-xs text-slate-600">
-                                현재 백업 {currentBackups.length}명 · 주 {formatDays(currentBackupWorkDays)}일 근무 가능
+                        <div className="flex items-start gap-2 rounded-xl border border-slate-200 p-3">
+                            <Truck size={17} className="mt-0.5 shrink-0 text-slate-500" />
+                            <p className="min-w-0 text-sm font-bold leading-6 text-slate-800">
+                                고정 노선 {fixedRouteRows.length}개 · 휴무 보충 {formatDays(fixedOffDays)}일/주 · 현재 백업 {currentBackups.length}명 (주 {formatDays(currentBackupWorkDays)}일 근무)
                             </p>
                         </div>
 
-                        <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-3">
-                            <p className="text-xs font-bold text-indigo-700">추가 노선</p>
-                            <p className="mt-1 text-sm font-black leading-6">
-                                추가 노선 {plannedRoutes.length}개 · 휴무 보충 {formatDays(extraOffDays)}일/주
+                        <div className="flex items-start gap-2 rounded-xl border border-indigo-200 bg-indigo-50/60 p-3">
+                            <Users size={17} className="mt-0.5 shrink-0 text-indigo-600" />
+                            <p className="min-w-0 text-sm font-bold leading-6 text-slate-800">
+                                추가 노선 {plannedRoutes.length}개 · 휴무 보충 {formatDays(extraOffDays)}일/주 · {plannedRoutes.length > 0 ? <span className="font-black text-indigo-700">{getPatternLabel(backupPattern)} 백업 {recommendedHires}명 추가 필요</span> : <span className="font-medium text-slate-500">노선 추가 시 채용 인원 계산</span>}
                             </p>
-                            {plannedRoutes.length > 0 ? (
-                                <p className="mt-1 text-xs text-slate-600">
-                                    {getPatternLabel(backupPattern)} 백업 기준 · {formatDays(extraOffDays)}일 ÷ {formatDays(backupPatternDays)}일
-                                </p>
-                            ) : (
-                                <p className="mt-1 text-xs text-slate-500">노선을 추가하면 필요한 백업 인원을 계산합니다.</p>
-                            )}
                         </div>
                     </div>
 
-                    <div className="mt-3 rounded-xl bg-slate-900 p-4 text-white">
-                        <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
-                            <UserRound size={16} />
-                            추가 채용 안내
-                        </div>
-                        {plannedRoutes.length > 0 ? (
-                            <>
-                                <p className="mt-2 text-xl font-black leading-7">
-                                    {getPatternLabel(backupPattern)} 백업 {recommendedHires}명 추가
-                                </p>
-                                <p className="mt-1 text-xs leading-5 text-slate-300">
-                                    추가 노선의 주간 휴무 보충 일수를 기준으로 계산한 예상 인원입니다.
-                                </p>
-                            </>
-                        ) : (
-                            <p className="mt-2 text-sm font-bold text-white">노선을 추가하면 필요한 추가 인원이 표시됩니다.</p>
-                        )}
-                    </div>
-
-                    {hasNoRoutes && (
-                        <p className="mt-3 text-xs leading-5 text-slate-500">
-                            고정 노선이 없는 상태입니다. 신규 노선을 추가하면 예상 백업 근무일수와 채용 인원을 계산합니다.
-                        </p>
-                    )}
+                    <p className="mt-3 text-[11px] leading-5 text-slate-400">
+                        격주 5일은 주 평균 5.5일, 격주 6일은 주 평균 6.5일 근무로 계산합니다. 추가 채용 인원은 추가 노선의 주간 휴무 보충 일수를 기준으로 산출합니다.
+                    </p>
                 </section>
                 <p className="px-1 text-[11px] leading-5 text-slate-400">
                     격주 5일은 주 평균 5.5일 근무, 격주 6일은 주 평균 6.5일 근무로 계산합니다. 기존 직원과 백업의 등록된 근무 패턴은 변경하지 않습니다.
