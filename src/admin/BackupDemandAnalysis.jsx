@@ -85,12 +85,66 @@ function getRouteNames(employee, routes, teamId) {
     return [];
 }
 
+function PatternChooser({ value, onSelect }) {
+    const daysOptions = [3, 4, 5, 6];
+    const selectedPattern = normalizePattern(value);
+
+    return (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+            <div className="grid grid-cols-2 gap-2">
+                <div className="min-w-0">
+                    <div className="mb-1.5 rounded-md bg-white px-1 py-2 text-center text-[11px] font-black text-slate-600">일반 근무</div>
+                    <div className="space-y-1.5">
+                        {daysOptions.map((days) => {
+                            const pattern = '주 ' + days + '일';
+                            const selected = selectedPattern === pattern;
+                            return (
+                                <button
+                                    key={pattern}
+                                    type="button"
+                                    aria-pressed={selected}
+                                    onClick={() => onSelect(pattern)}
+                                    className={'w-full rounded-lg border px-2 py-2.5 text-center text-xs font-bold transition ' + (selected ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:bg-indigo-50')}
+                                >
+                                    주 {days}일
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+                <div className="min-w-0">
+                    <div className="mb-1.5 rounded-md bg-white px-1 py-2 text-center text-[11px] font-black text-slate-600">격주 근무</div>
+                    <div className="space-y-1.5">
+                        {daysOptions.map((days) => {
+                            const pattern = '격주 ' + days + '일';
+                            const selected = selectedPattern === pattern;
+                            return (
+                                <button
+                                    key={pattern}
+                                    type="button"
+                                    aria-pressed={selected}
+                                    onClick={() => onSelect(pattern)}
+                                    className={'w-full rounded-lg border px-2 py-2.5 text-center text-xs font-bold transition ' + (selected ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:bg-indigo-50')}
+                                >
+                                    격주 {(days + 0.5).toFixed(1)}일
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function BackupDemandAnalysis({ onBack }) {
     const { employees = [], teams = [], routes = [] } = useAdminData();
     const [selectedRegion, setSelectedRegion] = useState(() => getRegion(teams[0]));
     const [selectedShift, setSelectedShift] = useState(() => getShift(teams[0]));
     const [selectedTeamId, setSelectedTeamId] = useState(() => teams[0]?.id || '');
     const [plannedRoutes, setPlannedRoutes] = useState([]);
+    const [patternOverrides, setPatternOverrides] = useState({});
+    const [openPatternEditor, setOpenPatternEditor] = useState(null);
     const [newRoutesExpanded, setNewRoutesExpanded] = useState(true);
     const [existingEmployeesExpanded, setExistingEmployeesExpanded] = useState(false);
 
@@ -128,17 +182,22 @@ export default function BackupDemandAnalysis({ onBack }) {
     [teamEmployees, routes, selectedTeamId]);
 
     // 휴무 보충 수요는 노선 수가 아니라 실제 고정 직원 수로 계산합니다.
-    // 한 직원에게 여러 노선이 연결되어도 직원의 근무 패턴과 휴무는 한 번만 합산합니다.
+    // 근무 패턴 변경은 이 분석 화면의 가상 계산에만 적용하고 직원 정보를 저장하지 않습니다.
     const fixedEmployeeRows = useMemo(() => employeeRows
         .filter((employee) => employee.isCounted)
-        .map((employee) => ({
-            id: String(employee.id),
-            name: employee.name || '이름 미등록',
-            routeName: employee.routeNames.join(', '),
-            routeNames: employee.routeNames,
-            pattern: employee.pattern || employee.work_pattern || '주 5일'
-        })),
-    [employeeRows]);
+        .map((employee) => {
+            const id = String(employee.id);
+            const originalPattern = employee.pattern || employee.work_pattern || '주 5일';
+            return {
+                id,
+                name: employee.name || '이름 미등록',
+                routeName: employee.routeNames.join(', '),
+                routeNames: employee.routeNames,
+                originalPattern,
+                pattern: patternOverrides[id] || originalPattern
+            };
+        }),
+    [employeeRows, patternOverrides]);
 
     // 노선 개수 표시는 유지하되, 휴무 보충 일수 계산에는 중복 적용하지 않습니다.
     const fixedRouteCount = useMemo(() => employeeRows
@@ -171,8 +230,12 @@ export default function BackupDemandAnalysis({ onBack }) {
     ), [plannedRoutes]);
 
     const backupPatternDays = getAverageWorkDays(backupPattern);
-    const recommendedHires = extraOffDays > 0
-        ? Math.ceil(extraOffDays / backupPatternDays)
+    // 기존 노선의 수요와 신규 노선의 수요를 합산한 뒤 현재 백업의 주간 공급량을 뺍니다.
+    // 고정 직원 패턴을 변경하면 기존 휴무 수요와 채용 추천도 즉시 다시 계산됩니다.
+    const totalOffDays = fixedOffDays + extraOffDays;
+    const requiredExtraBackupWorkDays = Math.max(0, totalOffDays - currentBackupWorkDays);
+    const recommendedHires = requiredExtraBackupWorkDays > 0
+        ? Math.ceil(requiredExtraBackupWorkDays / backupPatternDays)
         : 0;
 
     const addRoute = () => {
@@ -196,16 +259,7 @@ export default function BackupDemandAnalysis({ onBack }) {
         setPlannedRoutes((current) => current.filter((route) => route.id !== routeId));
     };
 
-    const patternOptions = [
-        ...[3, 4, 5, 6].map((days) => ({
-            value: '주 ' + days + '일',
-            label: '주 ' + days + '일'
-        })),
-        ...[3, 4, 5, 6].map((days) => ({
-            value: '격주 ' + days + '일',
-            label: '격주 ' + (days + 0.5).toFixed(1) + '일'
-        }))
-    ];
+
 
 
     return (
@@ -270,17 +324,35 @@ export default function BackupDemandAnalysis({ onBack }) {
                             <div className="space-y-2 p-3">
                                 {plannedRoutes.length === 0 ? (
                                     <p className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-400">아직 추가된 노선이 없습니다. 아래 ‘노선 추가’를 눌러 시작하세요.</p>
-                                ) : plannedRoutes.map((route, index) => (
-                                    <div key={route.id} className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white p-2">
-                                        <span className="w-14 shrink-0 text-sm font-black text-slate-800">예정{index + 1}</span>
-                                        <select value={route.pattern} onChange={(event) => updateRoutePattern(route.id, event.target.value)} aria-label={'예정' + (index + 1) + ' 근무 패턴'} className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm outline-none focus:border-indigo-400">
-                                            {patternOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                                        </select>
-                                        <button type="button" onClick={() => removeRoute(route.id)} aria-label={'예정' + (index + 1) + ' 삭제'} className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600">
-                                            <Trash2 size={17} />
-                                        </button>
-                                    </div>
-                                ))}
+                                ) : plannedRoutes.map((route, index) => {
+                                    const editorKey = 'new:' + route.id;
+                                    const isEditorOpen = openPatternEditor === editorKey;
+                                    return (
+                                        <div key={route.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                                            <div className="flex min-w-0 items-center gap-2 p-2">
+                                                <span className="w-14 shrink-0 text-sm font-black text-slate-800">예정{index + 1}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOpenPatternEditor(isEditorOpen ? null : editorKey)}
+                                                    aria-expanded={isEditorOpen}
+                                                    aria-label={'예정' + (index + 1) + ' 근무 패턴 선택'}
+                                                    className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-left text-sm font-bold text-slate-700 hover:border-indigo-300"
+                                                >
+                                                    <span>{getPatternLabel(route.pattern)}</span>
+                                                    {isEditorOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                                </button>
+                                                <button type="button" onClick={() => { removeRoute(route.id); setOpenPatternEditor((current) => current === editorKey ? null : current); }} aria-label={'예정' + (index + 1) + ' 삭제'} className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600">
+                                                    <Trash2 size={17} />
+                                                </button>
+                                            </div>
+                                            {isEditorOpen && (
+                                                <div className="border-t border-slate-100 p-2">
+                                                    <PatternChooser value={route.pattern} onSelect={(pattern) => { updateRoutePattern(route.id, pattern); setOpenPatternEditor(null); }} />
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                                 <p className="text-[11px] text-slate-500">격주 패턴은 평균 근무일수로 환산해 휴무 보충 일수를 계산합니다. 결과는 변경 즉시 갱신됩니다.</p>
                             </div>
                         )}
@@ -299,15 +371,48 @@ export default function BackupDemandAnalysis({ onBack }) {
                             <div className="space-y-1.5 p-3">
                                 {fixedEmployeeRows.length === 0 ? (
                                     <p className="px-2 py-4 text-center text-xs text-slate-400">선택한 팀에 노선이 배정된 고정 직원이 없습니다.</p>
-                                ) : fixedEmployeeRows.map((route) => (
-                                    <div key={route.id} className="flex min-w-0 items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
-                                        <div className="min-w-0 flex-1">
-                                            <p className="truncate text-xs font-bold text-slate-800">{route.name}</p>
-                                            <p className="truncate text-[11px] text-slate-500">{route.routeName}</p>
+                                ) : fixedEmployeeRows.map((employee) => {
+                                    const editorKey = 'employee:' + employee.id;
+                                    const isEditorOpen = openPatternEditor === editorKey;
+                                    const isModified = normalizePattern(employee.pattern) !== normalizePattern(employee.originalPattern);
+                                    return (
+                                        <div key={employee.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                                            <div className="flex min-w-0 items-center gap-2 p-2">
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate text-xs font-bold text-slate-800">{employee.name}{isModified && <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 text-[9px] font-black text-amber-800">임시 변경</span>}</p>
+                                                    <p className="truncate text-[11px] text-slate-500">{employee.routeName}</p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOpenPatternEditor(isEditorOpen ? null : editorKey)}
+                                                    aria-expanded={isEditorOpen}
+                                                    aria-label={employee.name + ' 근무 패턴 선택'}
+                                                    className="flex shrink-0 items-center justify-between gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-left text-[11px] font-bold text-slate-700 hover:border-indigo-300 sm:px-3"
+                                                >
+                                                    <span>{getPatternLabel(employee.pattern)}</span>
+                                                    {isEditorOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                                </button>
+                                                {isModified && (
+                                                    <button type="button" onClick={() => setPatternOverrides((current) => { const next = { ...current }; delete next[employee.id]; return next; })} className="shrink-0 rounded-md px-1 py-2 text-[10px] font-bold text-slate-500 hover:bg-slate-100" aria-label={employee.name + ' 원래 패턴으로 되돌리기'}>
+                                                        원복
+                                                    </button>
+                                                )}
+                                            </div>
+                                            {isEditorOpen && (
+                                                <div className="border-t border-slate-100 p-2">
+                                                    <PatternChooser
+                                                        value={employee.pattern}
+                                                        onSelect={(pattern) => {
+                                                            setPatternOverrides((current) => ({ ...current, [employee.id]: pattern }));
+                                                            setOpenPatternEditor(null);
+                                                        }}
+                                                    />
+                                                    <p className="mt-2 text-center text-[10px] text-slate-400">분석용 임시 변경이며 실제 직원 설정은 저장하지 않습니다.</p>
+                                                </div>
+                                            )}
                                         </div>
-                                        <span className="shrink-0 rounded-md bg-white px-2 py-1 text-[11px] font-bold text-slate-700">{getPatternLabel(route.pattern)}</span>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
@@ -364,27 +469,29 @@ export default function BackupDemandAnalysis({ onBack }) {
                         </div>
                         <div className="border-t border-indigo-100 bg-indigo-50/40 p-3 text-center">
                             <p className="text-center text-[11px] font-bold text-indigo-700">추가 채용 추천</p>
-                            {plannedRoutes.length > 0 ? (
+                            {requiredExtraBackupWorkDays > 0 ? (
                                 <>
                                     <p className="mt-1 text-center text-xl font-black leading-7 text-indigo-900">
-                                        {getPatternLabel(backupPattern)} 백업 {recommendedHires}명 추가
+                                        {getPatternLabel(backupPattern)} 백업 {recommendedHires}명 {plannedRoutes.length > 0 ? '추가 필요' : '부족'}
                                     </p>
                                     <p className="mt-1 text-center text-[11px] leading-4 text-slate-500">
-                                        추가 휴무 보충 {formatDays(extraOffDays)}일 ÷ 1인당 주 {formatDays(backupPatternDays)}일 근무
+                                        총 휴무 보충 {formatDays(totalOffDays)}일 − 현재 백업 공급 {formatDays(currentBackupWorkDays)}일 = 부족 {formatDays(requiredExtraBackupWorkDays)}일/주
                                     </p>
                                 </>
                             ) : (
-                                <p className="mt-1 text-center text-sm font-bold text-slate-500">노선을 추가하면 필요한 인원이 표시됩니다.</p>
+                                <p className="mt-1 text-center text-sm font-bold text-slate-600">
+                                    {plannedRoutes.length > 0 ? '현재 백업으로 추가 노선까지 충족 가능' : '현재 백업으로 운영 수요 충족 가능'}
+                                </p>
                             )}
                         </div>
                     </div>
 
                     <p className="mt-3 text-[10px] leading-4 text-slate-400">
-                        격주 5일·6일은 각각 주 평균 5.5일·6.5일 근무로 환산합니다.
+                        격주 3~6일 패턴은 주 평균 3.5~6.5일로 환산합니다.
                     </p>
                 </section>
                 <p className="px-1 text-[11px] leading-5 text-slate-400">
-                    격주 5일은 주 평균 5.5일 근무, 격주 6일은 주 평균 6.5일 근무로 계산합니다. 기존 직원과 백업의 등록된 근무 패턴은 변경하지 않습니다.
+                    근무 패턴 변경은 이 화면의 예상 계산에만 반영하며, 실제 직원 정보에는 저장하지 않습니다.
                 </p>
             </main>
 
