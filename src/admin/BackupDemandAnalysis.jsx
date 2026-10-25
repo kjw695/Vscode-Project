@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ArrowLeft,
     BarChart3,
@@ -89,82 +89,87 @@ function PatternChooser({ value, onSelect }) {
     const match = selectedPattern.match(/[1-6]/);
     const selectedDays = match ? Number(match[0]) : 5;
     const isBiweeklySelected = selectedPattern.includes('격주');
+    const regularRef = useRef(null);
+    const biweeklyRef = useRef(null);
+    const scrollLockRef = useRef({ regular: false, biweekly: false });
+    const scrollTimerRef = useRef({ regular: null, biweekly: null });
 
-    const cycleDays = (kind, direction) => {
-        const isBiweekly = kind === 'biweekly';
-        const currentDays = isBiweeklySelected === isBiweekly ? selectedDays : 5;
-        const nextDays = ((currentDays - 1 + direction + 6) % 6) + 1;
-        onSelect((isBiweekly ? '격주 ' : '주 ') + nextDays + '일');
+    const scrollToSelected = (kind, pattern) => {
+        const ref = kind === 'biweekly' ? biweeklyRef : regularRef;
+        const daysMatch = normalizePattern(pattern).match(/[1-6]/);
+        const days = daysMatch ? Number(daysMatch[0]) : 5;
+        const element = ref.current;
+        if (!element) return;
+        scrollLockRef.current[kind] = true;
+        element.scrollTop = (days - 1) * 36;
+        requestAnimationFrame(() => {
+            scrollLockRef.current[kind] = false;
+        });
     };
+
+    useEffect(() => {
+        scrollToSelected('regular', isBiweeklySelected ? '주 5일' : selectedPattern);
+        scrollToSelected('biweekly', isBiweeklySelected ? selectedPattern : '격주 5일');
+    }, [selectedPattern, isBiweeklySelected]);
 
     const renderCycle = (kind) => {
         const isBiweekly = kind === 'biweekly';
         const isSelectedKind = isBiweeklySelected === isBiweekly;
-        const shownDays = isSelectedKind ? selectedDays : 5;
-        const visibleDays = [
-            ((shownDays - 2 + 6) % 6) + 1,
-            shownDays,
-            (shownDays % 6) + 1
-        ];
+        const selected = isSelectedKind ? selectedDays : 5;
+        const ref = isBiweekly ? biweeklyRef : regularRef;
 
-        let touchStartY = null;
-        let didSwipe = false;
+        const handleScroll = () => {
+            if (scrollLockRef.current[kind]) return;
+            if (scrollTimerRef.current[kind]) clearTimeout(scrollTimerRef.current[kind]);
+            scrollTimerRef.current[kind] = setTimeout(() => {
+                const element = ref.current;
+                if (!element) return;
+                const days = Math.max(1, Math.min(6, Math.round(element.scrollTop / 36) + 1));
+                const nextPattern = (isBiweekly ? '격주 ' : '주 ') + days + '일';
+                if (normalizePattern(value) !== nextPattern) onSelect(nextPattern);
+            }, 80);
+        };
 
         return (
-            <div
-                className="flex min-w-0 flex-col items-center px-1"
-                style={{ touchAction: 'pan-x' }}
-                onWheel={(event) => {
-                    event.preventDefault();
-                    cycleDays(kind, event.deltaY > 0 ? 1 : -1);
-                }}
-                onTouchStart={(event) => {
-                    touchStartY = event.touches[0].clientY;
-                    didSwipe = false;
-                }}
-                onTouchEnd={(event) => {
-                    if (touchStartY === null) return;
-                    const delta = touchStartY - event.changedTouches[0].clientY;
-                    if (Math.abs(delta) > 24) {
-                        didSwipe = true;
-                        cycleDays(kind, delta > 0 ? 1 : -1);
-                    }
-                    touchStartY = null;
-                }}
-                onClickCapture={(event) => {
-                    if (didSwipe) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        didSwipe = false;
-                    }
-                }}
-            >
+            <div className="flex min-w-0 flex-col items-center px-1">
                 <span className={'mb-1 text-[11px] font-black ' + (isBiweekly ? 'text-violet-700' : 'text-indigo-700')}>
                     {isBiweekly ? '격주 근무' : '일반 근무'}
                 </span>
                 <ChevronUp size={14} className="shrink-0 text-slate-300" aria-hidden="true" />
-                <div className="flex w-full flex-col items-center gap-0.5 py-0.5">
-                    {visibleDays.map((days, index) => {
-                        const isCurrent = index === 1;
+                <div
+                    ref={ref}
+                    onScroll={handleScroll}
+                    className="h-[108px] w-full overflow-y-auto overscroll-contain scroll-smooth"
+                    style={{ scrollSnapType: 'y mandatory', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
+                >
+                    <div className="h-[36px]" aria-hidden="true" />
+                    {Array.from({ length: 6 }, (_, index) => index + 1).map((days) => {
+                        const isCurrent = days === selected;
                         const label = isBiweekly ? (days + 0.5).toFixed(1) + '일' : days + '일';
                         return (
                             <button
                                 key={kind + '-' + days}
                                 type="button"
-                                onClick={() => onSelect((isBiweekly ? '격주 ' : '주 ') + days + '일')}
+                                onClick={() => {
+                                    const nextPattern = (isBiweekly ? '격주 ' : '주 ') + days + '일';
+                                    onSelect(nextPattern);
+                                    scrollToSelected(kind, nextPattern);
+                                }}
                                 aria-pressed={isCurrent && isSelectedKind}
-                                className={'w-full rounded-md px-2 py-1 text-xs transition ' + (
+                                className={'flex h-[36px] w-full shrink-0 snap-center items-center justify-center rounded-md px-2 text-xs transition-colors ' + (
                                     isCurrent
                                         ? (isSelectedKind
                                             ? (isBiweekly ? 'bg-violet-600 text-white font-black' : 'bg-indigo-600 text-white font-black')
                                             : 'bg-slate-200 text-slate-700 font-black')
                                         : 'text-slate-400 hover:bg-slate-100'
                                 )}
+                                style={{ scrollSnapAlign: 'center' }}
                             >
                                 {label}
                             </button>
                         );
                     })}
+                    <div className="h-[36px]" aria-hidden="true" />
                 </div>
                 <ChevronDown size={14} className="shrink-0 text-slate-300" aria-hidden="true" />
             </div>
@@ -177,7 +182,7 @@ function PatternChooser({ value, onSelect }) {
                 {renderCycle('regular')}
                 {renderCycle('biweekly')}
             </div>
-            <p className="mt-2 text-center text-[10px] text-slate-400">위아래로 밀거나 마우스 휠로 1~6일 순환 선택 · 가운데 항목을 눌러도 선택됩니다</p>
+            <p className="mt-2 text-center text-[10px] text-slate-400">목록을 위아래로 스크롤해 선택하세요. 가운데 항목이 선택됩니다.</p>
         </div>
     );
 }
