@@ -109,7 +109,8 @@ function PatternChooser({ value, onSelect }) {
     const match = selectedPattern.match(/[1-6]/);
     const selectedDays = match ? Number(match[0]) : 5;
     const [isBiweeklySelected, setIsBiweeklySelected] = useState(selectedPattern.includes('격주'));
-    // 격주 6일은 한 주가 7일 근무가 되므로 선택지에서 제외합니다.\n    const daysOptions = isBiweeklySelected ? [1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, 6];
+    // 격주 6일은 한 주가 7일 근무가 되므로 선택지에서 제외합니다.
+    const daysOptions = isBiweeklySelected ? [1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, 6];
 
     const selectPatternType = (isBiweekly) => {
         // Switching tabs only changes the visible options; keep the picker open.
@@ -331,15 +332,16 @@ export default function BackupDemandAnalysis({ onBack }) {
     ];
 
     // 격주 백업은 주기 시작점을 양쪽으로 검토해, 어느 한 주에 초과가 생기는 조합은 후보에서 제외합니다.
-    const recommendationOptions = recommendationPatterns.flatMap((pattern, index) => {
+    const recommendationOptions = recommendationPatterns.flatMap((pattern, patternIndex) => {
         const phaseOffsets = pattern.biweekly ? [0, 1] : [0];
         return phaseOffsets.map((phaseOffset) => ({
             ...pattern,
-            index,
+            patternIndex,
+            biweeklyWeekOffset: phaseOffset,
             week1Days: getWorkDaysForWeek(pattern.label, currentWeekIndex, phaseOffset),
             week2Days: getWorkDaysForWeek(pattern.label, currentWeekIndex + 1, phaseOffset)
         }));
-    });
+    }).map((pattern, optionIndex) => ({ ...pattern, optionIndex }));
 
     const stateKey = (thisWeek, nextWeek) => thisWeek + '|' + nextWeek;
     const recommendationStates = new Map();
@@ -349,7 +351,7 @@ export default function BackupDemandAnalysis({ onBack }) {
         hires: 0,
         preferredCount: 0,
         regularFiveCount: 0,
-        counts: Array(recommendationPatterns.length).fill(0)
+        counts: Array(recommendationOptions.length).fill(0)
     });
 
     const isBetterForSameSupply = (candidate, existing) => {
@@ -377,7 +379,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                 if (nextThisWeek > maxThisWeekDemand || nextNextWeek > maxNextWeekDemand) return;
 
                 const counts = current.counts.slice();
-                counts[pattern.index] += 1;
+                counts[pattern.optionIndex] += 1;
                 const candidate = {
                     supplyThisWeek: nextThisWeek,
                     supplyNextWeek: nextNextWeek,
@@ -421,9 +423,10 @@ export default function BackupDemandAnalysis({ onBack }) {
     }, null);
 
     const recommendedPattern = bestRecommendation && bestRecommendation.hires > 0
-        ? recommendationPatterns
-            .map((pattern, index) => bestRecommendation.counts[index] > 0
-                ? pattern.label + ' ' + bestRecommendation.counts[index] + '명'
+        ? recommendationOptions
+            .map((pattern, optionIndex) => bestRecommendation.counts[optionIndex] > 0
+                ? pattern.label + ' ' + bestRecommendation.counts[optionIndex] + '명' +
+                    (pattern.biweekly ? '(금주 ' + pattern.week1Days + '일 주)' : '')
                 : '')
             .filter(Boolean)
             .join(' + ')
