@@ -25,10 +25,6 @@ function getShift(team) {
     return shift === 'night' || shift === '야간' ? 'night' : 'day';
 }
 
-function getShiftLabel(shift) {
-    return shift === 'night' ? '야간' : '주간';
-}
-
 function getRegion(team) {
     return team?.region || '기본 지역';
 }
@@ -228,8 +224,6 @@ export default function BackupDemandAnalysis({ onBack }) {
             setSelectedTeamId(filteredTeams[0]?.id || '');
         }
     }, [filteredTeams, selectedTeamId]);
-
-    const selectedTeam = teams.find((team) => String(team.id) === String(selectedTeamId)) || null;
 
     const teamEmployees = useMemo(() => employees.filter((employee) =>
         employee.active !== false && String(employee.team_id) === String(selectedTeamId)
