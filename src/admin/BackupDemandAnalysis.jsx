@@ -100,13 +100,13 @@ function PatternChooser({ value, onSelect }) {
     };
 
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
-            <div className="mb-3 grid grid-cols-2 gap-1.5 rounded-2xl bg-slate-100 p-1">
+        <div data-pattern-picker="true" className="rounded-xl border border-slate-200 bg-white p-2 sm:p-3">
+            <div className="mb-2 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
                 <button
                     type="button"
                     aria-pressed={!isBiweeklySelected}
                     onClick={() => selectPatternType(false)}
-                    className={'rounded-xl px-3 py-3 text-base font-bold transition-colors ' + (
+                    className={'rounded-lg px-3 py-2 text-sm font-bold transition-colors ' + (
                         !isBiweeklySelected
                             ? 'bg-indigo-600 text-white shadow-sm'
                             : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
@@ -118,7 +118,7 @@ function PatternChooser({ value, onSelect }) {
                     type="button"
                     aria-pressed={isBiweeklySelected}
                     onClick={() => selectPatternType(true)}
-                    className={'rounded-xl px-3 py-3 text-base font-bold transition-colors ' + (
+                    className={'rounded-lg px-3 py-2 text-sm font-bold transition-colors ' + (
                         isBiweeklySelected
                             ? 'bg-indigo-600 text-white shadow-sm'
                             : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
@@ -128,7 +128,7 @@ function PatternChooser({ value, onSelect }) {
                 </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-1.5">
                 {daysOptions.map((days) => {
                     const isSelected = days === selectedDays;
                     const label = isBiweeklySelected ? (days + 0.5).toFixed(1) + '일' : days + '일';
@@ -138,7 +138,7 @@ function PatternChooser({ value, onSelect }) {
                             type="button"
                             onClick={() => selectDays(days)}
                             aria-pressed={isSelected}
-                            className={'flex min-h-[60px] items-center justify-center rounded-2xl border-2 px-2 py-3 text-base font-medium transition-colors ' + (
+                            className={'flex min-h-12 items-center justify-center rounded-xl border-2 px-2 py-2 text-sm font-medium transition-colors ' + (
                                 isSelected
                                     ? 'border-indigo-600 bg-indigo-50 text-indigo-600'
                                     : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-200'
@@ -152,7 +152,6 @@ function PatternChooser({ value, onSelect }) {
         </div>
     );
 }
-
 export default function BackupDemandAnalysis({ onBack }) {
     const { employees = [], teams = [], routes = [] } = useAdminData();
     const [selectedRegion, setSelectedRegion] = useState(() => getRegion(teams[0]));
@@ -163,6 +162,21 @@ export default function BackupDemandAnalysis({ onBack }) {
     const [openPatternEditor, setOpenPatternEditor] = useState(null);
     const [newRoutesExpanded, setNewRoutesExpanded] = useState(true);
     const [existingEmployeesExpanded, setExistingEmployeesExpanded] = useState(false);
+
+    useEffect(() => {
+        if (!openPatternEditor) return;
+
+        const handleOutsidePointerDown = (event) => {
+            const target = event.target;
+            if (!(target instanceof Element)) return;
+            if (target.closest('[data-pattern-picker="true"]')) return;
+            if (target.closest('[data-pattern-trigger="true"]')) return;
+            setOpenPatternEditor(null);
+        };
+
+        document.addEventListener('pointerdown', handleOutsidePointerDown);
+        return () => document.removeEventListener('pointerdown', handleOutsidePointerDown);
+    }, [openPatternEditor]);
 
     const regions = useMemo(() =>
         Array.from(new Set(teams.map(getRegion))).sort((a, b) => a.localeCompare(b, 'ko')),
@@ -351,6 +365,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                                                     type="button"
                                                     onClick={() => setOpenPatternEditor(isEditorOpen ? null : editorKey)}
                                                     aria-expanded={isEditorOpen}
+                                                    data-pattern-trigger="true"
                                                     aria-label={'예정' + (index + 1) + ' 근무 패턴 선택'}
                                                     className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-left text-sm font-bold text-slate-700 hover:border-indigo-300"
                                                 >
@@ -369,7 +384,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                                         </div>
                                     );
                                 })}
-                                <p className="text-[11px] text-slate-500">격주 패턴은 평균 근무일수로 환산해 휴무 보충 일수를 계산합니다. 결과는 변경 즉시 갱신됩니다.</p>
+                                <p className="text-[11px] text-slate-500">짝 관리를 통해 격주짝을 맞춰보세요</p>
                             </div>
                         )}
                     </div>
@@ -402,6 +417,7 @@ export default function BackupDemandAnalysis({ onBack }) {
                                                     type="button"
                                                     onClick={() => setOpenPatternEditor(isEditorOpen ? null : editorKey)}
                                                     aria-expanded={isEditorOpen}
+                                                    data-pattern-trigger="true"
                                                     aria-label={employee.name + ' 근무 패턴 선택'}
                                                     className="flex shrink-0 items-center justify-between gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-left text-[11px] font-bold text-slate-700 hover:border-indigo-300 sm:px-3"
                                                 >
