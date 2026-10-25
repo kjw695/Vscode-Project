@@ -486,8 +486,8 @@ export default function BackupDemandAnalysis({ onBack }) {
                                             return (
                                                 <tr key={row.date} className="border-b border-slate-100 last:border-b-0">
                                                     <th className="bg-white px-1.5 py-2 text-left text-[11px] font-black text-slate-700 sm:text-xs">
-                                                        {row.weekday}
-                                                        <span className="ml-1 text-[9px] font-normal text-slate-400 sm:text-[10px]">{row.date.slice(5)}</span>
+                                                        <div>{row.weekday}</div>
+                                                        <div className="text-[9px] font-normal text-slate-400 sm:text-[10px]">{row.date.slice(5)}</div>
                                                     </th>
                                                     <td className={'border-l border-r border-slate-100 px-1 py-2 text-[11px] font-bold tabular-nums sm:text-xs ' + (row.shortage > 0 ? 'bg-rose-50 text-rose-700' : 'text-slate-700')}>
                                                         {cellText(row)}
