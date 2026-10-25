@@ -262,11 +262,31 @@ export default function BackupDemandAnalysis({ onBack }) {
     // 현재 인원과 추가 인원의 전체 휴무일수에서 현재 백업 근무일수를 제외해 부족 일수를 계산합니다.
     const totalOffDays = fixedOffDays + extraOffDays;
     const requiredExtraBackupWorkDays = Math.max(0, totalOffDays - currentBackupWorkDays);
-    const recommendedPattern = '주 5일';
-    const recommendedPatternDays = 5;
-    const recommendedHires = requiredExtraBackupWorkDays > 0
-        ? Math.ceil(requiredExtraBackupWorkDays / recommendedPatternDays)
-        : 0;
+    // Choose a regular 3–6 day pattern that covers the demand with the least excess.
+    const recommendationOptions = [3, 4, 5, 6].map((days) => {
+        const hires = requiredExtraBackupWorkDays > 0
+            ? Math.ceil(requiredExtraBackupWorkDays / days)
+            : 0;
+        const suppliedDays = hires * days;
+        return {
+            pattern: '주 ' + days + '일',
+            days,
+            hires,
+            suppliedDays,
+            excessDays: suppliedDays - requiredExtraBackupWorkDays
+        };
+    });
+    const bestRecommendation = recommendationOptions
+        .slice()
+        .sort((a, b) =>
+            a.excessDays - b.excessDays ||
+            a.hires - b.hires ||
+            b.days - a.days
+        )[0];
+    const recommendedPattern = bestRecommendation?.pattern || '주 5일';
+    const recommendedHires = requiredExtraBackupWorkDays > 0 ? bestRecommendation.hires : 0;
+    const recommendedSuppliedDays = requiredExtraBackupWorkDays > 0 ? bestRecommendation.suppliedDays : 0;
+    const recommendedExcessDays = requiredExtraBackupWorkDays > 0 ? bestRecommendation.excessDays : 0;
 
     const addRoute = () => {
         setPlannedRoutes((current) => {
@@ -450,87 +470,98 @@ export default function BackupDemandAnalysis({ onBack }) {
                 </section>
 
                 <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:p-4">
-                    <div className="mb-3 text-center">
-                        <h2 className="text-sm font-black">백업 수요 요약</h2>
+                    <div className="mb-2 flex items-center justify-center gap-2 sm:mb-3">
+                        <Users size={22} className="shrink-0 text-indigo-600 sm:h-7 sm:w-7" />
+                        <h2 className="text-lg font-black text-slate-800 sm:text-2xl">백업 수요 요약</h2>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 sm:gap-3">
                         <div className="min-w-0 overflow-hidden rounded-xl border border-blue-200 bg-white">
-                            <div className="bg-blue-50 px-1.5 py-2 text-center sm:px-3">
-                                <span className="text-[11px] font-black text-blue-800 sm:text-xs">현재 운영</span>
+                            <div className="flex items-center justify-center gap-1.5 bg-blue-50 px-1.5 py-2 sm:gap-2 sm:px-3">
+                                <Truck size={18} className="shrink-0 text-blue-600 sm:h-6 sm:w-6" />
+                                <span className="text-sm font-black text-blue-800 sm:text-base">현재 운영</span>
                             </div>
                             <div className="grid min-w-0 grid-cols-2 divide-x divide-blue-100">
                                 <div className="min-w-0 p-2 text-center sm:p-3">
-                                    <p className="text-[10px] font-medium text-slate-500 sm:text-[11px]">현재 인원</p>
-                                    <p className="mt-1 text-base font-black tabular-nums text-slate-800 sm:text-lg">{fixedEmployeeRows.length}<span className="ml-0.5 text-[10px] font-bold sm:text-xs">명</span></p>
+                                    <p className="text-xs font-medium text-slate-600 sm:text-sm">현재 인원</p>
+                                    <p className="mt-1 text-xl font-black tabular-nums text-slate-800 sm:text-2xl">{fixedEmployeeRows.length}<span className="ml-0.5 text-xs font-bold sm:text-sm">명</span></p>
                                 </div>
                                 <div className="min-w-0 p-2 text-center sm:p-3">
-                                    <p className="text-[10px] font-medium text-slate-500 sm:text-[11px]">휴무</p>
-                                    <p className="mt-1 text-base font-black tabular-nums text-slate-800 sm:text-lg">{formatDays(fixedOffDays)}<span className="ml-0.5 text-[10px] font-bold sm:text-xs">일/주</span></p>
+                                    <p className="text-xs font-medium text-slate-600 sm:text-sm">휴무</p>
+                                    <p className="mt-1 text-xl font-black tabular-nums text-slate-800 sm:text-2xl">{formatDays(fixedOffDays)}<span className="ml-0.5 text-[11px] font-bold sm:text-sm">일/주</span></p>
                                 </div>
                             </div>
                         </div>
 
                         <div className="min-w-0 overflow-hidden rounded-xl border border-emerald-200 bg-white">
-                            <div className="bg-emerald-50 px-1.5 py-2 text-center sm:px-3">
-                                <span className="text-[11px] font-black text-emerald-800 sm:text-xs">추가 인원</span>
+                            <div className="flex items-center justify-center gap-1.5 bg-emerald-50 px-1.5 py-2 sm:gap-2 sm:px-3">
+                                <Plus size={19} className="shrink-0 text-emerald-600 sm:h-6 sm:w-6" />
+                                <span className="text-sm font-black text-emerald-800 sm:text-base">추가 인원</span>
                             </div>
                             <div className="grid min-w-0 grid-cols-2 divide-x divide-emerald-100">
                                 <div className="min-w-0 p-2 text-center sm:p-3">
-                                    <p className="text-[10px] font-medium text-slate-500 sm:text-[11px]">추가 인원</p>
-                                    <p className="mt-1 text-base font-black tabular-nums text-slate-800 sm:text-lg">{plannedRoutes.length}<span className="ml-0.5 text-[10px] font-bold sm:text-xs">명</span></p>
+                                    <p className="text-xs font-medium text-slate-600 sm:text-sm">추가 인원</p>
+                                    <p className="mt-1 text-xl font-black tabular-nums text-slate-800 sm:text-2xl">{plannedRoutes.length}<span className="ml-0.5 text-xs font-bold sm:text-sm">명</span></p>
                                 </div>
                                 <div className="min-w-0 p-2 text-center sm:p-3">
-                                    <p className="text-[10px] font-medium text-slate-500 sm:text-[11px]">추가 휴무</p>
-                                    <p className="mt-1 text-base font-black tabular-nums text-slate-800 sm:text-lg">{formatDays(extraOffDays)}<span className="ml-0.5 text-[10px] font-bold sm:text-xs">일/주</span></p>
+                                    <p className="text-xs font-medium text-slate-600 sm:text-sm">추가 휴무</p>
+                                    <p className="mt-1 text-xl font-black tabular-nums text-slate-800 sm:text-2xl">{formatDays(extraOffDays)}<span className="ml-0.5 text-[11px] font-bold sm:text-sm">일/주</span></p>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="mt-2 overflow-hidden rounded-xl border border-teal-200 bg-teal-50/40 sm:mt-3">
-                        <div className="bg-teal-50 px-3 py-2 text-center">
-                            <span className="text-xs font-black text-teal-800">합계 (현재 + 추가)</span>
+                    <div className="mt-2 overflow-hidden rounded-xl border border-teal-200 bg-teal-50/50 sm:mt-3">
+                        <div className="flex items-center justify-center gap-1.5 bg-teal-50 px-3 py-2">
+                            <CalendarDays size={18} className="shrink-0 text-teal-700 sm:h-6 sm:w-6" />
+                            <span className="text-sm font-black text-teal-800 sm:text-base">합계 (현재 + 추가)</span>
                         </div>
-                        <div className="grid grid-cols-2 divide-x divide-teal-100">
+                        <div className="grid grid-cols-2 divide-x divide-teal-200">
                             <div className="min-w-0 p-2 text-center sm:p-3">
-                                <p className="text-[10px] font-medium text-slate-500 sm:text-[11px]">전체 인원</p>
-                                <p className="mt-1 text-lg font-black tabular-nums text-slate-800 sm:text-xl">{fixedEmployeeRows.length + plannedRoutes.length}<span className="ml-0.5 text-[10px] font-bold sm:text-xs">명</span></p>
+                                <p className="text-xs font-medium text-slate-600 sm:text-sm">전체 인원</p>
+                                <p className="mt-1 text-2xl font-black tabular-nums text-slate-800 sm:text-3xl">{fixedEmployeeRows.length + plannedRoutes.length}<span className="ml-0.5 text-xs font-bold sm:text-sm">명</span></p>
                             </div>
                             <div className="min-w-0 p-2 text-center sm:p-3">
-                                <p className="text-[10px] font-medium text-slate-500 sm:text-[11px]">전체 휴무</p>
-                                <p className="mt-1 text-lg font-black tabular-nums text-slate-800 sm:text-xl">{formatDays(totalOffDays)}<span className="ml-0.5 text-[10px] font-bold sm:text-xs">일/주</span></p>
+                                <p className="text-xs font-medium text-slate-600 sm:text-sm">전체 휴무</p>
+                                <p className="mt-1 text-2xl font-black tabular-nums text-slate-800 sm:text-3xl">{formatDays(totalOffDays)}<span className="ml-0.5 text-[11px] font-bold sm:text-sm">일/주</span></p>
                             </div>
                         </div>
                     </div>
 
                     <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-slate-50/80 sm:mt-3">
-                        <div className="px-3 py-2 text-center">
-                            <span className="text-xs font-black text-slate-700">백업 현황</span>
+                        <div className="flex items-center justify-center gap-1.5 px-3 py-2 sm:justify-start sm:px-4">
+                            <Users size={19} className="shrink-0 text-slate-600 sm:h-6 sm:w-6" />
+                            <span className="text-sm font-black text-slate-800 sm:text-base">백업 현황</span>
                         </div>
                         <div className="grid grid-cols-2 divide-x divide-slate-200">
                             <div className="min-w-0 p-2 text-center sm:p-3">
-                                <p className="text-[10px] font-medium text-slate-500 sm:text-[11px]">현재 백업</p>
-                                <p className="mt-1 text-base font-black tabular-nums text-slate-800 sm:text-lg">{currentBackups.length}<span className="ml-0.5 text-[10px] font-bold sm:text-xs">명</span></p>
+                                <p className="text-xs font-medium text-slate-600 sm:text-sm">현재 백업</p>
+                                <p className="mt-1 text-xl font-black tabular-nums text-slate-800 sm:text-2xl">{currentBackups.length}<span className="ml-0.5 text-xs font-bold sm:text-sm">명</span></p>
                             </div>
                             <div className="min-w-0 p-2 text-center sm:p-3">
-                                <p className="text-[10px] font-medium text-slate-500 sm:text-[11px]">백업 근무</p>
-                                <p className="mt-1 text-base font-black tabular-nums text-slate-800 sm:text-lg">{formatDays(currentBackupWorkDays)}<span className="ml-0.5 text-[10px] font-bold sm:text-xs">일/주</span></p>
+                                <p className="text-xs font-medium text-slate-600 sm:text-sm">백업 근무</p>
+                                <p className="mt-1 text-xl font-black tabular-nums text-slate-800 sm:text-2xl">{formatDays(currentBackupWorkDays)}<span className="ml-0.5 text-[11px] font-bold sm:text-sm">일/주</span></p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="mt-2 overflow-hidden rounded-xl border border-violet-300 bg-violet-50/60 p-2 text-center sm:mt-3 sm:p-3">
-                        <p className="text-xs font-black text-violet-800">부족 일수 및 추가 채용 추천</p>
-                        <p className="mt-2 break-words text-[10px] leading-4 text-slate-600 sm:text-[11px]">
+                    <div className="mt-2 overflow-hidden rounded-xl border border-violet-300 bg-violet-50/60 p-2 text-center sm:mt-3 sm:p-4">
+                        <div className="flex items-center justify-center gap-1.5">
+                            <BarChart3 size={18} className="shrink-0 text-violet-700 sm:h-6 sm:w-6" />
+                            <p className="text-sm font-black text-violet-800 sm:text-base">부족 일수 및 추가 채용 추천</p>
+                        </div>
+                        <p className="mt-2 text-xs text-slate-600 sm:text-sm">
                             전체 휴무 {formatDays(totalOffDays)}일/주 − 현재 백업 근무 {formatDays(currentBackupWorkDays)}일/주
                         </p>
                         {requiredExtraBackupWorkDays > 0 ? (
                             <>
-                                <p className="mt-1 text-sm font-bold text-violet-700">부족 {formatDays(requiredExtraBackupWorkDays)}일/주</p>
-                                <div className="my-3 border-t border-violet-200" />
-                                <p className="break-words text-lg font-black leading-6 text-violet-900 sm:text-xl sm:leading-7">
-                                    주 5일 백업 {recommendedHires}명 추가
+                                <p className="mt-1 text-xl font-black text-violet-700 sm:text-2xl">부족 {formatDays(requiredExtraBackupWorkDays)}일/주</p>
+                                <div className="my-2 border-t border-violet-200 sm:my-3" />
+                                <p className="break-words text-2xl font-black leading-tight text-violet-900 sm:text-3xl">
+                                    {recommendedPattern} 백업 {recommendedHires}명 추가
+                                </p>
+                                <p className="mt-1 text-xs font-medium text-violet-700 sm:text-sm">
+                                    추가 근무 {formatDays(recommendedSuppliedDays)}일/주 · 초과 {formatDays(recommendedExcessDays)}일/주
                                 </p>
                             </>
                         ) : (
@@ -539,9 +570,6 @@ export default function BackupDemandAnalysis({ onBack }) {
                             </p>
                         )}
                     </div>
-                    <p className="mt-2 text-center text-[10px] leading-4 text-slate-400 sm:mt-3">
-                        격주 근무는 평균 근무일수(예: 5.5일)로 계산합니다.
-                    </p>
                 </section>
                 <p className="px-1 text-[11px] leading-5 text-slate-400">
                     근무 패턴 변경은 이 화면의 예상 계산에만 반영하며, 실제 직원 정보에는 저장하지 않습니다.
