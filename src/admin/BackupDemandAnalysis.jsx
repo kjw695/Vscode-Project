@@ -289,10 +289,15 @@ export default function BackupDemandAnalysis({ onBack }) {
                 weekStart
             });
             scenarios.push(scenario);
-            if (scenario.isFeasible) {
+            if (scenario.isFeasible && minimumExtraBackups == null) {
                 minimumExtraBackups = count;
-                break;
             }
+
+            // 최소 인원을 찾은 뒤에도 +0~+5명 비교를 보여줄 수 있도록 몇 단계 더 계산합니다.
+            const lastScenarioToShow = minimumExtraBackups == null
+                ? maxExtraBackups
+                : Math.max(5, minimumExtraBackups + 2);
+            if (count >= Math.min(maxExtraBackups, lastScenarioToShow)) break;
         }
 
         const currentScenario = scenarios[0] || null;
