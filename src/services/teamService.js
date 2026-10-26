@@ -38,23 +38,12 @@ export async function joinTeamByCode(inviteCode) {
 // Load the current user's organization. RLS limits the profile row to auth.uid(),
 // and the organization policy allows only its owner or current members to read it.
 export async function fetchMyVendorInfo(userId) {
-    const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('id', userId)
-        .single();
+    // The server returns only the current user's organization. Members do not receive the invite code.
+    const { data: orgData, error } = await supabase.rpc('get_my_organization_info');
 
-    if (profileError || !profileData || !profileData.organization_id) {
+    if (error || !orgData) {
         return null;
     }
-
-    const { data: orgData, error: orgError } = await supabase
-        .from('organizations')
-        .select('*')
-        .eq('id', profileData.organization_id)
-        .single();
-
-    if (orgError || !orgData) return null;
 
     const role = orgData.owner_id === userId ? 'owner' : 'member';
 
@@ -63,7 +52,6 @@ export async function fetchMyVendorInfo(userId) {
         vendor: orgData
     };
 }
-
 export async function deleteTeam(orgId) {
     const { error } = await supabase.rpc(
         'delete_organization_for_current_user',
