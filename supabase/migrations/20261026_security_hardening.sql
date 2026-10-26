@@ -27,10 +27,13 @@ GRANT INSERT, UPDATE, DELETE ON TABLE public.posts TO authenticated;
 GRANT INSERT, DELETE ON TABLE public.comments, public.likes TO authenticated;
 
 -- Notifications are read/updated by the recipient; creation should be server-side.
-GRANT SELECT, UPDATE ON TABLE public.notifications TO authenticated;
+GRANT SELECT ON TABLE public.notifications TO authenticated;
+GRANT UPDATE (is_read) ON TABLE public.notifications TO authenticated;
 
 -- Organization writes for creating/joining/leaving/deleting are routed through protected RPCs below.
-GRANT SELECT, UPDATE ON TABLE public.organizations TO authenticated;
+GRANT SELECT ON TABLE public.organizations TO authenticated;
+GRANT UPDATE (name, invite_code, assignment_deadline_day, assignment_deadline_time)
+    ON TABLE public.organizations TO authenticated;
 
 -- Profile reads and edits. Membership/role columns are deliberately NOT client-updatable.
 GRANT SELECT ON TABLE public.profiles TO authenticated;
