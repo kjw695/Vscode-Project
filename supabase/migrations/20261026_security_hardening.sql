@@ -75,19 +75,13 @@ DROP POLICY IF EXISTS "Allow users to view their organization" ON public.organiz
 DROP POLICY IF EXISTS "organizations_select_owner_or_member" ON public.organizations;
 DROP POLICY IF EXISTS "organizations_update_owner_only" ON public.organizations;
 
-CREATE POLICY "organizations_select_owner_or_member"
+DROP POLICY IF EXISTS "organizations_owner_select_only" ON public.organizations;
+
+CREATE POLICY "organizations_owner_select_only"
 ON public.organizations
 FOR SELECT
 TO authenticated
-USING (
-    owner_id = (SELECT auth.uid())
-    OR EXISTS (
-        SELECT 1
-        FROM public.profiles p
-        WHERE p.id = (SELECT auth.uid())
-          AND p.organization_id = organizations.id
-    )
-);
+USING (owner_id = (SELECT auth.uid()));
 
 CREATE POLICY "organizations_update_owner_only"
 ON public.organizations
@@ -172,7 +166,7 @@ END;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.join_organization_by_invite_code(p_invite_code text)
-RETURNS public.organizations
+RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog, public
@@ -211,7 +205,57 @@ BEGIN
     VALUES (v_user_id, v_org.id)
     ON CONFLICT (id) DO UPDATE SET organization_id = EXCLUDED.organization_id;
 
-    RETURN v_org;
+    RETURN jsonb_build_object(
+        'id', v_org.id,
+        'name', v_org.name,
+        'owner_id', v_org.owner_id,
+        'invite_code', CASE WHEN v_org.owner_id = v_user_id THEN v_org.invite_code ELSE NULL END,
+        'assignment_deadline_day', v_org.assignment_deadline_day,
+        'assignment_deadline_time', v_org.assignment_deadline_time
+    );
+END;
+$function$;
+
+-- Return current organization metadata without exposing its invite code to ordinary members.
+CREATE OR REPLACE FUNCTION public.get_my_organization_info()
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $function$
+DECLARE
+    v_user_id uuid := auth.uid();
+    v_org_id uuid;
+    v_org public.organizations%ROWTYPE;
+BEGIN
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION '로그인이 필요합니다.';
+    END IF;
+
+    SELECT p.organization_id INTO v_org_id
+    FROM public.profiles p
+    WHERE p.id = v_user_id;
+
+    IF v_org_id IS NULL THEN
+        RETURN NULL;
+    END IF;
+
+    SELECT * INTO v_org
+    FROM public.organizations o
+    WHERE o.id = v_org_id;
+
+    IF NOT FOUND THEN
+        RETURN NULL;
+    END IF;
+
+    RETURN jsonb_build_object(
+        'id', v_org.id,
+        'name', v_org.name,
+        'owner_id', v_org.owner_id,
+        'invite_code', CASE WHEN v_org.owner_id = v_user_id THEN v_org.invite_code ELSE NULL END,
+        'assignment_deadline_day', v_org.assignment_deadline_day,
+        'assignment_deadline_time', v_org.assignment_deadline_time
+    );
 END;
 $function$;
 
@@ -323,6 +367,9 @@ BEGIN
       AND owner_id = v_user_id;
 END;
 $function$;
+
+REVOKE ALL ON FUNCTION public.get_my_organization_info() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_my_organization_info() TO authenticated;
 
 REVOKE ALL ON FUNCTION public.list_my_organization_members() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.list_my_organization_members() TO authenticated;
