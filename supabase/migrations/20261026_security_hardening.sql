@@ -10,7 +10,7 @@ BEGIN;
 
 -- 1) Client roles should never need table-level TRUNCATE, REFERENCES, or TRIGGER privileges.
 REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM anon, authenticated;
-REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM PUBLIC;
+-- No broad PUBLIC grants were reported by the current privilege audit; revoke only client roles here.
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;
 
 -- 2) Re-grant only the table actions used by the app.
@@ -212,6 +212,39 @@ BEGIN
 END;
 $function$;
 
+-- Safe replacement for cross-member profile lookups: return only the current organization's member id and display name.
+-- Use this RPC instead of granting SELECT access to every column in profiles.
+CREATE OR REPLACE FUNCTION public.list_my_organization_members()
+RETURNS TABLE(member_id uuid, member_display_name text)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $function$
+DECLARE
+    v_user_id uuid := auth.uid();
+    v_org_id uuid;
+BEGIN
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION '로그인이 필요합니다.';
+    END IF;
+
+    SELECT p.organization_id INTO v_org_id
+    FROM public.profiles p
+    WHERE p.id = v_user_id;
+
+    IF v_org_id IS NULL THEN
+        RETURN;
+    END IF;
+
+    RETURN QUERY
+    SELECT p.id, COALESCE(NULLIF(btrim(p.display_name), ''), NULLIF(btrim(p.full_name), ''), '팀원')::text
+    FROM public.profiles p
+    WHERE p.organization_id = v_org_id
+    ORDER BY COALESCE(NULLIF(btrim(p.display_name), ''), NULLIF(btrim(p.full_name), ''), '팀원');
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.leave_organization_for_current_user()
 RETURNS void
 LANGUAGE plpgsql
@@ -287,6 +320,9 @@ BEGIN
       AND owner_id = v_user_id;
 END;
 $function$;
+
+REVOKE ALL ON FUNCTION public.list_my_organization_members() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.list_my_organization_members() TO authenticated;
 
 REVOKE ALL ON FUNCTION public.create_organization_for_current_user(text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.join_organization_by_invite_code(text) FROM PUBLIC, anon;
