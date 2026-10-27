@@ -30,10 +30,6 @@ GRANT INSERT, DELETE ON TABLE public.comments, public.likes TO authenticated;
 GRANT SELECT ON TABLE public.notifications TO authenticated;
 GRANT UPDATE (is_read) ON TABLE public.notifications TO authenticated;
 
--- Organization writes for creating/joining/leaving/deleting are routed through protected RPCs below.
-GRANT SELECT ON TABLE public.organizations TO authenticated;
-GRANT UPDATE (name, invite_code, assignment_deadline_day, assignment_deadline_time)
-    ON TABLE public.organizations TO authenticated;
 
 -- Profile reads and edits. Membership/role columns are deliberately NOT client-updatable.
 GRANT SELECT ON TABLE public.profiles TO authenticated;
@@ -67,29 +63,37 @@ TO authenticated
 USING (id = (SELECT auth.uid()))
 WITH CHECK (id = (SELECT auth.uid()));
 
--- 4) Remove broad organization policies. A user may only view their own organization.
-DROP POLICY IF EXISTS "Allow authenticated users to create organizations" ON public.organizations;
-DROP POLICY IF EXISTS "Allow owners to delete organization" ON public.organizations;
-DROP POLICY IF EXISTS "Allow owners to update organization" ON public.organizations;
-DROP POLICY IF EXISTS "Allow users to view their organization" ON public.organizations;
-DROP POLICY IF EXISTS "organizations_select_owner_or_member" ON public.organizations;
-DROP POLICY IF EXISTS "organizations_update_owner_only" ON public.organizations;
+-- 4) Remove broad organization policies.
+-- Direct organization table access is disabled.
+-- Organization operations must use protected SECURITY DEFINER RPCs.
 
-DROP POLICY IF EXISTS "organizations_owner_select_only" ON public.organizations;
+DROP POLICY IF EXISTS
+    "Allow authenticated users to create organizations"
+ON public.organizations;
 
-CREATE POLICY "organizations_owner_select_only"
-ON public.organizations
-FOR SELECT
-TO authenticated
-USING (owner_id = (SELECT auth.uid()));
+DROP POLICY IF EXISTS
+    "Allow owners to delete organization"
+ON public.organizations;
 
-CREATE POLICY "organizations_update_owner_only"
-ON public.organizations
-FOR UPDATE
-TO authenticated
-USING (owner_id = (SELECT auth.uid()))
-WITH CHECK (owner_id = (SELECT auth.uid()));
+DROP POLICY IF EXISTS
+    "Allow owners to update organization"
+ON public.organizations;
 
+DROP POLICY IF EXISTS
+    "Allow users to view their organization"
+ON public.organizations;
+
+DROP POLICY IF EXISTS
+    "organizations_select_owner_or_member"
+ON public.organizations;
+
+DROP POLICY IF EXISTS
+    "organizations_update_owner_only"
+ON public.organizations;
+
+DROP POLICY IF EXISTS
+    "organizations_owner_select_only"
+ON public.organizations;
 -- 5) Security-definer membership helper for shift exchanges.
 -- Keep the private schema out of the Supabase API's exposed schemas.
 CREATE SCHEMA IF NOT EXISTS private;
@@ -384,8 +388,9 @@ GRANT EXECUTE ON FUNCTION public.join_organization_by_invite_code(text) TO authe
 GRANT EXECUTE ON FUNCTION public.leave_organization_for_current_user() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.delete_organization_for_current_user(uuid) TO authenticated;
 
--- 7) Restrict notifications, personal ledger/settings, and shift exchanges to authenticated users.
 DROP POLICY IF EXISTS "본인 entries만" ON public.entries;
+DROP POLICY IF EXISTS "entries_owner_only" ON public.entries;
+
 CREATE POLICY "entries_owner_only"
 ON public.entries
 FOR ALL
@@ -393,7 +398,10 @@ TO authenticated
 USING (user_id = (SELECT auth.uid()))
 WITH CHECK (user_id = (SELECT auth.uid()));
 
+
 DROP POLICY IF EXISTS "본인 settings만" ON public.settings;
+DROP POLICY IF EXISTS "settings_owner_only" ON public.settings;
+
 CREATE POLICY "settings_owner_only"
 ON public.settings
 FOR ALL
@@ -401,8 +409,12 @@ TO authenticated
 USING (user_id = (SELECT auth.uid()))
 WITH CHECK (user_id = (SELECT auth.uid()));
 
+
 DROP POLICY IF EXISTS "본인 알림만" ON public.notifications;
 DROP POLICY IF EXISTS "본인 알림 수정" ON public.notifications;
+DROP POLICY IF EXISTS "notifications_owner_read" ON public.notifications;
+DROP POLICY IF EXISTS "notifications_owner_update" ON public.notifications;
+
 CREATE POLICY "notifications_owner_read"
 ON public.notifications
 FOR SELECT
