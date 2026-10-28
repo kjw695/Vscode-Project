@@ -186,6 +186,7 @@ BEGIN
         'electorate_count', v_electorate_count,
         'votes_cast', v_votes_cast,
         'candidates', v_candidates,
+        'failure_reason', v_request.failure_reason,
         'my_is_candidate', COALESCE(v_my_is_candidate, false),
         'my_vote_for_user_id', v_my_vote_for,
         'is_eligible_voter', COALESCE(v_is_eligible_voter, false)
@@ -205,7 +206,7 @@ DECLARE
     v_organization_id uuid;
     v_owner_id uuid;
     v_organization_name text;
-    v_now timestamptz := clock_timestamp();
+    v_now timestamptz;
     v_request_id uuid;
 BEGIN
     IF v_user_id IS NULL THEN
@@ -240,6 +241,8 @@ BEGIN
     ) THEN
         RAISE EXCEPTION '이미 팀 삭제 신청이 진행 중입니다.';
     END IF;
+
+    v_now := clock_timestamp();
 
     INSERT INTO public.organization_deletion_requests (
         organization_id,

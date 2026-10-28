@@ -382,6 +382,11 @@ const handleCopyCode = async (code) => {
                                         <p className="text-xs text-gray-500 dark:text-gray-400">
                                             삭제 예정: {formatDeletionDeadline(deletionState.scheduled_at)}
                                         </p>
+                                        {deletionState.failure_reason && (
+                                            <p className="text-xs font-medium text-red-600 dark:text-red-300">
+                                                최종 삭제 처리에서 문제가 발생했습니다. 관리자 확인이 필요하며, 처리가 완료될 때까지 팀 데이터는 유지됩니다.
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div className="mt-4 pt-3 border-t border-amber-200 dark:border-amber-900 space-y-3">

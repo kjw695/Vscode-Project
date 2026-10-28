@@ -52,14 +52,9 @@ export async function fetchMyVendorInfo(userId) {
         vendor: orgData
     };
 }
-export async function deleteTeam(orgId) {
-    const { error } = await supabase.rpc(
-        'delete_organization_for_current_user',
-        { p_organization_id: orgId }
-    );
-
-    if (error) throw error;
-    return true;
+// Backward-compatible name: this now starts the 7-day grace period instead of deleting immediately.
+export async function deleteTeam() {
+    return requestTeamDeletion();
 }
 
 export async function leaveTeam() {
