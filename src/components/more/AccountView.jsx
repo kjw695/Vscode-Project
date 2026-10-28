@@ -24,7 +24,7 @@ const maskVehicle = (vehicle) => {
     return vehicle.slice(0, -4) + '****'; 
 };
 
-function AccountView({ onBack, isDarkMode }) {
+function AccountView({ onBack, isDarkMode, autoEdit = false }) {
   const [showLogin, setShowLogin] = useState(false);
   const { isLoggedIn, user, profile, signOut } = useAuth(); 
 
@@ -58,6 +58,11 @@ function AccountView({ onBack, isDarkMode }) {
           });
       }
   }, [profile, user]);
+
+  // Profile-required redirects open this view directly in edit mode.
+  useEffect(() => {
+      if (autoEdit) setIsEditing(true);
+  }, [autoEdit]);
 
   const handleChange = (e) => {
       const { name, value } = e.target;
