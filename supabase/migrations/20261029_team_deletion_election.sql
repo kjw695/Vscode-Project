@@ -40,8 +40,6 @@ CREATE TABLE IF NOT EXISTS public.organization_deletion_election_members (
     voted_for_user_id uuid,
     voted_at timestamptz,
     PRIMARY KEY (request_id, user_id),
-    CONSTRAINT organization_deletion_no_self_vote
-        CHECK (voted_for_user_id IS NULL OR voted_for_user_id <> user_id),
     CONSTRAINT organization_deletion_candidate_timestamp
         CHECK (
             (is_candidate AND candidate_opted_at IS NOT NULL)
@@ -320,6 +318,10 @@ BEGIN
         RAISE EXCEPTION '취소할 팀 삭제 신청이 없습니다.';
     END IF;
 
+    IF v_request.scheduled_at <= clock_timestamp() THEN
+        RAISE EXCEPTION '삭제 유예 기간이 끝나 취소할 수 없습니다.';
+    END IF;
+
     SELECT o.owner_id INTO v_owner_id
     FROM public.organizations o
     WHERE o.id = v_organization_id
@@ -436,8 +438,8 @@ BEGIN
         RAISE EXCEPTION '로그인이 필요합니다.';
     END IF;
 
-    IF p_candidate_id IS NULL OR p_candidate_id = v_user_id THEN
-        RAISE EXCEPTION '본인이 아닌 팀장 후보를 선택해주세요.';
+    IF p_candidate_id IS NULL THEN
+        RAISE EXCEPTION '팀장 후보를 선택해주세요.';
     END IF;
 
     SELECT p.organization_id INTO v_organization_id
