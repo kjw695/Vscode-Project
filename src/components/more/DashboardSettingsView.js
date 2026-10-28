@@ -1,23 +1,245 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ArrowLeft, Check, X, Plus, Maximize2 } from 'lucide-react'; // ✨ 직관적인 화살표 모양으로 변경!
 import GridLayout, { WidthProvider } from 'react-grid-layout/legacy';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
 const ResponsiveGridLayout = WidthProvider(GridLayout);
+const GRID_COLUMNS = 4;
+
+const getEventPoint = (event) => {
+    const nativeEvent = event?.nativeEvent || event;
+    if (!nativeEvent) return null;
+    const touch = nativeEvent.changedTouches?.[0] || nativeEvent.touches?.[0];
+    const point = touch || nativeEvent;
+    return Number.isFinite(point.clientX) && Number.isFinite(point.clientY)
+        ? { x: point.clientX, y: point.clientY }
+        : null;
+};
+
+const hasGridOverlap = (a, b) =>
+    a.x < b.x + b.w &&
+    a.x + a.w > b.x &&
+    a.y < b.y + b.h &&
+    a.y + a.h > b.y;
+
+const findNearestFreePosition = (item, preferredX, preferredY, placed, maxExistingY) => {
+    const maxSearchY = Math.max(8, maxExistingY + placed.length * 2 + 6, preferredY + placed.length * 2 + 4);
+    const candidates = [];
+
+    for (let y = 0; y <= maxSearchY; y += 1) {
+        for (let x = 0; x <= GRID_COLUMNS - item.w; x += 1) {
+            const candidate = { ...item, x, y };
+            if (placed.some(other => hasGridOverlap(candidate, other))) continue;
+
+            const distance = Math.abs(x - preferredX) + Math.abs(y - preferredY) * GRID_COLUMNS;
+            candidates.push({ x, y, distance });
+        }
+    }
+
+    candidates.sort((a, b) => a.distance - b.distance || a.y - b.y || a.x - b.x);
+    return candidates[0] || { x: 0, y: maxSearchY + 1 };
+};
+
+const reflowAfterDifferentSizeDrop = (sourceConfig, draggedId, targetId) => {
+    const visible = sourceConfig.filter(item => item.isVisible);
+    const dragged = visible.find(item => item.id === draggedId);
+    const target = visible.find(item => item.id === targetId);
+    if (!dragged || !target) return sourceConfig;
+
+    const centeredX = Math.round(target.x + target.w / 2 - dragged.w / 2);
+    const centeredY = Math.round(target.y + target.h / 2 - dragged.h / 2);
+    const draggedX = Math.max(0, Math.min(GRID_COLUMNS - dragged.w, centeredX));
+    const draggedY = Math.max(0, centeredY);
+    const placed = [{ ...dragged, x: draggedX, y: draggedY }];
+    const positions = new Map([[dragged.id, { x: draggedX, y: draggedY }]]);
+    const maxExistingY = visible.reduce((max, item) => Math.max(max, item.y + item.h), 0);
+
+    const remaining = visible
+        .filter(item => item.id !== draggedId)
+        .sort((a, b) => {
+            if (a.id === targetId) return -1;
+            if (b.id === targetId) return 1;
+            return a.y - b.y || a.x - b.x;
+        });
+
+    remaining.forEach(item => {
+        const preferredX = item.id === targetId ? dragged.x : item.x;
+        const preferredY = item.id === targetId ? dragged.y : item.y;
+        const safeX = Math.max(0, Math.min(GRID_COLUMNS - item.w, preferredX));
+        const safeY = Math.max(0, preferredY);
+        const preferred = { ...item, x: safeX, y: safeY };
+        const position = placed.some(other => hasGridOverlap(preferred, other))
+            ? findNearestFreePosition(item, safeX, safeY, placed, maxExistingY)
+            : { x: safeX, y: safeY };
+
+        const placedItem = { ...item, x: position.x, y: position.y };
+        placed.push(placedItem);
+        positions.set(item.id, { x: position.x, y: position.y });
+    });
+
+    return sourceConfig.map(item => {
+        const position = positions.get(item.id);
+        return position ? { ...item, x: position.x, y: position.y } : item;
+    });
+};
+
+const findDropTargetId = (dragInfo, event, layout, newItem) => {
+    if (!dragInfo) return null;
+    const point = getEventPoint(event);
+    const activeRect = dragInfo.rects.find(rect => rect.id === dragInfo.draggedId);
+
+    if (point && activeRect && Number.isFinite(dragInfo.grabOffsetX) && Number.isFinite(dragInfo.grabOffsetY)) {
+        const droppedRect = {
+            left: point.x - dragInfo.grabOffsetX,
+            top: point.y - dragInfo.grabOffsetY,
+            right: point.x - dragInfo.grabOffsetX + activeRect.width,
+            bottom: point.y - dragInfo.grabOffsetY + activeRect.height,
+            width: activeRect.width,
+            height: activeRect.height
+        };
+
+        const directHit = dragInfo.rects.find(rect =>
+            rect.id !== dragInfo.draggedId &&
+            point.x >= rect.left && point.x <= rect.right &&
+            point.y >= rect.top && point.y <= rect.bottom
+        );
+        if (directHit) return directHit.id;
+
+        const overlaps = dragInfo.rects
+            .filter(rect => rect.id !== dragInfo.draggedId)
+            .map(rect => {
+                const width = Math.max(0, Math.min(droppedRect.right, rect.right) - Math.max(droppedRect.left, rect.left));
+                const height = Math.max(0, Math.min(droppedRect.bottom, rect.bottom) - Math.max(droppedRect.top, rect.top));
+                const area = width * height;
+                const smallerArea = Math.min(
+                    droppedRect.width * droppedRect.height,
+                    rect.width * rect.height
+                );
+                return { id: rect.id, area, ratio: smallerArea > 0 ? area / smallerArea : 0 };
+            })
+            .filter(item => item.ratio >= 0.12)
+            .sort((a, b) => b.ratio - a.ratio || b.area - a.area);
+
+        if (overlaps.length > 0) return overlaps[0].id;
+    }
+
+    const proposed = newItem || layout?.find(item => item.i === dragInfo.draggedId);
+    if (!proposed) return null;
+    const target = dragInfo.config
+        .filter(item => item.isVisible && item.id !== dragInfo.draggedId)
+        .map(item => {
+            const overlapX = Math.max(0, Math.min(proposed.x + proposed.w, item.x + item.w) - Math.max(proposed.x, item.x));
+            const overlapY = Math.max(0, Math.min(proposed.y + proposed.h, item.y + item.h) - Math.max(proposed.y, item.y));
+            return { id: item.id, area: overlapX * overlapY };
+        })
+        .filter(item => item.area > 0)
+        .sort((a, b) => b.area - a.area)[0];
+
+    return target?.id || null;
+};
 
 const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
     const [localConfig, setLocalConfig] = useState(config);
+    const draggingRef = useRef(false);
+    const skipNextLayoutChangeRef = useRef(false);
+    const dragStartRef = useRef(null);
 
     const handleLayoutChange = (newLayout) => {
+        if (draggingRef.current) return;
+        if (skipNextLayoutChangeRef.current) {
+            skipNextLayoutChangeRef.current = false;
+            return;
+        }
+
         const updatedConfig = localConfig.map(item => {
             const layoutItem = newLayout.find(l => l.i === item.id);
             if (layoutItem) {
                 // 위치(x, y)만 업데이트합니다. 크기(w, h)는 버튼으로만 바꿉니다!
-              return { ...item, x: layoutItem.x, y: layoutItem.y, w: layoutItem.w, h: layoutItem.h };
+                return { ...item, x: layoutItem.x, y: layoutItem.y, w: layoutItem.w, h: layoutItem.h };
             }
             return item;
         });
+        setLocalConfig(updatedConfig);
+    };
+
+    const handleDragStart = (layout, oldItem, newItem, placeholder, event, element) => {
+        skipNextLayoutChangeRef.current = false;
+        draggingRef.current = true;
+
+        const draggedId = oldItem?.i || newItem?.i;
+        const gridRoot = document.querySelector('.dashboard-settings-grid');
+        const rects = Array.from(gridRoot?.querySelectorAll('.react-grid-item') || [])
+            .map(wrapper => {
+                const card = wrapper.querySelector('[data-dashboard-id]');
+                if (!card) return null;
+                const rect = wrapper.getBoundingClientRect();
+                return {
+                    id: card.getAttribute('data-dashboard-id'),
+                    left: rect.left,
+                    top: rect.top,
+                    right: rect.right,
+                    bottom: rect.bottom,
+                    width: rect.width,
+                    height: rect.height
+                };
+            })
+            .filter(Boolean);
+        const point = getEventPoint(event);
+        const activeElement = element?.closest?.('.react-grid-item') || element;
+        const activeRect = activeElement?.getBoundingClientRect?.() || null;
+
+        dragStartRef.current = {
+            draggedId,
+            config: localConfig.map(item => ({ ...item })),
+            rects,
+            grabOffsetX: point && activeRect ? point.x - activeRect.left : null,
+            grabOffsetY: point && activeRect ? point.y - activeRect.top : null
+        };
+    };
+
+    const handleDragStop = (layout, oldItem, newItem, placeholder, event) => {
+        const dragInfo = dragStartRef.current;
+        draggingRef.current = false;
+        skipNextLayoutChangeRef.current = true;
+        dragStartRef.current = null;
+
+        if (!dragInfo) {
+            const updated = localConfig.map(item => {
+                const layoutItem = layout.find(entry => entry.i === item.id);
+                return layoutItem ? { ...item, x: layoutItem.x, y: layoutItem.y } : item;
+            });
+            setLocalConfig(updated);
+            return;
+        }
+
+        const draggedId = dragInfo.draggedId || oldItem?.i || newItem?.i;
+        const targetId = findDropTargetId(dragInfo, event, layout, newItem);
+        let updatedConfig;
+
+        if (targetId) {
+            const dragged = dragInfo.config.find(item => item.id === draggedId);
+            const target = dragInfo.config.find(item => item.id === targetId);
+
+            if (dragged && target && dragged.w === target.w && dragged.h === target.h) {
+                // 같은 크기 파츠끼리는 다른 파츠를 밀지 않고 정확하게 자리만 교환합니다.
+                updatedConfig = dragInfo.config.map(item => {
+                    if (item.id === draggedId) return { ...item, x: target.x, y: target.y };
+                    if (item.id === targetId) return { ...item, x: dragged.x, y: dragged.y };
+                    return item;
+                });
+            } else {
+                // 크기가 다르면 가로폭·겹침을 검사하고, 부딪히는 파츠만 가까운 빈자리로 이동합니다.
+                updatedConfig = reflowAfterDifferentSizeDrop(dragInfo.config, draggedId, targetId);
+            }
+        } else {
+            // 빈 공간에 놓았을 때는 기존 드래그 배치 결과를 적용합니다.
+            updatedConfig = dragInfo.config.map(item => {
+                const layoutItem = layout.find(entry => entry.i === item.id);
+                return layoutItem ? { ...item, x: layoutItem.x, y: layoutItem.y } : item;
+            });
+        }
+
         setLocalConfig(updatedConfig);
     };
 
@@ -93,7 +315,7 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                 <div className={`p-2 rounded-xl border-2 border-dashed ${isDarkMode ? 'border-gray-700 bg-gray-800/30' : 'border-gray-200 bg-gray-50'}`}>
                     <div className="text-center mb-4 flex justify-center gap-2">
                         <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
-                            👆 꾹 눌러서 이동
+                            👆 꾹 눌러 이동 · 겹치면 교환
                         </span>
                         <span className={`text-xs font-bold px-3 py-1.5 rounded-full flex items-center ${isDarkMode ? 'bg-gray-700 text-blue-300' : 'bg-blue-100 text-blue-600'}`}>
                             <Maximize2 size={12} strokeWidth={3} className="mr-1" /> 버튼으로 크기 조절
@@ -102,14 +324,16 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
 
                    {/* 여기가 바로 4x4 그리드 도화지입니다! */}
                     <ResponsiveGridLayout
-                        className="layout"
+                        className="layout dashboard-settings-grid"
                         layout={visibleItems.map(item => ({ i: item.id, x: item.x, y: item.y, w: item.w, h: item.h }))}
                         cols={4}               
                         rowHeight={35}         // ✨ 기존 40에서 35로 줄여서 위아래 텅 빈 공간을 압축합니다!
                         onLayoutChange={handleLayoutChange}
+                        onDragStart={handleDragStart}
+                        onDragStop={handleDragStop}
                         isResizable={false}    
                         compactType={null}
-                        preventCollision={true}
+                        preventCollision={false}
                         margin={[10, 10]}      
                     >
                         {visibleItems.map(item => {
@@ -128,6 +352,7 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                                 <div 
                                     key={item.id} 
                                     // 1. items-center justify-center를 제거하고, overflow-hidden을 추가했습니다.
+                                    data-dashboard-id={item.id}
                                     className={`rounded-2xl border-2 shadow-sm flex flex-col relative cursor-move transition-transform duration-150 overflow-hidden
                                         ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-800'}
                                     `}
