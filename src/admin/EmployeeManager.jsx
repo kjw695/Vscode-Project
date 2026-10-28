@@ -60,6 +60,7 @@ export default function EmployeeManager({ onBack }) {
         employees = [],
         teams = [],
         routes = [],
+        memberSyncStatus = 'idle',
         setEmployees,
         setRoutes,
         updateEmployee
@@ -368,7 +369,17 @@ export default function EmployeeManager({ onBack }) {
                     <div className="flex items-start justify-between gap-3">
                         <div>
                             <h2 className="text-sm font-black text-slate-800">직원 현황</h2>
-                            <p className="mt-0.5 text-xs text-slate-500">팀·직군·노선 배정 상태를 함께 확인하세요.</p>
+                            <p className="mt-0.5 text-xs text-slate-500">
+                                팀 가입 계정은 자동으로 표시됩니다. 근무팀과 노선은 직원별로 설정하세요.
+                            </p>
+                            {memberSyncStatus === 'loading' && (
+                                <p className="mt-1 text-xs text-indigo-600">팀 가입 계정을 불러오는 중...</p>
+                            )}
+                            {memberSyncStatus === 'error' && (
+                                <p className="mt-1 text-xs font-semibold text-red-600">
+                                    팀 가입 계정을 불러오지 못했습니다. 네트워크 또는 서버 권한을 확인하세요.
+                                </p>
+                            )}
                         </div>
                         <span className="shrink-0 rounded-lg bg-indigo-50 px-2 py-1 text-xs font-black text-indigo-700">{employees.length}명</span>
                     </div>
@@ -436,6 +447,11 @@ export default function EmployeeManager({ onBack }) {
                                 <span className="min-w-0">
                                     <span className="flex flex-wrap items-center gap-1 font-bold text-slate-800">
                                         {employee.name}
+                                        {employee.accountMember && (
+                                            <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-black text-sky-700">
+                                                {employee.organizationMember === false ? '팀 탈퇴 계정' : '앱 계정'}
+                                            </span>
+                                        )}
                                         <span className="text-xs font-medium text-slate-400">· {teamName}</span>
                                         {String(employee.id) === String(profile?.id) && <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-black text-green-700">나</span>}
                                     </span>
@@ -445,7 +461,7 @@ export default function EmployeeManager({ onBack }) {
                                 </span>
                             </span>
                             <span className="flex shrink-0 flex-col items-end gap-1">
-                                <span className={'rounded-lg px-2 py-1 text-[10px] font-black ' + (isInactive ? 'bg-slate-100 text-slate-500' : isUnassignedBase ? 'bg-rose-50 text-rose-700' : type === 'sub' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700')}>{isInactive ? '비활성' : isUnassignedBase ? '배정 필요' : type === 'sub' ? '백업' : '배정 완료'}</span>
+                                <span className={'rounded-lg px-2 py-1 text-[10px] font-black ' + (isInactive ? 'bg-slate-100 text-slate-500' : isUnassignedBase ? 'bg-rose-50 text-rose-700' : type === 'sub' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700')}>{isInactive ? (employee.accountMember && employee.organizationMember === false ? '팀 탈퇴' : '비활성') : isUnassignedBase ? '배정 필요' : type === 'sub' ? '백업' : '배정 완료'}</span>
                                 <span className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">{employee.pattern || employee.work_pattern || DEFAULT_PATTERN}</span>
                             </span>
                         </button>
