@@ -575,7 +575,28 @@ const handleCopyCode = async (code) => {
                             </div>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-4">
+                            <div className={`p-5 rounded-2xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                                <div className="flex items-center space-x-2 mb-3">
+                                    <LogIn className="text-indigo-600" size={20} />
+                                    <h4 className="font-bold text-base">초대 코드로 가입하기</h4>
+                                </div>
+                                <p className="text-xs text-gray-400 mb-4">팀장에게 전달받은 초대 코드를 입력하여 팀에 합류하세요.</p>
+                                <input 
+                                    type="text"
+                                    placeholder="초대 코드 입력 (ven_xxxxxx)"
+                                    value={inviteCodeInput}
+                                    onChange={(e) => setInviteCodeInput(e.target.value)}
+                                    className={`w-full px-3 py-2.5 rounded-xl text-xs border mb-3 ${isDarkMode ? 'bg-gray-900 border-gray-700 text-white' : 'bg-gray-50 border-gray-300'}`}
+                                />
+                                <button 
+                                    onClick={handleJoinTeam}
+                                    className="w-full py-2.5 bg-gray-800 dark:bg-gray-700 text-white rounded-xl text-xs font-bold shadow-md"
+                                >
+                                    팀 가입하기
+                                </button>
+                            </div>
+
                             <div className={`p-5 rounded-2xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
                                 <div className="flex items-center space-x-2 mb-3">
                                     <PlusCircle className="text-indigo-600" size={20} />
@@ -597,26 +618,6 @@ const handleCopyCode = async (code) => {
                                 </button>
                             </div>
 
-                            <div className={`p-5 rounded-2xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                                <div className="flex items-center space-x-2 mb-3">
-                                    <LogIn className="text-indigo-600" size={20} />
-                                    <h4 className="font-bold text-base">초대 코드로 가입하기</h4>
-                                </div>
-                                <p className="text-xs text-gray-400 mb-4">팀장에게 전달받은 초대 코드를 입력하여 팀에 합류하세요.</p>
-                                <input 
-                                    type="text"
-                                    placeholder="초대 코드 입력 (ven_xxxxxx)"
-                                    value={inviteCodeInput}
-                                    onChange={(e) => setInviteCodeInput(e.target.value)}
-                                    className={`w-full px-3 py-2.5 rounded-xl text-xs border mb-3 ${isDarkMode ? 'bg-gray-900 border-gray-700 text-white' : 'bg-gray-50 border-gray-300'}`}
-                                />
-                                <button 
-                                    onClick={handleJoinTeam}
-                                    className="w-full py-2.5 bg-gray-800 dark:bg-gray-700 text-white rounded-xl text-xs font-bold shadow-md"
-                                >
-                                    팀 가입하기
-                                </button>
-                            </div>
                         </div>
                     )}
                 </div>
