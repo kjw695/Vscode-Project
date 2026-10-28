@@ -28,7 +28,7 @@ function AccountView({ onBack, isDarkMode, autoEdit = false }) {
   const [showLogin, setShowLogin] = useState(false);
   const { isLoggedIn, user, profile, signOut } = useAuth(); 
 
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(autoEdit);
   const [isSaving, setIsSaving] = useState(false);
   const [showUnmasked, setShowUnmasked] = useState(false);
 
@@ -271,6 +271,9 @@ const handleEditClick = () => {
         <h2 className="text-2xl font-bold ml-1">계정 관리</h2>
       </div>
 
+      {/* 가입 전 필수 정보 수정으로 들어온 경우에는 입력란을 먼저 보여줍니다. */}
+      {!(autoEdit && isEditing) && (
+      <>
       {/* 🟢 1. 상단 계정 정보 및 연동 영역 (통합됨) */}
       <div className={`${cardClass}`}>
         <div className="flex items-center justify-between gap-2">
@@ -356,6 +359,9 @@ const handleEditClick = () => {
             </div>
         </div>
       </div>
+
+      </>
+      )}
 
       {/* 🟢 2. 내 정보 수정 영역 (통합됨) */}
       <div className={`${cardClass}`}>
