@@ -162,7 +162,7 @@ export default function EmployeeManager({ onBack }) {
         const match = String(safeEmployee.pattern).match(/[1-6]/);
         setWorkDays(match ? Number(match[0]) : 5);
         setEditType(safeEmployee.type);
-        setEditTeamId(safeEmployee.team_id || teams[0]?.id || '');
+        setEditTeamId(safeEmployee.accountMember ? (safeEmployee.team_id ?? '') : (safeEmployee.team_id || teams[0]?.id || ''));
         const assignedRouteIds = routes
             .filter((route) =>
                 String(route.assigned_emp_id) === String(safeEmployee.id) &&
