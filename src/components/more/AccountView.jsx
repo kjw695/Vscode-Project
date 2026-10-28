@@ -36,6 +36,7 @@ function AccountView({ onBack, isDarkMode }) {
 
   const [formData, setFormData] = useState({
       full_name: '',
+      username: '',
       phone_number: '',
       birth_date: '',
       gender: '',
@@ -47,7 +48,8 @@ function AccountView({ onBack, isDarkMode }) {
   useEffect(() => {
       if (profile) {
           setFormData({
-              full_name: profile.full_name || '',
+              full_name: profile.full_name || profile.display_name || user?.user_metadata?.full_name || user?.user_metadata?.name || '',
+              username: profile.username || '',
               phone_number: profile.phone_number || '',
               birth_date: profile.birth_date || '',
               gender: profile.gender || '',
@@ -55,11 +57,14 @@ function AccountView({ onBack, isDarkMode }) {
               vehicle_number: profile.vehicle_number || ''
           });
       }
-  }, [profile]);
+  }, [profile, user]);
 
   const handleChange = (e) => {
       const { name, value } = e.target;
-      setFormData(prev => ({ ...prev, [name]: value }));
+      const nextValue = name === 'username'
+          ? value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20)
+          : value;
+      setFormData(prev => ({ ...prev, [name]: nextValue }));
   };
 
   const handleDateChange = (e, part) => {
@@ -134,26 +139,49 @@ const handleEditClick = () => {
   };
 
   const handleSave = async () => {
-      // ✨ 오프라인 상태에서 저장하려고 하면 막고 로그인 창 띄우기
       if (!isLoggedIn || !user) {
           alert("내 정보를 안전하게 저장하려면 먼저 로그인을 해주세요.");
           setShowLogin(true);
           return;
       }
 
+      const fullName = String(formData.full_name || '').trim();
+      const username = String(formData.username || '').trim().toLowerCase();
+
+      if (!fullName) {
+          alert('이름은 필수 입력 항목입니다.');
+          return;
+      }
+
+      if (!/^[a-z0-9_]{3,20}$/.test(username)) {
+          alert('아이디는 영문 소문자, 숫자, 밑줄(_) 조합으로 3~20자 입력해주세요.');
+          return;
+      }
+
+      const profileUpdate = {
+          ...formData,
+          full_name: fullName,
+          username
+      };
+
       setIsSaving(true);
       try {
           const { error } = await supabase
               .from('profiles')
-              .update(formData)
+              .update(profileUpdate)
               .eq('id', user.id);
 
           if (error) throw error;
-          
+
           alert('내 정보가 안전하게 저장되었습니다.');
           setIsEditing(false);
       } catch (error) {
-          alert('저장에 실패했습니다: ' + error.message);
+          if (error?.code === '23505' ||
+              /profiles_username_normalized_unique/i.test(String(error?.message || ''))) {
+              alert('이미 사용 중인 아이디입니다. 다른 아이디를 입력해주세요.');
+          } else {
+              alert('저장에 실패했습니다: ' + error.message);
+          }
       } finally {
           setIsSaving(false);
       }
@@ -352,8 +380,10 @@ const handleEditClick = () => {
 
         {!isEditing && (
             <div className="space-y-4 text-sm px-1">
-                <div className="flex"><span className="w-24 text-gray-500">이름</span> 
+                <div className="flex"><span className="w-24 text-gray-500">이름</span>
                     <span className="font-medium">{showUnmasked ? (formData.full_name || '-') : maskName(formData.full_name)}</span></div>
+                <div className="flex"><span className="w-24 text-gray-500">아이디</span>
+                    <span className="font-medium break-all">{formData.username || '-'}</span></div>
                 <div className="flex"><span className="w-24 text-gray-500">연락처</span> 
                     <span className="font-medium">{showUnmasked ? (formData.phone_number || '-') : maskPhone(formData.phone_number)}</span></div>
                <div className="flex"><span className="w-24 text-gray-500">생년월일</span> 
@@ -368,8 +398,40 @@ const handleEditClick = () => {
         {isEditing && (
             <div className="space-y-4 px-1 pb-2">
                 <div>
-                    <label className="text-sm text-gray-500">이름</label>
-                    <input type="text" name="full_name" value={formData.full_name} onChange={handleChange} onFocus={handleFocus} className={inputClass} placeholder="예: 홍길동" />
+                    <label className="text-sm text-gray-500">이름 <span className="text-red-500">*</span></label>
+                    <input
+                        type="text"
+                        name="full_name"
+                        value={formData.full_name}
+                        onChange={handleChange}
+                        onFocus={handleFocus}
+                        required
+                        maxLength={60}
+                        className={inputClass}
+                        placeholder="예: 홍길동"
+                    />
+                </div>
+                <div>
+                    <label className="text-sm text-gray-500">아이디 <span className="text-red-500">*</span></label>
+                    <input
+                        type="text"
+                        name="username"
+                        value={formData.username}
+                        onChange={handleChange}
+                        onFocus={handleFocus}
+                        required
+                        minLength={3}
+                        maxLength={20}
+                        pattern="[a-z0-9_]{3,20}"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        className={inputClass}
+                        placeholder="예: hong123"
+                    />
+                    <p className="mt-1 text-xs leading-5 text-gray-500">
+                        영문 소문자, 숫자, 밑줄(_)만 사용해 3~20자로 입력해주세요. 다른 사용자와 중복될 수 없습니다.
+                    </p>
                 </div>
                 <div>
                     <label className="text-sm text-gray-500">연락처</label>
