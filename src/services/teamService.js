@@ -79,6 +79,46 @@ export async function savePreferredDays(userId, daysArray) {
     return true;
 }
 
+
+
+// Start a 7-day deletion grace period. The server derives auth.uid().
+export async function requestTeamDeletion() {
+    const { data, error } = await supabase.rpc('request_organization_deletion');
+    if (error) throw error;
+    return data;
+}
+
+// Cancel the active deletion request (owner only).
+export async function cancelTeamDeletion() {
+    const { data, error } = await supabase.rpc('cancel_organization_deletion');
+    if (error) throw error;
+    return data;
+}
+
+// Read the current team's deletion countdown and election state.
+export async function fetchTeamDeletionState() {
+    const { data, error } = await supabase.rpc('get_my_organization_deletion_state');
+    if (error) throw error;
+    return data;
+}
+
+// A member may volunteer as a candidate during the 7-day period.
+export async function registerTeamLeaderCandidate() {
+    const { data, error } = await supabase.rpc('register_organization_deletion_candidate');
+    if (error) throw error;
+    return data;
+}
+
+// Submit one vote. The server validates eligibility and may transfer ownership atomically.
+export async function voteForTeamLeader(candidateUserId) {
+    const { data, error } = await supabase.rpc(
+        'vote_for_organization_deletion_candidate',
+        { p_candidate_id: candidateUserId }
+    );
+    if (error) throw error;
+    return data;
+}
+
 export async function fetchPreferredDays(userId) {
     const { data, error } = await supabase
         .from('profiles')
