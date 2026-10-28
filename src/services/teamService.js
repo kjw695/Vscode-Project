@@ -66,7 +66,7 @@ export async function fetchMyOrganizationMembers() {
 
             const rawName = String(row.member_display_name || '').trim();
             const name = !rawName || rawName === '팀원'
-                ? '팀원 ' + memberId.slice(0, 4).toUpperCase()
+                ? '이름 미등록'
                 : rawName;
 
             return { id: memberId, name };
