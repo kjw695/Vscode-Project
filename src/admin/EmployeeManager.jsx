@@ -1,5 +1,6 @@
 // src/admin/EmployeeManager.jsx
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { fetchMyVendorInfo } from '../services/teamService';
 import { Users, Truck, ArrowLeft, UserPlus, X, Copy, CheckCircle2, Plus, Search, ChevronDown } from 'lucide-react';
 import BiweeklyPairManager from './BiweeklyPairManager';
 import RegionTeamDropdown from './RegionTeamDropdown';
@@ -15,8 +16,46 @@ const getTeamShift = (team) => {
 };
 const getTeamLabel = (team) => team ? [getTeamRegion(team), getTeamShift(team), team.name].join(' · ') : '미배정';
 
+
 export default function EmployeeManager({ onBack }) {
-    const { profile } = useAuth();
+    const { user: currentUser, profile } = useAuth();
+
+    const [vendorInfo, setVendorInfo] = useState(null);
+
+    useEffect(() => {
+        let isActive = true;
+
+        const loadVendorInfo = async () => {
+            if (!currentUser?.id) {
+                setVendorInfo(null);
+                return;
+            }
+
+            try {
+                const info = await fetchMyVendorInfo(currentUser.id);
+
+                if (isActive) {
+                    setVendorInfo(info?.vendor ?? null);
+                }
+            } catch (error) {
+                console.error(
+                    '[EmployeeManager] 업체 정보 조회 실패:',
+                    error
+                );
+
+                if (isActive) {
+                    setVendorInfo(null);
+                }
+            }
+        };
+
+        loadVendorInfo();
+
+        return () => {
+            isActive = false;
+        };
+    }, [currentUser?.id]);
+
     const {
         employees = [],
         teams = [],
@@ -292,7 +331,7 @@ export default function EmployeeManager({ onBack }) {
     };
 
     const copyInviteCode = () => {
-        const code = profile?.invite_code;
+        const code = vendorInfo?.invite_code;
         if (!code) {
             window.alert('등록된 초대 코드가 없습니다.');
             return;
@@ -441,7 +480,7 @@ export default function EmployeeManager({ onBack }) {
                         <div className="space-y-4 p-4">
                             <p className="text-sm text-gray-500">앱에 가입할 팀원에게 아래 코드를 전달하세요.</p>
                             <div className="flex items-center justify-between gap-2 rounded-xl bg-gray-100 p-3">
-                                <span className="break-all text-lg font-black tracking-widest">{profile?.invite_code || '초대코드 없음'}</span>
+                                <span className="break-all text-lg font-black tracking-widest">{vendorInfo?.invite_code || '초대코드 없음'}</span>
                                 <button onClick={copyInviteCode} className="shrink-0 rounded-lg bg-indigo-50 p-2 text-indigo-600"><Copy size={18} /></button>
                             </div>
                         </div>

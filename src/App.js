@@ -61,7 +61,6 @@ import LoginPage from './components/auth/LoginPage';
 import { useAuth } from './contexts/AuthContext';
 //팀관리
 import TeamManagementView from './components/team/TeamManagementView';
-import { joinTeamByCode } from './services/teamService';
 //관리자페이지
 import Main from './admin/Main';
 
@@ -110,26 +109,6 @@ const { isLoggedIn, user, profile } = useAuth();
 // ✨ 추가: 관리자 센터 수동 오픈 상태
     const [showAdminCenter, setShowAdminCenter] = useState(false);
 
-// ✨ 초대 링크(?code=xxxx)로 접속 시 자동 팀 가입 처리
-    useEffect(() => {
-        const handleAutoJoin = async () => {
-            const params = new URLSearchParams(window.location.search);
-            const inviteCode = params.get('code');
-
-            if (inviteCode && user) {
-                try {
-                    const res = await joinTeamByCode(inviteCode, user.id);
-                    if (showMessage) showMessage(res.message);
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                } catch (e) {
-                    console.error("자동 팀 가입 실패:", e.message);
-                }
-            }
-        };
-
-        handleAutoJoin();
-    }, [user]);
-
     // ✨ [추가] 현재 폰이 아이폰(iOS)인지 안드로이드인지 확인하는 마법!
     const isIOS = Capacitor.getPlatform() === 'ios';
 
@@ -153,10 +132,9 @@ const { isLoggedIn, user, profile } = useAuth();
         return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     });
     const [isFabVisible, setIsFabVisible] = useState(false);
-    const [selectedMainTab, setSelectedMainTab] = useState('home');
-    const [activeContentTab, setActiveContentTab] = useState('monthlyProfit');
+
     const [activeDataTab, setActiveDataTab] = useState('entry');
-    const [moreSubView, setMoreSubView] = useState('main');
+
     const [initialExpenseTab, setInitialExpenseTab] = useState('income');
     const [isExpenseSettingsModalOpen, setIsExpenseSettingsModalOpen] = useState(false); // ✨ 항목 관리 팝업 상태
 
@@ -239,6 +217,75 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const touchEndY = useRef(null);
     const mainTouchStartX = useRef(null); // ✨ [추가] 바탕화면 스와이프 전용
     const mainTouchStartY = useRef(null);
+    const [selectedMainTab, setSelectedMainTab] = useState('home');
+    const [activeContentTab, setActiveContentTab] = useState('monthlyProfit');
+        const [moreSubView, setMoreSubView] = useState('main');
+
+
+// 초대 링크를 열면 팀 관리 화면으로 이동하고 코드를 전달합니다.
+// 실제 가입은 사용자가 '팀 가입하기'를 눌렀을 때 실행합니다.
+useEffect(() => {
+    const openInviteScreen = (rawCode) => {
+        const code = String(rawCode || '').trim();
+
+        if (!code) return;
+
+        try {
+            localStorage.setItem('pendingInviteCode', code);
+        } catch (error) {
+            console.error('[Invite] 초대코드 저장 실패:', error);
+            return;
+        }
+
+        if (user) {
+            setSelectedMainTab('more');
+            setActiveContentTab('adminSettings');
+            setMoreSubView('team');
+        }
+    };
+
+    const handleInviteEvent = (event) => {
+        const code =
+            event.detail?.code ||
+            localStorage.getItem('pendingInviteCode');
+
+        openInviteScreen(code);
+    };
+
+    window.addEventListener(
+        'deliverytracker:invite-link',
+        handleInviteEvent
+    );
+
+    // 기존 ?code= 형식의 링크도 지원합니다.
+    const params = new URLSearchParams(window.location.search);
+    const queryCode = params.get('code');
+
+    if (queryCode) {
+        openInviteScreen(queryCode);
+
+        window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname
+        );
+    } else if (user) {
+        // 로그인 전에 받은 초대코드가 있으면 로그인 후 처리합니다.
+        const pendingCode = localStorage.getItem('pendingInviteCode');
+
+        if (pendingCode) {
+            openInviteScreen(pendingCode);
+        }
+    }
+
+    return () => {
+        window.removeEventListener(
+            'deliverytracker:invite-link',
+            handleInviteEvent
+        );
+    };
+}, [user]);
+
 
    useEffect(() => {
         if (localStorage.getItem('returnToAccount') === 'true') {

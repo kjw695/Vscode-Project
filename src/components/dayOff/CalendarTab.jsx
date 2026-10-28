@@ -150,6 +150,10 @@ export default function CalendarTab({
         }
 
         if (exchangeStep === 1) {
+            if (existingDayOffs[dateStr]) {
+                showMessage('❌ 이미 본인의 휴무로 등록된 날짜입니다. 다른 날짜를 선택하세요.');
+                return;
+            }
             if (dateStr === myOffDate) {
                 showMessage("❌ 같은 날짜입니다. 다른 날짜를 선택하세요.");
                 return;
@@ -164,11 +168,18 @@ export default function CalendarTab({
             
             setIsFetchingMembers(true);
             try {
-                // TODO: 추후 관리자 센터 연동 시 실제 해당 날짜 휴무자 로드
-                setAvailableMembers([
-                    { id: 'user_1', name: '김동료' },
-                    { id: 'user_2', name: '이팀장' }
-                ]);
+               const { data, error } = await supabase.rpc(
+    'list_organization_day_off_members',
+    {
+        p_source_date: myOffDate,
+        p_target_date: dateStr
+    }
+);
+                if (error) throw error;
+                setAvailableMembers((data || []).map(member => ({
+                    id: member.member_id,
+                    name: member.member_display_name || '팀원'
+                })));
             } catch (error) {
                 console.error(error);
                 showMessage("❌ 팀원 정보를 불러오지 못했습니다.");
@@ -181,18 +192,19 @@ export default function CalendarTab({
 
     const handleSubmitExchange = async (receiverId) => {
         try {
-            const { error } = await supabase.from('shift_exchanges').insert({
-                requester_id: currentUser.id,
-                receiver_id: receiverId,
-                team_id: teamId,
-                source_date: myOffDate,
-                target_date: targetDate,
-                status: 'pending'
+            const { error } = await supabase.rpc('create_shift_exchange_request', {
+                p_receiver_id: receiverId,
+                p_source_date: myOffDate,
+                p_target_date: targetDate
             });
 
             if (error) throw error;
 
             showMessage("✅ 교환 신청이 완료되었습니다.");
+            setExchangeStep(0);
+            setMyOffDate(null);
+            setTargetDate(null);
+            setAvailableMembers([]);
             if (onNavigateToExchange) onNavigateToExchange(); 
         } catch (error) {
             console.error(error);

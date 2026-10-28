@@ -14,7 +14,60 @@ export default function TeamManagementView({ onBack, isDarkMode, showMessage, on
     const [teamNameInput, setTeamNameInput] = useState('');
     const [inviteCodeInput, setInviteCodeInput] = useState('');
     const [copied, setCopied] = useState(false);
+// 초대 링크로 전달받은 코드를 가입 입력창에 자동으로 채웁니다.
+// 실제 팀 가입은 사용자가 가입 버튼을 눌렀을 때만 진행합니다.
+useEffect(() => {
+    const applyInviteCode = (rawCode) => {
+        const code = String(rawCode || '').trim();
 
+        if (!code) return;
+
+        setInviteCodeInput(code);
+
+        // 입력창에 반영했으므로 임시 저장된 초대 코드를 정리합니다.
+        try {
+            const pendingCode = localStorage.getItem('pendingInviteCode');
+
+            if (pendingCode === code) {
+                localStorage.removeItem('pendingInviteCode');
+            }
+        } catch (error) {
+            console.warn('[Invite] 임시 초대 코드 정리 실패:', error);
+        }
+    };
+
+    // 앱을 열기 전에 전달받아 저장해 둔 초대 코드 확인
+    try {
+        const pendingCode = localStorage.getItem('pendingInviteCode');
+
+        if (pendingCode) {
+            applyInviteCode(pendingCode);
+        }
+    } catch (error) {
+        console.warn('[Invite] 임시 초대 코드 확인 실패:', error);
+    }
+
+    // 화면이 열린 뒤 초대 링크 이벤트를 받는 경우도 처리
+    const handleInviteLink = (event) => {
+        const code = event.detail?.code;
+
+        if (code) {
+            applyInviteCode(code);
+        }
+    };
+
+    window.addEventListener(
+        'deliverytracker:invite-link',
+        handleInviteLink
+    );
+
+    return () => {
+        window.removeEventListener(
+            'deliverytracker:invite-link',
+            handleInviteLink
+        );
+    };
+}, []);
     useEffect(() => {
         const loadVendor = async () => {
             if (!currentUser) return;
@@ -72,13 +125,33 @@ export default function TeamManagementView({ onBack, isDarkMode, showMessage, on
         }
     };
 
-   const handleCopyCode = (code) => {
-        navigator.clipboard.writeText(`${window.location.origin}/?code=${code}`);
-        setCopied(true);
-        if (showMessage) showMessage("📋 초대 링크가 복사되었습니다!");
-        setTimeout(() => setCopied(false), 2000);
-    };
+const handleCopyCode = async (code) => {
+    const inviteCode = String(code || '').trim();
 
+    if (!inviteCode) {
+        window.alert('등록된 초대 코드가 없습니다.');
+        return;
+    }
+
+    try {
+        if (!navigator.clipboard?.writeText) {
+            window.prompt('초대 코드를 복사하세요.', inviteCode);
+            return;
+        }
+
+        await navigator.clipboard.writeText(inviteCode);
+
+        setCopied(true);
+
+        if (showMessage) {
+            showMessage('📋 초대 코드가 복사되었습니다!');
+        }
+
+        setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+        window.prompt('초대 코드를 복사하세요.', inviteCode);
+    }
+};
     const handleDeleteTeam = async () => {
         if (!window.confirm("정말 팀을 삭제하시겠습니까? 모든 팀원의 소속이 해제됩니다.")) return;
         try {
@@ -138,26 +211,34 @@ export default function TeamManagementView({ onBack, isDarkMode, showMessage, on
                                 소속된 팀의 휴무 관리, 선호 요일 배치 및 교환 마켓 기능을 이용할 수 있습니다.
                             </div>
 
-                            {role === 'owner' && (
-                                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                                    <p className="text-xs font-bold mb-2">팀원 초대 링크</p>
-                                    <div className="flex items-center space-x-2">
-                                        <input 
-                                            type="text" 
-                                            readOnly 
-                                            value={`${window.location.origin}/?code=${vendorInfo.invite_code}`}
-                                            className={`w-full px-3 py-2 rounded-xl text-xs border ${isDarkMode ? 'bg-gray-900 border-gray-700 text-gray-300' : 'bg-white border-gray-300'}`}
-                                        />
-                                        <button 
-                                            onClick={() => handleCopyCode(vendorInfo.invite_code)}
-                                            className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold flex items-center space-x-1 shrink-0"
-                                        >
-                                            {copied ? <Check size={14} /> : <Copy size={14} />}
-                                            <span>{copied ? '복사됨' : '복사'}</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+                          {role === 'owner' && (
+    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <p className="text-xs font-bold mb-2">팀원 초대 코드</p>
+
+        <div className="flex items-center space-x-2">
+            <input
+                type="text"
+                readOnly
+                value={vendorInfo?.invite_code || ''}
+                placeholder="초대코드 없음"
+                className={`min-w-0 flex-1 px-3 py-2 rounded-xl text-xs border ${
+                    isDarkMode
+                        ? 'bg-gray-900 border-gray-700 text-gray-300'
+                        : 'bg-white border-gray-300'
+                }`}
+            />
+
+            <button
+                type="button"
+                onClick={() => handleCopyCode(vendorInfo?.invite_code)}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold flex items-center space-x-1 shrink-0"
+            >
+                {copied ? <Check size={14} /> : <Copy size={14} />}
+                <span>{copied ? '복사됨' : '복사'}</span>
+            </button>
+        </div>
+    </div>
+)}
 
                             <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                                 {role === 'owner' ? (
