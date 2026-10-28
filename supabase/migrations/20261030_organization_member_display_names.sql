@@ -51,7 +51,7 @@ BEGIN
     LEFT JOIN auth.users u
         ON u.id = p.id
     WHERE p.organization_id = v_org_id
-    ORDER BY member_display_name, p.id;
+    ORDER BY 2, p.id;
 END;
 $function$;
 
