@@ -379,6 +379,15 @@ BEGIN
         RAISE EXCEPTION '후보 등록 기간이 끝났거나 진행 중인 선출이 없습니다.';
     END IF;
 
+    IF EXISTS (
+        SELECT 1
+        FROM public.organization_deletion_election_members m
+        WHERE m.request_id = v_request.id
+          AND m.voted_for_user_id IS NOT NULL
+    ) THEN
+        RAISE EXCEPTION '투표가 시작되어 후보 등록이 마감되었습니다.';
+    END IF;
+
     SELECT o.owner_id INTO v_owner_id
     FROM public.organizations o
     WHERE o.id = v_organization_id

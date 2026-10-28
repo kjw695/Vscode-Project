@@ -400,16 +400,26 @@ const handleCopyCode = async (code) => {
                                             투표 참여자가 전체 대상자의 과반수를 넘고, 후보 한 명이 유효 투표의 과반수를 얻으면 즉시 팀장 권한을 이전하고 팀 삭제를 취소합니다.
                                         </p>
 
-                                        {role !== 'owner' && !deletionState.my_is_candidate && (
-                                            <button
-                                                type="button"
-                                                disabled={actionLoading}
-                                                onClick={handleRegisterTeamLeaderCandidate}
-                                                className="w-full py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold disabled:opacity-50"
-                                            >
-                                                {actionLoading ? '처리 중...' : '팀장 후보로 등록하기'}
-                                            </button>
-                                        )}
+                                        {role !== 'owner' &&
+                                            !deletionState.my_is_candidate &&
+                                            (deletionState.votes_cast || 0) === 0 && (
+                                                <button
+                                                    type="button"
+                                                    disabled={actionLoading}
+                                                    onClick={handleRegisterTeamLeaderCandidate}
+                                                    className="w-full py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold disabled:opacity-50"
+                                                >
+                                                    {actionLoading ? '처리 중...' : '팀장 후보로 등록하기'}
+                                                </button>
+                                            )}
+
+                                        {role !== 'owner' &&
+                                            !deletionState.my_is_candidate &&
+                                            (deletionState.votes_cast || 0) > 0 && (
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                    투표가 시작되어 후보 등록이 마감되었습니다.
+                                                </p>
+                                            )}
 
                                         {role !== 'owner' && deletionState.my_is_candidate && (
                                             <p className="text-xs font-bold text-indigo-600 dark:text-indigo-300">
