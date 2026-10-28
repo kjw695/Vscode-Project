@@ -209,6 +209,10 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
                         style={{
                             gridColumn: `${Number(item.x) + 1} / span ${Number(item.w)}`,
                             gridRow: `${Number(item.y) + 1} / span ${Number(item.h)}`,
+                            // 작은 파츠만 같은 높이로 고정해 제목 30% / 값 70% 영역이 일정하게 유지되도록 합니다.
+                            ...(Number(item.w) < 3
+                                ? { height: 'calc(60px + 2vw)', alignSelf: 'start' }
+                                : {}),
                         }}
                     >
                     {/* ✨ 3. 윗부분 박스 (제목): 높이 30%를 차지하며 위로 밀착 */}
