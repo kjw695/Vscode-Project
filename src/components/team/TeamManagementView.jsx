@@ -202,8 +202,8 @@ useEffect(() => {
         } catch (e) {
             const errorMessage = String(e?.message || '');
             if (
-                /팀\\s*가입\\s*전에\\s*내\\s*정보/.test(errorMessage) ||
-                /내\\s*정보에서.*(이름|아이디)/.test(errorMessage)
+                /팀\s*가입\s*전에\s*내\s*정보/.test(errorMessage) ||
+                /내\s*정보에서.*(이름|아이디)/.test(errorMessage)
             ) {
                 // Keep the invite code while routing the user to the required profile form.
                 try {
