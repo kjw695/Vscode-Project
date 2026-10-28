@@ -450,8 +450,7 @@ const handleCopyCode = async (code) => {
                                                                 내 투표
                                                             </span>
                                                         ) : role !== 'owner' &&
-                                                            !deletionState.my_vote_for_user_id &&
-                                                            candidate.user_id !== currentUser?.id ? (
+                                                            !deletionState.my_vote_for_user_id ? (
                                                             <button
                                                                 type="button"
                                                                 disabled={actionLoading}
