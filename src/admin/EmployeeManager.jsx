@@ -251,6 +251,9 @@ export default function EmployeeManager({ onBack }) {
             ...selectedEmployee,
             id: employeeId,
             name,
+            nameManuallyEdited: selectedEmployee.accountMember
+                ? name !== String(selectedEmployee.accountDisplayName || selectedEmployee.name || '').trim()
+                : selectedEmployee.nameManuallyEdited,
             team_id: newTeamId,
             type: newType,
             pattern: finalPattern,
