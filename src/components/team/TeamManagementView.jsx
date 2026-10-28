@@ -10,9 +10,11 @@ const formatDeletionCountdown = (scheduledAt, nowMs) => {
     const secondsLeft = Math.max(0, Math.floor((deadline - nowMs) / 1000));
     if (secondsLeft <= 0) return '삭제 처리 중';
 
-    const days = Math.floor(secondsLeft / 86400);
-    const hours = Math.floor((secondsLeft % 86400) / 3600);
-    const minutes = Math.floor((secondsLeft % 3600) / 60);
+    // Round up to the next minute so the display never shows 0분 with time remaining.
+    const totalMinutesLeft = Math.ceil(secondsLeft / 60);
+    const days = Math.floor(totalMinutesLeft / 1440);
+    const hours = Math.floor((totalMinutesLeft % 1440) / 60);
+    const minutes = totalMinutesLeft % 60;
 
     return `${days}일 ${hours}시간 ${minutes}분`;
 };

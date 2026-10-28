@@ -72,7 +72,7 @@ REVOKE ALL ON TABLE public.organization_deletion_election_members FROM PUBLIC, a
 CREATE OR REPLACE FUNCTION public.get_my_organization_deletion_state()
 RETURNS jsonb
 LANGUAGE plpgsql
-STABLE
+VOLATILE
 SECURITY DEFINER
 SET search_path = pg_catalog, public
 AS $function$
