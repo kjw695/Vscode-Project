@@ -1,6 +1,7 @@
 // src/admin/contexts/DataContext.jsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import useTempInitData from '../utils/tempInitData';
+import { useAuth } from '../../contexts/AuthContext';
+import { fetchMyOrganizationMembers } from '../../services/teamService';
 
 const DataContext = createContext();
 
@@ -27,13 +28,130 @@ const readInitialRegions = () => {
 };
 
 export function DataProvider({ children }) {
+    const { user: currentUser } = useAuth();
     const [teams, setTeams] = useState(() => JSON.parse(localStorage.getItem('my_teams')) || []);
     const [regions, setRegions] = useState(readInitialRegions);
     const [employees, setEmployees] = useState(() => JSON.parse(localStorage.getItem('my_employees')) || []);
     const [routes, setRoutes] = useState(() => JSON.parse(localStorage.getItem('my_routes')) || []);
+    const [memberSyncStatus, setMemberSyncStatus] = useState('idle');
 
-    // 임시 초기 데이터 주입기 (추후 실제 DB 연동 시 이 줄만 삭제)
-    useTempInitData(teams, setTeams, employees, setEmployees, routes, setRoutes);
+    // Team accounts become schedule employees, while local scheduling settings remain attached
+    // to the same account ID. Members who leave are retained as inactive historical employees.
+    useEffect(() => {
+        if (!currentUser?.id) {
+            setMemberSyncStatus('idle');
+            return undefined;
+        }
+
+        let isActive = true;
+        let timerId;
+
+        const syncOrganizationMembers = async () => {
+            try {
+                const members = await fetchMyOrganizationMembers();
+                if (!isActive) return;
+
+                const membersById = new Map(
+                    members.map((member) => [String(member.id), member])
+                );
+
+                setEmployees((previous) => {
+                    const seenMemberIds = new Set();
+
+                    const next = previous.map((employee) => {
+                        const linkedUserId = employee.linkedUserId ||
+                            (employee.accountMember ? employee.id : null);
+                        const member = linkedUserId
+                            ? membersById.get(String(linkedUserId))
+                            : membersById.get(String(employee.id));
+
+                        if (member) {
+                            seenMemberIds.add(String(member.id));
+                            const syncedName = employee.nameManuallyEdited
+                                ? employee.name
+                                : member.name;
+                            const alreadyCurrent =
+                                employee.id === String(member.id) &&
+                                employee.linkedUserId === String(member.id) &&
+                                employee.accountMember === true &&
+                                employee.organizationMember === true &&
+                                employee.accountDisplayName === member.name &&
+                                employee.name === syncedName;
+
+                            if (alreadyCurrent) return employee;
+
+                            return {
+                                ...employee,
+                                id: String(member.id),
+                                linkedUserId: String(member.id),
+                                accountMember: true,
+                                organizationMember: true,
+                                accountDisplayName: member.name,
+                                name: syncedName,
+                                active: employee.active === undefined ? true : employee.active
+                            };
+                        }
+
+                        if (employee.accountMember || employee.linkedUserId) {
+                            if (employee.organizationMember === false && employee.active === false) {
+                                return employee;
+                            }
+                            return {
+                                ...employee,
+                                accountMember: true,
+                                organizationMember: false,
+                                active: false
+                            };
+                        }
+
+                        return employee;
+                    });
+
+                    members.forEach((member) => {
+                        const memberId = String(member.id);
+                        if (seenMemberIds.has(memberId)) return;
+
+                        next.push({
+                            id: memberId,
+                            linkedUserId: memberId,
+                            accountMember: true,
+                            organizationMember: true,
+                            accountDisplayName: member.name,
+                            name: member.name,
+                            nameManuallyEdited: false,
+                            type: 'base',
+                            team_id: '',
+                            pattern: '주 5일',
+                            target: '',
+                            vehicle_number: '',
+                            active: true,
+                            hasFixedOffDays: false,
+                            fixedOffWeekdays: [],
+                            fixedOffWeekdaysByWeek: null,
+                            biweeklyPairId: null,
+                            biweeklyWeekOffset: 0
+                        });
+                    });
+
+                    return next;
+                });
+
+                setMemberSyncStatus('ready');
+            } catch (error) {
+                console.error('[DataContext] 팀 가입 계정 동기화 실패:', error);
+                if (isActive) setMemberSyncStatus('error');
+            }
+        };
+
+        setMemberSyncStatus('loading');
+        syncOrganizationMembers();
+        timerId = window.setInterval(syncOrganizationMembers, 15000);
+
+        return () => {
+            isActive = false;
+            if (timerId) window.clearInterval(timerId);
+        };
+    }, [currentUser?.id]);
 
     // 기존 팀에 등록된 지역이 지역 목록에서도 누락되지 않도록 동기화합니다.
     useEffect(() => {
@@ -87,6 +205,7 @@ export function DataProvider({ children }) {
             teams, setTeams,
             regions, setRegions,
             employees, setEmployees, updateEmployee,
+            memberSyncStatus,
             routes, setRoutes, assignRoute, getEmployeeRouteNames
         }}>
             {children}
