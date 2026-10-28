@@ -441,11 +441,11 @@ const handleEditClick = () => {
                         placeholder="예: hong123"
                     />
                     <p className="mt-1 text-xs leading-5 text-gray-500">
-                        팀에서 계정을 구분하는 고유 아이디입니다. 영문 소문자, 숫자, 밑줄(_)만 사용해 3~20자로 입력해주세요. Google/Apple 로그인 방식은 그대로 유지됩니다.
+                        근무 및 휴무 교환 때 사용됩니다.
                     </p>
                 </div>
                 <div>
-                    <label className="text-sm text-gray-500">차량번호 <span className="text-gray-400">(선택)</span></label>
+                    <label className="text-sm text-gray-500">차량번호</label>
                     <input
                         type="text"
                         name="vehicle_number"
@@ -454,7 +454,7 @@ const handleEditClick = () => {
                         onFocus={handleFocus}
                         maxLength={30}
                         className={inputClass}
-                        placeholder="예: 서울82배8282 (선택 입력)"
+                        placeholder="예: 서울82배8282"
                     />
                 </div>
                 <div>
