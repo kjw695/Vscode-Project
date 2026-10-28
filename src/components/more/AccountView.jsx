@@ -430,7 +430,7 @@ const handleEditClick = () => {
                         placeholder="예: hong123"
                     />
                     <p className="mt-1 text-xs leading-5 text-gray-500">
-                        영문 소문자, 숫자, 밑줄(_)만 사용해 3~20자로 입력해주세요. 다른 사용자와 중복될 수 없습니다.
+                        팀에서 계정을 구분하는 고유 아이디입니다. 영문 소문자, 숫자, 밑줄(_)만 사용해 3~20자로 입력해주세요. Google/Apple 로그인 방식은 그대로 유지됩니다.
                     </p>
                 </div>
                 <div>
