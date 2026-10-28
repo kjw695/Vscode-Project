@@ -220,6 +220,7 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const [selectedMainTab, setSelectedMainTab] = useState('home');
     const [activeContentTab, setActiveContentTab] = useState('monthlyProfit');
         const [moreSubView, setMoreSubView] = useState('main');
+    const [autoEditAccountProfile, setAutoEditAccountProfile] = useState(false);
 
 
 // 초대 링크를 열면 팀 관리 화면으로 이동하고 코드를 전달합니다.
@@ -1279,13 +1280,38 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                         {activeContentTab === 'adminSettings' && (
                             <div className={`p-4 sm:p-6 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
                                 {moreSubView === 'main' && <MoreView onNavigate={setMoreSubView} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />}
-                                {moreSubView === 'account' && <AccountView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} handleLogout={handleLogout} />}
+                                {moreSubView === 'account' && (
+                                    <AccountView
+                                        onBack={() => {
+                                            setAutoEditAccountProfile(false);
+                                            let returnToTeam = false;
+                                            try {
+                                                returnToTeam = localStorage.getItem('returnToTeamAfterProfile') === 'true';
+                                                if (returnToTeam) {
+                                                    localStorage.removeItem('returnToTeamAfterProfile');
+                                                }
+                                            } catch (error) {
+                                                console.warn('[Invite] 가입 재개 상태 확인 실패:', error);
+                                            }
+                                            setMoreSubView(returnToTeam ? 'team' : 'main');
+                                        }}
+                                        isDarkMode={isDarkMode}
+                                        handleLogout={handleLogout}
+                                        autoEdit={autoEditAccountProfile}
+                                    />
+                                )}
                                 {moreSubView === 'team' && (
         <TeamManagementView 
             onBack={() => setMoreSubView('main')} 
             isDarkMode={isDarkMode} 
             showMessage={showMessage} 
-            onGoToAdmin={() => setShowAdminCenter(true)} 
+            onGoToAdmin={() => setShowAdminCenter(true)}
+            onGoToAccount={() => {
+                setSelectedMainTab('more');
+                setActiveContentTab('adminSettings');
+                setAutoEditAccountProfile(true);
+                setMoreSubView('account');
+            }}
         />
     )}
                                     {moreSubView === 'dayOff' && (
