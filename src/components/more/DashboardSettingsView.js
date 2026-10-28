@@ -14,7 +14,7 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
             const layoutItem = newLayout.find(l => l.i === item.id);
             if (layoutItem) {
                 // 위치(x, y)만 업데이트합니다. 크기(w, h)는 버튼으로만 바꿉니다!
-              return { ...item, x: layoutItem.x, y: layoutItem.y, w: layoutItem.w, h: 2 };
+              return { ...item, x: layoutItem.x, y: layoutItem.y, w: layoutItem.w, h: layoutItem.h };
             }
             return item;
         });
@@ -103,7 +103,7 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                    {/* 여기가 바로 4x4 그리드 도화지입니다! */}
                     <ResponsiveGridLayout
                         className="layout"
-                        layout={visibleItems.map(item => ({ i: item.id, x: item.x, y: item.y, w: item.w, h: 2 }))}
+                        layout={visibleItems.map(item => ({ i: item.id, x: item.x, y: item.y, w: item.w, h: item.h }))}
                         cols={4}               
                         rowHeight={35}         // ✨ 기존 40에서 35로 줄여서 위아래 텅 빈 공간을 압축합니다!
                         onLayoutChange={handleLayoutChange}
