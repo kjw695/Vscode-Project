@@ -52,6 +52,28 @@ export async function fetchMyVendorInfo(userId) {
         vendor: orgData
     };
 }
+
+// Read the members of the signed-in user's current organization.
+// The RPC only returns member IDs and display names for that organization.
+export async function fetchMyOrganizationMembers() {
+    const { data, error } = await supabase.rpc('list_my_organization_members');
+    if (error) throw error;
+
+    return (Array.isArray(data) ? data : [])
+        .map((row) => {
+            const memberId = String(row.member_id || '').trim();
+            if (!memberId) return null;
+
+            const rawName = String(row.member_display_name || '').trim();
+            const name = !rawName || rawName === '팀원'
+                ? '팀원 ' + memberId.slice(0, 4).toUpperCase()
+                : rawName;
+
+            return { id: memberId, name };
+        })
+        .filter(Boolean);
+}
+
 // Backward-compatible name: this now starts the 7-day grace period instead of deleting immediately.
 export async function deleteTeam() {
     return requestTeamDeletion();
