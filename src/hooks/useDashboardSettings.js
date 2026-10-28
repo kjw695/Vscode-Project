@@ -26,8 +26,7 @@ export const useDashboardSettings = () => {
         
         if (saved) {
             const parsedSaved = JSON.parse(saved);
-            // 기존 기기에 저장된 카드도 모두 2행 높이로 통일합니다.
-            let mergedConfig = parsedSaved.map(item => ({ ...item, h: 2 })); 
+            let mergedConfig = [...parsedSaved]; 
 
             DEFAULT_CONFIG.forEach((defaultItem) => {
                 const isExist = mergedConfig.find(item => item.id === defaultItem.id);
