@@ -167,9 +167,8 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
   return (
     <div className="relative w-full mb-1 px-1 pt-2"> 
         <div 
-            className="grid grid-cols-4 gap-[2vw] w-full items-stretch"
-            // 모든 행의 높이를 고정해 카드 내용에 따라 행 높이가 달라지지 않게 합니다.
-            style={{ gridAutoRows: '35px', alignItems: 'stretch' }} 
+            className="grid grid-cols-4 gap-[2vw] w-full"
+            style={{ gridAutoRows: 'minmax(30px, auto)' }} 
         >
             {visibleCards.map((item) => {
                 const cardInfo = cardDataMap[item.id];
@@ -178,44 +177,43 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
                 let displayLabel = item.label;
                 if (item.id === 'revenue') displayLabel = `${displayMonth}월 매출`;
 
-                // 홈 파츠는 크기와 관계없이 제목은 위, 값은 아래에 일관되게 배치합니다.
-                const isHorizontal = false;
+                // ✨ [레이아웃 결정] 3칸 이상이면 가로(row), 2칸 이하면 세로(col)
+                const isHorizontal = item.w >= 3;
 
      // ✨ [진짜 박스 반응형 - Container Query 비율 적용!]
                 let baseFontSizeClass = "text-[clamp(11px,14cqw,18px)]"; 
                 // ✨ 1. 상하 여백을 타이트하게 조절합니다 (위쪽을 좁게).
-                // 모든 카드의 위아래 여백은 같게 하고, 너비별 좌우 여백만 조정합니다.
-                let paddingClass = "px-0.5 py-1";
+                let paddingClass = "px-0.5 pt-1.5 pb-2"; 
 
                 if (item.w === 4) {
-                    baseFontSizeClass = "text-[clamp(18px,6cqw,28px)]";
-                    paddingClass = "px-2 py-1 sm:px-3";
+                    baseFontSizeClass = "text-[clamp(18px,6cqw,28px)]"; 
+                    paddingClass = "px-4 py-3 sm:p-5"; 
                 } else if (item.w === 3) {
-                    baseFontSizeClass = "text-[clamp(15px,8cqw,24px)]";
-                    paddingClass = "px-2 py-1 sm:px-3";
+                    baseFontSizeClass = "text-[clamp(15px,8cqw,24px)]"; 
+                    paddingClass = "px-3 py-2.5 sm:p-4"; 
                 } else if (item.w === 2) {
-                    baseFontSizeClass = "text-[clamp(13px,10cqw,20px)]";
-                    paddingClass = "px-1 py-1";
+                    baseFontSizeClass = "text-[clamp(13px,10cqw,20px)]"; 
+                    paddingClass = "px-1 pt-1.5 pb-2"; 
                 }
 
              return (
 
                    <div 
                         key={item.id} 
-                        className={`[container-type:inline-size] box-border min-h-0 overflow-hidden rounded-xl sm:rounded-2xl shadow-sm border flex transition-all w-full h-full
+                        className={`[container-type:inline-size] rounded-xl sm:rounded-2xl shadow-sm border flex transition-all w-full h-full
                             ${paddingClass} ${baseFontSizeClass} 
                             ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-100'}
-                            /* 넓은 카드 값은 오른쪽, 좁은 카드는 제목/값을 위아래로 정렬 */
+                            /* ✨ 2. 3칸 이상은 좌우 끝 밀착(justify-between), 2칸 이하는 상하 꽉 채우기(flex-col) */
                             ${isHorizontal ? 'flex-row items-center justify-between px-4 sm:px-6' : 'flex-col'}
                         `}
                         style={{
                             gridColumn: `${Number(item.x) + 1} / span ${Number(item.w)}`,
-                            gridRow: `${Number(item.y) + 1} / span 2`,
+                            gridRow: `${Number(item.y) + 1} / span ${Number(item.h)}`,
                         }}
                     >
                     {/* ✨ 3. 윗부분 박스 (제목): 높이 30%를 차지하며 위로 밀착 */}
                         <div 
-                            className={`w-full min-w-0 text-gray-500 dark:text-gray-400 font-medium leading-tight whitespace-nowrap overflow-hidden text-ellipsis ${isHorizontal ? 'text-left' : 'h-[30%] min-h-0 shrink-0 flex items-start justify-center'}`}
+                            className={`w-full text-gray-500 dark:text-gray-400 font-medium leading-tight whitespace-nowrap ${isHorizontal ? 'text-left' : 'h-[30%] flex items-start justify-center'}`}
                             style={{ fontSize: '0.8em' }}
                         >
                             {displayLabel}
@@ -223,7 +221,7 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
                         
                       {/* ✨ 4. 아랫부분 박스 (값): 높이 70%를 차지하며 아래로 밀착 */}
                         <div 
-                            className={`w-full min-w-0 min-h-0 font-bold leading-tight tracking-tighter ${cardInfo.colorClass} whitespace-nowrap overflow-hidden flex ${isHorizontal ? 'text-right items-center justify-end' : 'h-[70%] shrink-0 items-end justify-center'}`}
+                            className={`w-full font-bold leading-tight tracking-tighter ${cardInfo.colorClass} whitespace-nowrap flex ${isHorizontal ? 'text-right items-center justify-end' : 'h-[70%] items-end justify-center'}`}
                             style={{ 
                                 // ✨ 1. '보험사' 같은 React 객체는 고정 크기(1em)를 주어 [object Object] 인식 버그를 차단합니다.
                                 // ✨ 2. 숫자/콤마는 글자 폭이 좁으므로 가중치를 0.45로 대폭 낮춰 오작동 축소를 방지합니다.
