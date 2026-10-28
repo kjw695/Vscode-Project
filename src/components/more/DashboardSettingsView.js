@@ -201,7 +201,11 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
     const handleDragStop = (layout, oldItem, newItem, placeholder, event) => {
         const dragInfo = dragStartRef.current;
         draggingRef.current = false;
-        skipNextLayoutChangeRef.current = true;
+        const visibleLayout = Array.isArray(layout) ? layout : [];
+        skipNextLayoutChangeRef.current = Boolean(dragInfo && visibleLayout.some(layoutItem => {
+            const original = dragInfo.config.find(item => item.id === layoutItem.i && item.isVisible);
+            return original && (original.x !== layoutItem.x || original.y !== layoutItem.y);
+        }));
         dragStartRef.current = null;
 
         if (!dragInfo) {
@@ -315,7 +319,7 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                 <div className={`p-2 rounded-xl border-2 border-dashed ${isDarkMode ? 'border-gray-700 bg-gray-800/30' : 'border-gray-200 bg-gray-50'}`}>
                     <div className="text-center mb-4 flex justify-center gap-2">
                         <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
-                            👆 꾹 눌러 이동 · 겹치면 교환
+                            👆 꾹 눌러 이동 · 겹치면 자동 정리
                         </span>
                         <span className={`text-xs font-bold px-3 py-1.5 rounded-full flex items-center ${isDarkMode ? 'bg-gray-700 text-blue-300' : 'bg-blue-100 text-blue-600'}`}>
                             <Maximize2 size={12} strokeWidth={3} className="mr-1" /> 버튼으로 크기 조절
