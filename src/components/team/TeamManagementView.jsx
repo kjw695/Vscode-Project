@@ -33,7 +33,7 @@ const formatDeletionDeadline = (scheduledAt) => {
 };
 
 // ✨ props에 onGoToAdmin 추가
-export default function TeamManagementView({ onBack, isDarkMode, showMessage, onGoToAdmin }) {
+export default function TeamManagementView({ onBack, isDarkMode, showMessage, onGoToAdmin, onGoToAccount }) {
     const { user: currentUser } = useAuth();
 
     const [vendorInfo, setVendorInfo] = useState(null);
@@ -187,19 +187,38 @@ useEffect(() => {
     };
 
     const handleJoinTeam = async () => {
-        if (!inviteCodeInput.trim()) {
+        const inviteCode = inviteCodeInput.trim();
+        if (!inviteCode) {
             alert("초대 코드를 입력해주세요.");
             return;
         }
         try {
             setLoading(true);
-            const res = await joinTeamByCode(inviteCodeInput.trim(), currentUser.id);
+            const res = await joinTeamByCode(inviteCode, currentUser.id);
             setVendorInfo(res.team);
             setRole('member');
             if (showMessage) showMessage(res.message);
             setInviteCodeInput('');
         } catch (e) {
-            alert(e.message);
+            const errorMessage = String(e?.message || '');
+            if (/팀 가입 전에 내 정보에서/.test(errorMessage)) {
+                // Keep the invite code while routing the user to the required profile form.
+                try {
+                    localStorage.setItem('pendingInviteCode', inviteCode);
+                    localStorage.setItem('returnToTeamAfterProfile', 'true');
+                } catch (storageError) {
+                    console.warn('[Invite] 가입 전 초대 코드 보존 실패:', storageError);
+                }
+
+                window.alert(
+                    '팀 가입 전에 내 정보에서 이름과 아이디를 먼저 등록해주세요.\n확인을 누르면 내 정보 수정 화면으로 이동합니다.'
+                );
+                if (onGoToAccount) {
+                    onGoToAccount();
+                }
+                return;
+            }
+            alert(errorMessage || '팀 가입에 실패했습니다.');
         } finally {
             setLoading(false);
         }
