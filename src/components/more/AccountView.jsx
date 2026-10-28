@@ -445,6 +445,19 @@ const handleEditClick = () => {
                     </p>
                 </div>
                 <div>
+                    <label className="text-sm text-gray-500">차량번호 <span className="text-gray-400">(선택)</span></label>
+                    <input
+                        type="text"
+                        name="vehicle_number"
+                        value={formData.vehicle_number}
+                        onChange={handleChange}
+                        onFocus={handleFocus}
+                        maxLength={30}
+                        className={inputClass}
+                        placeholder="예: 서울82배8282 (선택 입력)"
+                    />
+                </div>
+                <div>
                     <label className="text-sm text-gray-500">연락처</label>
                     <div className={`flex items-center justify-between w-full mt-1 border rounded-lg focus-within:ring-2 focus-within:ring-blue-500 overflow-hidden ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}>
                         <input 
@@ -507,10 +520,6 @@ const handleEditClick = () => {
                             변경
                         </span>
                     </button>
-                </div>
-                <div>
-                    <label className="text-sm text-gray-500">차량번호</label>
-                    <input type="text" name="vehicle_number" value={formData.vehicle_number} onChange={handleChange} onFocus={handleFocus} className={inputClass} placeholder="예: 서울82배8282" />
                 </div>
             </div>
         )}
