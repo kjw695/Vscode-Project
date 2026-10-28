@@ -57,6 +57,7 @@ export function DataProvider({ children }) {
 
                 setEmployees((previous) => {
                     const seenMemberIds = new Set();
+                    let changed = false;
 
                     const next = previous.map((employee) => {
                         const linkedUserId = employee.linkedUserId ||
@@ -79,6 +80,7 @@ export function DataProvider({ children }) {
                                 employee.name === syncedName;
 
                             if (alreadyCurrent) return employee;
+                            changed = true;
 
                             return {
                                 ...employee,
@@ -96,6 +98,7 @@ export function DataProvider({ children }) {
                             if (employee.organizationMember === false && employee.active === false) {
                                 return employee;
                             }
+                            changed = true;
                             return {
                                 ...employee,
                                 accountMember: true,
@@ -111,6 +114,7 @@ export function DataProvider({ children }) {
                         const memberId = String(member.id);
                         if (seenMemberIds.has(memberId)) return;
 
+                        changed = true;
                         next.push({
                             id: memberId,
                             linkedUserId: memberId,
@@ -133,7 +137,7 @@ export function DataProvider({ children }) {
                         });
                     });
 
-                    return next;
+                    return changed ? next : previous;
                 });
 
                 setMemberSyncStatus('ready');
