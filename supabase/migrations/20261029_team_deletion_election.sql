@@ -4,7 +4,19 @@
 
 BEGIN;
 
-CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
+-- pg_cron is managed/enabled separately in the Supabase project.
+-- Do not attempt to install/reconfigure the managed extension inside this app migration.
+DO $require_pg_cron$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_catalog.pg_extension
+        WHERE extname = 'pg_cron'
+    ) THEN
+        RAISE EXCEPTION 'pg_cron is not enabled. Enable Supabase Cron first, then rerun this migration.';
+    END IF;
+END;
+$require_pg_cron$;
 
 CREATE TABLE IF NOT EXISTS public.organization_deletion_requests (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
