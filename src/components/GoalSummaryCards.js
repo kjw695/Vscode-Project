@@ -178,23 +178,24 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
                 let displayLabel = item.label;
                 if (item.id === 'revenue') displayLabel = `${displayMonth}월 매출`;
 
-                // ✨ [레이아웃 결정] 3칸 이상이면 가로(row), 2칸 이하면 세로(col)
-                const isHorizontal = item.w >= 3;
+                // 홈 파츠는 크기와 관계없이 제목은 위, 값은 아래에 일관되게 배치합니다.
+                const isHorizontal = false;
 
      // ✨ [진짜 박스 반응형 - Container Query 비율 적용!]
                 let baseFontSizeClass = "text-[clamp(11px,14cqw,18px)]"; 
                 // ✨ 1. 상하 여백을 타이트하게 조절합니다 (위쪽을 좁게).
-                let paddingClass = "px-0.5 pt-1.5 pb-2"; 
+                // 모든 카드의 위아래 여백은 같게 하고, 너비별 좌우 여백만 조정합니다.
+                let paddingClass = "px-0.5 py-1";
 
                 if (item.w === 4) {
-                    baseFontSizeClass = "text-[clamp(18px,6cqw,28px)]"; 
-                    paddingClass = "px-4 py-3 sm:p-5"; 
+                    baseFontSizeClass = "text-[clamp(18px,6cqw,28px)]";
+                    paddingClass = "px-2 py-1 sm:px-3";
                 } else if (item.w === 3) {
-                    baseFontSizeClass = "text-[clamp(15px,8cqw,24px)]"; 
-                    paddingClass = "px-3 py-2.5 sm:p-4"; 
+                    baseFontSizeClass = "text-[clamp(15px,8cqw,24px)]";
+                    paddingClass = "px-2 py-1 sm:px-3";
                 } else if (item.w === 2) {
-                    baseFontSizeClass = "text-[clamp(13px,10cqw,20px)]"; 
-                    paddingClass = "px-1 pt-1.5 pb-2"; 
+                    baseFontSizeClass = "text-[clamp(13px,10cqw,20px)]";
+                    paddingClass = "px-1 py-1";
                 }
 
              return (
@@ -209,7 +210,7 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
                         `}
                         style={{
                             gridColumn: `${Number(item.x) + 1} / span ${Number(item.w)}`,
-                            gridRow: `${Number(item.y) + 1} / span ${Number(item.h)}`,
+                            gridRow: `${Number(item.y) + 1} / span 2`,
                         }}
                     >
                     {/* ✨ 3. 윗부분 박스 (제목): 높이 30%를 차지하며 위로 밀착 */}
