@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Check, X, Plus, Maximize2, GripHorizontal } from 'lucide-react';
+import { ArrowLeft, Check, X, Plus, Maximize2 } from 'lucide-react';
 
 const GRID_COLUMNS = 4;
 const GRID_ROW_HEIGHT = 35;
@@ -378,6 +378,10 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                                 <div
                                     key={item.id}
                                     data-dashboard-id={item.id}
+                                    onPointerDown={(e) => handleDragPointerDown(e, item.id)}
+                                    onPointerMove={handleDragPointerMove}
+                                    onPointerUp={handleDragPointerUp}
+                                    onPointerCancel={handleDragPointerCancel}
                                     className={`rounded-2xl border-2 shadow-sm flex flex-col relative overflow-visible min-w-0 min-h-0
                                         ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-800'}
                                         ${isDragging ? 'border-blue-500 ring-2 ring-blue-400 ring-offset-1 opacity-100' : ''}
@@ -387,6 +391,9 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                                         gridColumn: `${Math.max(0, Number(item.x) || 0) + 1} / span ${item.w}`,
                                         gridRow: `${Math.max(0, Number(item.y) || 0) + 1} / span ${item.h}`,
                                         height: '100%',
+                                        touchAction: 'none',
+                                        userSelect: 'none',
+                                        cursor: isDragging ? 'grabbing' : 'grab',
                                         zIndex: isDragging ? 30 : (isDropTarget ? 20 : 1),
                                         transform: isDragging
                                             ? `translate3d(${dragState.dx}px, ${dragState.dy}px, 0)`
@@ -423,24 +430,7 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                                         </span>
                                     </div>
 
-                                    <button
-                                        type="button"
-                                        className={`absolute bottom-0 left-1/2 -translate-x-1/2 z-20 w-7 h-3 flex items-center justify-center bg-transparent cursor-grab active:cursor-grabbing transition-colors
-                                            ${isDragging
-                                                ? 'text-blue-500'
-                                                : isDarkMode
-                                                    ? 'text-gray-500 hover:text-gray-300'
-                                                    : 'text-gray-400 hover:text-gray-600'}`}
-                                        style={{ padding: 0, margin: 0, touchAction: 'none', userSelect: 'none' }}
-                                        aria-label={`${item.label} 하단 가운데 손잡이를 길게 눌러 이동`}
-                                        onPointerDown={(e) => handleDragPointerDown(e, item.id)}
-                                        onPointerMove={handleDragPointerMove}
-                                        onPointerUp={handleDragPointerUp}
-                                        onPointerCancel={handleDragPointerCancel}
-                                        onClick={(e) => e.preventDefault()}
-                                    >
-                                        <GripHorizontal size={13} strokeWidth={2.2} />
-                                    </button>
+
 
                                 </div>
                             );
