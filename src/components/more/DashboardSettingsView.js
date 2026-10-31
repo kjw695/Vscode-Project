@@ -378,9 +378,9 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                                 <div
                                     key={item.id}
                                     data-dashboard-id={item.id}
-                                    className={`rounded-2xl border-2 shadow-sm flex flex-col relative overflow-hidden min-w-0 min-h-0
+                                    className={`rounded-2xl border-2 shadow-sm flex flex-col relative overflow-visible min-w-0 min-h-0
                                         ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-800'}
-                                        ${isDragging ? 'border-blue-500 ring-2 ring-blue-400 ring-offset-1 opacity-95' : ''}
+                                        ${isDragging ? 'border-blue-500 ring-2 ring-blue-400 ring-offset-1 opacity-100' : ''}
                                         ${isDropTarget ? 'ring-4 ring-blue-400 ring-offset-1' : ''}
                                     `}
                                     style={{
@@ -408,27 +408,6 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                                             </button>
                                         </div>
 
-                                        <div className="flex justify-center">
-                                            <button
-                                                type="button"
-                                                className={`pointer-events-auto w-8 h-6 flex items-center justify-center rounded-md cursor-grab active:cursor-grabbing transition-colors
-                                                    ${isDragging
-                                                        ? 'text-blue-600 bg-blue-100 dark:text-blue-300 dark:bg-blue-900/50'
-                                                        : isDarkMode
-                                                            ? 'text-gray-500 hover:text-gray-300 hover:bg-gray-700/60'
-                                                            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
-                                                style={{ padding: 0, touchAction: 'none', userSelect: 'none' }}
-                                                aria-label={`${item.label} 상단 손잡이를 길게 눌러 이동`}
-                                                onPointerDown={(e) => handleDragPointerDown(e, item.id)}
-                                                onPointerMove={handleDragPointerMove}
-                                                onPointerUp={handleDragPointerUp}
-                                                onPointerCancel={handleDragPointerCancel}
-                                                onClick={(e) => e.preventDefault()}
-                                            >
-                                                <GripHorizontal size={15} strokeWidth={2.5} />
-                                            </button>
-                                        </div>
-
                                         <div className="flex justify-end">
                                             <button
                                                 type="button"
@@ -441,13 +420,31 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                                         </div>
                                     </div>
 
-                                    {/* 제목은 상단 버튼 영역에 밀리지 않도록 카드 중앙에 배치합니다. */}
-                                    <div className="absolute inset-0 flex items-center justify-center px-1 pb-3 pointer-events-none">
+                                    {/* 제목 아래 여백을 줄이고, 이동 손잡이는 카드 하단 중앙에 고정합니다. */}
+                                    <div className="absolute inset-0 flex items-center justify-center px-1 pb-5 pointer-events-none">
                                         <span className={`font-extrabold text-center leading-tight break-keep ${dynamicLabelClass}`}>
                                             {item.label}
                                         </span>
                                     </div>
 
+                                    <button
+                                        type="button"
+                                        className={`absolute bottom-0 left-1/2 -translate-x-1/2 z-20 w-7 h-4 flex items-center justify-center rounded-t-md cursor-grab active:cursor-grabbing transition-colors
+                                            ${isDragging
+                                                ? 'text-blue-600 bg-blue-100 dark:text-blue-300 dark:bg-blue-900/50'
+                                                : isDarkMode
+                                                    ? 'text-gray-500 hover:text-gray-300 hover:bg-gray-700/60'
+                                                    : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
+                                        style={{ padding: 0, margin: 0, touchAction: 'none', userSelect: 'none' }}
+                                        aria-label={`${item.label} 하단 가운데 손잡이를 길게 눌러 이동`}
+                                        onPointerDown={(e) => handleDragPointerDown(e, item.id)}
+                                        onPointerMove={handleDragPointerMove}
+                                        onPointerUp={handleDragPointerUp}
+                                        onPointerCancel={handleDragPointerCancel}
+                                        onClick={(e) => e.preventDefault()}
+                                    >
+                                        <GripHorizontal size={14} strokeWidth={2.5} />
+                                    </button>
 
                                 </div>
                             );
