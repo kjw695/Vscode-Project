@@ -425,12 +425,23 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                                     {/* 오른쪽 아래 모서리에 자연스럽게 배치한 이동 손잡이 */}
                                     <button
                                         type="button"
-                                        className={`absolute bottom-1 right-1 z-20 w-6 h-6 flex items-center justify-center rounded-md
+                                        className={`absolute z-20 flex items-center justify-center cursor-grab active:cursor-grabbing transition-colors
                                             ${isDarkMode
-                                                ? 'text-gray-500 hover:text-gray-300 hover:bg-gray-700/70 active:bg-gray-700'
-                                                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100 active:bg-gray-200'}
-                                            cursor-grab active:cursor-grabbing transition-colors`}
-                                        style={{ touchAction: 'none', userSelect: 'none' }}
+                                                ? 'text-gray-500 hover:text-gray-300'
+                                                : 'text-gray-400 hover:text-gray-600'}`}
+                                        style={{
+                                            position: 'absolute',
+                                            right: 0,
+                                            bottom: 0,
+                                            width: '17px',
+                                            height: '17px',
+                                            padding: 0,
+                                            margin: 0,
+                                            borderTopLeftRadius: '7px',
+                                            touchAction: 'none',
+                                            userSelect: 'none',
+                                            lineHeight: 0
+                                        }}
                                         aria-label={`${item.label} 이동 손잡이`}
                                         onPointerDown={(e) => handleDragPointerDown(e, item.id)}
                                         onPointerMove={handleDragPointerMove}
@@ -438,7 +449,7 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                                         onPointerCancel={handleDragPointerCancel}
                                         onClick={(e) => e.preventDefault()}
                                     >
-                                        <GripVertical size={15} strokeWidth={2.4} className="rotate-45" />
+                                        <GripVertical size={13} strokeWidth={2.5} className="rotate-45" />
                                     </button>
                                 </div>
                             );
