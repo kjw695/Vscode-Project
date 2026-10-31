@@ -341,7 +341,7 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                 <div className={`p-2 rounded-xl border-2 border-dashed ${isDarkMode ? 'border-gray-700 bg-gray-800/30' : 'border-gray-200 bg-gray-50'}`}>
                     <div className="text-center mb-4 flex justify-center gap-2">
                         <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
-                            오른쪽 아래 손잡이를 꾹 눌러 이동 · 파츠 중앙을 목표 위에 놓기
+                            하단 중앙을 꾹 눌러 이동 · 이동 중 테두리가 파란색으로 표시됩니다
                         </span>
                         <span className={`text-xs font-bold px-3 py-1.5 rounded-full flex items-center ${isDarkMode ? 'bg-gray-700 text-blue-300' : 'bg-blue-100 text-blue-600'}`}>
                             <Maximize2 size={12} strokeWidth={3} className="mr-1" /> 버튼으로 크기 조절
@@ -380,8 +380,8 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                                     data-dashboard-id={item.id}
                                     className={`rounded-2xl border-2 shadow-sm flex flex-col relative overflow-hidden min-w-0 min-h-0
                                         ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-800'}
+                                        ${isDragging ? 'border-blue-500 ring-2 ring-blue-400 ring-offset-1 opacity-95' : ''}
                                         ${isDropTarget ? 'ring-4 ring-blue-400 ring-offset-1' : ''}
-                                        ${isDragging ? 'opacity-95' : ''}
                                     `}
                                     style={{
                                         gridColumn: `${Math.max(0, Number(item.x) || 0) + 1} / span ${item.w}`,
@@ -416,40 +416,40 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                                         </button>
                                     </div>
 
-                                    <div className="flex-1 w-full flex items-center justify-center px-1 pb-2">
+                                    <div className="flex-1 w-full flex items-center justify-center px-1 pb-0">
                                         <span className={`font-extrabold text-center leading-tight break-keep ${dynamicLabelClass}`}>
                                             {item.label}
                                         </span>
                                     </div>
 
-                                    {/* 오른쪽 아래 모서리에 자연스럽게 배치한 이동 손잡이 */}
+                                    {/* 하단 전체를 드래그 영역으로 사용해 빈 공간을 줄입니다. 길게 누르면 카드 테두리가 파란색으로 바뀝니다. */}
                                     <button
                                         type="button"
-                                        className={`absolute z-20 flex items-center justify-center cursor-grab active:cursor-grabbing rounded-full transition-colors
-                                            ${isDarkMode
-                                                ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/70 active:bg-gray-700'
-                                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200'}`}
+                                        className={`absolute z-20 left-0 bottom-0 w-full h-5 flex items-center justify-center
+                                            rounded-b-xl cursor-grab active:cursor-grabbing transition-colors
+                                            ${isDragging
+                                                ? 'text-blue-600 dark:text-blue-300'
+                                                : isDarkMode
+                                                    ? 'text-gray-500 hover:text-gray-300'
+                                                    : 'text-gray-400 hover:text-gray-600'}`}
                                         style={{
-                                            position: 'absolute',
-                                            left: '50%',
-                                            bottom: 0,
-                                            width: '44px',
-                                            height: '26px',
                                             padding: 0,
                                             margin: 0,
-                                            transform: 'translateX(-50%)',
+                                            background: isDragging
+                                                ? (isDarkMode ? 'rgba(59,130,246,0.16)' : 'rgba(59,130,246,0.10)')
+                                                : 'transparent',
                                             touchAction: 'none',
                                             userSelect: 'none',
                                             lineHeight: 0
                                         }}
-                                        aria-label={`${item.label} 이동 손잡이`}
+                                        aria-label={`${item.label} 이동 영역`}
                                         onPointerDown={(e) => handleDragPointerDown(e, item.id)}
                                         onPointerMove={handleDragPointerMove}
                                         onPointerUp={handleDragPointerUp}
                                         onPointerCancel={handleDragPointerCancel}
                                         onClick={(e) => e.preventDefault()}
                                     >
-                                        <GripHorizontal size={19} strokeWidth={2.5} />
+                                        <GripHorizontal size={17} strokeWidth={2.5} />
                                     </button>
                                 </div>
                             );
