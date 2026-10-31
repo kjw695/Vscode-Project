@@ -395,33 +395,29 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                                         boxShadow: isDragging ? '0 12px 28px rgba(0,0,0,0.22)' : undefined
                                     }}
                                 >
-                                    {/* 조작 버튼은 카드 위쪽에 겹쳐 배치해 제목 정렬 공간을 차지하지 않습니다. */}
-                                    <div className="absolute top-1 left-1 right-1 z-20 grid grid-cols-3 items-start pointer-events-none">
-                                        <div className="flex justify-start">
-                                            <button
-                                                type="button"
-                                                onPointerDown={(e) => { e.stopPropagation(); cycleSize(item.id, item.w); }}
-                                                className="pointer-events-auto p-1 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-400"
-                                                aria-label={`${item.label} 크기 변경`}
-                                            >
-                                                <Maximize2 size={14} strokeWidth={3} />
-                                            </button>
-                                        </div>
+                                    {/* 한 장의 파츠 안에 아이콘만 배치합니다. 별도의 버튼 박스나 글자는 표시하지 않습니다. */}
+                                    <button
+                                        type="button"
+                                        onPointerDown={(e) => { e.stopPropagation(); cycleSize(item.id, item.w); }}
+                                        className={`absolute top-1.5 left-1.5 z-20 p-0.5 bg-transparent
+                                            ${isDarkMode ? 'text-blue-300' : 'text-blue-600'}
+                                            hover:opacity-70 transition-opacity`}
+                                        aria-label={`${item.label} 크기 변경`}
+                                    >
+                                        <Maximize2 size={16} strokeWidth={2.8} />
+                                    </button>
 
-                                        <div className="flex justify-end">
-                                            <button
-                                                type="button"
-                                                onPointerDown={(e) => { e.stopPropagation(); toggleVisibility(item.id); }}
-                                                className="pointer-events-auto p-1 rounded-full bg-red-100 text-red-500 hover:bg-red-200 dark:bg-red-900/50 dark:text-red-400"
-                                                aria-label={`${item.label} 숨기기`}
-                                            >
-                                                <X size={14} strokeWidth={3} />
-                                            </button>
-                                        </div>
-                                    </div>
+                                    <button
+                                        type="button"
+                                        onPointerDown={(e) => { e.stopPropagation(); toggleVisibility(item.id); }}
+                                        className="absolute top-1.5 right-1.5 z-20 p-0.5 bg-transparent text-red-500 hover:opacity-70 transition-opacity"
+                                        aria-label={`${item.label} 숨기기`}
+                                    >
+                                        <X size={17} strokeWidth={2.8} />
+                                    </button>
 
                                     {/* 제목 아래 여백을 줄이고, 이동 손잡이는 카드 하단 중앙에 고정합니다. */}
-                                    <div className="absolute inset-0 flex items-center justify-center px-1 pb-5 pointer-events-none">
+                                    <div className="absolute inset-0 flex items-center justify-center px-1 pt-3 pb-4 pointer-events-none">
                                         <span className={`font-extrabold text-center leading-tight break-keep ${dynamicLabelClass}`}>
                                             {item.label}
                                         </span>
@@ -429,12 +425,12 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
 
                                     <button
                                         type="button"
-                                        className={`absolute bottom-0 left-1/2 -translate-x-1/2 z-20 w-7 h-4 flex items-center justify-center rounded-t-md cursor-grab active:cursor-grabbing transition-colors
+                                        className={`absolute bottom-0 left-1/2 -translate-x-1/2 z-20 w-7 h-3 flex items-center justify-center bg-transparent cursor-grab active:cursor-grabbing transition-colors
                                             ${isDragging
-                                                ? 'text-blue-600 bg-blue-100 dark:text-blue-300 dark:bg-blue-900/50'
+                                                ? 'text-blue-500'
                                                 : isDarkMode
-                                                    ? 'text-gray-500 hover:text-gray-300 hover:bg-gray-700/60'
-                                                    : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
+                                                    ? 'text-gray-500 hover:text-gray-300'
+                                                    : 'text-gray-400 hover:text-gray-600'}`}
                                         style={{ padding: 0, margin: 0, touchAction: 'none', userSelect: 'none' }}
                                         aria-label={`${item.label} 하단 가운데 손잡이를 길게 눌러 이동`}
                                         onPointerDown={(e) => handleDragPointerDown(e, item.id)}
@@ -443,7 +439,7 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                                         onPointerCancel={handleDragPointerCancel}
                                         onClick={(e) => e.preventDefault()}
                                     >
-                                        <GripHorizontal size={14} strokeWidth={2.5} />
+                                        <GripHorizontal size={13} strokeWidth={2.2} />
                                     </button>
 
                                 </div>
