@@ -1,47 +1,66 @@
-import React, { useState } from 'react';
-import RequestModal from './RequestModal'; 
+import React from 'react';
 
-const ExchangeFeed = ({ currentUser, marketFeeds, refreshData }) => {
-  const [selectedPost, setSelectedPost] = useState(null);
-
-  return (
-    <div>
-      <h3 className="text-lg font-semibold mb-4">팀원들의 교환 요청</h3>
-      
-      <div className="grid gap-4">
-        {marketFeeds.length === 0 ? (
-          <p className="text-gray-500">현재 마켓에 올라온 휴무가 없습니다.</p>
-        ) : (
-          marketFeeds.map((post) => (
-            <div key={post.id} className="border p-4 rounded flex justify-between items-center">
-              <div>
-                <p className="font-bold text-lg">{post.user_name}({post.nickname})</p>
-                <p className="text-gray-700">
-                  <span className="text-red-500 font-semibold">[포기]</span> {post.give_date} ➔ 
-                  <span className="text-blue-500 font-semibold ml-2">[희망]</span> {post.want_date || '아무 날이나'}
-                </p>
-              </div>
-              <button 
-                onClick={() => setSelectedPost(post)}
-                className="bg-indigo-500 text-white px-4 py-2 rounded"
-              >
-                교환 신청
-              </button>
-            </div>
-          ))
-        )}
-      </div>
-
-      {selectedPost && (
-        <RequestModal 
-          post={selectedPost} 
-          currentUser={currentUser} 
-          onClose={() => setSelectedPost(null)}
-          refreshData={refreshData}
-        />
-      )}
-    </div>
-  );
+const STATUS_LABELS = {
+    pending: '응답 필요',
+    accepted: '교환 완료',
+    declined: '거절함',
+    cancelled: '취소됨'
 };
 
-export default ExchangeFeed;
+function statusClass(status) {
+    if (status === 'accepted') return 'bg-green-100 text-green-800';
+    if (status === 'declined' || status === 'cancelled') return 'bg-gray-100 text-gray-600';
+    return 'bg-amber-100 text-amber-800';
+}
+
+export default function ExchangeFeed({ marketFeeds = [], loading, busyId, memberNames = {}, onRespond }) {
+    return (
+        <section>
+            <h3 className="text-lg font-semibold mb-3">내가 받은 교환 신청</h3>
+            {loading && marketFeeds.length === 0 ? (
+                <p className="text-sm text-gray-500 py-3">불러오는 중...</p>
+            ) : marketFeeds.length === 0 ? (
+                <p className="text-sm text-gray-500 py-3">받은 교환 신청이 없습니다.</p>
+            ) : (
+                <div className="space-y-3">
+                    {marketFeeds.map((post) => (
+                        <article key={post.id} className="rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="text-sm font-bold">신청자: {memberNames[post.requester_id] || '팀원'}</p>
+                                    <p className="mt-1 text-sm text-gray-700 dark:text-gray-200">
+                                        상대방 휴무 {post.source_date} <span className="px-1 text-indigo-500">→</span> 내 휴무 {post.target_date}
+                                    </p>
+                                    <p className="mt-1 text-xs text-gray-500">수락하면 두 사람의 휴무 날짜가 서로 바뀝니다.</p>
+                                </div>
+                                <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${statusClass(post.status)}`}>
+                                    {STATUS_LABELS[post.status] || post.status}
+                                </span>
+                            </div>
+                            {post.status === 'pending' && (
+                                <div className="mt-3 flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => onRespond(post.id, 'accepted')}
+                                        disabled={busyId === post.id}
+                                        className="flex-1 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                                    >
+                                        {busyId === post.id ? '처리 중...' : '수락 및 교환'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => onRespond(post.id, 'declined')}
+                                        disabled={busyId === post.id}
+                                        className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-semibold disabled:opacity-50 dark:border-gray-600"
+                                    >
+                                        거절
+                                    </button>
+                                </div>
+                            )}
+                        </article>
+                    ))}
+                </div>
+            )}
+        </section>
+    );
+}

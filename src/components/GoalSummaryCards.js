@@ -127,7 +127,7 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
           value: (selectedInsurance && selectedInsurance.phone) ? (
               <a 
                   href={`tel:${selectedInsurance.phone.replace(/-/g, '')}`} 
-                  className="flex items-center justify-center w-full h-full px-1 gap-1 active:scale-95 transition-transform overflow-hidden"
+                  className="flex items-center justify-center w-full px-1 gap-1 active:scale-95 transition-transform overflow-hidden"
               >
                   {/* ✨ truncate를 삭제하고, 사장님 지시대로 whitespace-nowrap(줄바꿈금지)만 남김 */}
                   <div 
@@ -140,7 +140,7 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
           ) : (
              <button 
                   onClick={() => onTabChange && onTabChange('insurance')} 
-                  className="flex items-center justify-center w-full h-full text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 active:scale-95 whitespace-nowrap tracking-tighter"
+                  className="flex items-center justify-center w-full text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 active:scale-95 whitespace-nowrap tracking-tighter"
                   style={{ fontSize: '0.8em' }}
               >
                   + 보험사 등록
@@ -209,11 +209,15 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
                         style={{
                             gridColumn: `${Number(item.x) + 1} / span ${Number(item.w)}`,
                             gridRow: `${Number(item.y) + 1} / span ${Number(item.h)}`,
+                            // 작은 파츠만 같은 높이로 고정해 제목 30% / 값 70% 영역이 일정하게 유지되도록 합니다.
+                            ...(Number(item.w) < 3
+                                ? { height: 'calc(60px + 2vw)', alignSelf: 'start' }
+                                : {}),
                         }}
                     >
                     {/* ✨ 3. 윗부분 박스 (제목): 높이 30%를 차지하며 위로 밀착 */}
                         <div 
-                            className={`w-full text-gray-500 dark:text-gray-400 font-medium leading-tight whitespace-nowrap ${isHorizontal ? 'text-left' : 'h-[30%] flex items-start justify-center'}`}
+                            className={`w-full text-gray-500 dark:text-gray-400 font-medium leading-tight whitespace-nowrap ${isHorizontal ? 'text-left' : 'h-[30%] flex items-start justify-center pt-0.5'}`}
                             style={{ fontSize: '0.8em' }}
                         >
                             {displayLabel}

@@ -32,6 +32,14 @@
     <data android:scheme="deliverytracker" android:host="login-callback" />
 </intent-filter>
 
+<!-- 팀 초대 링크 -->
+<intent-filter>
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+    <data android:scheme="deliverytracker" android:host="invite" />
+</intent-filter>
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
