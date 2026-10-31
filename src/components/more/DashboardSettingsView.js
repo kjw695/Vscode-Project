@@ -1,273 +1,25 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Check, X, Plus, Maximize2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowLeft, Check, X, Plus, Maximize2 } from 'lucide-react'; // ✨ 직관적인 화살표 모양으로 변경!
+import GridLayout, { WidthProvider } from 'react-grid-layout/legacy';
+import 'react-grid-layout/css/styles.css';
+import 'react-resizable/css/styles.css';
 
-const GRID_COLUMNS = 4;
-const GRID_ROW_HEIGHT = 35;
-const GRID_GAP = 10;
-const LONG_PRESS_DELAY = 300;
-
-const hasGridOverlap = (a, b) =>
-    a.x < b.x + b.w &&
-    a.x + a.w > b.x &&
-    a.y < b.y + b.h &&
-    a.y + a.h > b.y;
-
-const findNearestFreePosition = (item, preferredX, preferredY, placed, maxExistingY) => {
-    const maxSearchY = Math.max(8, maxExistingY + placed.length * 2 + 6, preferredY + placed.length * 2 + 4);
-    const candidates = [];
-
-    for (let y = 0; y <= maxSearchY; y += 1) {
-        for (let x = 0; x <= GRID_COLUMNS - item.w; x += 1) {
-            const candidate = { ...item, x, y };
-            if (placed.some(other => hasGridOverlap(candidate, other))) continue;
-
-            const distance = Math.abs(x - preferredX) + Math.abs(y - preferredY) * GRID_COLUMNS;
-            candidates.push({ x, y, distance });
-        }
-    }
-
-    candidates.sort((a, b) => a.distance - b.distance || a.y - b.y || a.x - b.x);
-    return candidates[0] || { x: 0, y: maxSearchY + 1 };
-};
-
-const reflowAfterDifferentSizeDrop = (sourceConfig, draggedId, targetId) => {
-    const visible = sourceConfig.filter(item => item.isVisible);
-    const dragged = visible.find(item => item.id === draggedId);
-    const target = visible.find(item => item.id === targetId);
-    if (!dragged || !target) return sourceConfig;
-
-    const centeredX = Math.round(target.x + target.w / 2 - dragged.w / 2);
-    const centeredY = Math.round(target.y + target.h / 2 - dragged.h / 2);
-    const draggedX = Math.max(0, Math.min(GRID_COLUMNS - dragged.w, centeredX));
-    const draggedY = Math.max(0, centeredY);
-    const placed = [{ ...dragged, x: draggedX, y: draggedY }];
-    const positions = new Map([[dragged.id, { x: draggedX, y: draggedY }]]);
-    const maxExistingY = visible.reduce((max, item) => Math.max(max, item.y + item.h), 0);
-
-    const remaining = visible
-        .filter(item => item.id !== draggedId)
-        .sort((a, b) => {
-            if (a.id === targetId) return -1;
-            if (b.id === targetId) return 1;
-            return a.y - b.y || a.x - b.x;
-        });
-
-    remaining.forEach(item => {
-        const preferredX = item.id === targetId ? dragged.x : item.x;
-        const preferredY = item.id === targetId ? dragged.y : item.y;
-        const safeX = Math.max(0, Math.min(GRID_COLUMNS - item.w, preferredX));
-        const safeY = Math.max(0, preferredY);
-        const preferred = { ...item, x: safeX, y: safeY };
-        const position = placed.some(other => hasGridOverlap(preferred, other))
-            ? findNearestFreePosition(item, safeX, safeY, placed, maxExistingY)
-            : { x: safeX, y: safeY };
-
-        const placedItem = { ...item, x: position.x, y: position.y };
-        placed.push(placedItem);
-        positions.set(item.id, { x: position.x, y: position.y });
-    });
-
-    return sourceConfig.map(item => {
-        const position = positions.get(item.id);
-        return position ? { ...item, x: position.x, y: position.y } : item;
-    });
-};
+const ResponsiveGridLayout = WidthProvider(GridLayout);
 
 const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
     const [localConfig, setLocalConfig] = useState(config);
-    const [dragState, setDragState] = useState(null);
-    const gridRef = useRef(null);
-    const dragRef = useRef(null);
-    const dragTimerRef = useRef(null);
 
-    useEffect(() => {
-        return () => {
-            if (dragTimerRef.current) window.clearTimeout(dragTimerRef.current);
-        };
-    }, []);
-
-    const handleDragPointerDown = (event, itemId) => {
-        if (event.pointerType === 'mouse' && event.button !== 0) return;
-        event.preventDefault();
-
-        const handle = event.currentTarget;
-        try {
-            handle.setPointerCapture(event.pointerId);
-        } catch (error) {
-            // Pointer capture is best-effort; touch and mouse events still work where unsupported.
-        }
-
-        const grid = gridRef.current;
-        const cardElements = Array.from(grid?.querySelectorAll('[data-dashboard-id]') || []);
-        const rects = cardElements.map(card => {
-            const rect = card.getBoundingClientRect();
-            return {
-                id: card.getAttribute('data-dashboard-id'),
-                left: rect.left,
-                top: rect.top,
-                right: rect.right,
-                bottom: rect.bottom,
-                width: rect.width,
-                height: rect.height
-            };
+    const handleLayoutChange = (newLayout) => {
+        const updatedConfig = localConfig.map(item => {
+            const layoutItem = newLayout.find(l => l.i === item.id);
+            if (layoutItem) {
+                // 위치(x, y)만 업데이트합니다. 크기(w, h)는 버튼으로만 바꿉니다!
+              return { ...item, x: layoutItem.x, y: layoutItem.y, w: layoutItem.w, h: layoutItem.h };
+            }
+            return item;
         });
-
-        const draggedRect = rects.find(rect => rect.id === itemId);
-        if (!draggedRect) return;
-
-        dragRef.current = {
-            draggedId: itemId,
-            pointerId: event.pointerId,
-            startX: event.clientX,
-            startY: event.clientY,
-            dx: 0,
-            dy: 0,
-            active: false,
-            draggedRect,
-            rects,
-            config: localConfig.map(item => ({ ...item }))
-        };
-
-        if (dragTimerRef.current) window.clearTimeout(dragTimerRef.current);
-        dragTimerRef.current = window.setTimeout(() => {
-            const current = dragRef.current;
-            if (!current || current.pointerId !== event.pointerId) return;
-            current.active = true;
-            setDragState({ id: itemId, dx: 0, dy: 0, targetId: null });
-        }, LONG_PRESS_DELAY);
-    };
-
-    const handleDragPointerMove = (event) => {
-        const current = dragRef.current;
-        if (!current || current.pointerId !== event.pointerId) return;
-
-        const dx = event.clientX - current.startX;
-        const dy = event.clientY - current.startY;
-
-        if (!current.active) {
-            // 길게 누르기 전에 손가락이 크게 움직이면 페이지 스크롤/일반 터치로 판단합니다.
-            if (Math.hypot(dx, dy) > 10) {
-                if (dragTimerRef.current) window.clearTimeout(dragTimerRef.current);
-                dragTimerRef.current = null;
-                dragRef.current = null;
-            }
-            return;
-        }
-
-        current.dx = dx;
-        current.dy = dy;
-
-        const movedRect = {
-            left: current.draggedRect.left + dx,
-            top: current.draggedRect.top + dy,
-            right: current.draggedRect.right + dx,
-            bottom: current.draggedRect.bottom + dy
-        };
-        const centerX = (movedRect.left + movedRect.right) / 2;
-        const centerY = (movedRect.top + movedRect.bottom) / 2;
-
-        // 드래그한 파츠의 중앙이 들어간 파츠만 교환 대상으로 지정합니다.
-        const target = current.rects.find(rect =>
-            rect.id !== current.draggedId &&
-            centerX >= rect.left && centerX <= rect.right &&
-            centerY >= rect.top && centerY <= rect.bottom
-        );
-
-        setDragState(previous => {
-            if (
-                previous &&
-                previous.id === current.draggedId &&
-                previous.dx === dx &&
-                previous.dy === dy &&
-                previous.targetId === (target?.id || null)
-            ) return previous;
-
-            return {
-                id: current.draggedId,
-                dx,
-                dy,
-                targetId: target?.id || null
-            };
-        });
-    };
-
-    const finishDrag = (event, cancelled = false) => {
-        const current = dragRef.current;
-        if (!current || current.pointerId !== event.pointerId) return;
-
-        if (dragTimerRef.current) window.clearTimeout(dragTimerRef.current);
-        dragTimerRef.current = null;
-        dragRef.current = null;
-        setDragState(null);
-
-        if (cancelled || !current.active) return;
-
-        const movedRect = {
-            left: current.draggedRect.left + current.dx,
-            top: current.draggedRect.top + current.dy,
-            right: current.draggedRect.right + current.dx,
-            bottom: current.draggedRect.bottom + current.dy
-        };
-        const centerX = (movedRect.left + movedRect.right) / 2;
-        const centerY = (movedRect.top + movedRect.bottom) / 2;
-        const targetRect = current.rects.find(rect =>
-            rect.id !== current.draggedId &&
-            centerX >= rect.left && centerX <= rect.right &&
-            centerY >= rect.top && centerY <= rect.bottom
-        );
-
-        const dragged = current.config.find(item => item.id === current.draggedId);
-        if (!dragged) return;
-
-        let updatedConfig = current.config;
-
-        if (targetRect) {
-            const target = current.config.find(item => item.id === targetRect.id);
-            if (!target) return;
-
-            if (dragged.w === target.w && dragged.h === target.h) {
-                // 같은 크기는 정확히 두 파츠의 좌표만 맞바꿉니다.
-                updatedConfig = current.config.map(item => {
-                    if (item.id === dragged.id) return { ...item, x: target.x, y: target.y };
-                    if (item.id === target.id) return { ...item, x: dragged.x, y: dragged.y };
-                    return item;
-                });
-            } else {
-                // 크기가 다르면 충돌하는 파츠만 가까운 빈자리로 재배치합니다.
-                updatedConfig = reflowAfterDifferentSizeDrop(current.config, dragged.id, target.id);
-            }
-        } else {
-            // 다른 파츠 위가 아닌 빈 칸에 놓으면 해당 칸으로 이동합니다.
-            const gridRect = gridRef.current?.getBoundingClientRect();
-            if (!gridRect) return;
-
-            const columnWidth = (gridRect.width - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
-            const columnStep = columnWidth + GRID_GAP;
-            const rowStep = GRID_ROW_HEIGHT + GRID_GAP;
-            const nextX = Math.max(0, Math.min(
-                GRID_COLUMNS - dragged.w,
-                Math.round((movedRect.left - gridRect.left) / columnStep)
-            ));
-            const nextY = Math.max(0, Math.round((movedRect.top - gridRect.top) / rowStep));
-            const candidate = { ...dragged, x: nextX, y: nextY };
-            const collides = current.config.some(item =>
-                item.isVisible &&
-                item.id !== dragged.id &&
-                hasGridOverlap(candidate, item)
-            );
-
-            if (!collides) {
-                updatedConfig = current.config.map(item =>
-                    item.id === dragged.id ? candidate : item
-                );
-            }
-        }
-
         setLocalConfig(updatedConfig);
     };
-
-    const handleDragPointerUp = (event) => finishDrag(event, false);
-    const handleDragPointerCancel = (event) => finishDrag(event, true);
 
     const toggleVisibility = (id) => {
         setLocalConfig(prev => prev.map(item => item.id === id ? { ...item, isVisible: !item.isVisible } : item));
@@ -341,7 +93,7 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                 <div className={`p-2 rounded-xl border-2 border-dashed ${isDarkMode ? 'border-gray-700 bg-gray-800/30' : 'border-gray-200 bg-gray-50'}`}>
                     <div className="text-center mb-4 flex justify-center gap-2">
                         <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
-                            상단 가운데 손잡이를 꾹 눌러 이동 · 이동 중인 파츠 전체가 파란색 테두리로 표시됩니다
+                            👆 꾹 눌러서 이동
                         </span>
                         <span className={`text-xs font-bold px-3 py-1.5 rounded-full flex items-center ${isDarkMode ? 'bg-gray-700 text-blue-300' : 'bg-blue-100 text-blue-600'}`}>
                             <Maximize2 size={12} strokeWidth={3} className="mr-1" /> 버튼으로 크기 조절
@@ -349,93 +101,67 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                     </div>
 
                    {/* 여기가 바로 4x4 그리드 도화지입니다! */}
-                    <div
-                        ref={gridRef}
-                        className="dashboard-settings-grid w-full"
-                        style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-                            gridAutoRows: `${GRID_ROW_HEIGHT}px`,
-                            columnGap: `${GRID_GAP}px`,
-                            rowGap: `${GRID_GAP}px`,
-                            position: 'relative'
-                        }}
+                    <ResponsiveGridLayout
+                        className="layout"
+                        layout={visibleItems.map(item => ({ i: item.id, x: item.x, y: item.y, w: item.w, h: item.h }))}
+                        cols={4}               
+                        rowHeight={35}         // ✨ 기존 40에서 35로 줄여서 위아래 텅 빈 공간을 압축합니다!
+                        onLayoutChange={handleLayoutChange}
+                        isResizable={false}    
+                        compactType={null}
+                        preventCollision={true}
+                        margin={[10, 10]}      
                     >
                         {visibleItems.map(item => {
-                            let dynamicLabelClass = "text-[clamp(11px,3vw,13px)]";
+                            // ✨ [핵심] 박스 크기에 맞춰 글자 크기를 시원시원하게 확 키웁니다!
+                            let dynamicLabelClass = "text-[clamp(11px,3vw,13px)]"; // 1칸일 때 (기본)
+                            
                             if (item.w === 4) {
-                                dynamicLabelClass = "text-[clamp(18px,5vw,24px)]";
+                                dynamicLabelClass = "text-[clamp(18px,5vw,24px)]"; // 4칸일 때 (엄청 크게!)
                             } else if (item.w === 3) {
-                                dynamicLabelClass = "text-[clamp(15px,4.5vw,20px)]";
+                                dynamicLabelClass = "text-[clamp(15px,4.5vw,20px)]"; // 3칸일 때 (적당히 크게!)
                             } else if (item.w === 2) {
-                                dynamicLabelClass = "text-[clamp(13px,3.8vw,16px)]";
+                                dynamicLabelClass = "text-[clamp(13px,3.8vw,16px)]"; // 2칸일 때 (조금 크게)
                             }
 
-                            const isDragging = dragState?.id === item.id;
-                            const isDropTarget = dragState?.targetId === item.id;
-
-                            return (
-                                <div
-                                    key={item.id}
-                                    data-dashboard-id={item.id}
-                                    onPointerDown={(e) => handleDragPointerDown(e, item.id)}
-                                    onPointerMove={handleDragPointerMove}
-                                    onPointerUp={handleDragPointerUp}
-                                    onPointerCancel={handleDragPointerCancel}
-                                    className={`rounded-2xl border-2 shadow-sm flex flex-col relative overflow-visible min-w-0 min-h-0
+                          return (
+                                <div 
+                                    key={item.id} 
+                                    // 1. items-center justify-center를 제거하고, overflow-hidden을 추가했습니다.
+                                    className={`rounded-2xl border-2 shadow-sm flex flex-col relative cursor-move transition-transform duration-150 overflow-hidden
                                         ${isDarkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-800'}
-                                        ${isDragging ? 'border-blue-500 ring-2 ring-blue-400 ring-offset-1 opacity-100' : ''}
-                                        ${isDropTarget ? 'ring-4 ring-blue-400 ring-offset-1' : ''}
                                     `}
-                                    style={{
-                                        gridColumn: `${Math.max(0, Number(item.x) || 0) + 1} / span ${item.w}`,
-                                        gridRow: `${Math.max(0, Number(item.y) || 0) + 1} / span ${item.h}`,
-                                        height: '100%',
-                                        touchAction: 'none',
-                                        userSelect: 'none',
-                                        cursor: isDragging ? 'grabbing' : 'grab',
-                                        zIndex: isDragging ? 30 : (isDropTarget ? 20 : 1),
-                                        transform: isDragging
-                                            ? `translate3d(${dragState.dx}px, ${dragState.dy}px, 0)`
-                                            : 'none',
-                                        transition: isDragging ? 'none' : 'transform 150ms ease',
-                                        boxShadow: isDragging ? '0 12px 28px rgba(0,0,0,0.22)' : undefined
-                                    }}
                                 >
-                                    {/* 한 장의 파츠 안에 아이콘만 배치합니다. 별도의 버튼 박스나 글자는 표시하지 않습니다. */}
-                                    <button
-                                        type="button"
-                                        onPointerDown={(e) => { e.stopPropagation(); cycleSize(item.id, item.w); }}
-                                        className={`absolute top-1.5 left-1.5 z-20 p-0.5 bg-transparent
-                                            ${isDarkMode ? 'text-blue-300' : 'text-blue-600'}
-                                            hover:opacity-70 transition-opacity`}
-                                        aria-label={`${item.label} 크기 변경`}
-                                    >
-                                        <Maximize2 size={16} strokeWidth={2.8} />
-                                    </button>
+                                    {/* ✨ 1층: 상단 아이콘 구역 (버튼 전용 공간) */}
+                                    <div className="w-full h-8 flex justify-between items-start p-1.5 z-10 shrink-0">
+                                        <button 
+                                            onPointerDown={(e) => { e.stopPropagation(); cycleSize(item.id, item.w); }}
+                                            // absolute를 빼고 상단 바 안에 배치했습니다.
+                                            className="p-1 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-400"
+                                        >
+                                            <Maximize2 size={14} strokeWidth={3} />
+                                        </button>
 
-                                    <button
-                                        type="button"
-                                        onPointerDown={(e) => { e.stopPropagation(); toggleVisibility(item.id); }}
-                                        className="absolute top-1.5 right-1.5 z-20 p-0.5 bg-transparent text-red-500 hover:opacity-70 transition-opacity"
-                                        aria-label={`${item.label} 숨기기`}
-                                    >
-                                        <X size={17} strokeWidth={2.8} />
-                                    </button>
+                                        <button 
+                                            onPointerDown={(e) => { e.stopPropagation(); toggleVisibility(item.id); }}
+                                            // absolute를 빼고 상단 바 안에 배치했습니다.
+                                            className="p-1 rounded-full bg-red-100 text-red-500 hover:bg-red-200 dark:bg-red-900/50 dark:text-red-400"
+                                        >
+                                            <X size={14} strokeWidth={3} />
+                                        </button>
+                                    </div>
 
-                                    {/* 제목 아래 여백을 줄이고, 이동 손잡이는 카드 하단 중앙에 고정합니다. */}
-                                    <div className="absolute inset-0 flex items-center justify-center px-1 pt-3 pb-4 pointer-events-none">
+                                    {/* ✨ 2층: 하단 텍스트 구역 (글자 전용 공간) */}
+                                    <div className="flex-1 w-full flex items-center justify-center px-1 pb-2">
                                         <span className={`font-extrabold text-center leading-tight break-keep ${dynamicLabelClass}`}>
                                             {item.label}
                                         </span>
                                     </div>
-
-
-
                                 </div>
                             );
+                            
                         })}
-                    </div>
+                    </ResponsiveGridLayout>
 
                 </div>
 
