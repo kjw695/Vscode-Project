@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Check, X, Plus, Maximize2, GripVertical } from 'lucide-react';
+import { ArrowLeft, Check, X, Plus, Maximize2, GripHorizontal } from 'lucide-react';
 
 const GRID_COLUMNS = 4;
 const GRID_ROW_HEIGHT = 35;
 const GRID_GAP = 10;
-const LONG_PRESS_DELAY = 220;
+const LONG_PRESS_DELAY = 300;
 
 const hasGridOverlap = (a, b) =>
     a.x < b.x + b.w &&
@@ -425,19 +425,19 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                                     {/* 오른쪽 아래 모서리에 자연스럽게 배치한 이동 손잡이 */}
                                     <button
                                         type="button"
-                                        className={`absolute z-20 flex items-center justify-center cursor-grab active:cursor-grabbing transition-colors
+                                        className={`absolute z-20 flex items-center justify-center cursor-grab active:cursor-grabbing rounded-full transition-colors
                                             ${isDarkMode
-                                                ? 'text-gray-500 hover:text-gray-300'
-                                                : 'text-gray-400 hover:text-gray-600'}`}
+                                                ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/70 active:bg-gray-700'
+                                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200'}`}
                                         style={{
                                             position: 'absolute',
-                                            right: 0,
+                                            left: '50%',
                                             bottom: 0,
-                                            width: '17px',
-                                            height: '17px',
+                                            width: '44px',
+                                            height: '26px',
                                             padding: 0,
                                             margin: 0,
-                                            borderTopLeftRadius: '7px',
+                                            transform: 'translateX(-50%)',
                                             touchAction: 'none',
                                             userSelect: 'none',
                                             lineHeight: 0
@@ -449,7 +449,7 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                                         onPointerCancel={handleDragPointerCancel}
                                         onClick={(e) => e.preventDefault()}
                                     >
-                                        <GripVertical size={13} strokeWidth={2.5} className="rotate-45" />
+                                        <GripHorizontal size={19} strokeWidth={2.5} />
                                     </button>
                                 </div>
                             );
