@@ -86,10 +86,17 @@ const reflowAfterDifferentSizeDrop = (sourceConfig, draggedId, targetId) => {
 
 const findDropTargetId = (dragInfo, event, layout, newItem) => {
     if (!dragInfo) return null;
+
     const point = getEventPoint(event);
     const activeRect = dragInfo.rects.find(rect => rect.id === dragInfo.draggedId);
 
-    if (point && activeRect && Number.isFinite(dragInfo.grabOffsetX) && Number.isFinite(dragInfo.grabOffsetY)) {
+    // 손가락 끝이 아니라 실제로 이동한 파츠의 사각형을 기준으로 목표를 판정합니다.
+    if (
+        point &&
+        activeRect &&
+        Number.isFinite(dragInfo.grabOffsetX) &&
+        Number.isFinite(dragInfo.grabOffsetY)
+    ) {
         const droppedRect = {
             left: point.x - dragInfo.grabOffsetX,
             top: point.y - dragInfo.grabOffsetY,
@@ -98,45 +105,92 @@ const findDropTargetId = (dragInfo, event, layout, newItem) => {
             width: activeRect.width,
             height: activeRect.height
         };
+        const centerX = (droppedRect.left + droppedRect.right) / 2;
+        const centerY = (droppedRect.top + droppedRect.bottom) / 2;
 
-        const directHit = dragInfo.rects.find(rect =>
-            rect.id !== dragInfo.draggedId &&
-            point.x >= rect.left && point.x <= rect.right &&
-            point.y >= rect.top && point.y <= rect.bottom
-        );
-        if (directHit) return directHit.id;
-
-        const overlaps = dragInfo.rects
+        const candidates = dragInfo.rects
             .filter(rect => rect.id !== dragInfo.draggedId)
             .map(rect => {
-                const width = Math.max(0, Math.min(droppedRect.right, rect.right) - Math.max(droppedRect.left, rect.left));
-                const height = Math.max(0, Math.min(droppedRect.bottom, rect.bottom) - Math.max(droppedRect.top, rect.top));
-                const area = width * height;
+                const overlapWidth = Math.max(
+                    0,
+                    Math.min(droppedRect.right, rect.right) - Math.max(droppedRect.left, rect.left)
+                );
+                const overlapHeight = Math.max(
+                    0,
+                    Math.min(droppedRect.bottom, rect.bottom) - Math.max(droppedRect.top, rect.top)
+                );
+                const overlapArea = overlapWidth * overlapHeight;
                 const smallerArea = Math.min(
                     droppedRect.width * droppedRect.height,
                     rect.width * rect.height
                 );
-                return { id: rect.id, area, ratio: smallerArea > 0 ? area / smallerArea : 0 };
-            })
-            .filter(item => item.ratio >= 0.12)
-            .sort((a, b) => b.ratio - a.ratio || b.area - a.area);
 
-        if (overlaps.length > 0) return overlaps[0].id;
+                return {
+                    id: rect.id,
+                    overlapArea,
+                    overlapRatio: smallerArea > 0 ? overlapArea / smallerArea : 0,
+                    centerInside:
+                        centerX >= rect.left &&
+                        centerX <= rect.right &&
+                        centerY >= rect.top &&
+                        centerY <= rect.bottom
+                };
+            })
+            .filter(candidate => candidate.overlapArea > 0)
+            .sort((a, b) =>
+                Number(b.centerInside) - Number(a.centerInside) ||
+                b.overlapRatio - a.overlapRatio ||
+                b.overlapArea - a.overlapArea
+            );
+
+        // 중심이 들어간 파츠를 우선 선택하고, 중심이 경계에 걸린 경우에는
+        // 실제 겹침이 충분한 파츠만 선택해 옆 파츠 오인식을 줄입니다.
+        if (candidates[0]?.centerInside) return candidates[0].id;
+        if (candidates[0]?.overlapRatio >= 0.45) return candidates[0].id;
     }
 
+    // 이벤트 좌표를 받을 수 없는 환경에서는 최종 그리드 좌표의 겹침으로 판정합니다.
     const proposed = newItem || layout?.find(item => item.i === dragInfo.draggedId);
     if (!proposed) return null;
-    const target = dragInfo.config
+
+    const candidates = dragInfo.config
         .filter(item => item.isVisible && item.id !== dragInfo.draggedId)
         .map(item => {
-            const overlapX = Math.max(0, Math.min(proposed.x + proposed.w, item.x + item.w) - Math.max(proposed.x, item.x));
-            const overlapY = Math.max(0, Math.min(proposed.y + proposed.h, item.y + item.h) - Math.max(proposed.y, item.y));
-            return { id: item.id, area: overlapX * overlapY };
-        })
-        .filter(item => item.area > 0)
-        .sort((a, b) => b.area - a.area)[0];
+            const overlapX = Math.max(
+                0,
+                Math.min(proposed.x + proposed.w, item.x + item.w) -
+                Math.max(proposed.x, item.x)
+            );
+            const overlapY = Math.max(
+                0,
+                Math.min(proposed.y + proposed.h, item.y + item.h) -
+                Math.max(proposed.y, item.y)
+            );
+            const overlapArea = overlapX * overlapY;
+            const smallerArea = Math.min(proposed.w * proposed.h, item.w * item.h);
+            const centerX = proposed.x + proposed.w / 2;
+            const centerY = proposed.y + proposed.h / 2;
 
-    return target?.id || null;
+            return {
+                id: item.id,
+                overlapArea,
+                overlapRatio: smallerArea > 0 ? overlapArea / smallerArea : 0,
+                centerInside:
+                    centerX >= item.x &&
+                    centerX <= item.x + item.w &&
+                    centerY >= item.y &&
+                    centerY <= item.y + item.h
+            };
+        })
+        .filter(candidate => candidate.overlapArea > 0)
+        .sort((a, b) =>
+            Number(b.centerInside) - Number(a.centerInside) ||
+            b.overlapRatio - a.overlapRatio ||
+            b.overlapArea - a.overlapArea
+        );
+
+    if (candidates[0]?.centerInside) return candidates[0].id;
+    return candidates[0]?.overlapRatio >= 0.45 ? candidates[0].id : null;
 };
 
 const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
@@ -337,6 +391,7 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                         onDragStop={handleDragStop}
                         isResizable={false}    
                         compactType={null}
+                        allowOverlap={true}                  // 드래그 중 주변 파츠가 밀리지 않도록 겹침을 허용합니다.
                         preventCollision={false}
                         margin={[10, 10]}      
                     >
