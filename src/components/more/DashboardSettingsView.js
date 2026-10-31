@@ -341,7 +341,7 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                 <div className={`p-2 rounded-xl border-2 border-dashed ${isDarkMode ? 'border-gray-700 bg-gray-800/30' : 'border-gray-200 bg-gray-50'}`}>
                     <div className="text-center mb-4 flex justify-center gap-2">
                         <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
-                            가운데 손잡이를 꾹 눌러 이동 · 파츠 중앙을 목표 위에 놓기
+                            오른쪽 아래 손잡이를 꾹 눌러 이동 · 파츠 중앙을 목표 위에 놓기
                         </span>
                         <span className={`text-xs font-bold px-3 py-1.5 rounded-full flex items-center ${isDarkMode ? 'bg-gray-700 text-blue-300' : 'bg-blue-100 text-blue-600'}`}>
                             <Maximize2 size={12} strokeWidth={3} className="mr-1" /> 버튼으로 크기 조절
@@ -408,20 +408,6 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
 
                                         <button
                                             type="button"
-                                            className="w-10 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-blue-500 cursor-grab active:cursor-grabbing"
-                                            style={{ touchAction: 'none', userSelect: 'none' }}
-                                            aria-label={`${item.label} 이동 손잡이`}
-                                            onPointerDown={(e) => handleDragPointerDown(e, item.id)}
-                                            onPointerMove={handleDragPointerMove}
-                                            onPointerUp={handleDragPointerUp}
-                                            onPointerCancel={handleDragPointerCancel}
-                                            onClick={(e) => e.preventDefault()}
-                                        >
-                                            <GripVertical size={18} strokeWidth={2.5} />
-                                        </button>
-
-                                        <button
-                                            type="button"
                                             onPointerDown={(e) => { e.stopPropagation(); toggleVisibility(item.id); }}
                                             className="p-1 rounded-full bg-red-100 text-red-500 hover:bg-red-200 dark:bg-red-900/50 dark:text-red-400"
                                             aria-label={`${item.label} 숨기기`}
@@ -435,6 +421,25 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                                             {item.label}
                                         </span>
                                     </div>
+
+                                    {/* 오른쪽 아래 모서리에 자연스럽게 배치한 이동 손잡이 */}
+                                    <button
+                                        type="button"
+                                        className={`absolute bottom-1 right-1 z-20 w-6 h-6 flex items-center justify-center rounded-md
+                                            ${isDarkMode
+                                                ? 'text-gray-500 hover:text-gray-300 hover:bg-gray-700/70 active:bg-gray-700'
+                                                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100 active:bg-gray-200'}
+                                            cursor-grab active:cursor-grabbing transition-colors`}
+                                        style={{ touchAction: 'none', userSelect: 'none' }}
+                                        aria-label={`${item.label} 이동 손잡이`}
+                                        onPointerDown={(e) => handleDragPointerDown(e, item.id)}
+                                        onPointerMove={handleDragPointerMove}
+                                        onPointerUp={handleDragPointerUp}
+                                        onPointerCancel={handleDragPointerCancel}
+                                        onClick={(e) => e.preventDefault()}
+                                    >
+                                        <GripVertical size={15} strokeWidth={2.4} className="rotate-45" />
+                                    </button>
                                 </div>
                             );
                         })}
