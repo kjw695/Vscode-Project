@@ -73,6 +73,7 @@ AS $function$
 DECLARE
     v_user_id uuid := auth.uid();
     v_organization_id uuid;
+    v_effective_from date;
     v_saved public.organization_weekly_schedules%ROWTYPE;
 BEGIN
     IF v_user_id IS NULL THEN
@@ -106,6 +107,15 @@ BEGIN
 
     IF v_organization_id IS NULL THEN
         RAISE EXCEPTION '회사에 소속된 관리자 계정만 공유 근무표를 저장할 수 있습니다.';
+    END IF;
+
+    SELECT o.schedule_sync_from
+    INTO v_effective_from
+    FROM public.organizations o
+    WHERE o.id = v_organization_id;
+
+    IF v_effective_from IS NULL OR p_week_end < v_effective_from THEN
+        RAISE EXCEPTION '연동 시작일 이전의 근무표는 공유 저장할 수 없습니다. 과거 기록은 기존 데이터로 유지됩니다.';
     END IF;
 
     IF NOT EXISTS (
