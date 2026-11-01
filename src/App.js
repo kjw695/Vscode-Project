@@ -937,6 +937,8 @@ const handleTodayClick = () => {
 
     useAppBackButton({
         handleDayOffBack,
+        isDayOffModalOpen,
+        setIsDayOffModalOpen,
         modalState, closeModal, showConfirmation, isFilterModalOpen, setIsFilterModalOpen,
         isExpenseSettingsModalOpen, setIsExpenseSettingsModalOpen,
         moreSubView, setMoreSubView, selectedMainTab, setSelectedMainTab, activeContentTab, setActiveContentTab,
