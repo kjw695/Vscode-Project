@@ -8,7 +8,7 @@ import ExtraDayOffRequestTab from './ExtraDayOffRequestTab';
 export const DayOffModal = ({ 
     isOpen, onClose, isDarkMode, showMessage, 
     monthlyStartDay, monthlyEndDay, selectedMonth,
-    currentUser, teamId
+    currentUser, teamId, registerBackHandler
 }) => {
     // ✨ 화면 모드 상태: 'main'(나의 스케줄 달력) | 'settings'(휴무 설정)
     const [viewMode, setViewMode] = useState('main');
@@ -93,6 +93,7 @@ export const DayOffModal = ({
                                 teamId={teamId}
                                 currentUser={currentUser}
                                 refreshKey={scheduleRefreshKey}
+                                registerBackHandler={registerBackHandler}
                                 onNavigateToExchange={() => {
                                     setViewMode('settings');
                                     setSettingTab('exchange');
