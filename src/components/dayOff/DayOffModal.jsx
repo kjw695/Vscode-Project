@@ -3,6 +3,7 @@ import { X, Menu, Settings, RefreshCw, ArrowLeft } from 'lucide-react';
 import CalendarTab from './CalendarTab';
 import PreferredTab from './PreferredTab';
 import ExchangeTab from './ExchangeTab';
+import ExtraDayOffRequestTab from './ExtraDayOffRequestTab';
 
 export const DayOffModal = ({ 
     isOpen, onClose, isDarkMode, showMessage, 
@@ -133,7 +134,7 @@ export const DayOffModal = ({
                                 onClick={() => setSettingTab('alternative')}
                                 className={`flex-1 py-3.5 text-center transition-all border-b-[3px] whitespace-nowrap px-1 ${settingTab === 'alternative' ? 'border-[#1E56D0] text-[#1E56D0] dark:border-blue-400 dark:text-blue-400' : 'border-transparent text-gray-500'}`}
                             >
-                                대체휴일(관) 교환
+                                추가휴무 요청
                             </button>
                         </div>
 
@@ -156,9 +157,10 @@ export const DayOffModal = ({
                                     />
                                 )}
                                 {settingTab === 'alternative' && (
-                                    <div className="flex-1 flex items-center justify-center text-gray-400 text-sm mt-20">
-                                        대체휴일 교환 기능은 준비 중입니다.
-                                    </div>
+                                    <ExtraDayOffRequestTab
+                                        currentUser={currentUser}
+                                        teamId={teamId}
+                                    />
                                 )}
                             </div>
                         </div>
