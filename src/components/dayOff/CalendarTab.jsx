@@ -45,6 +45,19 @@ const formatLocalDate = (date) => {
     return `${y}-${m}-${d}`;
 };
 
+const isStandaloneDayOffEntry = (entry) => {
+    const items = Array.isArray(entry.customItems) ? entry.customItems : [];
+    const hasDayOffMarker = entry.memo === '[휴무]' ||
+        items.some(item => item?.key === 'dayOff');
+    const hasOnlyDayOffItems = items.every(item => item?.key === 'dayOff');
+
+    return entry.type === 'income' &&
+        Number(entry.unitPrice ?? 0) === 0 &&
+        Number(entry.round ?? 0) === 0 &&
+        hasDayOffMarker &&
+        hasOnlyDayOffItems;
+};
+
 export default function CalendarTab({ 
     isDarkMode, showMessage, monthlyStartDay, monthlyEndDay, selectedMonth, onClose,
     teamId, currentUser, onNavigateToExchange, refreshKey
@@ -187,6 +200,20 @@ export default function CalendarTab({
         scheduleQueryEnd,
         refreshKey
     ]);
+
+    // 회사 연동 기준일 이후의 기존 개인 휴무 전용 기록은 실제 취소합니다.
+    // 수익 항목이 함께 들어 있는 혼합 기록은 삭제하지 않습니다.
+    useEffect(() => {
+        if (!teamId || !scheduleSyncFrom || !Array.isArray(entries)) return;
+
+        const staleDayOffEntries = entries.filter((entry) =>
+            entry.date >= scheduleSyncFrom && isStandaloneDayOffEntry(entry)
+        );
+
+        staleDayOffEntries.forEach((entry) => {
+            if (deleteEntry) deleteEntry(entry.id);
+        });
+    }, [teamId, scheduleSyncFrom, entries, deleteEntry]);
 
     const myPublishedScheduleByDate = useMemo(() => {
         const result = {};
