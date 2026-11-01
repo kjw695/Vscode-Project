@@ -89,7 +89,6 @@ export default function CalendarTab({
     const [extraDayOffNote, setExtraDayOffNote] = useState('');
     const [isSubmittingExtraDayOff, setIsSubmittingExtraDayOff] = useState(false);
     const extraRequestPanelRef = useRef(null);
-    const extraRequestTextareaRef = useRef(null);
     const [myExtraDayOffRequests, setMyExtraDayOffRequests] = useState([]);
     const [publishedSchedules, setPublishedSchedules] = useState([]);
     const [isLoadingPublishedSchedules, setIsLoadingPublishedSchedules] = useState(false);
@@ -803,7 +802,6 @@ export default function CalendarTab({
                             </button>
                         </div>
                         <textarea
-                            ref={extraRequestTextareaRef}
                             value={extraDayOffNote}
                             onFocus={scrollExtraRequestPanelIntoView}
                             onChange={(event) => setExtraDayOffNote(event.target.value)}
