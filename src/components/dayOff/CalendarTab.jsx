@@ -10,7 +10,7 @@
        ├── MyExchange.jsx     (3탭 상단 영역: 내 교환 현황 및 등록)
       ├── ExchangeFeed.jsx   (3탭 하단 영역: 팀원들의 휴무 교환 마켓 피드)
       └── RequestModal.jsx   (3탭 기능: 교환 신청 시 띄우는 모달)*/
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useDelivery } from '../../contexts/DeliveryContext';
 import { supabase } from '../../lib/supabaseClient'; // 기존 휴무 교환 RPC
@@ -60,7 +60,7 @@ const isStandaloneDayOffEntry = (entry) => {
 
 export default function CalendarTab({ 
     isDarkMode, showMessage, monthlyStartDay, monthlyEndDay, selectedMonth, onClose,
-    teamId, currentUser, onNavigateToExchange, refreshKey
+    teamId, currentUser, onNavigateToExchange, refreshKey, registerBackHandler
 }) {
     const { entries, saveEntry, deleteEntry } = useDelivery();
 
@@ -86,10 +86,37 @@ export default function CalendarTab({
     const [extraDayOffDate, setExtraDayOffDate] = useState(null);
     const [extraDayOffNote, setExtraDayOffNote] = useState('');
     const [isSubmittingExtraDayOff, setIsSubmittingExtraDayOff] = useState(false);
+    const [keyboardOverlap, setKeyboardOverlap] = useState(0);
     const [publishedSchedules, setPublishedSchedules] = useState([]);
     const [isLoadingPublishedSchedules, setIsLoadingPublishedSchedules] = useState(false);
     const [scheduleLoadError, setScheduleLoadError] = useState(false);
     const [scheduleSyncFrom, setScheduleSyncFrom] = useState(null);
+
+    // 키보드가 WebView의 보이는 영역을 실제로 덮는 경우에만 하단 신청창을 위로 올립니다.
+    // Android adjustResize로 화면 자체가 줄어들면 visualViewport와 innerHeight 차이가 없어 중복 이동하지 않습니다.
+    useEffect(() => {
+        const viewport = window.visualViewport;
+        if (!viewport) return undefined;
+
+        const updateKeyboardOverlap = () => {
+            const overlap = Math.max(
+                0,
+                window.innerHeight - viewport.height - viewport.offsetTop
+            );
+            setKeyboardOverlap(Math.round(overlap));
+        };
+
+        updateKeyboardOverlap();
+        viewport.addEventListener('resize', updateKeyboardOverlap);
+        viewport.addEventListener('scroll', updateKeyboardOverlap);
+        window.addEventListener('resize', updateKeyboardOverlap);
+
+        return () => {
+            viewport.removeEventListener('resize', updateKeyboardOverlap);
+            viewport.removeEventListener('scroll', updateKeyboardOverlap);
+            window.removeEventListener('resize', updateKeyboardOverlap);
+        };
+    }, []);
 
     useEffect(() => {
         if (selectedMonth) {
@@ -441,6 +468,37 @@ export default function CalendarTab({
         }
     };
 
+    // Android 시스템 뒤로가기는 현재 휴무 신청 흐름부터 취소합니다.
+    const handleCalendarBack = useCallback(() => {
+        if (exchangeStep === 2) {
+            setExchangeStep(1);
+            setTargetDate(null);
+            setAvailableMembers([]);
+            return true;
+        }
+
+        if (exchangeStep === 1 || myOffDate) {
+            setExchangeStep(0);
+            setMyOffDate(null);
+            setTargetDate(null);
+            setAvailableMembers([]);
+            return true;
+        }
+
+        if (extraDayOffDate) {
+            setExtraDayOffDate(null);
+            setExtraDayOffNote('');
+            return true;
+        }
+
+        return false;
+    }, [exchangeStep, myOffDate, extraDayOffDate]);
+
+    useEffect(() => {
+        if (!teamId || !registerBackHandler) return undefined;
+        return registerBackHandler(handleCalendarBack);
+    }, [teamId, registerBackHandler, handleCalendarBack]);
+
     const toAdd = selectedDates.filter(date => !existingDayOffs[date]);
     const toRemove = Object.keys(existingDayOffs).filter(date => !selectedDates.includes(date));
     const hasChanges = toAdd.length > 0 || toRemove.length > 0;
@@ -650,7 +708,7 @@ export default function CalendarTab({
             </div>
             
             {/* ✨ 하단 내비게이션 바 위에 항상 떠 있는 플로팅 컨트롤 패널 */}
-            <div className="absolute bottom-16 left-0 right-0 px-4 py-2 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm z-20 shadow-lg border-t border-gray-100 dark:border-gray-800">
+            <div className="absolute bottom-16 left-0 right-0 px-4 py-2 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm z-20 shadow-lg border-t border-gray-100 dark:border-gray-800" style={keyboardOverlap > 0 ? { bottom: `${keyboardOverlap + 12}px` } : undefined}>
                 {teamId ? (
             <div className="flex flex-col space-y-2">
                 {extraDayOffDate ? (
