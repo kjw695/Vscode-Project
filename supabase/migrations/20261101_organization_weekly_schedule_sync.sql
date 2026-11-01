@@ -67,11 +67,13 @@ BEGIN
         RAISE EXCEPTION '팀 정보가 필요합니다.';
     END IF;
 
-    IF p_week_start IS NULL OR p_week_end IS DISTINCT FROM p_week_start + 6 THEN
+    IF p_week_start IS NULL
+       OR EXTRACT(DOW FROM p_week_start) <> 0
+       OR p_week_end IS DISTINCT FROM p_week_start + 6 THEN
         RAISE EXCEPTION '일요일부터 토요일까지 7일 범위의 근무표만 저장할 수 있습니다.';
     END IF;
 
-    IF p_status NOT IN ('draft', 'confirmed') THEN
+    IF p_status IS NULL OR p_status NOT IN ('draft', 'confirmed') THEN
         RAISE EXCEPTION '근무표 상태가 올바르지 않습니다.';
     END IF;
 
