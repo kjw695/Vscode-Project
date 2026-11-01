@@ -3,6 +3,22 @@
 
 BEGIN;
 
+-- Schedule synchronization starts on the date this migration is applied.
+-- Existing organizations share schedules only from this date onward.
+-- New organizations inherit the current date automatically.
+ALTER TABLE public.organizations
+    ADD COLUMN IF NOT EXISTS schedule_sync_from date;
+
+UPDATE public.organizations
+SET schedule_sync_from = CURRENT_DATE
+WHERE schedule_sync_from IS NULL;
+
+ALTER TABLE public.organizations
+    ALTER COLUMN schedule_sync_from SET DEFAULT CURRENT_DATE;
+
+ALTER TABLE public.organizations
+    ALTER COLUMN schedule_sync_from SET NOT NULL;
+
 CREATE TABLE IF NOT EXISTS public.organization_weekly_schedules (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id uuid NOT NULL
@@ -174,6 +190,7 @@ RETURNS TABLE (
     team_label text,
     week_start date,
     week_end date,
+    effective_from date,
     status text,
     version integer,
     confirmed_at timestamptz,
@@ -190,6 +207,7 @@ AS $function$
 DECLARE
     v_user_id uuid := auth.uid();
     v_organization_id uuid;
+    v_effective_from date;
     v_is_owner boolean := false;
 BEGIN
     IF v_user_id IS NULL THEN
@@ -209,6 +227,15 @@ BEGIN
         RETURN;
     END IF;
 
+    SELECT o.schedule_sync_from
+    INTO v_effective_from
+    FROM public.organizations o
+    WHERE o.id = v_organization_id;
+
+    IF v_effective_from IS NULL THEN
+        RETURN;
+    END IF;
+
     SELECT EXISTS (
         SELECT 1
         FROM public.organizations o
@@ -224,6 +251,7 @@ BEGIN
         s.team_label,
         s.week_start,
         s.week_end,
+        v_effective_from AS effective_from,
         s.status,
         s.version,
         s.confirmed_at,
@@ -301,7 +329,7 @@ BEGIN
     FROM public.organization_weekly_schedules s
     WHERE s.organization_id = v_organization_id
       AND s.week_start <= p_end_date
-      AND s.week_end >= p_start_date
+      AND s.week_end >= GREATEST(p_start_date, v_effective_from)
       AND (
           v_is_owner
           OR s.employee_details ? v_user_id::text
@@ -309,6 +337,38 @@ BEGIN
     ORDER BY s.week_start, s.team_label;
 END;
 $function$;
+
+
+CREATE OR REPLACE FUNCTION public.get_my_organization_schedule_sync_from()
+RETURNS date
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $function$
+DECLARE
+    v_user_id uuid := auth.uid();
+    v_effective_from date;
+BEGIN
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION '로그인이 필요합니다.';
+    END IF;
+
+    SELECT o.schedule_sync_from
+    INTO v_effective_from
+    FROM public.profiles p
+    JOIN public.organizations o
+      ON o.id = p.organization_id
+    WHERE p.id = v_user_id;
+
+    RETURN v_effective_from;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.get_my_organization_schedule_sync_from()
+    FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_my_organization_schedule_sync_from()
+    TO authenticated;
 
 REVOKE ALL ON FUNCTION public.save_my_organization_weekly_schedule(
     text, text, date, date, text, jsonb, jsonb, jsonb
