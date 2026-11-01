@@ -106,10 +106,10 @@ const getSmartCurrentMonth = (startDay = 26) => {
 };
 
 const HOME_CALENDAR_VOLUME_METRICS = [
-    { key: 'deliveryCount', label: '배송' },
-    { key: 'deliveryInterruptionAmount', label: '중단' },
-    { key: 'returnCount', label: '반품' },
-    { key: 'freshBagCount', label: '프레시백' }
+    { key: 'deliveryCount', label: '배송', shortLabel: '배' },
+    { key: 'deliveryInterruptionAmount', label: '중단', shortLabel: '중' },
+    { key: 'returnCount', label: '반품', shortLabel: '반' },
+    { key: 'freshBagCount', label: '프레시백', shortLabel: '프' }
 ];
 
 const DEFAULT_HOME_CALENDAR_VOLUME_ITEMS = {
@@ -1116,10 +1116,17 @@ const handleTodayClick = () => {
             ? homeExtraDayOffRequestStatusByDate[dateKey] || null
             : null;
 
+        const volumeDisplayTotal = HOME_CALENDAR_VOLUME_METRICS.reduce((total, metric) => {
+            return total + (homeCalendarVolumeItems[metric.key]
+                ? Number(dayInfo.volumeBreakdown?.[metric.key] || 0)
+                : 0);
+        }, 0);
+
         return {
             ...dayInfo,
             isDayOff,
-            extraDayOffRequestStatus
+            extraDayOffRequestStatus,
+            volumeDisplayTotal
         };
     });
 
@@ -1482,17 +1489,17 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                                                                 }
                                                                                 title={`${label} ${amount}개`}
                                                                             >
-                                                                                {label} {amount}
+                                                                                {homeCalendarDesign === 'classic' ? metric.shortLabel : label} {amount}
                                                                             </span>
                                                                         );
                                                                     })}
                                                                 </div>
-                                                                {dayInfo.isCurrentMonth && dayInfo.volume > 0 && (
+                                                                {dayInfo.isCurrentMonth && dayInfo.volumeDisplayTotal > 0 && (
                                                                     <span className={homeCalendarDesign === 'current'
                                                                         ? 'text-[8px] font-black leading-[10px] text-orange-500'
                                                                         : 'text-[7px] font-black leading-[8px] text-orange-500'
                                                                     }>
-                                                                        합계 {dayInfo.volume.toLocaleString()}개
+                                                                        합계 {dayInfo.volumeDisplayTotal.toLocaleString()}개
                                                                     </span>
                                                                 )}
                                                             </>
