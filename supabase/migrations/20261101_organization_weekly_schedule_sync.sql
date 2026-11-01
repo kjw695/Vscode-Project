@@ -288,9 +288,13 @@ BEGIN
         END AS schedule,
         CASE
             WHEN v_is_owner THEN s.employee_details
-            ELSE jsonb_build_object(
+            WHEN s.status = 'confirmed' THEN jsonb_build_object(
                 v_user_id::text,
                 s.employee_details -> v_user_id::text
+            )
+            ELSE jsonb_build_object(
+                v_user_id::text,
+                jsonb_build_object('pending', true)
             )
         END AS employee_details,
         CASE WHEN v_is_owner THEN s.warnings ELSE '[]'::jsonb END AS warnings
