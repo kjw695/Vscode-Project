@@ -17,6 +17,7 @@ export const DayOffModal = ({
 
     // ✨ 새로고침 로딩 상태 추가
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
 
     // 모달이 열릴 때마다 '나의 스케줄' 기본 화면으로 초기화
     useEffect(() => {
@@ -64,6 +65,7 @@ export const DayOffModal = ({
                                     onClick={() => {
                                         if (isRefreshing) return;
                                         setIsRefreshing(true);
+                                        setScheduleRefreshKey((previous) => previous + 1);
                                         setTimeout(() => {
                                             setIsRefreshing(false);
                                         }, 1000);
@@ -89,6 +91,7 @@ export const DayOffModal = ({
                                 onClose={onClose}
                                 teamId={teamId}
                                 currentUser={currentUser}
+                                refreshKey={scheduleRefreshKey}
                                 onNavigateToExchange={() => {
                                     setViewMode('settings');
                                     setSettingTab('exchange');
