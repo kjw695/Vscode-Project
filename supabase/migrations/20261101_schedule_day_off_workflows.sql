@@ -159,6 +159,8 @@ BEGIN
                FROM jsonb_each(p_employee_details) AS backup_detail(employee_id, detail)
                WHERE backup_detail.employee_id = v_sub_id
                  AND backup_detail.detail ->> 'type' = 'sub'
+                 AND COALESCE(backup_detail.detail ->> 'teamId', '') =
+                     COALESCE(p_employee_details -> v_target_id ->> 'teamId', '')
                  AND CASE
                        WHEN COALESCE((backup_detail.detail ->> 'restrictBaseIds')::boolean, false)
                        THEN COALESCE(backup_detail.detail -> 'allowedBaseIds', '[]'::jsonb)
@@ -182,6 +184,8 @@ BEGIN
             INTO v_backup
             FROM jsonb_each(p_employee_details) AS e
             WHERE e.value ->> 'type' = 'sub'
+              AND COALESCE(e.value ->> 'teamId', '') =
+                  COALESCE(p_employee_details -> v_base_id ->> 'teamId', '')
               AND NOT (e.key = ANY(v_off_ids))
               AND NOT (e.key = ANY(v_assigned_sub_ids))
               AND CASE
