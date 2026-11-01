@@ -182,7 +182,7 @@ BEGIN
             LIMIT 1;
 
             IF FOUND THEN
-                SELECT COALESCE(v_employee.detail ->> 'name', '직원')
+                SELECT COALESCE(e.detail ->> 'name', '직원')
                 INTO v_target_id
                 FROM jsonb_each(p_employee_details) AS e(employee_id, detail)
                 WHERE e.employee_id = v_base_id;
@@ -419,6 +419,9 @@ BEGIN
     RETURN v_exchange_id;
 END;
 $function$;
+
+-- The prior RPC returned void; drop it before changing its return type to jsonb.
+DROP FUNCTION IF EXISTS public.respond_to_shift_exchange(uuid, text);
 
 -- Only the named recipient can accept/reject. Acceptance updates both day records and the
 -- schedule version atomically; a stale request is rejected if the two days no longer match.
