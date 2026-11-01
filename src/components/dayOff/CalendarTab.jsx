@@ -88,61 +88,90 @@ export default function CalendarTab({
     const [extraDayOffDate, setExtraDayOffDate] = useState(null);
     const [extraDayOffNote, setExtraDayOffNote] = useState('');
     const [isSubmittingExtraDayOff, setIsSubmittingExtraDayOff] = useState(false);
-    const extraRequestPanelRef = useRef(null);
+    const [keyboardOverlap, setKeyboardOverlap] = useState(0);
+    const [keyboardVisible, setKeyboardVisible] = useState(false);
+    const keyboardBaselineHeightRef = useRef(null);
     const [myExtraDayOffRequests, setMyExtraDayOffRequests] = useState([]);
     const [publishedSchedules, setPublishedSchedules] = useState([]);
     const [isLoadingPublishedSchedules, setIsLoadingPublishedSchedules] = useState(false);
     const [scheduleLoadError, setScheduleLoadError] = useState(false);
     const [scheduleSyncFrom, setScheduleSyncFrom] = useState(null);
 
-    // 신청 사유 입력 시 신청창 전체가 보이도록 스크롤 영역 안에서 위로 올립니다.
-    const scrollExtraRequestPanelIntoView = useCallback(() => {
-        window.requestAnimationFrame(() => {
-            extraRequestPanelRef.current?.scrollIntoView({
-                block: 'center',
-                inline: 'nearest',
-                behavior: 'smooth'
-            });
-        });
-    }, []);
-
-    // Capacitor 키보드 표시 이벤트를 이용해 키보드가 실제로 열린 뒤 신청창 전체를 노출합니다.
-    // 일반 브라우저에서도 visualViewport 변경을 보조 신호로 사용합니다.
+    // 키보드가 화면을 덮는 모드에서는 그 높이만큼 신청창만 위로 올립니다.
+    // Android adjustResize 모드에서는 WebView 자체가 줄어들기 때문에 추가 이동량은 0으로 둡니다.
     useEffect(() => {
-        if (!extraDayOffDate) return undefined;
-
         let isActive = true;
-        let keyboardListener = null;
+        const nativePlatform = Capacitor.isNativePlatform();
         const viewport = window.visualViewport;
+        const listeners = [];
 
-        const revealPanel = () => {
-            if (isActive) scrollExtraRequestPanelIntoView();
+        const updateViewportOverlap = () => {
+            const overlap = viewport
+                ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+                : 0;
+            setKeyboardOverlap(Math.round(overlap));
+
+            if (overlap > 0) {
+                setKeyboardVisible(true);
+            } else if (!nativePlatform) {
+                setKeyboardVisible(false);
+            }
         };
 
-        if (Capacitor.isNativePlatform()) {
-            Keyboard.addListener('keyboardDidShow', revealPanel)
-                .then((listener) => {
-                    if (isActive) {
-                        keyboardListener = listener;
-                    } else {
-                        listener.remove();
-                    }
-                })
-                .catch((error) => {
-                    console.warn('키보드 이벤트를 연결하지 못했습니다:', error);
-                });
+        const addKeyboardListener = async (eventName, callback) => {
+            try {
+                const listener = await Keyboard.addListener(eventName, callback);
+                if (isActive) {
+                    listeners.push(listener);
+                } else {
+                    listener.remove();
+                }
+            } catch (error) {
+                console.warn('키보드 이벤트를 연결하지 못했습니다:', error);
+            }
+        };
+
+        const handleNativeKeyboardShow = (info = {}) => {
+            setKeyboardVisible(true);
+
+            const baselineHeight = keyboardBaselineHeightRef.current;
+            const webViewWasResized = Number.isFinite(baselineHeight) &&
+                baselineHeight - window.innerHeight > 80;
+            const viewportOverlap = viewport
+                ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+                : 0;
+
+            // adjustResize가 적용된 Android에서는 WebView가 이미 키보드 위까지만 줄어듭니다.
+            // WebView가 줄지 않는 모드에서만 플러그인이 알려준 키보드 높이를 추가합니다.
+            const overlap = webViewWasResized
+                ? viewportOverlap
+                : Math.max(viewportOverlap, Number(info.keyboardHeight) || 0);
+            setKeyboardOverlap(Math.round(overlap));
+        };
+
+        if (nativePlatform) {
+            addKeyboardListener('keyboardWillShow', handleNativeKeyboardShow);
+            addKeyboardListener('keyboardDidShow', handleNativeKeyboardShow);
+            addKeyboardListener('keyboardDidHide', () => {
+                keyboardBaselineHeightRef.current = null;
+                setKeyboardVisible(false);
+                setKeyboardOverlap(0);
+            });
         }
 
-        viewport?.addEventListener('resize', revealPanel);
-        window.addEventListener('resize', revealPanel);
+        updateViewportOverlap();
+        viewport?.addEventListener('resize', updateViewportOverlap);
+        viewport?.addEventListener('scroll', updateViewportOverlap);
+        window.addEventListener('resize', updateViewportOverlap);
 
         return () => {
             isActive = false;
-            keyboardListener?.remove();
-            viewport?.removeEventListener('resize', revealPanel);
-            window.removeEventListener('resize', revealPanel);
+            listeners.forEach((listener) => listener.remove());
+            viewport?.removeEventListener('resize', updateViewportOverlap);
+            viewport?.removeEventListener('scroll', updateViewportOverlap);
+            window.removeEventListener('resize', updateViewportOverlap);
         };
-    }, [extraDayOffDate, scrollExtraRequestPanelIntoView]);
+    }, []);
 
     // 직원 본인의 추가휴무 요청 내역을 조회해 대기 중인 날짜를 달력에 표시합니다.
     const loadMyExtraDayOffRequests = useCallback(async () => {
@@ -168,13 +197,20 @@ export default function CalendarTab({
         return () => window.clearInterval(timer);
     }, [loadMyExtraDayOffRequests, teamId, currentUser?.id]);
 
-    const pendingExtraDayOffDates = useMemo(() => (
-        new Set(
-            myExtraDayOffRequests
-                .filter((request) => request.status === 'pending' && request.requested_date)
-                .map((request) => String(request.requested_date).slice(0, 10))
-        )
-    ), [myExtraDayOffRequests]);
+    // 요청 목록은 최신순으로 정렬하고, 날짜별 가장 최근 상태 하나만 달력에 표시합니다.
+    const extraDayOffRequestStatusByDate = useMemo(() => {
+        const statusByDate = {};
+        [...myExtraDayOffRequests]
+            .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+            .forEach((request) => {
+                if (!request.requested_date) return;
+                const dateKey = String(request.requested_date).slice(0, 10);
+                if (!Object.prototype.hasOwnProperty.call(statusByDate, dateKey)) {
+                    statusByDate[dateKey] = request.status;
+                }
+            });
+        return statusByDate;
+    }, [myExtraDayOffRequests]);
 
     useEffect(() => {
         if (selectedMonth) {
@@ -597,7 +633,21 @@ export default function CalendarTab({
         const isMyOffDate = dateStr === myOffDate;
         const isTargetDate = dateStr === targetDate;
         const isExtraDayOffDate = dateStr === extraDayOffDate;
-        const isPendingExtraDayOffRequest = pendingExtraDayOffDates.has(dateStr);
+        const extraRequestStatus = extraDayOffRequestStatusByDate[dateStr];
+        const requestDotClass = extraRequestStatus === 'pending'
+            ? 'bg-orange-500'
+            : extraRequestStatus === 'approved'
+                ? 'bg-blue-500'
+                : extraRequestStatus === 'declined'
+                    ? 'bg-red-500'
+                    : null;
+        const requestDotLabel = extraRequestStatus === 'pending'
+            ? '추가휴무 승인 대기'
+            : extraRequestStatus === 'approved'
+                ? '추가휴무 승인 완료'
+                : extraRequestStatus === 'declined'
+                    ? '추가휴무 거절'
+                    : '';
 
         // 4. 선택(터치) 상태 여부 종합 확인
         const isTouched = isSelected || isMyOffDate || isTargetDate || isExtraDayOffDate;
@@ -685,8 +735,15 @@ export default function CalendarTab({
                     <div className="absolute inset-0 bg-green-100 dark:bg-green-900 opacity-20 pointer-events-none" />
                 )}
 
-                {/* 날짜 숫자 */}
+                {/* 날짜 숫자와 추가휴무 요청 상태 점 */}
                 <span className={`text-[13px] font-bold ${dateColor}`}>{dayIterator.getDate()}</span>
+                {inPeriod && requestDotClass && (
+                    <span
+                        className={`absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full ${requestDotClass}`}
+                        title={requestDotLabel}
+                        aria-label={requestDotLabel}
+                    />
+                )}
 
                 {/* 2. 하단 정보 영역: 휴무 vs 근무일 */}
                 {inPeriod && (
@@ -718,14 +775,6 @@ export default function CalendarTab({
                                 {dayDescription}
                             </span>
                         )}
-                        {isPendingExtraDayOffRequest && (
-                            <span
-                                className="mt-0.5 text-[8px] font-bold leading-none text-amber-600 dark:text-amber-400"
-                                aria-label="추가휴무 관리자 승인 대기 중"
-                            >
-                                추가휴무 신청중
-                            </span>
-                        )}
                     </div>
                 )}
             </div>
@@ -735,7 +784,7 @@ export default function CalendarTab({
     }
 
     return (
-        <div className="relative flex flex-col min-h-full pb-4">
+        <div className="flex flex-col h-full pb-4">
             {/* 달력 헤더 (상단 여백 최소화) */}
             <div className="flex items-center justify-between mb-1 px-1 py-1">
                 <button 
@@ -776,18 +825,20 @@ export default function CalendarTab({
             </div>
             
             {/* ✨ 하단 내비게이션 바 위에 항상 떠 있는 플로팅 컨트롤 패널 */}
-            <div className={extraDayOffDate
-                ? "relative z-20 w-full mt-2 py-2"
-                : "absolute bottom-16 left-0 right-0 px-4 py-2 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm z-20 shadow-lg border-t border-gray-100 dark:border-gray-800"
-            }>
+            <div
+                className="fixed left-0 right-0 px-4 py-2 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm z-[60] shadow-lg border-t border-gray-100 dark:border-gray-800 transition-[bottom] duration-150"
+                style={{
+                    bottom: keyboardVisible ? `${keyboardOverlap + 8}px` : '64px',
+                    maxHeight: keyboardVisible
+                        ? `calc(100dvh - ${keyboardOverlap + 16}px)`
+                        : undefined,
+                    overflowY: keyboardVisible ? 'auto' : 'visible'
+                }}
+            >
                 {teamId ? (
             <div className="flex flex-col space-y-2">
                 {extraDayOffDate ? (
-                    <div
-                        ref={extraRequestPanelRef}
-                        className="mx-4 space-y-2 rounded-xl bg-indigo-50 p-3 shadow-md dark:bg-gray-800"
-                        style={{ scrollMarginTop: '24px', scrollMarginBottom: '24px' }}
-                    >
+                    <div className="mx-4 space-y-2 rounded-xl bg-indigo-50 p-3 shadow-md dark:bg-gray-800">
                         <div className="flex items-center justify-between gap-2">
                             <div>
                                 <p className="text-xs font-bold text-indigo-700 dark:text-indigo-300">추가휴무를 원하는 근무일</p>
@@ -803,7 +854,9 @@ export default function CalendarTab({
                         </div>
                         <textarea
                             value={extraDayOffNote}
-                            onFocus={scrollExtraRequestPanelIntoView}
+                            onFocus={() => {
+                                keyboardBaselineHeightRef.current = window.innerHeight;
+                            }}
                             onChange={(event) => setExtraDayOffNote(event.target.value)}
                             rows={2}
                             maxLength={300}
