@@ -45,6 +45,7 @@ export default function ExtraDayOffRequestTab({ currentUser, teamId }) {
             return;
         }
         setIsLoadingRequests(true);
+        setErrorMessage('');
         try {
             const { data, error } = await supabase.rpc('list_my_extra_day_off_requests');
             if (error) throw error;
@@ -59,6 +60,8 @@ export default function ExtraDayOffRequestTab({ currentUser, teamId }) {
 
     useEffect(() => {
         loadRequests();
+        const interval = window.setInterval(loadRequests, 30000);
+        return () => window.clearInterval(interval);
     }, [loadRequests]);
 
     useEffect(() => {
