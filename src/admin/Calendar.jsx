@@ -32,6 +32,7 @@ import {
 } from '../services/organizationScheduleService';
 import { fetchMyVendorInfo } from '../services/teamService';
 import RegionTeamDropdown from './RegionTeamDropdown';
+import ExtraDayOffRequestsPanel from './ExtraDayOffRequestsPanel';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const MONTH_WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'];
@@ -375,6 +376,73 @@ export default function Calendar({ onBack }) {
         };
     }, [scheduleKey, monthKey, weekDates, year, month, selectedTeam, weekStartKey, user?.id, organizationId]);
 
+    // 직원 휴무 교환/추가휴무 승인으로 서버 근무표가 바뀌면 관리자 화면도 자동 동기화합니다.
+    useEffect(function () {
+        if (!organizationId || !user?.id || scheduleStatus !== 'confirmed' || !selectedTeam) {
+            return undefined;
+        }
+
+        let isActive = true;
+        const refreshConfirmedSchedule = async function () {
+            try {
+                const rows = await fetchMyOrganizationWeeklySchedules(
+                    formatDate(weekDates[0]),
+                    formatDate(weekDates[6])
+                );
+                const remote = rows.find(function (item) {
+                    return String(item.team_id) === String(selectedTeam) &&
+                        String(item.week_start) === weekStartKey &&
+                        item.status === 'confirmed';
+                });
+                if (!isActive || !remote ||
+                    Number(remote.version || 0) <= Number(savedRecord?.version || 0)) return;
+
+                const updatedRecord = {
+                    ...(savedRecord || {}),
+                    teamId: remote.team_id,
+                    teamLabel: remote.team_label,
+                    weekStart: remote.week_start,
+                    weekEnd: remote.week_end,
+                    status: 'confirmed',
+                    version: Number(remote.version || 1),
+                    updatedAt: remote.updated_at,
+                    confirmedAt: remote.confirmed_at,
+                    schedule: remote.schedule || {},
+                    employeeDetails: remote.employee_details || {},
+                    warnings: remote.warnings || [],
+                    sharedScheduleId: remote.id
+                };
+
+                try {
+                    localStorage.setItem(scheduleKey, JSON.stringify(updatedRecord));
+                } catch (storageError) {
+                    console.warn('변경된 근무표 사본을 저장하지 못했습니다.', storageError);
+                }
+                setSavedRecord(updatedRecord);
+                setGeneratedSchedule(updatedRecord.schedule);
+                setWarnings(updatedRecord.warnings);
+                setWarningsAcknowledged(true);
+            } catch (error) {
+                console.warn('서버 확정 근무표 새로고침 실패:', error);
+            }
+        };
+
+        refreshConfirmedSchedule();
+        const timer = window.setInterval(refreshConfirmedSchedule, 15000);
+        return function () {
+            isActive = false;
+            window.clearInterval(timer);
+        };
+    }, [
+        organizationId,
+        user?.id,
+        scheduleStatus,
+        selectedTeam,
+        weekStartKey,
+        scheduleKey,
+        savedRecord?.version
+    ]);
+
     const activeTeamEmployees = useMemo(function () {
         return employees.filter(function (employee) {
             return employee.active !== false && String(employee.team_id) === String(selectedTeam);
@@ -586,7 +654,14 @@ export default function Calendar({ onBack }) {
                 route: getEmployeeRoute(employee, routes),
                 shift: getShiftLabel(getTeamShift(selectedTeamRecord)),
                 teamId: String(selectedTeam),
-                teamLabel: getTeamDisplayName(selectedTeamRecord)
+                teamLabel: getTeamDisplayName(selectedTeamRecord),
+                allowedBackupIds: substitutePermissions
+                    .filter(function (permission) {
+                        return String(permission.base_employee_id) === String(employee.id);
+                    })
+                    .map(function (permission) {
+                        return String(permission.substitute_employee_id);
+                    })
             };
         });
         return details;
@@ -1082,6 +1157,39 @@ export default function Calendar({ onBack }) {
                         <p>이 기기에 저장 · 직원 기기 간 서버 동기화는 미연결</p>
                     </div>
                 </section>
+
+                {organizationId && selectedTeam && (
+                    <ExtraDayOffRequestsPanel
+                        teamId={selectedTeam}
+                        onScheduleUpdated={function (result) {
+                            if (!result ||
+                                String(result.team_id) !== String(selectedTeam) ||
+                                String(result.week_start) !== weekStartKey) return;
+
+                            const updatedRecord = {
+                                ...(savedRecord || {}),
+                                teamId: result.team_id,
+                                weekStart: result.week_start,
+                                weekEnd: formatDate(weekDates[6]),
+                                status: 'confirmed',
+                                version: Number(result.version || 1),
+                                updatedAt: new Date().toISOString(),
+                                schedule: result.schedule || {},
+                                warnings: result.warnings || warnings
+                            };
+                            try {
+                                localStorage.setItem(scheduleKey, JSON.stringify(updatedRecord));
+                            } catch (error) {
+                                console.warn('변경된 근무표 사본을 저장하지 못했습니다.', error);
+                            }
+                            setSavedRecord(updatedRecord);
+                            setGeneratedSchedule(updatedRecord.schedule);
+                            setWarnings(updatedRecord.warnings);
+                            setScheduleStatus('confirmed');
+                            setWarningsAcknowledged(true);
+                        }}
+                    />
+                )}
 
                 {!isSelectedTeamCollapsed && (
                 <section className="mx-auto grid w-full max-w-4xl grid-cols-3 gap-2 sm:gap-3">
