@@ -153,7 +153,19 @@ BEGIN
         IF v_target_id = ANY(v_base_off_ids)
            AND v_sub_id <> ''
            AND NOT (v_sub_id = ANY(v_off_ids))
-           AND NOT (v_sub_id = ANY(v_assigned_sub_ids)) THEN
+           AND NOT (v_sub_id = ANY(v_assigned_sub_ids))
+           AND EXISTS (
+               SELECT 1
+               FROM jsonb_each(p_employee_details) AS backup_detail(employee_id, detail)
+               WHERE backup_detail.employee_id = v_sub_id
+                 AND backup_detail.detail ->> 'type' = 'sub'
+                 AND CASE
+                       WHEN COALESCE((backup_detail.detail ->> 'restrictBaseIds')::boolean, false)
+                       THEN COALESCE(backup_detail.detail -> 'allowedBaseIds', '[]'::jsonb)
+                            @> jsonb_build_array(v_target_id)
+                       ELSE TRUE
+                     END
+           ) THEN
             v_assignments := v_assignments || jsonb_build_array(v_assignment);
             v_assigned_sub_ids := array_append(v_assigned_sub_ids, v_sub_id);
         END IF;
