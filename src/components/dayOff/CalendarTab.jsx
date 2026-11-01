@@ -273,12 +273,20 @@ export default function CalendarTab({
             return;
         }
 
+        const isBeforeScheduleSync = Boolean(scheduleSyncFrom && dateStr < scheduleSyncFrom);
+        const managerStatus = myPublishedScheduleByDate[dateStr]?.status;
+
         if (exchangeStep === 0) {
-            if (!existingDayOffs[dateStr]) {
-                if (myPublishedScheduleByDate[dateStr]?.status === 'off') {
+            // 연동 기준일 이전에는 기존 개인 휴무 기록을 유지합니다.
+            // 연동 기준일 당일부터는 기존 개인 기록을 무시하고 관리자 근무표만 기준으로 삼습니다.
+            const canSelectLegacyOff = isBeforeScheduleSync && Boolean(existingDayOffs[dateStr]);
+            if (!canSelectLegacyOff) {
+                if (!isBeforeScheduleSync && managerStatus === 'off') {
                     showMessage('관리자가 확정한 휴무입니다. 휴무 변경은 관리자에게 요청해주세요.');
-                } else if (myPublishedScheduleByDate[dateStr]?.status === 'pending') {
+                } else if (!isBeforeScheduleSync && managerStatus === 'pending') {
                     showMessage('관리자가 근무표를 확정한 후 휴무 교환을 이용할 수 있습니다.');
+                } else if (!isBeforeScheduleSync && existingDayOffs[dateStr]) {
+                    showMessage('연동 시작일 이후의 기존 개인 휴무 기록은 적용되지 않습니다. 관리자 확정 근무표를 확인해주세요.');
                 } else {
                     showMessage("❌ 관리자 확정 근무표에서 휴무로 배정된 날짜만 선택할 수 있습니다.");
                 }
@@ -289,8 +297,11 @@ export default function CalendarTab({
         }
 
         if (exchangeStep === 1) {
-            if (existingDayOffs[dateStr]) {
-                showMessage('❌ 이미 본인의 휴무로 등록된 날짜입니다. 다른 날짜를 선택하세요.');
+            const isOwnOffDate = isBeforeScheduleSync
+                ? Boolean(existingDayOffs[dateStr])
+                : managerStatus === 'off';
+            if (isOwnOffDate) {
+                showMessage('❌ 이미 본인의 휴무로 확정된 날짜입니다. 다른 날짜를 선택하세요.');
                 return;
             }
             if (dateStr === myOffDate) {
@@ -384,7 +395,9 @@ export default function CalendarTab({
         const isToday = dateStr === todayStr;
         const inPeriod = dayIterator >= periodStartDate && dayIterator <= periodEndDate; // 집계 기간 내 여부
         
-        const isSelected = selectedDates.includes(dateStr); // 개인모드 선택
+        const isBeforeScheduleSync = Boolean(teamId && scheduleSyncFrom && dateStr < scheduleSyncFrom);
+        // 회사 연동 시작일 이후에는 기존 개인 휴무 기록을 선택 상태로도 표시하지 않습니다.
+        const isSelected = selectedDates.includes(dateStr) && (!teamId || isBeforeScheduleSync);
         const isMyOffDate = dateStr === myOffDate;
         const isTargetDate = dateStr === targetDate;
         
@@ -421,8 +434,9 @@ export default function CalendarTab({
 
         // 회사 소속 직원은 관리자 확정 근무표의 본인 일정이 최우선입니다.
         const managerDay = teamId ? myPublishedScheduleByDate[dateStr] : null;
-        const personalIsOff = isSelected || Boolean(existingDayOffs[dateStr]);
-        const isBeforeScheduleSync = Boolean(teamId && scheduleSyncFrom && dateStr < scheduleSyncFrom);
+        // 개인 휴무 기록은 개인 모드와 회사 연동 기준일 이전에만 유효합니다.
+        const personalIsOff = (!teamId || isBeforeScheduleSync) &&
+            (isSelected || Boolean(existingDayOffs[dateStr]));
         const shiftType = managerDay?.details?.shift || '주간';
         const routeName = managerDay?.details?.route || (teamId ? '라우트' : '배송');
         let dayStatus = managerDay?.status || null;
@@ -443,11 +457,9 @@ export default function CalendarTab({
                 dayDescription = '확정 대기';
             } else if (dayStatus === 'work') {
                 dayDescription = routeName;
-            } else if (personalIsOff) {
-                // 이전 버전의 개인 휴무 기록은 삭제하지 않고 표시만 유지합니다.
-                dayStatus = 'off';
-                dayDescription = '휴무';
             } else {
+                // 연동 기준일 이후에는 기존 개인 휴무 기록을 표시하지 않습니다.
+                // 관리자 일정이 없으면 개인 기록으로 대체하지 않고 미확정 상태로 표시합니다.
                 dayStatus = 'unpublished';
                 dayDescription = isLoadingPublishedSchedules
                     ? '불러오는 중'
