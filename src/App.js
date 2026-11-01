@@ -1443,7 +1443,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                                     }>
                                                         {dayInfo.isCurrentMonth && dayInfo.isDayOff && (
                                                             <span className={homeCalendarDesign === 'current'
-                                                                ? 'text-[11px] font-bold text-gray-500 dark:text-gray-400 mt-1'
+                                                                ? 'text-[10px] font-bold leading-[10px] text-gray-500 dark:text-gray-400'
                                                                 : 'text-[7px] font-bold leading-[8px] text-indigo-500 dark:text-indigo-400'
                                                             }>
                                                                 ○ 휴무
@@ -1484,7 +1484,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                                                             <span
                                                                                 key={metric.key}
                                                                                 className={homeCalendarDesign === 'current'
-                                                                                    ? 'min-w-0 truncate text-[8px] font-semibold leading-[10px] text-gray-700 dark:text-gray-300'
+                                                                                    ? 'min-w-0 truncate text-[8px] font-semibold leading-[9px] text-gray-700 dark:text-gray-300'
                                                                                     : 'min-w-0 truncate text-[7px] font-semibold leading-[8px] text-gray-700 dark:text-gray-300'
                                                                                 }
                                                                                 title={`${label} ${amount}개`}
@@ -1496,7 +1496,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                                                 </div>
                                                                 {dayInfo.isCurrentMonth && dayInfo.volumeDisplayTotal > 0 && (
                                                                     <span className={homeCalendarDesign === 'current'
-                                                                        ? 'text-[8px] font-black leading-[10px] text-orange-500'
+                                                                        ? 'text-[8px] font-black leading-[9px] text-orange-500'
                                                                         : 'text-[7px] font-black leading-[8px] text-orange-500'
                                                                     }>
                                                                         합계 {dayInfo.volumeDisplayTotal.toLocaleString()}개
