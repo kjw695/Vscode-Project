@@ -1471,7 +1471,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                                         ) : (
                                                             <>
                                                                 <div className={homeCalendarDesign === 'current'
-                                                                    ? 'grid grid-cols-2 gap-x-1 gap-y-0.5 w-full'
+                                                                    ? 'flex flex-col items-center gap-y-0 w-full'
                                                                     : 'grid grid-cols-2 gap-x-0.5 gap-y-0 w-full'
                                                                 }>
                                                                     {dayInfo.isCurrentMonth && HOME_CALENDAR_VOLUME_METRICS.map((metric) => {
