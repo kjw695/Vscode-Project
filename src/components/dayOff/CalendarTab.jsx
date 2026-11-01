@@ -192,7 +192,9 @@ export default function CalendarTab({
             }
 
             Object.entries(published.schedule || {}).forEach(([dateKey, dayRecord]) => {
-                let status = dayRecord?.status;
+                let status = ['off', 'backup', 'work', 'pending'].includes(dayRecord?.status)
+                    ? dayRecord.status
+                    : null;
                 let assignment = dayRecord?.assignment || null;
 
                 if (!status) {
