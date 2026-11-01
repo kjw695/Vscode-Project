@@ -75,8 +75,8 @@ REVOKE ALL PRIVILEGES ON TABLE public.organization_schedule_change_history
 
 -- Rebuild one day's visible off lists and backup assignments from the current employee roster.
 -- Existing compatible assignments are retained first. Missing assignments use a permitted
--- backup only when the saved eligibility snapshot permits it. Legacy snapshots without
--- restriction metadata retain the original unrestricted fallback. Uncovered routes are marked.
+-- backup only when the new eligibility snapshot explicitly records its route scope.
+-- Legacy snapshots retain valid existing assignments but do not guess new assignments.
 CREATE OR REPLACE FUNCTION private.rebuild_organization_schedule_day(
     p_schedule jsonb,
     p_employee_details jsonb,
@@ -184,6 +184,7 @@ BEGIN
             INTO v_backup
             FROM jsonb_each(p_employee_details) AS e
             WHERE e.value ->> 'type' = 'sub'
+              AND e.value ? 'restrictBaseIds'
               AND COALESCE(e.value ->> 'teamId', '') =
                   COALESCE(p_employee_details -> v_base_id ->> 'teamId', '')
               AND NOT (e.key = ANY(v_off_ids))
@@ -967,6 +968,7 @@ $function$;
 
 -- Requests are created/responded to through SECURITY DEFINER RPCs only.
 REVOKE INSERT, UPDATE ON TABLE public.shift_exchanges FROM authenticated;
+REVOKE UPDATE (status) ON TABLE public.shift_exchanges FROM authenticated;
 GRANT SELECT, DELETE ON TABLE public.shift_exchanges TO authenticated;
 
 REVOKE ALL ON FUNCTION public.list_organization_day_off_members(date, date)
