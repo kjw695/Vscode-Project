@@ -648,20 +648,47 @@ export default function Calendar({ onBack }) {
     const buildEmployeeDetails = function () {
         const details = {};
         activeTeamEmployees.forEach(function (employee) {
+            const isBackup = getEmployeeType(employee) === 'sub';
+            const explicitRules = isBackup
+                ? substitutePermissions.filter(function (permission) {
+                    return String(permission.substitute_employee_id) === String(employee.id);
+                })
+                : [];
+            const target = String(employee.target || '').trim().toLowerCase();
+            const broadScopeWords = ['전지역', '전체', '모든', '백업', '대체', '팀 전체', 'all'];
+            const targetRestrictsRoutes = isBackup &&
+                explicitRules.length === 0 &&
+                Boolean(target) &&
+                !broadScopeWords.some(function (word) { return target.indexOf(word) >= 0; });
+
+            const allowedBaseIds = isBackup
+                ? explicitRules.length > 0
+                    ? explicitRules.map(function (permission) {
+                        return String(permission.base_employee_id);
+                    })
+                    : targetRestrictsRoutes
+                        ? activeTeamEmployees
+                            .filter(function (baseEmployee) {
+                                if (getEmployeeType(baseEmployee) !== 'base') return false;
+                                const routeName = getEmployeeRoute(baseEmployee, routes).toLowerCase();
+                                const baseName = String(baseEmployee.name || '').toLowerCase();
+                                return target.indexOf(baseName) >= 0 ||
+                                    (routeName && routeName !== '미지정' && target.indexOf(routeName) >= 0);
+                            })
+                            .map(function (baseEmployee) { return String(baseEmployee.id); })
+                        : []
+                : [];
+
             details[String(employee.id)] = {
                 name: employee.name || '이름 미등록',
                 type: getEmployeeType(employee),
                 route: getEmployeeRoute(employee, routes),
+                target: employee.target || '',
                 shift: getShiftLabel(getTeamShift(selectedTeamRecord)),
                 teamId: String(selectedTeam),
                 teamLabel: getTeamDisplayName(selectedTeamRecord),
-                allowedBackupIds: substitutePermissions
-                    .filter(function (permission) {
-                        return String(permission.base_employee_id) === String(employee.id);
-                    })
-                    .map(function (permission) {
-                        return String(permission.substitute_employee_id);
-                    })
+                allowedBaseIds: allowedBaseIds,
+                restrictBaseIds: Boolean(explicitRules.length > 0 || targetRestrictsRoutes)
             };
         });
         return details;
