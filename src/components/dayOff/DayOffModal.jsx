@@ -139,7 +139,6 @@ export const DayOffModal = ({
                         </div>
 
                         {/* 탭 내용 영역 */}
-                       {/* 탭 내용 영역 */}
                         <div className="flex-1 w-full relative overflow-hidden bg-white dark:bg-gray-900">
                             <div className="absolute inset-0 overflow-y-auto flex flex-col pb-48">
                                 {settingTab === 'preferred' && (
