@@ -75,7 +75,7 @@ REVOKE ALL PRIVILEGES ON TABLE public.organization_schedule_change_history
 
 -- Rebuild one day's visible off lists and backup assignments from the current employee roster.
 -- Existing compatible assignments are retained first. Missing assignments use a permitted
--- backup when the schedule snapshot contains allowedBackupIds; legacy snapshots fall back to
+-- backup when the schedule snapshot contains allowedBaseIds; legacy snapshots fall back to
 -- any available backup. Uncovered routes are recorded as day status = error.
 CREATE OR REPLACE FUNCTION private.rebuild_organization_schedule_day(
     p_schedule jsonb,
@@ -173,9 +173,9 @@ BEGIN
               AND NOT (e.key = ANY(v_off_ids))
               AND NOT (e.key = ANY(v_assigned_sub_ids))
               AND CASE
-                    WHEN jsonb_typeof(e.value -> 'allowedBackupIds') = 'array'
-                         AND jsonb_array_length(e.value -> 'allowedBackupIds') > 0
-                    THEN (e.value -> 'allowedBackupIds') @> jsonb_build_array(v_base_id)
+                    WHEN jsonb_typeof(e.value -> 'allowedBaseIds') = 'array'
+                         AND jsonb_array_length(e.value -> 'allowedBaseIds') > 0
+                    THEN (e.value -> 'allowedBaseIds') @> jsonb_build_array(v_base_id)
                     ELSE TRUE
                   END
             ORDER BY e.key
