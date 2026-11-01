@@ -190,6 +190,10 @@ BEGIN
 END;
 $function$;
 
+-- The return shape includes effective_from. Drop an earlier draft version safely
+-- before recreating it because PostgreSQL cannot change a TABLE function's return type.
+DROP FUNCTION IF EXISTS public.list_my_organization_weekly_schedules(date, date);
+
 CREATE OR REPLACE FUNCTION public.list_my_organization_weekly_schedules(
     p_start_date date,
     p_end_date date
