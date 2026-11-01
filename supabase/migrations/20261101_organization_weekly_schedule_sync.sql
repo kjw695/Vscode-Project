@@ -396,5 +396,52 @@ REVOKE ALL ON FUNCTION public.list_my_organization_weekly_schedules(date, date)
 GRANT EXECUTE ON FUNCTION public.list_my_organization_weekly_schedules(date, date)
     TO authenticated;
 
+-- The legacy exchange RPCs use personal entries. After schedule synchronization
+-- starts, those old entries must not create or complete exchanges that conflict
+-- with the administrator's authoritative weekly schedule.
+CREATE OR REPLACE FUNCTION public.guard_shift_exchange_before_schedule_sync()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $function$
+DECLARE
+    v_effective_from date;
+BEGIN
+    -- New requests are blocked; an old pending request may still be declined.
+    -- Accepting an exchange after the cutoff is blocked as well.
+    IF TG_OP = 'INSERT'
+       OR (TG_OP = 'UPDATE' AND NEW.status = 'accepted') THEN
+        SELECT o.schedule_sync_from
+        INTO v_effective_from
+        FROM public.organizations o
+        WHERE o.id = NEW.team_id;
+
+        IF v_effective_from IS NOT NULL
+           AND (
+               NEW.source_date >= v_effective_from
+               OR NEW.target_date >= v_effective_from
+           ) THEN
+            RAISE EXCEPTION
+                '회사 근무표 연동 시작일 이후 날짜는 관리자 근무표로 관리되므로 직원 간 휴무 교환을 할 수 없습니다.';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS shift_exchanges_schedule_sync_cutoff_guard
+    ON public.shift_exchanges;
+
+CREATE TRIGGER shift_exchanges_schedule_sync_cutoff_guard
+BEFORE INSERT OR UPDATE OF status
+ON public.shift_exchanges
+FOR EACH ROW
+EXECUTE FUNCTION public.guard_shift_exchange_before_schedule_sync();
+
+REVOKE ALL ON FUNCTION public.guard_shift_exchange_before_schedule_sync()
+    FROM PUBLIC, anon, authenticated;
+
 NOTIFY pgrst, 'reload schema';
 COMMIT;
