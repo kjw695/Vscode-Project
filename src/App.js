@@ -848,27 +848,6 @@ const handleTodayClick = () => {
         while (dayIterator <= calendarEndDate) {
             const formattedDate = toDateStr(dayIterator);
             
-            // 개인 모드와 회사 연동 시작일 이전에는 기존 개인 휴무 기록을 유지합니다.
-            const personalIsDayOff = entries.some((entry) => {
-                if (entry.date !== formattedDate) return false;
-                return Boolean(entry.memo && entry.memo.includes('휴무')) ||
-                    (Array.isArray(entry.customItems) &&
-                        entry.customItems.some((item) => item?.key === 'dayOff'));
-            });
-            const hasOrganization = Boolean(profile?.organization_id);
-            const isBeforeScheduleSync = Boolean(
-                hasOrganization &&
-                homeScheduleSyncFrom &&
-                formattedDate < homeScheduleSyncFrom
-            );
-            const managerDayStatus = homeMyPublishedScheduleByDate[formattedDate]?.status || null;
-            const isDayOff = hasOrganization
-                ? (isBeforeScheduleSync ? personalIsDayOff : managerDayStatus === 'off')
-                : personalIsDayOff;
-            const extraDayOffRequestStatus = hasOrganization
-                ? homeExtraDayOffRequestStatusByDate[formattedDate] || null
-                : null;
-
             const isWithinPeriod = formattedDate >= pStartStr && formattedDate <= pEndStr;
             const isToday = formattedDate === todayStr;
             
@@ -905,9 +884,7 @@ const handleTodayClick = () => {
                 isToday: isToday, 
                 revenue: isWithinPeriod ? dailyData.revenue : 0, 
                 expenses: isWithinPeriod ? dailyData.expenses : 0 ,
-                volume: dailyVolume,
-                isDayOff: isDayOff,
-                extraDayOffRequestStatus
+                volume: dailyVolume
             });
 
             dayIterator.setDate(dayIterator.getDate() + 1);
@@ -1066,6 +1043,32 @@ const handleTodayClick = () => {
     }, [homeExtraDayOffRequests]);
 
     const calendarDays = generateCalendarDays();
+
+    // 서버의 휴무/신청 상태는 기본 배송 실적 달력이 만들어진 다음 별도로 합칩니다.
+    // 초기 렌더링에서 아직 로딩되지 않은 상태 맵을 참조하지 않도록 순서를 분리합니다.
+    const calendarDaysWithDayOff = calendarDays.map((dayInfo) => {
+        const dateKey = dayInfo.date;
+        const personalIsDayOff = entries.some((entry) => {
+            if (entry.date !== dateKey) return false;
+            return Boolean(entry.memo && entry.memo.includes('휴무')) ||
+                (Array.isArray(entry.customItems) &&
+                    entry.customItems.some((item) => item?.key === 'dayOff'));
+        });
+        const hasOrganization = Boolean(profile?.organization_id);
+        const isBeforeScheduleSync = Boolean(
+            hasOrganization &&
+            homeScheduleSyncFrom &&
+            dateKey < homeScheduleSyncFrom
+        );
+        const managerDayStatus = homeMyPublishedScheduleByDate[dateKey]?.status || null;
+        const isDayOff = hasOrganization
+            ? (isBeforeScheduleSync ? personalIsDayOff : managerDayStatus === 'off')
+            : personalIsDayOff;
+        const extraDayOffRequestStatus = hasOrganization
+            ? homeExtraDayOffRequestStatusByDate[dateKey] || null
+            : null;
+        return { ...dayInfo, isDayOff, extraDayOffRequestStatus };
+    });
 
     const yearlyPeriod = useMemo(() => {
         const year = parseInt(selectedYear); let startDate, endDate;
@@ -1321,7 +1324,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                         </div>
 
                                         <div className="grid grid-cols-7 gap-x-0 gap-y-0"> 
-                                            {calendarDays.map((dayInfo, index) => (
+                                            {calendarDaysWithDayOff.map((dayInfo, index) => (
                                                 <div 
                                                     key={index} 
                                                     onClick={() => handleCalendarDateClick(dayInfo.date)} 
