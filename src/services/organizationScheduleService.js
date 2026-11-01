@@ -48,3 +48,12 @@ export async function saveMyOrganizationWeeklySchedule({
     if (error) throw error;
     return data;
 }
+
+export async function fetchMyOrganizationScheduleSyncFrom() {
+    const { data, error } = await supabase.rpc(
+        'get_my_organization_schedule_sync_from'
+    );
+
+    if (error) throw error;
+    return data || null;
+}
