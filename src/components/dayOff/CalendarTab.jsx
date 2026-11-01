@@ -297,11 +297,13 @@ export default function CalendarTab({
         }
 
         if (exchangeStep === 1) {
-            const isOwnOffDate = isBeforeScheduleSync
-                ? Boolean(existingDayOffs[dateStr])
-                : managerStatus === 'off';
+            if (!isBeforeScheduleSync) {
+                showMessage('연동 시작일 이후 날짜는 관리자 근무표로 관리되어 휴무 교환 대상으로 선택할 수 없습니다.');
+                return;
+            }
+            const isOwnOffDate = Boolean(existingDayOffs[dateStr]);
             if (isOwnOffDate) {
-                showMessage('❌ 이미 본인의 휴무로 확정된 날짜입니다. 다른 날짜를 선택하세요.');
+                showMessage('❌ 이미 본인의 휴무로 등록된 날짜입니다. 다른 날짜를 선택하세요.');
                 return;
             }
             if (dateStr === myOffDate) {
