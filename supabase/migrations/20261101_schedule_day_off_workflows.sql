@@ -568,7 +568,17 @@ BEGIN
 
     v_source_shortage := (v_next_schedule -> v_exchange.source_date::text ->> 'status') = 'error';
     v_target_shortage := (v_next_schedule -> v_exchange.target_date::text ->> 'status') = 'error';
-    v_warnings := COALESCE(v_schedule.warnings, '[]'::jsonb);
+
+    SELECT COALESCE(jsonb_agg(w.value ORDER BY w.ordinality), '[]'::jsonb)
+    INTO v_warnings
+    FROM jsonb_array_elements(COALESCE(v_schedule.warnings, '[]'::jsonb))
+         WITH ORDINALITY AS w(value, ordinality)
+    WHERE NOT (
+        COALESCE(w.value #>> '{}', '') LIKE
+            '[백업 인원 확인 필요] ' || v_exchange.source_date::text || ':%'
+        OR COALESCE(w.value #>> '{}', '') LIKE
+            '[백업 인원 확인 필요] ' || v_exchange.target_date::text || ':%'
+    );
 
     IF v_source_shortage THEN
         v_warnings := v_warnings || jsonb_build_array(
@@ -896,7 +906,14 @@ BEGIN
     );
 
     v_has_shortage := (v_next_schedule -> v_request.requested_date::text ->> 'status') = 'error';
-    v_warnings := COALESCE(v_schedule.warnings, '[]'::jsonb);
+
+    SELECT COALESCE(jsonb_agg(w.value ORDER BY w.ordinality), '[]'::jsonb)
+    INTO v_warnings
+    FROM jsonb_array_elements(COALESCE(v_schedule.warnings, '[]'::jsonb))
+         WITH ORDINALITY AS w(value, ordinality)
+    WHERE COALESCE(w.value #>> '{}', '') NOT LIKE
+        '[백업 인원 확인 필요] ' || v_request.requested_date::text || ':%';
+
     IF v_has_shortage THEN
         v_warnings := v_warnings || jsonb_build_array(
             '[백업 인원 확인 필요] ' || v_request.requested_date::text ||
