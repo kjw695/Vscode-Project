@@ -65,7 +65,7 @@ export default function ExchangeTab({ currentUser, teamId }) {
     const handleRespond = async (exchangeId, response) => {
         const isAccepting = response === 'accepted';
         const prompt = isAccepting
-            ? '수락하면 두 사람의 등록된 휴무 날짜가 실제로 교환됩니다. 진행할까요?'
+            ? '수락하면 두 사람의 관리자 확정 휴무 날짜가 서로 바뀌고 백업 배정이 다시 계산됩니다. 진행할까요?'
             : '이 휴무 교환 신청을 거절할까요?';
         if (!window.confirm(prompt)) return;
 
@@ -73,12 +73,14 @@ export default function ExchangeTab({ currentUser, teamId }) {
         setErrorMessage('');
         setNotice('');
         try {
-            const { error } = await supabase.rpc('respond_to_shift_exchange', {
+            const { data, error } = await supabase.rpc('respond_to_shift_exchange', {
                 p_exchange_id: exchangeId,
                 p_response: response
             });
             if (error) throw error;
-            setNotice(isAccepting ? '휴무 날짜 교환이 완료되었습니다.' : '교환 신청을 거절했습니다.');
+            setNotice(isAccepting
+                ? (data?.has_shortage ? '휴무 교환을 반영했습니다. 다만 백업 인원이 부족한 날짜가 있어 관리자 확인이 필요합니다.' : '휴무 날짜 교환이 확정 근무표에 반영되었습니다.')
+                : '교환 신청을 거절했습니다.');
             await loadData();
         } catch (error) {
             console.error('교환 응답 처리 실패:', error);
@@ -127,7 +129,7 @@ export default function ExchangeTab({ currentUser, teamId }) {
         <div className="space-y-6 p-4">
             <div>
                 <h2 className="text-xl font-bold mb-1">휴무 교환</h2>
-                <p className="text-xs text-gray-500">달력에서 상대방이 실제로 등록한 휴무를 선택해 신청할 수 있습니다.</p>
+                <p className="text-xs text-gray-500">관리자가 확정한 근무표에서 내 휴무일과 상대 직원의 휴무일을 선택해 신청할 수 있습니다.</p>
             </div>
 
             {notice && (
