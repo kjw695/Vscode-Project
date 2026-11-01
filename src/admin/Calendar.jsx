@@ -30,6 +30,7 @@ import {
     fetchMyOrganizationWeeklySchedules,
     saveMyOrganizationWeeklySchedule
 } from '../services/organizationScheduleService';
+import { fetchMyVendorInfo } from '../services/teamService';
 import RegionTeamDropdown from './RegionTeamDropdown';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -175,6 +176,38 @@ export default function Calendar({ onBack }) {
         substituteWorkHistory = []
     } = useAdminData();
     const { user, profile } = useAuth();
+    const [organizationId, setOrganizationId] = useState(profile?.organization_id || null);
+    const [organizationLookupStatus, setOrganizationLookupStatus] = useState(user?.id ? 'loading' : 'ready');
+
+    useEffect(function () {
+        if (!user?.id) {
+            setOrganizationId(null);
+            setOrganizationLookupStatus('ready');
+            return undefined;
+        }
+        if (organizationId) {
+            setOrganizationId(profile.organization_id);
+            setOrganizationLookupStatus('ready');
+            return undefined;
+        }
+
+        let isActive = true;
+        setOrganizationLookupStatus('loading');
+        fetchMyVendorInfo(user.id)
+            .then(function (info) {
+                if (!isActive) return;
+                setOrganizationId(info?.vendor?.id || null);
+                setOrganizationLookupStatus('ready');
+            })
+            .catch(function (error) {
+                console.error('회사 소속 정보를 확인하지 못했습니다.', error);
+                if (isActive) setOrganizationLookupStatus('error');
+            });
+
+        return function () {
+            isActive = false;
+        };
+    }, [user?.id, profile?.organization_id]);
 
     const [currentDate, setCurrentDate] = useState(function () { return new Date(); });
     const [selectedDay, setSelectedDay] = useState(function () { return new Date().getDate(); });
@@ -282,7 +315,7 @@ export default function Calendar({ onBack }) {
             }
 
             let sharedRecord = null;
-            if (user?.id && profile?.organization_id) {
+            if (user?.id && organizationId) {
                 try {
                     const rows = await fetchMyOrganizationWeeklySchedules(
                         formatDate(weekDates[0]),
@@ -340,7 +373,7 @@ export default function Calendar({ onBack }) {
         return function () {
             isActive = false;
         };
-    }, [scheduleKey, monthKey, weekDates, year, month, selectedTeam, weekStartKey, user?.id, profile?.organization_id]);
+    }, [scheduleKey, monthKey, weekDates, year, month, selectedTeam, weekStartKey, user?.id, organizationId]);
 
     const activeTeamEmployees = useMemo(function () {
         return employees.filter(function (employee) {
@@ -574,6 +607,11 @@ export default function Calendar({ onBack }) {
         }
         if (!window.confirm('선택한 팀의 ' + formatDate(weekDates[0]) + ' ~ ' + formatDate(weekDates[6]) + ' 주간 근무표를 확정할까요?')) return;
 
+        if (user?.id && organizationLookupStatus !== 'ready') {
+            window.alert('회사 소속 정보를 확인하고 있습니다. 잠시 후 다시 확정해주세요.');
+            return;
+        }
+
         const now = new Date().toISOString();
         const employeeDetails = buildEmployeeDetails();
         const record = {
@@ -591,7 +629,7 @@ export default function Calendar({ onBack }) {
             warnings: warnings
         };
 
-        if (profile?.organization_id) {
+        if (organizationId) {
             try {
                 const shared = await saveMyOrganizationWeeklySchedule({
                     teamId: selectedTeam,
@@ -623,7 +661,7 @@ export default function Calendar({ onBack }) {
 
         setSavedRecord(record);
         setScheduleStatus('confirmed');
-        window.alert(profile?.organization_id
+        window.alert(organizationId
             ? '근무표를 확정했고 회사 직원용 앱에 공유했습니다.'
             : '근무표를 확정했습니다. 회사에 소속되지 않은 계정이므로 이 기기에만 저장됩니다.');
     };
@@ -634,6 +672,11 @@ export default function Calendar({ onBack }) {
             return;
         }
         if (!window.confirm('확정 상태를 해제하고 다시 초안으로 편집할 수 있도록 변경할까요?')) return;
+        if (user?.id && organizationLookupStatus !== 'ready') {
+            window.alert('회사 소속 정보를 확인하고 있습니다. 잠시 후 다시 시도해주세요.');
+            return;
+        }
+
         const now = new Date().toISOString();
         const employeeDetails = buildEmployeeDetails();
         const record = {
@@ -651,7 +694,7 @@ export default function Calendar({ onBack }) {
             warnings: warnings
         };
 
-        if (profile?.organization_id) {
+        if (organizationId) {
             try {
                 const shared = await saveMyOrganizationWeeklySchedule({
                     teamId: selectedTeam,
