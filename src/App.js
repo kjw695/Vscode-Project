@@ -851,7 +851,7 @@ const handleTodayClick = () => {
             // 개인 모드와 회사 연동 시작일 이전에는 기존 개인 휴무 기록을 유지합니다.
             const personalIsDayOff = entries.some((entry) => {
                 if (entry.date !== formattedDate) return false;
-                return entry.memo === '[휴무]' ||
+                return Boolean(entry.memo && entry.memo.includes('휴무')) ||
                     (Array.isArray(entry.customItems) &&
                         entry.customItems.some((item) => item?.key === 'dayOff'));
             });
