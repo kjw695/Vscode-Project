@@ -10,7 +10,8 @@ const useAppBackButton = ({
     moreSubView, setMoreSubView,
     selectedMainTab, setSelectedMainTab,
     activeContentTab, setActiveContentTab,
-    isEditing = false, closeEditMode = () => {}, handleDayOffBack
+    isEditing = false, closeEditMode = () => {}, handleDayOffBack,
+    isDayOffModalOpen = false, setIsDayOffModalOpen = () => {}
 }) => {
     useEffect(() => {
         let backButtonListener;
@@ -43,6 +44,12 @@ const useAppBackButton = ({
 
                 // 휴무 달력에서 진행 중인 교환/추가휴무 선택을 먼저 취소합니다.
                 if (handleDayOffBack && handleDayOffBack()) {
+                    return;
+                }
+
+                // 메인 달력에서 연 휴무 창이면 현재 창만 닫고 이전 화면으로 돌아갑니다.
+                if (isDayOffModalOpen) {
+                    setIsDayOffModalOpen(false);
                     return;
                 }
 
@@ -84,7 +91,7 @@ const useAppBackButton = ({
         };
     }, [
         modalState, isFilterModalOpen, isExpenseSettingsModalOpen, moreSubView, selectedMainTab, showConfirmation, 
-        isEditing, closeEditMode, handleDayOffBack
+        isEditing, closeEditMode, handleDayOffBack, isDayOffModalOpen, setIsDayOffModalOpen
     ]);
 };
 
