@@ -920,7 +920,23 @@ const handleTodayClick = () => {
     }, [monthlyEndDay]);
 
 
+    // 휴무 달력에서 현재 진행 중인 작업을 Android 뒤로가기로 취소할 수 있게 연결합니다.
+    const dayOffBackHandlerRef = useRef(null);
+    const registerDayOffBackHandler = useCallback((handler) => {
+        dayOffBackHandlerRef.current = handler;
+        return () => {
+            if (dayOffBackHandlerRef.current === handler) {
+                dayOffBackHandlerRef.current = null;
+            }
+        };
+    }, []);
+    const handleDayOffBack = useCallback(() => {
+        const handler = dayOffBackHandlerRef.current;
+        return typeof handler === 'function' ? handler() : false;
+    }, []);
+
     useAppBackButton({
+        handleDayOffBack,
         modalState, closeModal, showConfirmation, isFilterModalOpen, setIsFilterModalOpen,
         isExpenseSettingsModalOpen, setIsExpenseSettingsModalOpen,
         moreSubView, setMoreSubView, selectedMainTab, setSelectedMainTab, activeContentTab, setActiveContentTab,
@@ -1325,6 +1341,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
         selectedMonth={selectedMonth} 
         currentUser={user} 
             teamId={profile?.organization_id}
+            registerBackHandler={registerDayOffBackHandler}
     />
 )}
                                 {moreSubView === 'unitPrice' && <UnitPriceView onBack={() => { setMoreSubView('main'); setTargetItemKey(null); }} isDarkMode={isDarkMode} adminFavoritePricesInput={adminFavoritePricesInput} setAdminFavoritePricesInput={setAdminFavoritePricesInput} handleSaveFavoritePrices={handleSaveFavoritePrices} favoriteUnitPrices={favoriteUnitPrices} targetItemKey={targetItemKey} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} />}
@@ -1514,6 +1531,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                 handleDelete={handleDelete}
                 currentUser={user}
                 teamId={profile?.organization_id}
+                registerBackHandler={registerDayOffBackHandler}
             /> 
         </div>
     );
