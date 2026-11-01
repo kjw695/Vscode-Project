@@ -90,6 +90,7 @@ export default function CalendarTab({
     const [isSubmittingExtraDayOff, setIsSubmittingExtraDayOff] = useState(false);
     const [keyboardOverlap, setKeyboardOverlap] = useState(0);
     const [keyboardVisible, setKeyboardVisible] = useState(false);
+    const keyboardBaselineHeightRef = useRef(null);
     const [myExtraDayOffRequests, setMyExtraDayOffRequests] = useState([]);
     const [publishedSchedules, setPublishedSchedules] = useState([]);
     const [isLoadingPublishedSchedules, setIsLoadingPublishedSchedules] = useState(false);
@@ -130,10 +131,29 @@ export default function CalendarTab({
             }
         };
 
+        const handleNativeKeyboardShow = (info = {}) => {
+            setKeyboardVisible(true);
+
+            const baselineHeight = keyboardBaselineHeightRef.current;
+            const webViewWasResized = Number.isFinite(baselineHeight) &&
+                baselineHeight - window.innerHeight > 80;
+            const viewportOverlap = viewport
+                ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+                : 0;
+
+            // adjustResize가 적용된 Android에서는 WebView가 이미 키보드 위까지만 줄어듭니다.
+            // WebView가 줄지 않는 모드에서만 플러그인이 알려준 키보드 높이를 추가합니다.
+            const overlap = webViewWasResized
+                ? viewportOverlap
+                : Math.max(viewportOverlap, Number(info.keyboardHeight) || 0);
+            setKeyboardOverlap(Math.round(overlap));
+        };
+
         if (nativePlatform) {
-            addKeyboardListener('keyboardWillShow', () => setKeyboardVisible(true));
-            addKeyboardListener('keyboardDidShow', () => setKeyboardVisible(true));
+            addKeyboardListener('keyboardWillShow', handleNativeKeyboardShow);
+            addKeyboardListener('keyboardDidShow', handleNativeKeyboardShow);
             addKeyboardListener('keyboardDidHide', () => {
+                keyboardBaselineHeightRef.current = null;
                 setKeyboardVisible(false);
                 setKeyboardOverlap(0);
             });
@@ -834,6 +854,9 @@ export default function CalendarTab({
                         </div>
                         <textarea
                             value={extraDayOffNote}
+                            onFocus={() => {
+                                keyboardBaselineHeightRef.current = window.innerHeight;
+                            }}
                             onChange={(event) => setExtraDayOffNote(event.target.value)}
                             rows={2}
                             maxLength={300}
