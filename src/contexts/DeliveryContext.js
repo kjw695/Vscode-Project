@@ -5,6 +5,25 @@ import { useAuth } from './AuthContext';
 
 const DeliveryContext = createContext();
 
+// Only delete standalone, zero-value personal day-off records.
+// Mixed entries containing other custom items or earnings are preserved.
+const isStandaloneDayOffEntry = (entry) => {
+    const items = Array.isArray(entry.customItems)
+        ? entry.customItems
+        : Array.isArray(entry.custom_items)
+            ? entry.custom_items
+            : [];
+    const hasDayOffMarker = entry.memo === '[휴무]' ||
+        items.some(item => item?.key === 'dayOff');
+    const hasOnlyDayOffItems = items.every(item => item?.key === 'dayOff');
+
+    return entry.type === 'income' &&
+        Number(entry.unitPrice ?? entry.unit_price ?? 0) === 0 &&
+        Number(entry.round ?? 0) === 0 &&
+        hasDayOffMarker &&
+        hasOnlyDayOffItems;
+};
+
 // ✨ DB 데이터를 변환할 때, 서버에 있는 건 무조건 '전송 완료(isSynced: true)' 취급합니다.
 const toClientFormat = (row) => ({
     id: row.id, 
@@ -70,19 +89,63 @@ export function DeliveryProvider({ children }) {
                         .order('date', { ascending: false });
 
                     if (!error && isMounted) {
-                        const parsedDbData = (dbData || []).map(toClientFormat);
-                        
+                        let effectiveDbData = dbData || [];
+                        let effectiveLocalData = localData;
+
+                        // 회사 근무표 연동일 이후의 기존 개인 휴무는 실제 취소합니다.
+                        // DB에 이미 저장된 휴무는 SQL 마이그레이션에서 정리하고,
+                        // 기기에만 남은 미전송 휴무는 로그인 후 여기서 제거합니다.
+                        try {
+                            const { data: syncFrom, error: syncDateError } = await supabase.rpc(
+                                'get_my_organization_schedule_sync_from'
+                            );
+
+                            if (!syncDateError && syncFrom) {
+                                effectiveLocalData = effectiveLocalData.filter((entry) =>
+                                    !(entry.date >= syncFrom && isStandaloneDayOffEntry(entry))
+                                );
+
+                                const staleServerDayOffIds = effectiveDbData
+                                    .filter((entry) =>
+                                        entry.date >= syncFrom && isStandaloneDayOffEntry(entry)
+                                    )
+                                    .map(entry => entry.id);
+
+                                if (staleServerDayOffIds.length > 0) {
+                                    const { error: deleteError } = await supabase
+                                        .from('entries')
+                                        .delete()
+                                        .eq('user_id', user.id)
+                                        .in('id', staleServerDayOffIds);
+
+                                    if (deleteError) {
+                                        console.error('연동 시작일 이후 기존 휴무 취소 실패:', deleteError);
+                                    } else {
+                                        const staleIds = new Set(staleServerDayOffIds);
+                                        effectiveDbData = effectiveDbData.filter(
+                                            entry => !staleIds.has(entry.id)
+                                        );
+                                    }
+                                }
+                            }
+                        } catch (cleanupError) {
+                            // 구버전 DB 등에서 기준일 RPC를 사용할 수 없으면 기존 로딩을 계속합니다.
+                            console.warn('기존 휴무 자동 취소 확인 실패:', cleanupError);
+                        }
+
+                        const parsedDbData = effectiveDbData.map(toClientFormat);
+
                         // 3. 서버 데이터와 기기의 '미전송(isSynced: false)' 데이터를 하나로 합치기
-                        const unsyncedLocal = localData.filter(e => e.isSynced === false);
+                        const unsyncedLocal = effectiveLocalData.filter(e => e.isSynced === false);
                         const merged = [...unsyncedLocal];
-                        
+
                         parsedDbData.forEach(dbItem => {
                             if (!merged.some(m => m.id === dbItem.id)) merged.push(dbItem);
                         });
-                        
+
                         merged.sort((a, b) => new Date(b.date) - new Date(a.date));
                         setEntries(merged);
-                        syncToStorage(merged); 
+                        syncToStorage(merged);
                     }
                 } else {
                     if (isMounted) setEntries(localData);
