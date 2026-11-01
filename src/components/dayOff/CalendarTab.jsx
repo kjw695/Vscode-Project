@@ -35,6 +35,12 @@ const checkIsHoliday = (dateStr) => {
     return hd.isHoliday(new Date(dateStr)) ? true : false;
 };
 
+const formatLocalDate = (date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+};
 
 export default function CalendarTab({ 
     isDarkMode, showMessage, monthlyStartDay, monthlyEndDay, selectedMonth, onClose,
@@ -121,12 +127,6 @@ export default function CalendarTab({
         calendarEndDate.setDate(calendarEndDate.getDate() + (6 - calendarEndDate.getDay())); // 마지막 주의 토요일
     }
 
-    const formatLocalDate = (date) => {
-        const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, '0');
-        const d = String(date.getDate()).padStart(2, '0');
-        return `${y}-${m}-${d}`;
-    };
     const scheduleQueryStart = formatLocalDate(calendarStartDate);
     const scheduleQueryEnd = formatLocalDate(calendarEndDate);
 
