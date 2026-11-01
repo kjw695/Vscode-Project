@@ -811,7 +811,7 @@ const handleTodayClick = () => {
         
      
 
-    const generateCalendarDays = useCallback(() => {
+    const generateCalendarDays = () => {
         const year = currentCalendarDate.getFullYear();
         const month = currentCalendarDate.getMonth();
         let periodStartDate, periodEndDate;
@@ -913,7 +913,7 @@ const handleTodayClick = () => {
             dayIterator.setDate(dayIterator.getDate() + 1);
         }
         return days;
-    }, [currentCalendarDate, monthlyStartDay, monthlyEndDay, monthlyProfit.dailyBreakdown, entries, itemLabels, selectedItemsForAverage, incomeConfig, profile?.organization_id, homeScheduleSyncFrom, homeMyPublishedScheduleByDate, homeExtraDayOffRequestStatusByDate]);
+    };
 
     const calendarDays = generateCalendarDays();
 
