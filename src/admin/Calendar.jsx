@@ -1181,7 +1181,9 @@ export default function Calendar({ onBack }) {
                     </div>
                     <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2 py-1.5 text-[10px] leading-4 text-amber-800">
                         <AlertCircle size={13} className="shrink-0" />
-                        <p>이 기기에 저장 · 직원 기기 간 서버 동기화는 미연결</p>
+                        <p>{organizationId
+                            ? '회사 서버에 저장 · 직원 앱에 자동 공유'
+                            : '이 기기에만 저장 · 회사 서버 공유는 사용하지 않음'}</p>
                     </div>
                 </section>
 
