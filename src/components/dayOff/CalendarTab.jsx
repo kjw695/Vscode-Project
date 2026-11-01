@@ -14,7 +14,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useDelivery } from '../../contexts/DeliveryContext';
 import { supabase } from '../../lib/supabaseClient'; // 기존 휴무 교환 RPC
-import { fetchMyOrganizationWeeklySchedules } from '../../services/organizationScheduleService';
+import {
+    fetchMyOrganizationWeeklySchedules,
+    fetchMyOrganizationScheduleSyncFrom
+} from '../../services/organizationScheduleService';
 import Holidays from 'date-holidays';
 
 
@@ -69,6 +72,7 @@ export default function CalendarTab({
     const [publishedSchedules, setPublishedSchedules] = useState([]);
     const [isLoadingPublishedSchedules, setIsLoadingPublishedSchedules] = useState(false);
     const [scheduleLoadError, setScheduleLoadError] = useState(false);
+    const [scheduleSyncFrom, setScheduleSyncFrom] = useState(null);
 
     useEffect(() => {
         if (selectedMonth) {
@@ -137,6 +141,7 @@ export default function CalendarTab({
             setPublishedSchedules([]);
             setIsLoadingPublishedSchedules(false);
             setScheduleLoadError(false);
+            setScheduleSyncFrom(null);
             return undefined;
         }
 
@@ -144,18 +149,23 @@ export default function CalendarTab({
         const loadPublishedSchedules = async () => {
             try {
                 setIsLoadingPublishedSchedules(true);
-                const rows = await fetchMyOrganizationWeeklySchedules(
-                    scheduleQueryStart,
-                    scheduleQueryEnd
-                );
+                const [rows, syncFrom] = await Promise.all([
+                    fetchMyOrganizationWeeklySchedules(
+                        scheduleQueryStart,
+                        scheduleQueryEnd
+                    ),
+                    fetchMyOrganizationScheduleSyncFrom()
+                ]);
                 if (isActive) {
                     setPublishedSchedules(rows);
+                    setScheduleSyncFrom(syncFrom);
                     setScheduleLoadError(false);
                 }
             } catch (error) {
                 console.error('관리자 확정 근무표를 불러오지 못했습니다.', error);
                 if (isActive) {
                     setPublishedSchedules([]);
+                    setScheduleSyncFrom(null);
                     setScheduleLoadError(true);
                 }
             } finally {
@@ -192,7 +202,9 @@ export default function CalendarTab({
                 for (let offset = 0; offset < 7; offset += 1) {
                     const date = new Date(start);
                     date.setDate(start.getDate() + offset);
-                    result[formatLocalDate(date)] = {
+                    const dateKey = formatLocalDate(date);
+                    if (scheduleSyncFrom && dateKey < scheduleSyncFrom) continue;
+                    result[dateKey] = {
                         status: 'pending',
                         details: ownDetails,
                         teamLabel: published.team_label
@@ -202,6 +214,9 @@ export default function CalendarTab({
             }
 
             Object.entries(published.schedule || {}).forEach(([dateKey, dayRecord]) => {
+                // 연동 기준일 이전은 과거 개인 휴무 및 기존 달력 표시를 그대로 유지합니다.
+                if (scheduleSyncFrom && dateKey < scheduleSyncFrom) return;
+
                 let status = ['off', 'backup', 'work', 'pending'].includes(dayRecord?.status)
                     ? dayRecord.status
                     : null;
@@ -233,7 +248,7 @@ export default function CalendarTab({
         });
 
         return result;
-    }, [publishedSchedules, currentUser?.id, teamId]);
+    }, [publishedSchedules, currentUser?.id, teamId, scheduleSyncFrom]);
 
     // ✨ 특정 날짜가 myOffDate와 같은 주(일~토)인지 확인하는 함수
     const isSameWeek = (targetStr) => {
@@ -407,12 +422,17 @@ export default function CalendarTab({
         // 회사 소속 직원은 관리자 확정 근무표의 본인 일정이 최우선입니다.
         const managerDay = teamId ? myPublishedScheduleByDate[dateStr] : null;
         const personalIsOff = isSelected || Boolean(existingDayOffs[dateStr]);
+        const isBeforeScheduleSync = Boolean(teamId && scheduleSyncFrom && dateStr < scheduleSyncFrom);
         const shiftType = managerDay?.details?.shift || '주간';
-        const routeName = managerDay?.details?.route || '배송';
+        const routeName = managerDay?.details?.route || (teamId ? '라우트' : '배송');
         let dayStatus = managerDay?.status || null;
         let dayDescription = routeName;
 
-        if (teamId) {
+        if (teamId && isBeforeScheduleSync) {
+            // 연동 기준일 전에는 과거 기록을 변경하지 않고 종전 달력 표시를 유지합니다.
+            dayStatus = personalIsOff ? 'off' : 'legacy';
+            dayDescription = personalIsOff ? '휴무' : '라우트';
+        } else if (teamId) {
             if (dayStatus === 'off') {
                 dayDescription = '휴무';
             } else if (dayStatus === 'backup') {
@@ -474,7 +494,7 @@ export default function CalendarTab({
                                     {dayDescription}
                                 </span>
                             </>
-                        ) : dayStatus === 'work' ? (
+                        ) : (dayStatus === 'work' || dayStatus === 'legacy') ? (
                             <>
                                 <span className="text-[9px] font-bold px-1.5 py-[2px] bg-[#E5E7FF] text-[#4F46E5] dark:bg-indigo-900/50 dark:text-indigo-300 rounded-full mt-0.5">
                                     {shiftType}
