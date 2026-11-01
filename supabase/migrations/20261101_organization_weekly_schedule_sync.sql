@@ -19,6 +19,44 @@ ALTER TABLE public.organizations
 ALTER TABLE public.organizations
     ALTER COLUMN schedule_sync_from SET NOT NULL;
 
+-- Cancel already-registered personal day-off-only entries on and after
+-- the synchronization date. Keep all earlier records and any entry that
+-- also contains non-day-off earnings/items.
+DELETE FROM public.entries e
+USING public.profiles p, public.organizations o
+WHERE e.user_id = p.id
+  AND o.id = p.organization_id
+  AND e.date >= o.schedule_sync_from
+  AND e.type = 'income'
+  AND COALESCE(e.unit_price, 0) = 0
+  AND COALESCE(e.round, 0) = 0
+  AND (
+      (
+          COALESCE(e.memo, '') = '[휴무]'
+          AND NOT EXISTS (
+              SELECT 1
+              FROM jsonb_array_elements(
+                  CASE
+                      WHEN jsonb_typeof(COALESCE(e.custom_items, '[]'::jsonb)) = 'array'
+                      THEN COALESCE(e.custom_items, '[]'::jsonb)
+                      ELSE '[]'::jsonb
+                  END
+              ) AS item(value)
+              WHERE item.value ->> 'key' IS DISTINCT FROM 'dayOff'
+          )
+      )
+      OR
+      (
+          jsonb_typeof(COALESCE(e.custom_items, '[]'::jsonb)) = 'array'
+          AND jsonb_array_length(COALESCE(e.custom_items, '[]'::jsonb)) > 0
+          AND NOT EXISTS (
+              SELECT 1
+              FROM jsonb_array_elements(COALESCE(e.custom_items, '[]'::jsonb)) AS item(value)
+              WHERE item.value ->> 'key' IS DISTINCT FROM 'dayOff'
+          )
+      )
+  );
+
 CREATE TABLE IF NOT EXISTS public.organization_weekly_schedules (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id uuid NOT NULL
