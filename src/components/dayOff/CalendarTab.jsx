@@ -819,9 +819,10 @@ export default function CalendarTab({
             <div className={`flex flex-wrap gap-4 px-2 py-2 text-[11px] font-bold mt-1
                 ${isDarkMode ? 'text-gray-400 border-gray-700' : 'text-gray-600 border-gray-200'}
             `}>
-                <div className="flex items-center gap-1"><span className="text-green-500">●</span> 휴가</div>
+                <div className="flex items-center gap-1"><span className="text-orange-500">●</span> 신청 대기</div>
                 <div className="flex items-center gap-1"><span className="text-gray-300 dark:text-gray-500">○</span> 휴무</div>
-                <div className="flex items-center gap-1"><span className="text-red-500">■</span> 승인필요</div>
+                <div className="flex items-center gap-1"><span className="text-blue-500">●</span> 승인</div>
+                <div className="flex items-center gap-1"><span className="text-red-500">●</span> 거절</div>
             </div>
             
             {/* ✨ 하단 내비게이션 바 위에 항상 떠 있는 플로팅 컨트롤 패널 */}
