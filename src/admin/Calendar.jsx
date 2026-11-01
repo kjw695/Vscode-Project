@@ -185,7 +185,7 @@ export default function Calendar({ onBack }) {
             setOrganizationLookupStatus('ready');
             return undefined;
         }
-        if (organizationId) {
+        if (profile?.organization_id) {
             setOrganizationId(profile.organization_id);
             setOrganizationLookupStatus('ready');
             return undefined;
