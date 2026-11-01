@@ -6,8 +6,28 @@ import 'react-resizable/css/styles.css';
 
 const ResponsiveGridLayout = WidthProvider(GridLayout);
 
-const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
+const DashboardSettingsView = ({
+    isDarkMode,
+    onBack,
+    config,
+    onSave,
+    calendarDesign = 'current',
+    volumeDisplayItems = {
+        deliveryCount: true,
+        deliveryInterruptionAmount: true,
+        returnCount: true,
+        freshBagCount: true
+    }
+}) => {
     const [localConfig, setLocalConfig] = useState(config);
+    const [localCalendarDesign, setLocalCalendarDesign] = useState(calendarDesign);
+    const [localVolumeDisplayItems, setLocalVolumeDisplayItems] = useState({
+        deliveryCount: true,
+        deliveryInterruptionAmount: true,
+        returnCount: true,
+        freshBagCount: true,
+        ...volumeDisplayItems
+    });
 
     const handleLayoutChange = (newLayout) => {
         const updatedConfig = localConfig.map(item => {
@@ -70,7 +90,18 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
         });
     };
 
-    const handleSave = () => onSave(localConfig);
+    const toggleVolumeDisplayItem = (key) => {
+        setLocalVolumeDisplayItems((prev) => ({
+            ...prev,
+            [key]: !prev[key]
+        }));
+    };
+
+    const handleSave = () => onSave(
+        localConfig,
+        localCalendarDesign,
+        localVolumeDisplayItems
+    );
 
     const visibleItems = localConfig.filter(c => c.isVisible);
     const hiddenItems = localConfig.filter(c => !c.isVisible);
@@ -89,7 +120,78 @@ const DashboardSettingsView = ({ isDarkMode, onBack, config, onSave }) => {
                 </button>
             </div>
             
-            <div className="overflow-y-auto pb-10">
+            <div className="overflow-y-auto pb-10 space-y-4">
+                <section className={`rounded-xl border p-3 ${isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'}`}>
+                    <h3 className={`mb-1 text-sm font-extrabold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        홈 달력 디자인
+                    </h3>
+                    <p className={`mb-3 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        기존 달력과 휴무 페이지형 디자인 중 선택할 수 있습니다.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                        {[
+                            { id: 'classic', label: '기존 달력', description: '작고 간결한 날짜 칸' },
+                            { id: 'current', label: '휴무 달력형', description: '큰 날짜 칸과 테두리 구분' }
+                        ].map((option) => (
+                            <button
+                                key={option.id}
+                                type="button"
+                                aria-pressed={localCalendarDesign === option.id}
+                                onClick={() => setLocalCalendarDesign(option.id)}
+                                className={`rounded-xl border-2 p-3 text-left transition-colors
+                                    ${localCalendarDesign === option.id
+                                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30'
+                                        : (isDarkMode ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-gray-50')}
+                                `}
+                            >
+                                <span className={`block text-sm font-extrabold ${localCalendarDesign === option.id ? 'text-indigo-600 dark:text-indigo-300' : (isDarkMode ? 'text-gray-200' : 'text-gray-700')}`}>
+                                    {option.label}
+                                </span>
+                                <span className={`mt-1 block text-[11px] ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                    {option.description}
+                                </span>
+                                {localCalendarDesign === option.id && (
+                                    <span className="mt-2 inline-block text-[10px] font-bold text-indigo-600 dark:text-indigo-300">
+                                        ✓ 선택됨
+                                    </span>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                </section>
+
+                <section className={`rounded-xl border p-3 ${isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'}`}>
+                    <h3 className={`text-sm font-extrabold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        물량 달력 표시 항목
+                    </h3>
+                    <p className={`mb-3 mt-1 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        홈 달력에서 '물량'을 선택했을 때 표시할 항목입니다.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                        {[
+                            { key: 'deliveryCount', label: '배송' },
+                            { key: 'deliveryInterruptionAmount', label: '중단' },
+                            { key: 'returnCount', label: '반품' },
+                            { key: 'freshBagCount', label: '프레시백' }
+                        ].map((item) => (
+                            <label
+                                key={item.key}
+                                className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-bold
+                                    ${isDarkMode ? 'border-gray-700 bg-gray-900 text-gray-200' : 'border-gray-200 bg-gray-50 text-gray-700'}
+                                `}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={Boolean(localVolumeDisplayItems[item.key])}
+                                    onChange={() => toggleVolumeDisplayItem(item.key)}
+                                    className="h-4 w-4 accent-indigo-600"
+                                />
+                                {item.label}
+                            </label>
+                        ))}
+                    </div>
+                </section>
+
                 <div className={`p-2 rounded-xl border-2 border-dashed ${isDarkMode ? 'border-gray-700 bg-gray-800/30' : 'border-gray-200 bg-gray-50'}`}>
                     <div className="text-center mb-4 flex justify-center gap-2">
                         <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
