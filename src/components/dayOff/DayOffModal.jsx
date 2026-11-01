@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Menu, Settings, RefreshCw, ArrowLeft } from 'lucide-react';
 import CalendarTab from './CalendarTab';
 import PreferredTab from './PreferredTab';
@@ -15,6 +15,32 @@ export const DayOffModal = ({
     
     // 휴무 설정 탭: 근무스케줄, 휴무일 교환하기, 추가휴무 요청
     const [settingTab, setSettingTab] = useState('preferred');
+    const calendarBackHandlerRef = useRef(null);
+
+    // 휴무 설정 화면에서는 먼저 나의 스케줄로 돌아가고, 달력 작업 단계는 달력에 위임합니다.
+    const registerCalendarBackHandler = useCallback((handler) => {
+        calendarBackHandlerRef.current = handler;
+        return () => {
+            if (calendarBackHandlerRef.current === handler) {
+                calendarBackHandlerRef.current = null;
+            }
+        };
+    }, []);
+
+    const handleDayOffModalBack = useCallback(() => {
+        if (viewMode === 'settings') {
+            setViewMode('main');
+            return true;
+        }
+
+        const calendarHandler = calendarBackHandlerRef.current;
+        return typeof calendarHandler === 'function' ? calendarHandler() : false;
+    }, [viewMode]);
+
+    useEffect(() => {
+        if (!isOpen || !registerBackHandler) return undefined;
+        return registerBackHandler(handleDayOffModalBack);
+    }, [isOpen, registerBackHandler, handleDayOffModalBack]);
 
     // ✨ 새로고침 로딩 상태 추가
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -93,7 +119,7 @@ export const DayOffModal = ({
                                 teamId={teamId}
                                 currentUser={currentUser}
                                 refreshKey={scheduleRefreshKey}
-                                registerBackHandler={registerBackHandler}
+                                registerBackHandler={registerCalendarBackHandler}
                                 onNavigateToExchange={() => {
                                     setViewMode('settings');
                                     setSettingTab('exchange');
