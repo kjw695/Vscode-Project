@@ -291,10 +291,10 @@ export default function CalendarTab({
         return tDate >= sunday && tDate <= saturday;
     };
 
-    // ✨ 날짜 클릭 로직
+    // 회사 소속 직원은 관리자 확정 근무표를 기준으로 휴무 교환을 신청합니다.
     const toggleDate = async (dateStr) => {
         if (!teamId) {
-            setSelectedDates(prev => 
+            setSelectedDates(prev =>
                 prev.includes(dateStr) ? prev.filter(d => d !== dateStr) : [...prev, dateStr]
             );
             return;
@@ -304,64 +304,70 @@ export default function CalendarTab({
         const managerStatus = myPublishedScheduleByDate[dateStr]?.status;
 
         if (exchangeStep === 0) {
-            // 연동 기준일 이전에는 기존 개인 휴무 기록을 유지합니다.
-            // 연동 기준일 당일부터는 기존 개인 기록을 무시하고 관리자 근무표만 기준으로 삼습니다.
-            const canSelectLegacyOff = isBeforeScheduleSync && Boolean(existingDayOffs[dateStr]);
-            if (!canSelectLegacyOff) {
-                if (!isBeforeScheduleSync && managerStatus === 'off') {
-                    showMessage('관리자가 확정한 휴무입니다. 휴무 변경은 관리자에게 요청해주세요.');
-                } else if (!isBeforeScheduleSync && managerStatus === 'pending') {
-                    showMessage('관리자가 근무표를 확정한 후 휴무 교환을 이용할 수 있습니다.');
-                } else if (!isBeforeScheduleSync && existingDayOffs[dateStr]) {
-                    showMessage('연동 시작일 이후의 기존 개인 휴무 기록은 적용되지 않습니다. 관리자 확정 근무표를 확인해주세요.');
-                } else {
-                    showMessage("❌ 관리자 확정 근무표에서 휴무로 배정된 날짜만 선택할 수 있습니다.");
-                }
+            if (isBeforeScheduleSync) {
+                showMessage('회사 연동 시작일 이전의 과거 휴무는 변경할 수 없습니다.');
                 return;
             }
-            setMyOffDate(dateStr);
+            if (managerStatus === 'off') {
+                setMyOffDate(dateStr);
+            } else if (managerStatus === 'pending') {
+                showMessage('관리자가 근무표를 확정한 후 휴무 교환을 이용할 수 있습니다.');
+            } else if (managerStatus === 'unpublished' || !managerStatus) {
+                showMessage('관리자 확정 근무표에서 본인의 휴무로 배정된 날짜만 선택할 수 있습니다.');
+            } else {
+                showMessage('휴무 교환은 본인의 확정 휴무일을 선택해야 합니다.');
+            }
             return;
         }
 
         if (exchangeStep === 1) {
-            if (!isBeforeScheduleSync) {
-                showMessage('연동 시작일 이후 날짜는 관리자 근무표로 관리되어 휴무 교환 대상으로 선택할 수 없습니다.');
-                return;
-            }
-            const isOwnOffDate = Boolean(existingDayOffs[dateStr]);
-            if (isOwnOffDate) {
-                showMessage('❌ 이미 본인의 휴무로 등록된 날짜입니다. 다른 날짜를 선택하세요.');
-                return;
-            }
-            if (dateStr === myOffDate) {
-                showMessage("❌ 같은 날짜입니다. 다른 날짜를 선택하세요.");
+            if (isBeforeScheduleSync) {
+                showMessage('회사 연동 시작일 이전의 날짜는 교환 대상으로 선택할 수 없습니다.');
                 return;
             }
             if (!isSameWeek(dateStr)) {
-                showMessage("❌ 교환은 같은 주(일~토) 안에서만 가능합니다.");
+                showMessage('교환은 같은 주(일~토) 안에서만 가능합니다.');
                 return;
             }
-            
-            setTargetDate(dateStr);
-            setExchangeStep(2); 
-            
+            if (dateStr === myOffDate) {
+                showMessage('같은 날짜입니다. 다른 날짜를 선택하세요.');
+                return;
+            }
+            if (managerStatus === 'off') {
+                showMessage('이미 본인의 휴무인 날짜입니다. 다른 날짜를 선택하세요.');
+                return;
+            }
+            if (!['work', 'backup'].includes(managerStatus)) {
+                showMessage('관리자가 근무표를 확정한 날짜만 교환 대상으로 선택할 수 있습니다.');
+                return;
+            }
+
             setIsFetchingMembers(true);
             try {
-               const { data, error } = await supabase.rpc(
-    'list_organization_day_off_members',
-    {
-        p_source_date: myOffDate,
-        p_target_date: dateStr
-    }
-);
+                const { data, error } = await supabase.rpc(
+                    'list_organization_day_off_members',
+                    {
+                        p_source_date: myOffDate,
+                        p_target_date: dateStr
+                    }
+                );
                 if (error) throw error;
-                setAvailableMembers((data || []).map(member => ({
+
+                const members = (data || []).map(member => ({
                     id: member.member_id,
                     name: member.member_display_name || '팀원'
-                })));
+                }));
+                if (members.length === 0) {
+                    showMessage('선택한 날짜에 교환할 수 있는 휴무자가 없습니다.');
+                    return;
+                }
+
+                setTargetDate(dateStr);
+                setAvailableMembers(members);
+                setExchangeStep(2);
             } catch (error) {
-                console.error(error);
-                showMessage("❌ 팀원 정보를 불러오지 못했습니다.");
+                console.error('휴무 교환 대상 조회 실패:', error);
+                showMessage(error.message || '휴무 교환 대상자를 불러오지 못했습니다.');
             } finally {
                 setIsFetchingMembers(false);
             }
@@ -376,18 +382,17 @@ export default function CalendarTab({
                 p_source_date: myOffDate,
                 p_target_date: targetDate
             });
-
             if (error) throw error;
 
-            showMessage("✅ 교환 신청이 완료되었습니다.");
+            showMessage('휴무 교환 신청을 보냈습니다. 상대 직원이 수락하면 확정 근무표에 반영됩니다.');
             setExchangeStep(0);
             setMyOffDate(null);
             setTargetDate(null);
             setAvailableMembers([]);
-            if (onNavigateToExchange) onNavigateToExchange(); 
+            if (onNavigateToExchange) onNavigateToExchange();
         } catch (error) {
-            console.error(error);
-            showMessage("❌ 신청 중 오류가 발생했습니다.");
+            console.error('휴무 교환 신청 실패:', error);
+            showMessage(error.message || '휴무 교환 신청 중 오류가 발생했습니다.');
         }
     };
 
@@ -615,7 +620,7 @@ export default function CalendarTab({
                         {exchangeStep === 1 && (
                             <div className="text-center p-2.5 bg-indigo-50 dark:bg-gray-800 rounded-xl">
                                 <p className="text-xs font-bold text-indigo-600 mb-1">어느 날짜로 바꾸시겠어요?</p>
-                                <p className="text-[11px] text-gray-500 mb-2">초록색으로 표시된 같은 주(일~토)만 선택 가능합니다.</p>
+                                <p className="text-[11px] text-gray-500 mb-2">같은 주(일~토)에서 원하는 날짜에 휴무인 직원이 있어야 교환할 수 있습니다.</p>
                                 <button onClick={() => { setExchangeStep(0); setMyOffDate(null); }} className="text-xs text-gray-400 underline">처음부터 다시하기</button>
                             </div>
                         )}
