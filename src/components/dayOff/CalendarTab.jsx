@@ -126,6 +126,8 @@ export default function CalendarTab({
         const d = String(date.getDate()).padStart(2, '0');
         return `${y}-${m}-${d}`;
     };
+    const scheduleQueryStart = formatLocalDate(calendarStartDate);
+    const scheduleQueryEnd = formatLocalDate(calendarEndDate);
 
     // 회사 소속 직원은 관리자 확정 근무표만 서버에서 읽습니다.
     // 개인 사용자의 entries 기반 휴무 저장 경로는 이 조회와 분리해 그대로 둡니다.
@@ -141,8 +143,8 @@ export default function CalendarTab({
             try {
                 setIsLoadingPublishedSchedules(true);
                 const rows = await fetchMyOrganizationWeeklySchedules(
-                    formatLocalDate(calendarStartDate),
-                    formatLocalDate(calendarEndDate)
+                    scheduleQueryStart,
+                    scheduleQueryEnd
                 );
                 if (isActive) setPublishedSchedules(rows);
             } catch (error) {
@@ -163,8 +165,8 @@ export default function CalendarTab({
     }, [
         teamId,
         currentUser?.id,
-        formatLocalDate(calendarStartDate),
-        formatLocalDate(calendarEndDate),
+        scheduleQueryStart,
+        scheduleQueryEnd,
         refreshKey
     ]);
 
@@ -251,9 +253,11 @@ export default function CalendarTab({
         if (exchangeStep === 0) {
             if (!existingDayOffs[dateStr]) {
                 if (myPublishedScheduleByDate[dateStr]?.status === 'off') {
-                    showMessage('관리자가 확정한 휴무입니다. 현재 휴무 교환은 기존 교환 기록이 있는 날짜만 신청할 수 있습니다.');
+                    showMessage('관리자가 확정한 휴무입니다. 휴무 변경은 관리자에게 요청해주세요.');
+                } else if (myPublishedScheduleByDate[dateStr]?.status === 'pending') {
+                    showMessage('관리자가 근무표를 확정한 후 휴무 교환을 이용할 수 있습니다.');
                 } else {
-                    showMessage("❌ 본인의 휴무일만 선택할 수 있습니다.");
+                    showMessage("❌ 관리자 확정 근무표에서 휴무로 배정된 날짜만 선택할 수 있습니다.");
                 }
                 return;
             }
