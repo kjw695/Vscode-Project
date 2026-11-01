@@ -62,6 +62,7 @@ export default function CalendarTab({
     const [isFetchingMembers, setIsFetchingMembers] = useState(false);
     const [publishedSchedules, setPublishedSchedules] = useState([]);
     const [isLoadingPublishedSchedules, setIsLoadingPublishedSchedules] = useState(false);
+    const [scheduleLoadError, setScheduleLoadError] = useState(false);
 
     useEffect(() => {
         if (selectedMonth) {
@@ -135,6 +136,7 @@ export default function CalendarTab({
         if (!teamId || !currentUser?.id) {
             setPublishedSchedules([]);
             setIsLoadingPublishedSchedules(false);
+            setScheduleLoadError(false);
             return undefined;
         }
 
@@ -146,10 +148,16 @@ export default function CalendarTab({
                     scheduleQueryStart,
                     scheduleQueryEnd
                 );
-                if (isActive) setPublishedSchedules(rows);
+                if (isActive) {
+                    setPublishedSchedules(rows);
+                    setScheduleLoadError(false);
+                }
             } catch (error) {
                 console.error('관리자 확정 근무표를 불러오지 못했습니다.', error);
-                if (isActive) setPublishedSchedules([]);
+                if (isActive) {
+                    setPublishedSchedules([]);
+                    setScheduleLoadError(true);
+                }
             } finally {
                 if (isActive) setIsLoadingPublishedSchedules(false);
             }
@@ -421,7 +429,11 @@ export default function CalendarTab({
                 dayDescription = '휴무';
             } else {
                 dayStatus = 'unpublished';
-                dayDescription = isLoadingPublishedSchedules ? '불러오는 중' : '근무표 미확정';
+                dayDescription = isLoadingPublishedSchedules
+                    ? '불러오는 중'
+                    : scheduleLoadError
+                        ? '조회 실패'
+                        : '근무표 미확정';
             }
         } else {
             dayStatus = personalIsOff ? 'off' : 'work';
