@@ -75,8 +75,8 @@ REVOKE ALL PRIVILEGES ON TABLE public.organization_schedule_change_history
 
 -- Rebuild one day's visible off lists and backup assignments from the current employee roster.
 -- Existing compatible assignments are retained first. Missing assignments use a permitted
--- backup when the schedule snapshot contains allowedBaseIds; legacy snapshots fall back to
--- any available backup. Uncovered routes are recorded as day status = error.
+-- backup only when the saved eligibility snapshot permits it. Legacy snapshots without
+-- restriction metadata retain the original unrestricted fallback. Uncovered routes are marked.
 CREATE OR REPLACE FUNCTION private.rebuild_organization_schedule_day(
     p_schedule jsonb,
     p_employee_details jsonb,
@@ -173,12 +173,23 @@ BEGIN
               AND NOT (e.key = ANY(v_off_ids))
               AND NOT (e.key = ANY(v_assigned_sub_ids))
               AND CASE
-                    WHEN jsonb_typeof(e.value -> 'allowedBaseIds') = 'array'
-                         AND jsonb_array_length(e.value -> 'allowedBaseIds') > 0
-                    THEN (e.value -> 'allowedBaseIds') @> jsonb_build_array(v_base_id)
+                    WHEN COALESCE((e.value ->> 'restrictBaseIds')::boolean, false)
+                    THEN COALESCE(e.value -> 'allowedBaseIds', '[]'::jsonb)
+                         @> jsonb_build_array(v_base_id)
                     ELSE TRUE
                   END
-            ORDER BY e.key
+            ORDER BY (
+                SELECT count(*)
+                FROM jsonb_each(p_schedule) AS schedule_day(day_key, day_record)
+                CROSS JOIN LATERAL jsonb_array_elements(
+                    CASE
+                        WHEN jsonb_typeof(schedule_day.day_record -> 'subs') = 'array'
+                        THEN schedule_day.day_record -> 'subs'
+                        ELSE '[]'::jsonb
+                    END
+                ) AS assigned(value)
+                WHERE assigned.value ->> 'subId' = e.key
+            ), e.key
             LIMIT 1;
 
             IF FOUND THEN
