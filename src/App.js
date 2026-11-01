@@ -105,6 +105,20 @@ const getSmartCurrentMonth = (startDay = 26) => {
     return `${year}-${String(month).padStart(2, '0')}`;
 };
 
+const HOME_CALENDAR_VOLUME_METRICS = [
+    { key: 'deliveryCount', label: '배송' },
+    { key: 'deliveryInterruptionAmount', label: '중단' },
+    { key: 'returnCount', label: '반품' },
+    { key: 'freshBagCount', label: '프레시백' }
+];
+
+const DEFAULT_HOME_CALENDAR_VOLUME_ITEMS = {
+    deliveryCount: true,
+    deliveryInterruptionAmount: true,
+    returnCount: true,
+    freshBagCount: true
+};
+
 function AppContent() {
     const navigate = useNavigate();
     useMigrationOnLogin();
@@ -162,6 +176,27 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
     const [calendarMode, setCalendarMode] = useState('money');
+    const [homeCalendarDesign, setHomeCalendarDesign] = useState(() => {
+        try {
+            const settings = JSON.parse(localStorage.getItem('appSettings') || '{}');
+            return settings.homeCalendarDesign === 'classic' ? 'classic' : 'current';
+        } catch (error) {
+            console.warn('홈 달력 디자인 설정을 읽지 못했습니다:', error);
+            return 'current';
+        }
+    });
+    const [homeCalendarVolumeItems, setHomeCalendarVolumeItems] = useState(() => {
+        try {
+            const settings = JSON.parse(localStorage.getItem('appSettings') || '{}');
+            return {
+                ...DEFAULT_HOME_CALENDAR_VOLUME_ITEMS,
+                ...(settings.homeCalendarVolumeItems || {})
+            };
+        } catch (error) {
+            console.warn('홈 달력 물량 항목 설정을 읽지 못했습니다:', error);
+            return DEFAULT_HOME_CALENDAR_VOLUME_ITEMS;
+        }
+    });
 
     const [statisticsView, setStatisticsView] = useState('monthly');
     const [monthlyStatsSubTab, setMonthlyStatsSubTab] = useState('overview');
@@ -854,16 +889,25 @@ const handleTodayClick = () => {
             const dailyData = breakdown[formattedDate] || { revenue: 0, expenses: 0 };
             
 
-            // ✨ [새로 추가된 로직] 그날의 총 물량 계산하기
+            // 기존 평균 물량 계산은 유지하고, 달력 표시용 항목별 건수만 별도로 집계합니다.
             let dailyVolume = 0;
+            const dailyVolumeBreakdown = HOME_CALENDAR_VOLUME_METRICS.reduce((result, item) => {
+                result[item.key] = 0;
+                return result;
+            }, {});
+
             if (isWithinPeriod) {
                 const dailyEntries = entries.filter(e => e.date === formattedDate && e.type === 'income');
                 dailyEntries.forEach(entry => {
                     if (entry.customItems && entry.customItems.length > 0) {
                         entry.customItems.forEach(item => {
+                            const count = Number(item.count || 0);
                             const label = itemLabels[item.key] || item.key;
                             if (selectedItemsForAverage.includes(label)) {
-                                dailyVolume += Number(item.count || 0);
+                                dailyVolume += count;
+                            }
+                            if (Object.prototype.hasOwnProperty.call(dailyVolumeBreakdown, item.key)) {
+                                dailyVolumeBreakdown[item.key] += count;
                             }
                         });
                     } else {
@@ -872,6 +916,9 @@ const handleTodayClick = () => {
                             if (selectedItemsForAverage.includes(label)) {
                                 dailyVolume += Number(entry[config.key] || 0);
                             }
+                        });
+                        HOME_CALENDAR_VOLUME_METRICS.forEach((item) => {
+                            dailyVolumeBreakdown[item.key] += Number(entry[item.key] || 0);
                         });
                     }
                 });
@@ -884,7 +931,8 @@ const handleTodayClick = () => {
                 isToday: isToday, 
                 revenue: isWithinPeriod ? dailyData.revenue : 0, 
                 expenses: isWithinPeriod ? dailyData.expenses : 0 ,
-                volume: dailyVolume
+                volume: dailyVolume,
+                volumeBreakdown: dailyVolumeBreakdown
             });
 
             dayIterator.setDate(dayIterator.getDate() + 1);
@@ -1321,44 +1369,71 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                             ))}
                                         </div>
 
-                                        <div className={`grid grid-cols-7 w-full border-l ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                                        <div className={homeCalendarDesign === 'current'
+                                            ? `grid grid-cols-7 w-full border-l ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`
+                                            : 'grid grid-cols-7 gap-x-0 gap-y-0'
+                                        }>
                                             {calendarDaysWithDayOff.map((dayInfo, index) => (
                                                 <div
                                                     key={dayInfo.date}
                                                     onClick={() => handleCalendarDateClick(dayInfo.date)}
-                                                    className={`relative flex flex-col items-center justify-start p-1 h-20 border-b border-r transition-colors cursor-pointer
-                                                        ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}
-                                                        ${dayInfo.isToday
-                                                            ? (isDarkMode ? 'bg-green-900/60' : 'bg-green-100')
-                                                            : dayInfo.isDayOff
-                                                                ? (isDarkMode ? 'bg-gray-700/60' : 'bg-gray-100')
+                                                    className={homeCalendarDesign === 'current'
+                                                        ? `relative flex flex-col items-center justify-start p-1 h-20 border-b border-r transition-colors cursor-pointer
+                                                            ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}
+                                                            ${dayInfo.isToday
+                                                                ? (isDarkMode ? 'bg-green-900/60' : 'bg-green-100')
+                                                                : dayInfo.isDayOff
+                                                                    ? (isDarkMode ? 'bg-gray-700/60' : 'bg-gray-100')
+                                                                    : (isDarkMode ? 'bg-gray-800' : 'bg-white')}
+                                                        `
+                                                        : `relative flex flex-col items-center justify-start h-[55px] rounded-md transition-colors cursor-pointer
+                                                            ${dayInfo.isDayOff
+                                                                ? (isDarkMode ? 'bg-gray-700/60' : 'bg-gray-200')
                                                                 : (isDarkMode ? 'bg-gray-800' : 'bg-white')}
-                                                    `}
+                                                        `
+                                                    }
                                                 >
-                                                    <div className="relative flex w-full items-center justify-between px-1">
-                                                        <span className={`text-[13px] font-bold
-                                                            ${!dayInfo.isCurrentMonth ? (isDarkMode ? 'text-gray-600' : 'text-gray-400') : ''}
-                                                            ${dayInfo.isCurrentMonth && index % 7 === 0 ? 'text-red-500' : ''}
-                                                            ${dayInfo.isCurrentMonth && index % 7 === 6 ? 'text-blue-500' : ''}
-                                                            ${dayInfo.isToday ? (isDarkMode ? 'text-green-200' : 'text-green-800') : ''}
-                                                        `}>
+                                                    <div className={homeCalendarDesign === 'current'
+                                                        ? 'relative flex w-full items-center justify-between px-1'
+                                                        : 'relative flex h-[30px] w-full items-center justify-center'
+                                                    }>
+                                                        <span className={homeCalendarDesign === 'current'
+                                                            ? `text-[13px] font-bold
+                                                                ${!dayInfo.isCurrentMonth ? (isDarkMode ? 'text-gray-600' : 'text-gray-400') : ''}
+                                                                ${dayInfo.isCurrentMonth && index % 7 === 0 ? 'text-red-500' : ''}
+                                                                ${dayInfo.isCurrentMonth && index % 7 === 6 ? 'text-blue-500' : ''}
+                                                                ${dayInfo.isToday ? (isDarkMode ? 'text-green-200' : 'text-green-800') : ''}
+                                                            `
+                                                            : `flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold
+                                                                ${!dayInfo.isCurrentMonth ? (isDarkMode ? 'text-gray-600' : 'text-gray-300') : ''}
+                                                                ${dayInfo.isCurrentMonth && index % 7 === 0 ? 'text-red-500' : ''}
+                                                                ${dayInfo.isCurrentMonth && index % 7 === 6 ? 'text-blue-500' : ''}
+                                                                ${dayInfo.isToday ? 'border-4 border-yellow-400 shadow-sm' : ''}
+                                                            `
+                                                        }>
                                                             {dayInfo.day}
                                                         </span>
 
                                                         {dayInfo.isCurrentMonth && dayInfo.extraDayOffRequestStatus === 'pending' && (
-                                                            <span className="h-1.5 w-1.5 rounded-full bg-orange-500" title="휴무 신청 대기" aria-label="휴무 신청 대기" />
+                                                            <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-orange-500" title="휴무 신청 대기" aria-label="휴무 신청 대기" />
                                                         )}
                                                         {dayInfo.isCurrentMonth && dayInfo.extraDayOffRequestStatus === 'approved' && (
-                                                            <span className="h-1.5 w-1.5 rounded-full bg-blue-500" title="휴무 신청 승인" aria-label="휴무 신청 승인" />
+                                                            <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-blue-500" title="휴무 신청 승인" aria-label="휴무 신청 승인" />
                                                         )}
                                                         {dayInfo.isCurrentMonth && dayInfo.extraDayOffRequestStatus === 'declined' && (
-                                                            <span className="h-1.5 w-1.5 rounded-full bg-red-500" title="휴무 신청 거절" aria-label="휴무 신청 거절" />
+                                                            <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-red-500" title="휴무 신청 거절" aria-label="휴무 신청 거절" />
                                                         )}
                                                     </div>
 
-                                                    <div className="flex flex-col items-center justify-start mt-1 w-full space-y-0.5">
+                                                    <div className={homeCalendarDesign === 'current'
+                                                        ? 'flex flex-col items-center justify-start mt-1 w-full space-y-0.5'
+                                                        : 'flex flex-col items-center justify-start w-full px-0.5 -mt-0.5 space-y-0'
+                                                    }>
                                                         {dayInfo.isCurrentMonth && dayInfo.isDayOff && (
-                                                            <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mt-1">
+                                                            <span className={homeCalendarDesign === 'current'
+                                                                ? 'text-[11px] font-bold text-gray-500 dark:text-gray-400 mt-1'
+                                                                : 'text-[7px] font-bold leading-[8px] text-indigo-500 dark:text-indigo-400'
+                                                            }>
                                                                 ○ 휴무
                                                             </span>
                                                         )}
@@ -1366,25 +1441,53 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                                         {calendarMode === 'money' ? (
                                                             <>
                                                                 {dayInfo.isCurrentMonth && dayInfo.revenue > 0 && (
-                                                                    <span className="text-red-500 text-[9px] font-medium leading-tight">
+                                                                    <span className={homeCalendarDesign === 'current'
+                                                                        ? 'text-red-500 text-[9px] font-medium leading-tight'
+                                                                        : 'text-red-500 text-[8px] font-medium leading-[9px]'
+                                                                    }>
                                                                         {dayInfo.revenue.toLocaleString()}
                                                                     </span>
                                                                 )}
                                                                 {dayInfo.isCurrentMonth && dayInfo.expenses > 0 && (
-                                                                    <span className="text-blue-500 text-[9px] font-medium leading-tight">
+                                                                    <span className={homeCalendarDesign === 'current'
+                                                                        ? 'text-blue-500 text-[9px] font-medium leading-tight'
+                                                                        : 'text-blue-500 text-[8px] font-medium leading-[9px]'
+                                                                    }>
                                                                         {dayInfo.expenses.toLocaleString()}
                                                                     </span>
                                                                 )}
                                                             </>
                                                         ) : (
                                                             <>
+                                                                <div className={homeCalendarDesign === 'current'
+                                                                    ? 'grid grid-cols-2 gap-x-1 gap-y-0.5 w-full'
+                                                                    : 'grid grid-cols-2 gap-x-0.5 gap-y-0 w-full'
+                                                                }>
+                                                                    {dayInfo.isCurrentMonth && HOME_CALENDAR_VOLUME_METRICS.map((metric) => {
+                                                                        if (!homeCalendarVolumeItems[metric.key]) return null;
+                                                                        const amount = Number(dayInfo.volumeBreakdown?.[metric.key] || 0);
+                                                                        if (amount <= 0) return null;
+                                                                        const label = incomeConfig.find((item) => item.key === metric.key)?.label || metric.label;
+                                                                        return (
+                                                                            <span
+                                                                                key={metric.key}
+                                                                                className={homeCalendarDesign === 'current'
+                                                                                    ? 'min-w-0 truncate text-[8px] font-semibold leading-[10px] text-gray-700 dark:text-gray-300'
+                                                                                    : 'min-w-0 truncate text-[7px] font-semibold leading-[8px] text-gray-700 dark:text-gray-300'
+                                                                                }
+                                                                                title={`${label} ${amount}개`}
+                                                                            >
+                                                                                {label} {amount}
+                                                                            </span>
+                                                                        );
+                                                                    })}
+                                                                </div>
                                                                 {dayInfo.isCurrentMonth && dayInfo.volume > 0 && (
-                                                                    <span className={`text-[10px] font-black leading-tight tracking-tighter
-                                                                        ${dayInfo.volume > (monthlyProfit.dailyAverageVolume * 1.1) ? 'text-red-500' :
-                                                                            dayInfo.volume < (monthlyProfit.dailyAverageVolume * 0.9) ? 'text-blue-500' :
-                                                                                'text-orange-500'}
-                                                                    `}>
-                                                                        {dayInfo.volume.toLocaleString()}개
+                                                                    <span className={homeCalendarDesign === 'current'
+                                                                        ? 'text-[8px] font-black leading-[10px] text-orange-500'
+                                                                        : 'text-[7px] font-black leading-[8px] text-orange-500'
+                                                                    }>
+                                                                        합계 {dayInfo.volume.toLocaleString()}개
                                                                     </span>
                                                                 )}
                                                             </>
@@ -1551,8 +1654,20 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
         isDarkMode={isDarkMode}
         onBack={() => setMoreSubView('main')}
         config={dashboardConfig}
-        onSave={(newConfig) => {
-            saveDashboardConfig(newConfig); // 훅의 저장 함수 사용
+        calendarDesign={homeCalendarDesign}
+        volumeDisplayItems={homeCalendarVolumeItems}
+        onSave={(newConfig, newCalendarDesign, newVolumeDisplayItems) => {
+            saveDashboardConfig(newConfig); // 기존 카드 배치는 그대로 저장합니다.
+            setHomeCalendarDesign(newCalendarDesign === 'classic' ? 'classic' : 'current');
+            const nextVolumeItems = {
+                ...DEFAULT_HOME_CALENDAR_VOLUME_ITEMS,
+                ...(newVolumeDisplayItems || {})
+            };
+            setHomeCalendarVolumeItems(nextVolumeItems);
+            saveSettingsToLocal({
+                homeCalendarDesign: newCalendarDesign === 'classic' ? 'classic' : 'current',
+                homeCalendarVolumeItems: nextVolumeItems
+            });
             showMessage("✅ 홈 화면 설정이 저장되었습니다.");
         }}
     />
