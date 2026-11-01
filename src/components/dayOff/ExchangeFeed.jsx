@@ -31,7 +31,7 @@ export default function ExchangeFeed({ marketFeeds = [], loading, busyId, member
                                     <p className="mt-1 text-sm text-gray-700 dark:text-gray-200">
                                         상대방 휴무 {post.source_date} <span className="px-1 text-indigo-500">→</span> 내 휴무 {post.target_date}
                                     </p>
-                                    <p className="mt-1 text-xs text-gray-500">수락하면 두 사람의 휴무 날짜가 서로 바뀝니다.</p>
+                                    <p className="mt-1 text-xs text-gray-500">수락하면 관리자 확정 근무표의 두 휴무 날짜가 서로 바뀌고 백업 배정이 다시 계산됩니다.</p>
                                 </div>
                                 <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${statusClass(post.status)}`}>
                                     {STATUS_LABELS[post.status] || post.status}
