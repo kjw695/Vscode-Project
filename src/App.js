@@ -915,11 +915,29 @@ const handleTodayClick = () => {
         return days;
     };
 
-    const calendarDays = generateCalendarDays();
 
-    // 화면에 실제로 표시되는 회계기간의 일~토 범위를 휴무 달력과 동일하게 조회합니다.
-    const homeCalendarStartDate = calendarDays[0]?.date || null;
-    const homeCalendarEndDate = calendarDays[calendarDays.length - 1]?.date || null;
+    // 휴무 데이터 조회 기간은 실적 달력 생성 전에 독립적으로 계산합니다.
+    const homeCalendarQueryRange = (() => {
+        const year = currentCalendarDate.getFullYear();
+        const month = currentCalendarDate.getMonth();
+        const startDay = Number(monthlyStartDay) || 26;
+        const endDay = Number(monthlyEndDay) || 25;
+        const periodStart = startDay > endDay
+            ? new Date(year, month - 1, startDay)
+            : new Date(year, month, startDay);
+        const periodEnd = new Date(year, month, endDay);
+        const calendarStart = new Date(periodStart);
+        calendarStart.setDate(calendarStart.getDate() - calendarStart.getDay());
+        const calendarEnd = new Date(periodEnd);
+        if (calendarEnd.getDay() !== 6) {
+            calendarEnd.setDate(calendarEnd.getDate() + (6 - calendarEnd.getDay()));
+        }
+        const toDateString = (date) =>
+            `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        return { startDate: toDateString(calendarStart), endDate: toDateString(calendarEnd) };
+    })();
+    const homeCalendarStartDate = homeCalendarQueryRange.startDate;
+    const homeCalendarEndDate = homeCalendarQueryRange.endDate;
 
     useEffect(() => {
         const organizationId = profile?.organization_id;
@@ -1046,6 +1064,8 @@ const handleTodayClick = () => {
             });
         return statusByDate;
     }, [homeExtraDayOffRequests]);
+
+    const calendarDays = generateCalendarDays();
 
     const yearlyPeriod = useMemo(() => {
         const year = parseInt(selectedYear); let startDate, endDate;
