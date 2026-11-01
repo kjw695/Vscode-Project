@@ -405,6 +405,15 @@ BEGIN
         RAISE EXCEPTION '두 직원이 포함된 해당 주의 확정 근무표를 찾을 수 없습니다.';
     END IF;
 
+    IF NOT EXISTS (
+        SELECT 1
+        FROM public.profiles p
+        WHERE p.id = p_receiver_id
+          AND p.organization_id = v_organization_id
+    ) THEN
+        RAISE EXCEPTION '현재 같은 회사에 소속된 직원에게만 교환을 신청할 수 있습니다.';
+    END IF;
+
     v_source_day := v_schedule.schedule -> p_source_date::text;
     v_target_day := v_schedule.schedule -> p_target_date::text;
 
@@ -661,6 +670,9 @@ BEGIN
     END IF;
     IF p_requested_date IS NULL THEN
         RAISE EXCEPTION '추가휴무를 요청할 날짜를 선택해주세요.';
+    END IF;
+    IF p_requested_date < CURRENT_DATE THEN
+        RAISE EXCEPTION '지난 날짜에는 추가휴무를 요청할 수 없습니다.';
     END IF;
 
     SELECT p.organization_id, o.schedule_sync_from
