@@ -83,8 +83,6 @@ export default function CalendarTab({
     const [availableMembers, setAvailableMembers] = useState([]); // 해당 날짜 휴무자 목록
     const [isFetchingMembers, setIsFetchingMembers] = useState(false);
 
-    // 회사 소속 직원은 달력에서 휴무 교환과 추가휴무 요청을 바로 선택할 수 있습니다.
-    const [calendarActionMode, setCalendarActionMode] = useState('exchange');
     const [extraDayOffDate, setExtraDayOffDate] = useState(null);
     const [extraDayOffNote, setExtraDayOffNote] = useState('');
     const [isSubmittingExtraDayOff, setIsSubmittingExtraDayOff] = useState(false);
@@ -309,43 +307,39 @@ export default function CalendarTab({
         const isBeforeScheduleSync = Boolean(scheduleSyncFrom && dateStr < scheduleSyncFrom);
         const managerStatus = myPublishedScheduleByDate[dateStr]?.status;
 
-        if (calendarActionMode === 'extra') {
-            if (dateStr < todayStr) {
-                showMessage('지난 날짜에는 추가휴무를 요청할 수 없습니다.');
-                return;
-            }
+        // 날짜 상태에 따라 동작을 자동 결정합니다.
+        // 휴무일을 누르면 교환 흐름, 근무일/백업일을 누르면 추가휴무 요청 흐름입니다.
+        if (exchangeStep === 0) {
             if (isBeforeScheduleSync) {
                 showMessage('회사 근무표 연동 시작일 이후 날짜를 선택해주세요.');
                 return;
             }
+
             if (managerStatus === 'off') {
-                showMessage('이미 확정된 휴무일입니다. 근무일을 선택해주세요.');
-                return;
-            }
-            if (!['work', 'backup'].includes(managerStatus)) {
-                showMessage(
-                    managerStatus === 'pending'
-                        ? '관리자가 근무표를 확정한 후 요청할 수 있습니다.'
-                        : '관리자 확정 근무표에 있는 근무일 또는 백업근무일을 선택해주세요.'
-                );
-                return;
-            }
-            setExtraDayOffDate(dateStr);
-            return;
-        }
-        if (exchangeStep === 0) {
-            if (isBeforeScheduleSync) {
-                showMessage('회사 연동 시작일 이전의 과거 휴무는 변경할 수 없습니다.');
-                return;
-            }
-            if (managerStatus === 'off') {
+                setExtraDayOffDate(null);
+                setExtraDayOffNote('');
                 setMyOffDate(dateStr);
-            } else if (managerStatus === 'pending') {
-                showMessage('관리자가 근무표를 확정한 후 휴무 교환을 이용할 수 있습니다.');
-            } else if (managerStatus === 'unpublished' || !managerStatus) {
-                showMessage('관리자 확정 근무표에서 본인의 휴무로 배정된 날짜만 선택할 수 있습니다.');
+                setTargetDate(null);
+                setAvailableMembers([]);
+                return;
+            }
+
+            if (['work', 'backup'].includes(managerStatus)) {
+                if (dateStr < todayStr) {
+                    showMessage('지난 날짜에는 추가휴무를 요청할 수 없습니다.');
+                    return;
+                }
+                setMyOffDate(null);
+                setTargetDate(null);
+                setAvailableMembers([]);
+                setExtraDayOffDate(dateStr);
+                return;
+            }
+
+            if (managerStatus === 'pending') {
+                showMessage('관리자가 근무표를 확정한 후 휴무 신청을 이용할 수 있습니다.');
             } else {
-                showMessage('휴무 교환은 본인의 확정 휴무일을 선택해야 합니다.');
+                showMessage('관리자 확정 근무표에 있는 휴무일 또는 근무일을 선택해주세요.');
             }
             return;
         }
@@ -658,47 +652,57 @@ export default function CalendarTab({
             {/* ✨ 하단 내비게이션 바 위에 항상 떠 있는 플로팅 컨트롤 패널 */}
             <div className="absolute bottom-16 left-0 right-0 px-4 py-2 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm z-20 shadow-lg border-t border-gray-100 dark:border-gray-800">
                 {teamId ? (
-                    <div className="flex flex-col space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col space-y-2">
+                {extraDayOffDate ? (
+                    <div className="space-y-2 rounded-xl bg-indigo-50 p-3 dark:bg-gray-800">
+                        <div className="flex items-center justify-between gap-2">
+                            <div>
+                                <p className="text-xs font-bold text-indigo-700 dark:text-indigo-300">추가휴무를 원하는 근무일</p>
+                                <p className="mt-0.5 text-[11px] text-gray-500">{extraDayOffDate}</p>
+                            </div>
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setCalendarActionMode('exchange');
-                                    setExtraDayOffDate(null);
-                                    setExtraDayOffNote('');
-                                }}
-                                className={'rounded-lg py-2 text-xs font-bold transition-colors ' + (
-                                    calendarActionMode === 'exchange'
-                                        ? 'bg-indigo-600 text-white'
-                                        : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
-                                )}
+                                onClick={() => setExtraDayOffDate(null)}
+                                className="shrink-0 text-xs text-gray-500 underline"
                             >
-                                휴무일 교환
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setCalendarActionMode('extra');
-                                    setExchangeStep(0);
-                                    setMyOffDate(null);
-                                    setTargetDate(null);
-                                    setAvailableMembers([]);
-                                }}
-                                className={'rounded-lg py-2 text-xs font-bold transition-colors ' + (
-                                    calendarActionMode === 'extra'
-                                        ? 'bg-indigo-600 text-white'
-                                        : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
-                                )}
-                            >
-                                추가휴무 요청
+                                날짜 해제
                             </button>
                         </div>
+                        <textarea
+                            value={extraDayOffNote}
+                            onChange={(event) => setExtraDayOffNote(event.target.value)}
+                            rows={2}
+                            maxLength={300}
+                            placeholder="요청 사유 (선택)"
+                            className="w-full resize-none rounded-lg border border-indigo-100 bg-white px-3 py-2 text-xs text-gray-800 outline-none focus:border-indigo-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                        />
+                        <button
+                            type="button"
+                            onClick={handleSubmitExtraDayOff}
+                            disabled={!extraDayOffDate || isSubmittingExtraDayOff}
+                            className="w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-gray-300"
+                        >
+                            {isSubmittingExtraDayOff ? '요청 전송 중...' : '선택한 날짜 추가휴무 요청'}
+                        </button>
+                        <p className="text-[10px] leading-4 text-gray-500">
+                            관리자 승인 전에는 기존 근무표가 유지됩니다.
+                        </p>
+                    </div>
+                ) : (
+                    <>
+                        {exchangeStep === 0 && !myOffDate && (
+                            <div className="rounded-xl bg-gray-50 px-3 py-2 text-center dark:bg-gray-800">
+                                <p className="text-xs font-bold text-gray-600 dark:text-gray-300">
+                                    휴무일을 누르면 교환, 근무일을 누르면 추가휴무 신청
+                                </p>
+                            </div>
+                        )}
 
-                        {calendarActionMode === 'exchange' && (
+                        {(myOffDate || exchangeStep > 0) && (
                             <>
                                 {exchangeStep === 0 && (
-                                    <button 
-                                        onClick={() => setExchangeStep(1)} 
+                                    <button
+                                        onClick={() => setExchangeStep(1)}
                                         disabled={!myOffDate}
                                         className={'w-full rounded-xl py-3 text-sm font-bold shadow-md transition-all ' + (
                                             myOffDate ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
@@ -722,7 +726,7 @@ export default function CalendarTab({
                                             <span className="text-xs font-bold">{targetDate} 휴무자 목록</span>
                                             <button onClick={() => { setExchangeStep(1); setTargetDate(null); }} className="text-xs text-indigo-500">날짜 다시 선택</button>
                                         </div>
-                                        
+
                                         {isFetchingMembers ? (
                                             <div className="py-2 text-center text-xs text-gray-500">목록을 불러오는 중...</div>
                                         ) : availableMembers.length === 0 ? (
@@ -746,49 +750,10 @@ export default function CalendarTab({
                                 )}
                             </>
                         )}
-
-                        {calendarActionMode === 'extra' && (
-                            <div className="space-y-2 rounded-xl bg-indigo-50 p-3 dark:bg-gray-800">
-                                <div className="flex items-center justify-between gap-2">
-                                    <div>
-                                        <p className="text-xs font-bold text-indigo-700 dark:text-indigo-300">추가휴무를 원하는 근무일</p>
-                                        <p className="mt-0.5 text-[11px] text-gray-500">
-                                            {extraDayOffDate || '달력에서 근무일 또는 백업근무일을 선택하세요'}
-                                        </p>
-                                    </div>
-                                    {extraDayOffDate && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setExtraDayOffDate(null)}
-                                            className="shrink-0 text-xs text-gray-500 underline"
-                                        >
-                                            날짜 해제
-                                        </button>
-                                    )}
-                                </div>
-                                <textarea
-                                    value={extraDayOffNote}
-                                    onChange={(event) => setExtraDayOffNote(event.target.value)}
-                                    rows={2}
-                                    maxLength={300}
-                                    placeholder="요청 사유 (선택)"
-                                    className="w-full resize-none rounded-lg border border-indigo-100 bg-white px-3 py-2 text-xs text-gray-800 outline-none focus:border-indigo-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={handleSubmitExtraDayOff}
-                                    disabled={!extraDayOffDate || isSubmittingExtraDayOff}
-                                    className="w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-gray-300"
-                                >
-                                    {isSubmittingExtraDayOff ? '요청 전송 중...' : '선택한 날짜 추가휴무 요청'}
-                                </button>
-                                <p className="text-[10px] leading-4 text-gray-500">
-                                    관리자 승인 전에는 기존 근무표가 유지됩니다.
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                ) : (
+                    </>
+                )}
+            </div>
+        ) : (
                     <button 
                         onClick={handleProcessSave} 
                         disabled={!hasChanges}
