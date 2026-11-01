@@ -1313,90 +1313,87 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                         onTouchMove={onCalendarTouchMove}
                                         onTouchEnd={onCalendarTouchEnd}
                                     >
-                                        <div className="grid grid-cols-7 text-center mb-1"> 
+                                        <div className={`grid grid-cols-7 mb-0 text-center text-[11px] font-black uppercase w-full py-1.5 border-y ${isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'}`}>
                                             {['일', '월', '화', '수', '목', '금', '토'].map((day, i) => (
-                                                <div key={day} className={`text-xs sm:text-sm font-bold ${
-                                                    i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : (isDarkMode ? 'text-gray-400' : 'text-gray-500')
-                                                }`}>
+                                                <div key={day} className={i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : (isDarkMode ? 'text-gray-400' : 'text-gray-500')}>
                                                     {day}
                                                 </div>
                                             ))}
                                         </div>
 
-                                        <div className="grid grid-cols-7 gap-x-0 gap-y-0"> 
+                                        <div className={`grid grid-cols-7 w-full border-l ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
                                             {calendarDaysWithDayOff.map((dayInfo, index) => (
-                                                <div 
-                                                    key={index} 
-                                                    onClick={() => handleCalendarDateClick(dayInfo.date)} 
-                                                    className={`
-                                                        relative cursor-pointer h-[55px] flex flex-col rounded-md transition-colors
-                                                        ${dayInfo.isDayOff 
-                                                            ? (isDarkMode ? 'bg-gray-700/60' : 'bg-gray-200') // ✨ 휴무일이면 회색 배경!
-                                                            : (isDarkMode ? 'bg-gray-800' : 'bg-white')       // 평상시 배경
-                                                        }
+                                                <div
+                                                    key={dayInfo.date}
+                                                    onClick={() => handleCalendarDateClick(dayInfo.date)}
+                                                    className={`relative flex flex-col items-center justify-start p-1 h-20 border-b border-r transition-colors cursor-pointer
+                                                        ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}
+                                                        ${dayInfo.isToday
+                                                            ? (isDarkMode ? 'bg-green-900/60' : 'bg-green-100')
+                                                            : dayInfo.isDayOff
+                                                                ? (isDarkMode ? 'bg-gray-700/60' : 'bg-gray-100')
+                                                                : (isDarkMode ? 'bg-gray-800' : 'bg-white')}
                                                     `}
                                                 >
-                                                    <div className="h-[35px] w-full flex items-center justify-center pb-0.5"> 
-                                                       <span className={`
-    flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold
-    ${!dayInfo.isCurrentMonth ? (isDarkMode ? 'text-gray-600' : 'text-gray-300') : ''} 
-    ${dayInfo.isCurrentMonth && index % 7 === 0 ? 'text-red-500' : ''} 
-    ${dayInfo.isCurrentMonth && index % 7 === 6 ? 'text-blue-500' : ''} 
-    ${dayInfo.isToday ? 'border-4 border-yellow-400 shadow-sm' : ''} 
-`}>
-    {dayInfo.day}
-</span>
+                                                    <div className="relative flex w-full items-center justify-between px-1">
+                                                        <span className={`text-[13px] font-bold
+                                                            ${!dayInfo.isCurrentMonth ? (isDarkMode ? 'text-gray-600' : 'text-gray-400') : ''}
+                                                            ${dayInfo.isCurrentMonth && index % 7 === 0 ? 'text-red-500' : ''}
+                                                            ${dayInfo.isCurrentMonth && index % 7 === 6 ? 'text-blue-500' : ''}
+                                                            ${dayInfo.isToday ? (isDarkMode ? 'text-green-200' : 'text-green-800') : ''}
+                                                        `}>
+                                                            {dayInfo.day}
+                                                        </span>
+
+                                                        {dayInfo.isCurrentMonth && dayInfo.extraDayOffRequestStatus === 'pending' && (
+                                                            <span className="h-1.5 w-1.5 rounded-full bg-orange-500" title="휴무 신청 대기" aria-label="휴무 신청 대기" />
+                                                        )}
+                                                        {dayInfo.isCurrentMonth && dayInfo.extraDayOffRequestStatus === 'approved' && (
+                                                            <span className="h-1.5 w-1.5 rounded-full bg-blue-500" title="휴무 신청 승인" aria-label="휴무 신청 승인" />
+                                                        )}
+                                                        {dayInfo.isCurrentMonth && dayInfo.extraDayOffRequestStatus === 'declined' && (
+                                                            <span className="h-1.5 w-1.5 rounded-full bg-red-500" title="휴무 신청 거절" aria-label="휴무 신청 거절" />
+                                                        )}
                                                     </div>
 
-                                                    {dayInfo.isCurrentMonth && dayInfo.extraDayOffRequestStatus === 'pending' && (
-                                                        <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-orange-500" title="휴무 신청 대기" aria-label="휴무 신청 대기" />
-                                                    )}
-                                                    {dayInfo.isCurrentMonth && dayInfo.extraDayOffRequestStatus === 'approved' && (
-                                                        <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-blue-500" title="휴무 신청 승인" aria-label="휴무 신청 승인" />
-                                                    )}
-                                                    {dayInfo.isCurrentMonth && dayInfo.extraDayOffRequestStatus === 'declined' && (
-                                                        <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-red-500" title="휴무 신청 거절" aria-label="휴무 신청 거절" />
-                                                    )}
+                                                    <div className="flex flex-col items-center justify-start mt-1 w-full space-y-0.5">
+                                                        {dayInfo.isCurrentMonth && dayInfo.isDayOff && (
+                                                            <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mt-1">
+                                                                ○ 휴무
+                                                            </span>
+                                                        )}
 
-                                                   <div className="flex-1 w-full flex flex-col items-center justify-start -mt-0.5">
-  {/* ✨ 휴무일 경우 글자 표시 (금액/물량 상관없이 무조건 띄워라!) */}
-{dayInfo.isDayOff && (
-    <span className="text-indigo-500 dark:text-indigo-400 text-[9px] font-black leading-none mt-0.5">○ 휴무</span>
-)}
-
-{calendarMode === 'money' ? (
-    <>
-        {dayInfo.isCurrentMonth && dayInfo.revenue > 0 && (
-            <span className="text-red-500 text-[8px] font-medium leading-none mb-0.5">
-                {dayInfo.revenue.toLocaleString()}
-            </span>
-        )}
-        {dayInfo.isCurrentMonth && dayInfo.expenses > 0 && (
-            <span className="text-blue-500 text-[8px] font-medium leading-none">
-                {dayInfo.expenses.toLocaleString()}
-            </span>
-        )}
-    </>
-) : (
-    <>
-        {dayInfo.isCurrentMonth && dayInfo.volume > 0 && (
-            <span className={`text-[9px] font-black leading-none mt-1 tracking-tighter ${
-                dayInfo.volume > (monthlyProfit.dailyAverageVolume * 1.1) ? 'text-red-500' :       /* 평균보다 10% 이상 많으면 빨강 */
-                dayInfo.volume < (monthlyProfit.dailyAverageVolume * 0.9) ? 'text-blue-500' :      /* 평균보다 10% 이상 적으면 파랑 */
-                'text-orange-500'                                                                  /* 그 중간은 보통(주황) */
-            }`}>
-                {dayInfo.volume.toLocaleString()}개
-            </span>
-        )}
-    </>
-)}
-                
-    
-</div>
-
+                                                        {calendarMode === 'money' ? (
+                                                            <>
+                                                                {dayInfo.isCurrentMonth && dayInfo.revenue > 0 && (
+                                                                    <span className="text-red-500 text-[9px] font-medium leading-tight">
+                                                                        {dayInfo.revenue.toLocaleString()}
+                                                                    </span>
+                                                                )}
+                                                                {dayInfo.isCurrentMonth && dayInfo.expenses > 0 && (
+                                                                    <span className="text-blue-500 text-[9px] font-medium leading-tight">
+                                                                        {dayInfo.expenses.toLocaleString()}
+                                                                    </span>
+                                                                )}
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                {dayInfo.isCurrentMonth && dayInfo.volume > 0 && (
+                                                                    <span className={`text-[10px] font-black leading-tight tracking-tighter
+                                                                        ${dayInfo.volume > (monthlyProfit.dailyAverageVolume * 1.1) ? 'text-red-500' :
+                                                                            dayInfo.volume < (monthlyProfit.dailyAverageVolume * 0.9) ? 'text-blue-500' :
+                                                                                'text-orange-500'}
+                                                                    `}>
+                                                                        {dayInfo.volume.toLocaleString()}개
+                                                                    </span>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             ))}
-                                      </div>
+                                        </div>
+
                                         <div className={`mt-1 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-1 text-[9px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                             <span><span className="text-gray-400">○</span> 휴무</span>
                                             <span><span className="text-orange-500">●</span> 대기</span>
