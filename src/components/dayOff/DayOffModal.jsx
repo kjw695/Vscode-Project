@@ -13,7 +13,7 @@ export const DayOffModal = ({
     // ✨ 화면 모드 상태: 'main'(나의 스케줄 달력) | 'settings'(휴무 설정)
     const [viewMode, setViewMode] = useState('main');
     
-    // ✨ 설정 화면 내 탭 상태: 'preferred'(근무스케줄), 'exchange'(휴무일 교환하기), 'alternative'(대체휴일 교환)
+    // 휴무 설정 탭: 근무스케줄, 휴무일 교환하기, 추가휴무 요청
     const [settingTab, setSettingTab] = useState('preferred');
 
     // ✨ 새로고침 로딩 상태 추가
