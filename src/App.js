@@ -56,6 +56,11 @@ import DashboardSettingsView from './components/more/DashboardSettingsView';
 import useDashboardSettings from './hooks/useDashboardSettings';
 // ✨ 휴무관리 모달 추가
 import { DayOffModal } from './components/dayOff/DayOffModal';
+import { supabase } from './lib/supabaseClient';
+import {
+    fetchMyOrganizationWeeklySchedules,
+    fetchMyOrganizationScheduleSyncFrom
+} from './services/organizationScheduleService';
 //로그인
 import LoginPage from './components/auth/LoginPage';
 import { useAuth } from './contexts/AuthContext';
@@ -203,6 +208,10 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [isDayOffModalOpen, setIsDayOffModalOpen] = useState(false); // ✨ 휴무 모달 상태 추가
+    // 홈 달력은 기존 배송 실적을 유지하면서 휴무 페이지와 같은 회사 일정/신청 상태를 읽습니다.
+    const [homePublishedSchedules, setHomePublishedSchedules] = useState([]);
+    const [homeScheduleSyncFrom, setHomeScheduleSyncFrom] = useState(null);
+    const [homeExtraDayOffRequests, setHomeExtraDayOffRequests] = useState([]);
     const [filters, setFilters] = useState({ period: 'all', startDate: '', endDate: '', type: 'all' });
 
     // --- 팝업 및 로딩 ---
@@ -839,8 +848,26 @@ const handleTodayClick = () => {
         while (dayIterator <= calendarEndDate) {
             const formattedDate = toDateStr(dayIterator);
             
-            //✨ [추가] 이 날짜에 '휴무' 이름표가 붙은 데이터가 있는지 확인
-            const isDayOff = entries.some(e => e.date === formattedDate && e.memo === '[휴무]');
+            // 개인 모드와 회사 연동 시작일 이전에는 기존 개인 휴무 기록을 유지합니다.
+            const personalIsDayOff = entries.some((entry) => {
+                if (entry.date !== formattedDate) return false;
+                return entry.memo === '[휴무]' ||
+                    (Array.isArray(entry.customItems) &&
+                        entry.customItems.some((item) => item?.key === 'dayOff'));
+            });
+            const hasOrganization = Boolean(profile?.organization_id);
+            const isBeforeScheduleSync = Boolean(
+                hasOrganization &&
+                homeScheduleSyncFrom &&
+                formattedDate < homeScheduleSyncFrom
+            );
+            const managerDayStatus = homeMyPublishedScheduleByDate[formattedDate]?.status || null;
+            const isDayOff = hasOrganization
+                ? (isBeforeScheduleSync ? personalIsDayOff : managerDayStatus === 'off')
+                : personalIsDayOff;
+            const extraDayOffRequestStatus = hasOrganization
+                ? homeExtraDayOffRequestStatusByDate[formattedDate] || null
+                : null;
 
             const isWithinPeriod = formattedDate >= pStartStr && formattedDate <= pEndStr;
             const isToday = formattedDate === todayStr;
@@ -879,15 +906,147 @@ const handleTodayClick = () => {
                 revenue: isWithinPeriod ? dailyData.revenue : 0, 
                 expenses: isWithinPeriod ? dailyData.expenses : 0 ,
                 volume: dailyVolume,
-                isDayOff: isDayOff
+                isDayOff: isDayOff,
+                extraDayOffRequestStatus
             });
 
             dayIterator.setDate(dayIterator.getDate() + 1);
         }
         return days;
-    }, [currentCalendarDate, monthlyStartDay, monthlyEndDay, monthlyProfit.dailyBreakdown, entries, itemLabels, selectedItemsForAverage, incomeConfig]);
+    }, [currentCalendarDate, monthlyStartDay, monthlyEndDay, monthlyProfit.dailyBreakdown, entries, itemLabels, selectedItemsForAverage, incomeConfig, profile?.organization_id, homeScheduleSyncFrom, homeMyPublishedScheduleByDate, homeExtraDayOffRequestStatusByDate]);
 
     const calendarDays = generateCalendarDays();
+
+    // 화면에 실제로 표시되는 회계기간의 일~토 범위를 휴무 달력과 동일하게 조회합니다.
+    const homeCalendarStartDate = calendarDays[0]?.date || null;
+    const homeCalendarEndDate = calendarDays[calendarDays.length - 1]?.date || null;
+
+    useEffect(() => {
+        const organizationId = profile?.organization_id;
+        if (!organizationId || !user?.id || !homeCalendarStartDate || !homeCalendarEndDate) {
+            setHomePublishedSchedules([]);
+            setHomeScheduleSyncFrom(null);
+            setHomeExtraDayOffRequests([]);
+            return undefined;
+        }
+
+        let isActive = true;
+        const loadHomeDayOffData = async () => {
+            try {
+                const [rows, syncFrom] = await Promise.all([
+                    fetchMyOrganizationWeeklySchedules(homeCalendarStartDate, homeCalendarEndDate),
+                    fetchMyOrganizationScheduleSyncFrom()
+                ]);
+                if (isActive) {
+                    setHomePublishedSchedules(Array.isArray(rows) ? rows : []);
+                    setHomeScheduleSyncFrom(syncFrom || null);
+                }
+            } catch (error) {
+                console.error('홈 달력의 관리자 확정 근무표 조회 실패:', error);
+                if (isActive) {
+                    setHomePublishedSchedules([]);
+                    setHomeScheduleSyncFrom(null);
+                }
+            }
+
+            // 추가휴무 신청 상태는 근무표 조회와 분리해 읽어, 한쪽 오류가 다른 쪽 표시를 막지 않게 합니다.
+            try {
+                const { data, error } = await supabase.rpc('list_my_extra_day_off_requests');
+                if (error) throw error;
+                if (isActive) {
+                    setHomeExtraDayOffRequests(Array.isArray(data) ? data : []);
+                }
+            } catch (error) {
+                console.error('홈 달력의 추가휴무 신청 상태 조회 실패:', error);
+            }
+        };
+
+        loadHomeDayOffData();
+        const timer = window.setInterval(loadHomeDayOffData, 15000);
+        return () => {
+            isActive = false;
+            window.clearInterval(timer);
+        };
+    }, [
+        profile?.organization_id,
+        user?.id,
+        homeCalendarStartDate,
+        homeCalendarEndDate
+    ]);
+
+    // 직원 본인에게 해당하는 관리자 확정 근무표 상태를 날짜별로 정리합니다.
+    const homeMyPublishedScheduleByDate = useMemo(() => {
+        const result = {};
+        const userId = String(user?.id || '');
+        if (!profile?.organization_id || !userId) return result;
+
+        homePublishedSchedules.forEach((published) => {
+            const ownDetails = published.employee_details?.[userId];
+            if (!ownDetails) return;
+
+            if (published.status !== 'confirmed') {
+                const weekStart = new Date(`${published.week_start}T12:00:00`);
+                for (let offset = 0; offset < 7; offset += 1) {
+                    const date = new Date(weekStart);
+                    date.setDate(weekStart.getDate() + offset);
+                    const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                    if (homeScheduleSyncFrom && dateKey < homeScheduleSyncFrom) continue;
+                    result[dateKey] = { status: 'pending' };
+                }
+                return;
+            }
+
+            Object.entries(published.schedule || {}).forEach(([dateKey, dayRecord]) => {
+                if (homeScheduleSyncFrom && dateKey < homeScheduleSyncFrom) return;
+
+                let status = ['off', 'backup', 'work', 'pending'].includes(dayRecord?.status)
+                    ? dayRecord.status
+                    : null;
+
+                if (!status) {
+                    const offIds = Array.isArray(dayRecord?.offEmployeeIds)
+                        ? dayRecord.offEmployeeIds
+                        : [];
+                    const isOff = offIds.some((item) => {
+                        const id = item && typeof item === 'object'
+                            ? (item.employeeId || item.employee_id || item.id)
+                            : item;
+                        return String(id) === userId;
+                    });
+                    const assignment = dayRecord?.assignment ||
+                        (Array.isArray(dayRecord?.subs)
+                            ? dayRecord.subs.find((item) => String(item.subId) === userId) || null
+                            : null);
+                    status = isOff ? 'off' : assignment ? 'backup' : 'work';
+                }
+
+                result[dateKey] = { status };
+            });
+        });
+
+        return result;
+    }, [
+        homePublishedSchedules,
+        user?.id,
+        profile?.organization_id,
+        homeScheduleSyncFrom
+    ]);
+
+    // 날짜별로 가장 최근 추가휴무 신청 상태 하나만 표시합니다.
+    const homeExtraDayOffRequestStatusByDate = useMemo(() => {
+        const statusByDate = {};
+        [...homeExtraDayOffRequests]
+            .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+            .forEach((request) => {
+                if (!request.requested_date) return;
+                const dateKey = String(request.requested_date).slice(0, 10);
+                if (!Object.prototype.hasOwnProperty.call(statusByDate, dateKey)) {
+                    statusByDate[dateKey] = request.status;
+                }
+            });
+        return statusByDate;
+    }, [homeExtraDayOffRequests]);
+
     const yearlyPeriod = useMemo(() => {
         const year = parseInt(selectedYear); let startDate, endDate;
         if (monthlyStartDay > monthlyEndDay) { startDate = new Date(year - 1, 11, monthlyStartDay); endDate = new Date(year, 11, monthlyEndDay); }
@@ -1147,7 +1306,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                                     key={index} 
                                                     onClick={() => handleCalendarDateClick(dayInfo.date)} 
                                                     className={`
-                                                        cursor-pointer h-[55px] flex flex-col rounded-md transition-colors
+                                                        relative cursor-pointer h-[55px] flex flex-col rounded-md transition-colors
                                                         ${dayInfo.isDayOff 
                                                             ? (isDarkMode ? 'bg-gray-700/60' : 'bg-gray-200') // ✨ 휴무일이면 회색 배경!
                                                             : (isDarkMode ? 'bg-gray-800' : 'bg-white')       // 평상시 배경
@@ -1166,10 +1325,20 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
 </span>
                                                     </div>
 
+                                                    {dayInfo.isCurrentMonth && dayInfo.extraDayOffRequestStatus === 'pending' && (
+                                                        <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-orange-500" title="휴무 신청 대기" aria-label="휴무 신청 대기" />
+                                                    )}
+                                                    {dayInfo.isCurrentMonth && dayInfo.extraDayOffRequestStatus === 'approved' && (
+                                                        <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-blue-500" title="휴무 신청 승인" aria-label="휴무 신청 승인" />
+                                                    )}
+                                                    {dayInfo.isCurrentMonth && dayInfo.extraDayOffRequestStatus === 'declined' && (
+                                                        <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-red-500" title="휴무 신청 거절" aria-label="휴무 신청 거절" />
+                                                    )}
+
                                                    <div className="flex-1 w-full flex flex-col items-center justify-start -mt-0.5">
   {/* ✨ 휴무일 경우 글자 표시 (금액/물량 상관없이 무조건 띄워라!) */}
 {dayInfo.isDayOff && (
-    <span className="text-indigo-500 dark:text-indigo-400 text-[9px] font-black leading-none mt-0.5">휴무</span>
+    <span className="text-indigo-500 dark:text-indigo-400 text-[9px] font-black leading-none mt-0.5">○ 휴무</span>
 )}
 
 {calendarMode === 'money' ? (
@@ -1205,6 +1374,12 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                                 </div>
                                             ))}
                                       </div>
+                                        <div className={`mt-1 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-1 text-[9px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                            <span><span className="text-gray-400">○</span> 휴무</span>
+                                            <span><span className="text-orange-500">●</span> 대기</span>
+                                            <span><span className="text-blue-500">●</span> 승인</span>
+                                            <span><span className="text-red-500">●</span> 거절</span>
+                                        </div>
     </div>
     </div>
     </>
