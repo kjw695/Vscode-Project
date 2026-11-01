@@ -60,6 +60,8 @@ export default function ExchangeTab({ currentUser, teamId }) {
 
     useEffect(() => {
         loadData();
+        const interval = window.setInterval(loadData, 30000);
+        return () => window.clearInterval(interval);
     }, [loadData]);
 
     const handleRespond = async (exchangeId, response) => {
