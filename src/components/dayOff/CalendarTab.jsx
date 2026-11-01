@@ -13,7 +13,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useDelivery } from '../../contexts/DeliveryContext';
-import { supabase } from '../../lib/supabaseClient'; // ✨ Supabase 추가
+import { supabase } from '../../lib/supabaseClient'; // 기존 휴무 교환 RPC
+import { fetchMyOrganizationWeeklySchedules } from '../../services/organizationScheduleService';
 import Holidays from 'date-holidays';
 
 
@@ -37,7 +38,7 @@ const checkIsHoliday = (dateStr) => {
 
 export default function CalendarTab({ 
     isDarkMode, showMessage, monthlyStartDay, monthlyEndDay, selectedMonth, onClose,
-    teamId, currentUser, onNavigateToExchange 
+    teamId, currentUser, onNavigateToExchange, refreshKey
 }) {
     const { entries, saveEntry, deleteEntry } = useDelivery();
 
@@ -59,6 +60,8 @@ export default function CalendarTab({
     const [targetDate, setTargetDate] = useState(null);   // 내가 받고 싶은 날짜
     const [availableMembers, setAvailableMembers] = useState([]); // 해당 날짜 휴무자 목록
     const [isFetchingMembers, setIsFetchingMembers] = useState(false);
+    const [publishedSchedules, setPublishedSchedules] = useState([]);
+    const [isLoadingPublishedSchedules, setIsLoadingPublishedSchedules] = useState(false);
 
     useEffect(() => {
         if (selectedMonth) {
@@ -117,6 +120,109 @@ export default function CalendarTab({
         calendarEndDate.setDate(calendarEndDate.getDate() + (6 - calendarEndDate.getDay())); // 마지막 주의 토요일
     }
 
+    const formatLocalDate = (date) => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    };
+
+    // 회사 소속 직원은 관리자 확정 근무표만 서버에서 읽습니다.
+    // 개인 사용자의 entries 기반 휴무 저장 경로는 이 조회와 분리해 그대로 둡니다.
+    useEffect(() => {
+        if (!teamId || !currentUser?.id) {
+            setPublishedSchedules([]);
+            setIsLoadingPublishedSchedules(false);
+            return undefined;
+        }
+
+        let isActive = true;
+        const loadPublishedSchedules = async () => {
+            try {
+                setIsLoadingPublishedSchedules(true);
+                const rows = await fetchMyOrganizationWeeklySchedules(
+                    formatLocalDate(calendarStartDate),
+                    formatLocalDate(calendarEndDate)
+                );
+                if (isActive) setPublishedSchedules(rows);
+            } catch (error) {
+                console.error('관리자 확정 근무표를 불러오지 못했습니다.', error);
+                if (isActive) setPublishedSchedules([]);
+            } finally {
+                if (isActive) setIsLoadingPublishedSchedules(false);
+            }
+        };
+
+        loadPublishedSchedules();
+        const timer = window.setInterval(loadPublishedSchedules, 15000);
+
+        return () => {
+            isActive = false;
+            window.clearInterval(timer);
+        };
+    }, [
+        teamId,
+        currentUser?.id,
+        formatLocalDate(calendarStartDate),
+        formatLocalDate(calendarEndDate),
+        refreshKey
+    ]);
+
+    const myPublishedScheduleByDate = useMemo(() => {
+        const result = {};
+        const userId = String(currentUser?.id || '');
+        if (!teamId || !userId) return result;
+
+        publishedSchedules.forEach((published) => {
+            const ownDetails = published.employee_details?.[userId];
+            if (!ownDetails) return;
+
+            if (published.status !== 'confirmed') {
+                const start = new Date(`${published.week_start}T12:00:00`);
+                for (let offset = 0; offset < 7; offset += 1) {
+                    const date = new Date(start);
+                    date.setDate(start.getDate() + offset);
+                    result[formatLocalDate(date)] = {
+                        status: 'pending',
+                        details: ownDetails,
+                        teamLabel: published.team_label
+                    };
+                }
+                return;
+            }
+
+            Object.entries(published.schedule || {}).forEach(([dateKey, dayRecord]) => {
+                let status = dayRecord?.status;
+                let assignment = dayRecord?.assignment || null;
+
+                if (!status) {
+                    const offIds = Array.isArray(dayRecord?.offEmployeeIds)
+                        ? dayRecord.offEmployeeIds
+                        : [];
+                    const isOff = offIds.some((item) => {
+                        const id = item && typeof item === 'object'
+                            ? (item.employeeId || item.employee_id || item.id)
+                            : item;
+                        return String(id) === userId;
+                    });
+                    assignment = assignment || (Array.isArray(dayRecord?.subs)
+                        ? dayRecord.subs.find((item) => String(item.subId) === userId) || null
+                        : null);
+                    status = isOff ? 'off' : assignment ? 'backup' : 'work';
+                }
+
+                result[dateKey] = {
+                    status,
+                    assignment,
+                    details: ownDetails,
+                    teamLabel: published.team_label
+                };
+            });
+        });
+
+        return result;
+    }, [publishedSchedules, currentUser?.id, teamId]);
+
     // ✨ 특정 날짜가 myOffDate와 같은 주(일~토)인지 확인하는 함수
     const isSameWeek = (targetStr) => {
         if (!myOffDate) return false;
@@ -142,7 +248,11 @@ export default function CalendarTab({
 
         if (exchangeStep === 0) {
             if (!existingDayOffs[dateStr]) {
-                showMessage("❌ 본인의 휴무일만 선택할 수 있습니다.");
+                if (myPublishedScheduleByDate[dateStr]?.status === 'off') {
+                    showMessage('관리자가 확정한 휴무입니다. 현재 휴무 교환은 기존 교환 기록이 있는 날짜만 신청할 수 있습니다.');
+                } else {
+                    showMessage("❌ 본인의 휴무일만 선택할 수 있습니다.");
+                }
                 return;
             }
             setMyOffDate(dateStr);
@@ -280,12 +390,37 @@ export default function CalendarTab({
         const inSameWeek = exchangeStep === 1 && isSameWeek(dateStr);
         const isDimmed = exchangeStep === 1 && !inSameWeek && !isMyOffDate;
 
-        // ✨ 2. 근무일 표시 데이터 (추후 관리자 센터 연동)
-        // TODO: 관리자 센터 연동 시 유저의 실제 근무 스케줄(주간/야간) 데이터를 여기에 매핑하세요.
-        const shiftType = '주간'; 
-        
-        // TODO: 관리자 센터 연동 시 유저에게 배정된 노선명(라우트) 데이터를 여기에 매핑하세요.
-        const routeName = teamId ? '라우트' : '배송';
+        // 회사 소속 직원은 관리자 확정 근무표의 본인 일정이 최우선입니다.
+        const managerDay = teamId ? myPublishedScheduleByDate[dateStr] : null;
+        const personalIsOff = isSelected || Boolean(existingDayOffs[dateStr]);
+        const shiftType = managerDay?.details?.shift || '주간';
+        const routeName = managerDay?.details?.route || '배송';
+        let dayStatus = managerDay?.status || null;
+        let dayDescription = routeName;
+
+        if (teamId) {
+            if (dayStatus === 'off') {
+                dayDescription = '휴무';
+            } else if (dayStatus === 'backup') {
+                dayDescription = managerDay.assignment?.routeName ||
+                    managerDay.assignment?.targetBaseName ||
+                    '백업 배정';
+            } else if (dayStatus === 'pending') {
+                dayDescription = '확정 대기';
+            } else if (dayStatus === 'work') {
+                dayDescription = routeName;
+            } else if (personalIsOff) {
+                // 이전 버전의 개인 휴무 기록은 삭제하지 않고 표시만 유지합니다.
+                dayStatus = 'off';
+                dayDescription = '휴무';
+            } else {
+                dayStatus = 'unpublished';
+                dayDescription = isLoadingPublishedSchedules ? '불러오는 중' : '근무표 미확정';
+            }
+        } else {
+            dayStatus = personalIsOff ? 'off' : 'work';
+            dayDescription = personalIsOff ? '휴무' : '배송';
+        }
 
         days.push(
             <div 
@@ -308,21 +443,32 @@ export default function CalendarTab({
                 {/* 2. 하단 정보 영역: 휴무 vs 근무일 */}
                 {inPeriod && (
                     <div className="flex flex-col items-center mt-1 w-full space-y-0.5">
-                        {isSelected || existingDayOffs[dateStr] ? (
-                            // 휴무일 표시: ○ 휴무
+                        {dayStatus === 'off' ? (
                             <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-0.5">
                                 <span className="text-gray-300 dark:text-gray-600">○</span> 휴무
                             </span>
-                        ) : (
-                            // 근무일 표시: 주간/야간 배지 + 라우트명
+                        ) : dayStatus === 'backup' ? (
+                            <>
+                                <span className="text-[9px] font-bold px-1.5 py-[2px] bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 rounded-full mt-0.5">
+                                    백업
+                                </span>
+                                <span className={`text-[10px] font-bold truncate w-full text-center ${isDarkMode ? 'text-gray-300' : 'text-gray-800'}`}>
+                                    {dayDescription}
+                                </span>
+                            </>
+                        ) : dayStatus === 'work' ? (
                             <>
                                 <span className="text-[9px] font-bold px-1.5 py-[2px] bg-[#E5E7FF] text-[#4F46E5] dark:bg-indigo-900/50 dark:text-indigo-300 rounded-full mt-0.5">
                                     {shiftType}
                                 </span>
                                 <span className={`text-[10px] font-bold truncate w-full text-center ${isDarkMode ? 'text-gray-300' : 'text-gray-800'}`}>
-                                    {routeName}
+                                    {dayDescription}
                                 </span>
                             </>
+                        ) : (
+                            <span className={`text-[9px] font-bold mt-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                {dayDescription}
+                            </span>
                         )}
                     </div>
                 )}
