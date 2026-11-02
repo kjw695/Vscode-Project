@@ -348,21 +348,16 @@ function isSubstituteAllowedForBase(substitute, baseEmployee, permissions) {
         return String(permission.substitute_employee_id) === String(substitute.id);
     });
 
+    // 기본 범위는 직원의 소속 팀입니다. 팀 간 배정은 getValidSubstitutes에서 차단합니다.
+    // 향후 직원별 명시 권한이 전달되면 해당 권한만큼만 추가로 제한합니다.
     if (explicitRulesForSub.length > 0) {
         return explicitRulesForSub.some(function (permission) {
             return String(permission.base_employee_id) === String(baseEmployee.id);
         });
     }
 
-    const target = String(substitute.target || '').trim().toLowerCase();
-    if (!target) return true;
-
-    const routeName = getEmployeeRouteName(baseEmployee).toLowerCase();
-    const baseName = String(baseEmployee.name || '').toLowerCase();
-    const broadScopeWords = ['전지역', '전체', '모든', '백업', '대체', '팀 전체', 'all'];
-    if (broadScopeWords.some(function (word) { return target.indexOf(word) >= 0; })) return true;
-
-    return target.indexOf(baseName) >= 0 || (routeName && routeName !== '미지정' && target.indexOf(routeName) >= 0);
+    // 이전 버전의 자유 입력 target 값은 더 이상 배정 범위에 영향을 주지 않습니다.
+    return true;
 }
 
 function calculateSubstituteScore(substitute, baseEmployee, history, averageHistory) {
