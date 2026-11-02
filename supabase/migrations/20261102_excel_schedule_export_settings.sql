@@ -7,9 +7,7 @@ ALTER TABLE public.organizations
 
 -- Extend the existing safe current-organization member RPC with the login username.
 -- The username is returned only for members of the caller's own organization.
-DROP FUNCTION IF EXISTS public.list_my_organization_members();
-
-CREATE FUNCTION public.list_my_organization_members()
+CREATE OR REPLACE FUNCTION public.list_my_organization_members_with_username()
 RETURNS TABLE(
     member_id uuid,
     member_display_name text,
@@ -65,8 +63,8 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.list_my_organization_members() FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.list_my_organization_members() TO authenticated;
+REVOKE ALL ON FUNCTION public.list_my_organization_members_with_username() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.list_my_organization_members_with_username() TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.get_my_organization_excel_settings()
 RETURNS jsonb
