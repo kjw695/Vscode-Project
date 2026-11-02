@@ -56,10 +56,13 @@ export async function fetchMyVendorInfo(userId) {
 // Read the members of the signed-in user's current organization.
 // The RPC only returns member IDs and display names for that organization.
 export async function fetchMyOrganizationMembers() {
-    let result = await supabase.rpc('list_my_organization_members_with_username');
-
-    // The existing member sync keeps working before the Excel export migration is applied.
-    if (result.error && ['PGRST202', '42883'].includes(result.error.code)) {
+    // The export RPC returns account profile fields only to the organization owner.
+    // Ordinary members fall back to the existing member list.
+    let result = await supabase.rpc('list_my_organization_export_members');
+    if (result.error) {
+        result = await supabase.rpc('list_my_organization_members_with_username');
+    }
+    if (result.error) {
         result = await supabase.rpc('list_my_organization_members');
     }
     if (result.error) throw result.error;
@@ -68,21 +71,17 @@ export async function fetchMyOrganizationMembers() {
         .map((row) => {
             const memberId = String(row.member_id || '').trim();
             if (!memberId) return null;
-
             const rawName = String(row.member_display_name || '').trim();
-            const name = !rawName || rawName === '팀원'
-                ? '이름 미등록'
-                : rawName;
-
+            const name = !rawName || rawName === '팀원' ? '이름 미등록' : rawName;
             return {
                 id: memberId,
                 name,
-                username: String(row.member_username || '').trim()
+                username: String(row.member_username || '').trim(),
+                vehicleNumber: String(row.member_vehicle_number || '').trim()
             };
         })
         .filter(Boolean);
 }
-
 // Backward-compatible name: this now starts the 7-day grace period instead of deleting immediately.
 export async function deleteTeam() {
     return requestTeamDeletion();
