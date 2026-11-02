@@ -5,7 +5,6 @@ import {
     Check,
     FileSpreadsheet,
     Info,
-    RotateCcw,
     Users
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
