@@ -9,6 +9,7 @@ import AdminSettings from './Settings';
 import RouteManager from './RouteManager';
 import FixedOffStatus from './FixedOffStatus';
 import BackupDemandAnalysis from './BackupDemandAnalysis';
+import ExcelScheduleSettings from './ExcelScheduleSettings';
 import { DataProvider, useAdminData } from './contexts/DataContext';
 
 // 👑 자식 컴포넌트들을 감싸는 메인 대시보드 껍데기 (✨ onBack 추가)
@@ -58,10 +59,11 @@ function AdminDashboard({ onBack }) {
     // 🔀 화면 전환 라우팅
     if (currentView === 'employee') return <EmployeeManager onBack={() => setCurrentView('main')} />;
     if (currentView === 'route') return <RouteManager onBack={() => setCurrentView('main')} />;
-    if (currentView === 'schedule') return <Calendar onBack={() => setCurrentView('main')} />; 
+    if (currentView === 'schedule') return <Calendar onBack={() => setCurrentView('main')} onOpenExcelSettings={() => setCurrentView('excelSettings')} />; 
     if (currentView === 'settings') return <AdminSettings onBack={() => setCurrentView('main')} />;
     if (currentView === 'fixedOff') return <FixedOffStatus onBack={() => setCurrentView('main')} />;
     if (currentView === 'backupDemand') return <BackupDemandAnalysis onBack={() => setCurrentView('main')} />;
+    if (currentView === 'excelSettings') return <ExcelScheduleSettings onBack={() => setCurrentView('schedule')} />;
 
     return (
         <div className="admin-safe-top w-full h-full min-h-screen bg-gray-100 p-5 flex flex-col font-sans">
