@@ -26,7 +26,62 @@ const DashboardSettingsView = ({
     };
 
     const toggleVisibility = (id) => {
-        setLocalConfig(prev => prev.map(item => item.id === id ? { ...item, isVisible: !item.isVisible } : item));
+        setLocalConfig((prev) => {
+            const targetItem = prev.find((item) => item.id === id);
+            if (!targetItem) return prev;
+
+            // 보관함으로 내릴 때는 기존 크기와 위치 정보를 유지합니다.
+            if (targetItem.isVisible) {
+                return prev.map((item) =>
+                    item.id === id ? { ...item, isVisible: false } : item
+                );
+            }
+
+            // 다시 꺼낼 때는 현재 보이는 위젯과 겹치지 않는 첫 번째 빈 공간을 찾습니다.
+            const visibleItems = prev.filter((item) => item.isVisible);
+            const itemWidth = Math.max(1, Math.min(4, Number(targetItem.w) || 1));
+            const itemHeight = Math.max(1, Number(targetItem.h) || 2);
+            const lastOccupiedRow = visibleItems.reduce(
+                (maxRow, item) => Math.max(maxRow, (Number(item.y) || 0) + (Number(item.h) || 2)),
+                0
+            );
+
+            let availablePosition = null;
+
+            for (let y = 0; y <= lastOccupiedRow && !availablePosition; y += 1) {
+                for (let x = 0; x <= 4 - itemWidth; x += 1) {
+                    const hasCollision = visibleItems.some((other) => {
+                        const otherX = Number(other.x) || 0;
+                        const otherY = Number(other.y) || 0;
+                        const otherWidth = Number(other.w) || 1;
+                        const otherHeight = Number(other.h) || 2;
+
+                        return (
+                            x < otherX + otherWidth &&
+                            x + itemWidth > otherX &&
+                            y < otherY + otherHeight &&
+                            y + itemHeight > otherY
+                        );
+                    });
+
+                    if (!hasCollision) {
+                        availablePosition = { x, y };
+                        break;
+                    }
+                }
+            }
+
+            // 빈 공간이 없으면 현재 위젯들 바로 아래에 새 줄을 만듭니다.
+            if (!availablePosition) {
+                availablePosition = { x: 0, y: lastOccupiedRow };
+            }
+
+            return prev.map((item) =>
+                item.id === id
+                    ? { ...item, isVisible: true, ...availablePosition }
+                    : item
+            );
+        });
     };
 
     // ✨ 변경: 크기 조절 시 겹침 현상을 완벽 방지하는 스마트 리사이징 로직!
