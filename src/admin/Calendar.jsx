@@ -654,41 +654,24 @@ export default function Calendar({ onBack }) {
                     return String(permission.substitute_employee_id) === String(employee.id);
                 })
                 : [];
-            const target = String(employee.target || '').trim().toLowerCase();
-            const broadScopeWords = ['전지역', '전체', '모든', '백업', '대체', '팀 전체', 'all'];
-            const targetRestrictsRoutes = isBackup &&
-                explicitRules.length === 0 &&
-                Boolean(target) &&
-                !broadScopeWords.some(function (word) { return target.indexOf(word) >= 0; });
-
+            // 백업 가능 범위는 현재 선택한 팀으로 제한합니다.
+            // 별도의 직원별 권한이 있을 때만 해당 직원 목록으로 추가 제한합니다.
             const allowedBaseIds = isBackup
-                ? explicitRules.length > 0
-                    ? explicitRules.map(function (permission) {
-                        return String(permission.base_employee_id);
-                    })
-                    : targetRestrictsRoutes
-                        ? activeTeamEmployees
-                            .filter(function (baseEmployee) {
-                                if (getEmployeeType(baseEmployee) !== 'base') return false;
-                                const routeName = getEmployeeRoute(baseEmployee, routes).toLowerCase();
-                                const baseName = String(baseEmployee.name || '').toLowerCase();
-                                return target.indexOf(baseName) >= 0 ||
-                                    (routeName && routeName !== '미지정' && target.indexOf(routeName) >= 0);
-                            })
-                            .map(function (baseEmployee) { return String(baseEmployee.id); })
-                        : []
+                ? explicitRules.map(function (permission) {
+                    return String(permission.base_employee_id);
+                })
                 : [];
 
             details[String(employee.id)] = {
                 name: employee.name || '이름 미등록',
                 type: getEmployeeType(employee),
                 route: getEmployeeRoute(employee, routes),
-                target: employee.target || '',
+                target: '',
                 shift: getShiftLabel(getTeamShift(selectedTeamRecord)),
                 teamId: String(selectedTeam),
                 teamLabel: getTeamDisplayName(selectedTeamRecord),
                 allowedBaseIds: allowedBaseIds,
-                restrictBaseIds: Boolean(explicitRules.length > 0 || targetRestrictsRoutes)
+                restrictBaseIds: Boolean(explicitRules.length > 0)
             };
         });
         return details;
@@ -890,12 +873,8 @@ export default function Calendar({ onBack }) {
                     });
                 }
 
-                const target = String(backup.target || '').trim().toLowerCase();
-                if (!target) return true;
-                if (['전지역', '전체', '모든', '백업', '대체', '팀 전체', 'all'].some(function (word) { return target.includes(word); })) return true;
-                const routeName = getEmployeeRoute(baseEmployee, routes).toLowerCase();
-                return target.includes(String(baseEmployee.name || '').toLowerCase()) ||
-                    (routeName && routeName !== '미지정' && target.includes(routeName));
+                // backupEmployees는 이미 현재 선택 팀의 직원만 포함하므로 팀 소속으로 판단합니다.
+                return true;
             });
 
             if (candidates.length > 0) {
