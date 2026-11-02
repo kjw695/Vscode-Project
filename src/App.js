@@ -53,6 +53,7 @@ import { Capacitor } from '@capacitor/core';
 import GoalSummaryCards from './components/GoalSummaryCards';
 import AverageItemsView from './components/more/AverageItemsView';
 import DashboardSettingsView from './components/more/DashboardSettingsView';
+import VolumeCalendarSettingsView from './components/more/VolumeCalendarSettingsView';
 import useDashboardSettings from './hooks/useDashboardSettings';
 // ✨ 휴무관리 모달 추가
 import { DayOffModal } from './components/dayOff/DayOffModal';
@@ -176,7 +177,7 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
     const [calendarMode, setCalendarMode] = useState('money');
-    const [homeCalendarDesign, setHomeCalendarDesign] = useState(() => {
+    const [homeCalendarDesign] = useState(() => {
         try {
             const settings = JSON.parse(localStorage.getItem('appSettings') || '{}');
             return settings.homeCalendarDesign === 'classic' ? 'classic' : 'current';
@@ -1662,25 +1663,29 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                             {/* ✨ 더보기 메뉴에서 진입할 때는 무조건 '수익(income)' 탭으로 고정! */}
                                 {moreSubView === 'expenseSettings' && <ExpenseSettingsView initialTab="income" onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} expenseConfig={expenseConfig} setExpenseConfig={setExpenseConfig} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} onNavigate={(view, key) => { setMoreSubView(view); if (key) setTargetItemKey(key); }} />}
 {moreSubView === 'dashboard_settings' && (
-    <DashboardSettingsView 
+    <DashboardSettingsView
         isDarkMode={isDarkMode}
         onBack={() => setMoreSubView('main')}
         config={dashboardConfig}
-        calendarDesign={homeCalendarDesign}
+        onSave={(newConfig) => {
+            saveDashboardConfig(newConfig);
+            showMessage("✅ 홈 화면 구성이 저장되었습니다.");
+        }}
+    />
+)}
+{moreSubView === 'calendar_volume_settings' && (
+    <VolumeCalendarSettingsView
+        isDarkMode={isDarkMode}
+        onBack={() => setMoreSubView('main')}
         volumeDisplayItems={homeCalendarVolumeItems}
-        onSave={(newConfig, newCalendarDesign, newVolumeDisplayItems) => {
-            saveDashboardConfig(newConfig); // 기존 카드 배치는 그대로 저장합니다.
-            setHomeCalendarDesign(newCalendarDesign === 'classic' ? 'classic' : 'current');
+        onSave={(newVolumeDisplayItems) => {
             const nextVolumeItems = {
                 ...DEFAULT_HOME_CALENDAR_VOLUME_ITEMS,
                 ...(newVolumeDisplayItems || {})
             };
             setHomeCalendarVolumeItems(nextVolumeItems);
-            saveSettingsToLocal({
-                homeCalendarDesign: newCalendarDesign === 'classic' ? 'classic' : 'current',
-                homeCalendarVolumeItems: nextVolumeItems
-            });
-            showMessage("✅ 홈 화면 설정이 저장되었습니다.");
+            saveSettingsToLocal({ homeCalendarVolumeItems: nextVolumeItems });
+            showMessage("✅ 물량 달력 표시 설정이 저장되었습니다.");
         }}
     />
 )}
