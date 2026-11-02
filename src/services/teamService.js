@@ -56,7 +56,7 @@ export async function fetchMyVendorInfo(userId) {
 // Read the members of the signed-in user's current organization.
 // The RPC only returns member IDs and display names for that organization.
 export async function fetchMyOrganizationMembers() {
-    const { data, error } = await supabase.rpc('list_my_organization_members');
+    const { data, error } = await supabase.rpc('list_my_organization_members_with_username');
     if (error) throw error;
 
     return (Array.isArray(data) ? data : [])
