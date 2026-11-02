@@ -56,10 +56,15 @@ export async function fetchMyVendorInfo(userId) {
 // Read the members of the signed-in user's current organization.
 // The RPC only returns member IDs and display names for that organization.
 export async function fetchMyOrganizationMembers() {
-    const { data, error } = await supabase.rpc('list_my_organization_members_with_username');
-    if (error) throw error;
+    let result = await supabase.rpc('list_my_organization_members_with_username');
 
-    return (Array.isArray(data) ? data : [])
+    // The existing member sync keeps working before the Excel export migration is applied.
+    if (result.error && ['PGRST202', '42883'].includes(result.error.code)) {
+        result = await supabase.rpc('list_my_organization_members');
+    }
+    if (result.error) throw result.error;
+
+    return (Array.isArray(result.data) ? result.data : [])
         .map((row) => {
             const memberId = String(row.member_id || '').trim();
             if (!memberId) return null;
@@ -69,7 +74,11 @@ export async function fetchMyOrganizationMembers() {
                 ? '이름 미등록'
                 : rawName;
 
-            return { id: memberId, name, username: String(row.member_username || '').trim() };
+            return {
+                id: memberId,
+                name,
+                username: String(row.member_username || '').trim()
+            };
         })
         .filter(Boolean);
 }
