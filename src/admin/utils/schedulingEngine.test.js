@@ -75,6 +75,17 @@ describe('generateMonthlySchedule', () => {
         });
     });
 
+    test('uses the assigned team as the backup scope and ignores legacy free-text target', () => {
+        const result = makeSchedule([
+            createEmployee(1, '고정 기사', 'base', '주 5일'),
+            createEmployee(2, '백업 기사', 'sub', '주 6일', '존재하지 않는 노선만 지원')
+        ]);
+
+        const assignments = Object.values(result.schedule).flatMap((day) => day.subs || []);
+        expect(assignments.length).toBeGreaterThan(0);
+        expect(assignments.every((assignment) => String(assignment.subId) === '2')).toBe(true);
+    });
+
     test('records staffing warnings when no substitute can cover an absent fixed employee', () => {
         const result = makeSchedule([
             createEmployee(1, '고정 기사', 'base', '주 5일')
