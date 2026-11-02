@@ -91,6 +91,50 @@ describe('weekly schedule Excel export', () => {
         ]);
     });
 
+    test('keeps backup attendance status aligned with the schedule and uses assigned route only on coverage days', () => {
+        const dates = makeWeek();
+        const schedule = {};
+        dates.forEach(function (date, index) {
+            const key = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+            schedule[key] = {
+                date: key,
+                offEmployeeIds: index === 2 ? ['backup-1'] : [],
+                subs: index === 1 ? [{
+                    subId: 'backup-1',
+                    routeName: '915A,915B'
+                }] : []
+            };
+        });
+        const rows = buildWeeklyScheduleExportRows({
+            employees: [{
+                id: 'backup-1',
+                name: '백업 직원',
+                accountUsername: 'backup1',
+                type: 'sub',
+                excelRotations: ['D1']
+            }],
+            routes: [],
+            schedule,
+            weekDates: dates,
+            team: { shift: 'night' },
+            businessRegistrationNumber: '8011400958',
+            campName: '청주1'
+        });
+
+        expect(rows[1]).toEqual([
+            '2024-11-24', '8011400958', '청주1', 'WAVE1',
+            'backup1', '출근', 'D1', ''
+        ]);
+        expect(rows[2]).toEqual([
+            '2024-11-25', '8011400958', '청주1', 'WAVE1',
+            'backup1', '출근', 'D1', '915A,915B'
+        ]);
+        expect(rows[3]).toEqual([
+            '2024-11-26', '8011400958', '청주1', 'WAVE1',
+            'backup1', '휴무', '', ''
+        ]);
+    });
+
     test('preserves route codes without spaces and creates an XLSX zip archive', () => {
         const bytes = createWeeklyScheduleXlsxBytes([WEEKLY_EXCEL_HEADERS, ['2024-11-24', '8011400958', '청주1', 'WAVE2', 'wjddn32', '출근', '1회전,2회전', '016A,016B']]);
         expect(bytes[0]).toBe(0x50);
