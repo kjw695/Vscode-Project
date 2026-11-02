@@ -69,7 +69,7 @@ export async function fetchMyOrganizationMembers() {
                 ? '이름 미등록'
                 : rawName;
 
-            return { id: memberId, name };
+            return { id: memberId, name, username: String(row.member_username || '').trim() };
         })
         .filter(Boolean);
 }
