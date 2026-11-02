@@ -75,10 +75,16 @@ describe('generateMonthlySchedule', () => {
         });
     });
 
-    test('uses the assigned team as the backup scope and ignores legacy free-text target', () => {
+    test('uses team membership as the backup scope and ignores legacy free-text target', () => {
+        const sameTeamBackup = createEmployee(2, '같은 팀 백업', 'sub', '주 6일', '존재하지 않는 노선만 지원');
+        const otherTeamBackup = {
+            ...createEmployee(3, '다른 팀 백업', 'sub', '주 6일', '전지역 백업'),
+            team_id: 'T2'
+        };
         const result = makeSchedule([
             createEmployee(1, '고정 기사', 'base', '주 5일'),
-            createEmployee(2, '백업 기사', 'sub', '주 6일', '존재하지 않는 노선만 지원')
+            sameTeamBackup,
+            otherTeamBackup
         ]);
 
         const assignments = Object.values(result.schedule).flatMap((day) => day.subs || []);
