@@ -1389,7 +1389,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                                     key={dayInfo.date}
                                                     onClick={() => handleCalendarDateClick(dayInfo.date)}
                                                     className={homeCalendarDesign === 'current'
-                                                        ? `relative flex flex-col items-center justify-start p-1 h-20 border-b border-r transition-colors cursor-pointer
+                                                        ? `relative min-w-0 overflow-hidden flex flex-col items-center justify-start p-1 h-20 border-b border-r transition-colors cursor-pointer
                                                             ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}
                                                             ${dayInfo.isToday
                                                                 ? (isDarkMode ? 'bg-green-900/60' : 'bg-green-100')
@@ -1397,25 +1397,26 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                                                     ? (isDarkMode ? 'bg-gray-700/60' : 'bg-gray-100')
                                                                     : (isDarkMode ? 'bg-gray-800' : 'bg-white')}
                                                         `
-                                                        : `relative flex flex-col items-center justify-start h-[55px] rounded-md transition-colors cursor-pointer
+                                                        : `relative min-w-0 overflow-hidden flex flex-col items-center justify-start h-[55px] rounded-md transition-colors cursor-pointer
                                                             ${dayInfo.isDayOff
                                                                 ? (isDarkMode ? 'bg-gray-700/60' : 'bg-gray-200')
                                                                 : (isDarkMode ? 'bg-gray-800' : 'bg-white')}
                                                         `
                                                     }
+                                                    style={{ containerType: 'inline-size' }}
                                                 >
                                                     <div className={homeCalendarDesign === 'current'
                                                         ? 'relative flex w-full items-center justify-between px-1'
                                                         : 'relative flex h-[30px] w-full items-center justify-center'
                                                     }>
                                                         <span className={homeCalendarDesign === 'current'
-                                                            ? `text-[13px] font-bold
+                                                            ? `text-[clamp(8px,16cqi,13px)] leading-none font-bold
                                                                 ${!dayInfo.isCurrentMonth ? (isDarkMode ? 'text-gray-600' : 'text-gray-400') : ''}
                                                                 ${dayInfo.isCurrentMonth && index % 7 === 0 ? 'text-red-500' : ''}
                                                                 ${dayInfo.isCurrentMonth && index % 7 === 6 ? 'text-blue-500' : ''}
                                                                 ${dayInfo.isToday ? (isDarkMode ? 'text-green-200' : 'text-green-800') : ''}
                                                             `
-                                                            : `flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold
+                                                            : `flex items-center justify-center w-8 h-8 rounded-full text-[clamp(9px,20cqi,14px)] font-semibold
                                                                 ${!dayInfo.isCurrentMonth ? (isDarkMode ? 'text-gray-600' : 'text-gray-300') : ''}
                                                                 ${dayInfo.isCurrentMonth && index % 7 === 0 ? 'text-red-500' : ''}
                                                                 ${dayInfo.isCurrentMonth && index % 7 === 6 ? 'text-blue-500' : ''}
@@ -1442,8 +1443,8 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                                     }>
                                                         {dayInfo.isCurrentMonth && dayInfo.isDayOff && (
                                                             <span className={homeCalendarDesign === 'current'
-                                                                ? 'text-[10px] font-bold leading-[10px] text-gray-500 dark:text-gray-400'
-                                                                : 'text-[7px] font-bold leading-[8px] text-indigo-500 dark:text-indigo-400'
+                                                                ? 'block w-full min-w-0 whitespace-nowrap text-center text-[clamp(4px,9cqi,8px)] font-bold leading-none text-gray-500 dark:text-gray-400'
+                                                                : 'block w-full min-w-0 whitespace-nowrap text-center text-[clamp(4px,9cqi,7px)] font-bold leading-none text-indigo-500 dark:text-indigo-400'
                                                             }>
                                                                 ○ 휴무
                                                             </span>
@@ -1453,24 +1454,24 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                                             <>
                                                                 {dayInfo.isCurrentMonth && dayInfo.volumeDisplayTotal > 0 && (
                                                                     <span className={homeCalendarDesign === 'current'
-                                                                        ? 'text-[9px] font-bold leading-tight text-gray-600 dark:text-gray-300'
-                                                                        : 'text-[8px] font-bold leading-[9px] text-gray-600 dark:text-gray-300'
+                                                                        ? 'block w-full min-w-0 whitespace-nowrap text-center text-[clamp(4px,9cqi,8px)] font-bold leading-none text-gray-600 dark:text-gray-300'
+                                                                        : 'block w-full min-w-0 whitespace-nowrap text-center text-[clamp(4px,9cqi,7px)] font-bold leading-none text-gray-600 dark:text-gray-300'
                                                                     }>
                                                                         {dayInfo.volumeDisplayTotal.toLocaleString()}건
                                                                     </span>
                                                                 )}
                                                                 {dayInfo.isCurrentMonth && dayInfo.revenue > 0 && (
                                                                     <span className={homeCalendarDesign === 'current'
-                                                                        ? 'text-red-500 text-[9px] font-semibold leading-tight'
-                                                                        : 'text-red-500 text-[8px] font-semibold leading-[9px]'
+                                                                        ? 'block w-full min-w-0 whitespace-nowrap text-center text-[clamp(4px,9cqi,8px)] text-red-500 font-semibold leading-none'
+                                                                        : 'block w-full min-w-0 whitespace-nowrap text-center text-[clamp(4px,9cqi,7px)] text-red-500 font-semibold leading-none'
                                                                     }>
                                                                         {dayInfo.revenue.toLocaleString()}원
                                                                     </span>
                                                                 )}
                                                                 {dayInfo.isCurrentMonth && dayInfo.expenses > 0 && (
                                                                     <span className={homeCalendarDesign === 'current'
-                                                                        ? 'text-blue-500 text-[9px] font-medium leading-tight'
-                                                                        : 'text-blue-500 text-[8px] font-medium leading-[9px]'
+                                                                        ? 'block w-full min-w-0 whitespace-nowrap text-center text-[clamp(4px,9cqi,8px)] text-blue-500 font-medium leading-none'
+                                                                        : 'block w-full min-w-0 whitespace-nowrap text-center text-[clamp(4px,9cqi,7px)] text-blue-500 font-medium leading-none'
                                                                     }>
                                                                         {dayInfo.expenses.toLocaleString()}원
                                                                     </span>
@@ -1491,8 +1492,8 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                                                             <span
                                                                                 key={metric.key}
                                                                                 className={homeCalendarDesign === 'current'
-                                                                                    ? 'min-w-0 truncate text-[8px] font-semibold leading-[9px] text-gray-700 dark:text-gray-300'
-                                                                                    : 'min-w-0 truncate text-[7px] font-semibold leading-[8px] text-gray-700 dark:text-gray-300'
+                                                                                    ? 'block w-full min-w-0 whitespace-nowrap text-center text-[clamp(4px,9cqi,7px)] font-semibold leading-none text-gray-700 dark:text-gray-300'
+                                                                                    : 'block w-full min-w-0 whitespace-nowrap text-center text-[clamp(4px,9cqi,6px)] font-semibold leading-none text-gray-700 dark:text-gray-300'
                                                                                 }
                                                                                 title={`${label} ${amount}건`}
                                                                             >
