@@ -15,6 +15,9 @@ const getTeamShift = (team) => {
     return shift === 'night' || shift === '야간' ? '야간' : '주간';
 };
 const getTeamLabel = (team) => team ? [getTeamRegion(team), getTeamShift(team), team.name].join(' · ') : '미배정';
+const getExcelRotationOptions = (team) => getTeamShift(team) === '야간'
+    ? ['D1', 'D2', 'F3']
+    : ['1회전', '2회전'];
 
 
 export default function EmployeeManager({ onBack }) {
@@ -81,6 +84,7 @@ export default function EmployeeManager({ onBack }) {
     const [editType, setEditType] = useState('base');
     const [editTeamId, setEditTeamId] = useState(teams[0]?.id || '');
     const [editRouteIds, setEditRouteIds] = useState([]);
+    const [excelRotations, setExcelRotations] = useState([]);
     const [isRouteListOpen, setIsRouteListOpen] = useState(false);
     const [routeListFilter, setRouteListFilter] = useState('all');
     const [isBiweeklyPairManagerOpen, setIsBiweeklyPairManagerOpen] = useState(false);
@@ -193,7 +197,10 @@ export default function EmployeeManager({ onBack }) {
         const match = String(safeEmployee.pattern).match(/[1-6]/);
         setWorkDays(match ? Number(match[0]) : 5);
         setEditType(safeEmployee.type);
-        setEditTeamId(safeEmployee.accountMember ? (safeEmployee.team_id ?? '') : (safeEmployee.team_id || teams[0]?.id || ''));
+        const initialTeamId = safeEmployee.accountMember ? (safeEmployee.team_id ?? '') : (safeEmployee.team_id || teams[0]?.id || '');
+        setEditTeamId(initialTeamId);
+        const initialRotations = getExcelRotationOptions(teams.find((team) => String(team.id) === String(initialTeamId)));
+        setExcelRotations(initialRotations.filter((rotation) => Array.isArray(safeEmployee.excelRotations) && safeEmployee.excelRotations.includes(rotation)));
         const assignedRouteIds = routes
             .filter((route) =>
                 String(route.assigned_emp_id) === String(safeEmployee.id) &&
@@ -239,6 +246,7 @@ export default function EmployeeManager({ onBack }) {
         setFixedOffWeekdaysLongWeek([]);
         setEditType(defaultType);
         setEditTeamId(teams[0]?.id || '');
+        setExcelRotations([]);
         setEditRouteIds([]);
         setIsRouteListOpen(false);
         setRouteListFilter('all');
@@ -297,7 +305,11 @@ export default function EmployeeManager({ onBack }) {
                 longWeek: [...fixedOffWeekdaysLongWeek].sort((a, b) => a - b)
             } : null,
             active: selectedEmployee.active !== false,
-            vehicle_number: String(formData.get('vehicle_number') || '').trim(),
+            vehicle_number: selectedEmployee.accountMember
+                ? String(selectedEmployee.accountVehicleNumber || selectedEmployee.vehicle_number || '').trim()
+                : String(formData.get('vehicle_number') || '').trim(),
+            excelRotations: getExcelRotationOptions(teams.find((team) => String(team.id) === String(newTeamId)))
+                .filter((rotation) => excelRotations.includes(rotation)),
             target: ''
         };
 
@@ -566,6 +578,8 @@ export default function EmployeeManager({ onBack }) {
                                         buttonClassName="rounded-xl bg-gray-50 focus:border-indigo-500"
                                         onChange={(value) => {
                                             setEditTeamId(value);
+                                            const nextRotations = getExcelRotationOptions(teams.find((team) => String(team.id) === String(value)));
+                                            setExcelRotations((previous) => previous.filter((rotation) => nextRotations.includes(rotation)));
                                             setEditRouteIds([]);
                                             setIsRouteListOpen(false);
                                             setRouteListFilter('all');
@@ -581,10 +595,56 @@ export default function EmployeeManager({ onBack }) {
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="mb-1 block text-xs font-black text-gray-600">차량번호</label>
-                                <input name="vehicle_number" defaultValue={selectedEmployee.vehicle_number || selectedEmployee.vehicleNumber || ''} placeholder="예: 12가 3456" className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-indigo-500" />
-                            </div>
+                            {selectedEmployee.accountMember ? (
+                                <section className="rounded-xl border border-sky-100 bg-sky-50/70 p-3">
+                                    <h3 className="text-xs font-black text-sky-800">직원 앱 프로필 정보</h3>
+                                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                                        <div className="min-w-0">
+                                            <p className="text-slate-500">아이디</p>
+                                            <p className="mt-0.5 break-all font-bold text-slate-800">{selectedEmployee.accountUsername || '미등록'}</p>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-slate-500">차량번호</p>
+                                            <p className="mt-0.5 break-all font-bold text-slate-800">{selectedEmployee.accountVehicleNumber || '미등록'}</p>
+                                        </div>
+                                    </div>
+                                    <p className="mt-2 text-[10px] leading-4 text-sky-700">계정의 ‘내 정보’에 저장된 값을 엑셀에 그대로 사용합니다.</p>
+                                </section>
+                            ) : (
+                                <div>
+                                    <label className="mb-1 block text-xs font-black text-gray-600">차량번호</label>
+                                    <input name="vehicle_number" defaultValue={selectedEmployee.vehicle_number || selectedEmployee.vehicleNumber || ''} placeholder="예: 12가 3456" className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-indigo-500" />
+                                </div>
+                            )}
+
+                            <section className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-3">
+                                <div className="flex items-center justify-between gap-2">
+                                    <h3 className="text-xs font-black text-slate-800">엑셀 업로드 회전</h3>
+                                    <span className="text-[10px] font-bold text-slate-500">{getTeamShift(teams.find((team) => String(team.id) === String(editTeamId)))}</span>
+                                </div>
+                                <p className="mt-1 text-[11px] leading-4 text-slate-500">이 직원에게 적용할 회전을 선택하세요. 선택한 회전이 엑셀의 ‘회전’ 항목에 들어갑니다.</p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                    {getExcelRotationOptions(teams.find((team) => String(team.id) === String(editTeamId))).map((rotation) => {
+                                        const checked = excelRotations.includes(rotation);
+                                        return (
+                                            <label key={rotation} className={'inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold ' + (checked ? 'border-indigo-300 bg-white text-indigo-700' : 'border-slate-200 bg-white text-slate-500')}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    onChange={() => setExcelRotations((previous) => {
+                                                        const next = new Set(previous);
+                                                        if (next.has(rotation)) next.delete(rotation);
+                                                        else next.add(rotation);
+                                                        return getExcelRotationOptions(teams.find((team) => String(team.id) === String(editTeamId))).filter((item) => next.has(item));
+                                                    })}
+                                                    className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600"
+                                                />
+                                                {rotation}
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </section>
 
                             {editType === 'base' && (
                                 <div>
