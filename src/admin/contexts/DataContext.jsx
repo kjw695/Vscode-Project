@@ -77,6 +77,7 @@ export function DataProvider({ children }) {
                                 employee.accountMember === true &&
                                 employee.organizationMember === true &&
                                 employee.accountDisplayName === member.name &&
+                                employee.accountUsername === (member.username || '') &&
                                 employee.name === syncedName;
 
                             if (alreadyCurrent) return employee;
@@ -89,6 +90,7 @@ export function DataProvider({ children }) {
                                 accountMember: true,
                                 organizationMember: true,
                                 accountDisplayName: member.name,
+                                accountUsername: member.username || '',
                                 name: syncedName,
                                 active: employee.active === undefined ? true : employee.active
                             };
@@ -121,6 +123,7 @@ export function DataProvider({ children }) {
                             accountMember: true,
                             organizationMember: true,
                             accountDisplayName: member.name,
+                            accountUsername: member.username || '',
                             name: member.name,
                             nameManuallyEdited: false,
                             type: 'base',
