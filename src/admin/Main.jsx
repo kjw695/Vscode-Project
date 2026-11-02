@@ -32,7 +32,9 @@ function AdminDashboard({ onBack }) {
                 window.dispatchEvent(new Event('employee-manager-back'));
                 return;
             }
-            if (currentView !== 'main') {
+            if (currentView === 'excelSettings') {
+                setCurrentView('schedule');
+            } else if (currentView !== 'main') {
                 setCurrentView('main');
             } else if (onBack) {
                 onBack();
