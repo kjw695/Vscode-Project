@@ -1,5 +1,5 @@
 // src/admin/EmployeeManager.jsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { fetchMyVendorInfo } from '../services/teamService';
 import { Users, Truck, ArrowLeft, UserPlus, X, Copy, CheckCircle2, Plus, Search, ChevronDown } from 'lucide-react';
 import BiweeklyPairManager from './BiweeklyPairManager';
@@ -84,6 +84,37 @@ export default function EmployeeManager({ onBack }) {
     const [isRouteListOpen, setIsRouteListOpen] = useState(false);
     const [routeListFilter, setRouteListFilter] = useState('all');
     const [isBiweeklyPairManagerOpen, setIsBiweeklyPairManagerOpen] = useState(false);
+
+    const selectedEmployeeRef = useRef(selectedEmployee);
+    const biweeklyPairManagerOpenRef = useRef(isBiweeklyPairManagerOpen);
+    selectedEmployeeRef.current = selectedEmployee;
+    biweeklyPairManagerOpenRef.current = isBiweeklyPairManagerOpen;
+
+    // Android 뒤로가기는 직원 상세/격주 짝 관리부터 닫고, 목록은 유지합니다.
+    useEffect(() => {
+        const handleEmployeeManagerBack = () => {
+            if (selectedEmployeeRef.current) {
+                setSelectedEmployee(null);
+                return;
+            }
+            if (biweeklyPairManagerOpenRef.current) {
+                setIsBiweeklyPairManagerOpen(false);
+            }
+        };
+
+        window.addEventListener('employee-manager-back', handleEmployeeManagerBack);
+        return () => {
+            window.removeEventListener('employee-manager-back', handleEmployeeManagerBack);
+        };
+    }, []);
+
+    useEffect(() => {
+        window.__employeeManagerHasOverlay = Boolean(selectedEmployee || isBiweeklyPairManagerOpen);
+    }, [selectedEmployee, isBiweeklyPairManagerOpen]);
+
+    useEffect(() => () => {
+        window.__employeeManagerHasOverlay = false;
+    }, []);
 
     const baseEmployees = employees.filter((employee) => employee.type !== 'sub' && employee.employee_type !== 'substitute');
     const backupEmployees = employees.filter((employee) => employee.type === 'sub' || employee.employee_type === 'substitute');
@@ -267,7 +298,7 @@ export default function EmployeeManager({ onBack }) {
             } : null,
             active: selectedEmployee.active !== false,
             vehicle_number: String(formData.get('vehicle_number') || '').trim(),
-            target: newType === 'sub' ? String(formData.get('target') || '').trim() : ''
+            target: ''
         };
 
         const selectedRoutesForTeam = routes.filter((route) =>
@@ -459,7 +490,7 @@ export default function EmployeeManager({ onBack }) {
                                         {String(employee.id) === String(profile?.id) && <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-black text-green-700">나</span>}
                                     </span>
                                     <span className="mt-1 block truncate text-xs text-slate-500">
-                                        {type === 'base' ? <><Truck size={12} className="mr-1 inline" />노선: {routeNames}</> : '백업 가능 범위: ' + (employee.target || '미설정')}
+                                        {type === 'base' ? <><Truck size={12} className="mr-1 inline" />노선: {routeNames}</> : '같은 팀 직원의 휴무 대체'}
                                     </span>
                                 </span>
                             </span>
@@ -613,13 +644,6 @@ export default function EmployeeManager({ onBack }) {
                                     )}
                                     {teamRoutes.length === 0 && <p className="mt-2 text-xs text-amber-700">선택한 팀에 등록된 노선이 없습니다.</p>}
                                     <p className="mt-2 text-[11px] leading-4 text-slate-500">같은 팀의 노선을 여러 개 선택할 수 있습니다. 다른 직원이 담당 중인 노선을 선택하면 저장할 때 확인합니다.</p>
-                                </div>
-                            )}
-
-                            {editType === 'sub' && (
-                                <div>
-                                    <label className="mb-1 block text-xs font-black text-amber-700">백업 가능 범위 (선택)</label>
-                                    <input name="target" defaultValue={selectedEmployee.target || ''} placeholder="예: 전지역 또는 206a, 206b" className="w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm outline-none focus:border-amber-500" />
                                 </div>
                             )}
 
