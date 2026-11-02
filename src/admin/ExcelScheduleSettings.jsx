@@ -1,12 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-    ArrowLeft,
-    Building2,
-    Check,
-    FileSpreadsheet,
-    Info,
-    Users
-} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ArrowLeft, Building2, Check, FileSpreadsheet } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdminData } from './contexts/DataContext';
 import { fetchMyVendorInfo } from '../services/teamService';
@@ -15,36 +8,21 @@ import {
     saveMyOrganizationExcelSettings
 } from '../services/organizationExcelSettingsService';
 
-const DAY_ROTATIONS = ['1회전', '2회전'];
-const NIGHT_ROTATIONS = ['D1', 'D2', 'F3'];
-
 function getTeamShift(team) {
     const shift = String(team?.shift || team?.workShift || team?.work_shift || '').toLowerCase();
-    return shift === 'night' || shift === '야간' ? 'night' : 'day';
-}
-
-function getShiftLabel(team) {
-    return getTeamShift(team) === 'night' ? '야간' : '주간';
-}
-
-function getEmployeeTypeLabel(employee) {
-    return employee.type === 'sub' || employee.employee_type === 'substitute' ? '백업' : '고정';
-}
-
-function getAccountUsername(employee) {
-    return String(employee.accountUsername || employee.username || '').trim();
+    return shift === 'night' || shift === '야간' ? '야간' : '주간';
 }
 
 export default function ExcelScheduleSettings({ onBack }) {
     const { user } = useAuth();
-    const { teams = [], setTeams, employees = [], setEmployees, memberSyncStatus } = useAdminData();
+    const { teams = [], setTeams } = useAdminData();
     const [isLoading, setIsLoading] = useState(true);
     const [isSavingBusinessNumber, setIsSavingBusinessNumber] = useState(false);
     const [isOwner, setIsOwner] = useState(false);
     const [businessNumber, setBusinessNumber] = useState('');
     const [selectedTeamId, setSelectedTeamId] = useState(() => teams[0]?.id ?? '');
-    const [notice, setNotice] = useState('');
     const [loadError, setLoadError] = useState('');
+    const [notice, setNotice] = useState('');
 
     useEffect(() => {
         if (teams.length > 0 && !teams.some((team) => String(team.id) === String(selectedTeamId))) {
@@ -85,20 +63,7 @@ export default function ExcelScheduleSettings({ onBack }) {
         return () => { active = false; };
     }, [user?.id]);
 
-    const selectedTeam = useMemo(
-        () => teams.find((team) => String(team.id) === String(selectedTeamId)) || null,
-        [teams, selectedTeamId]
-    );
-    const teamEmployees = useMemo(
-        () => employees.filter((employee) =>
-            String(employee.team_id) === String(selectedTeamId) &&
-            employee.active !== false
-        ),
-        [employees, selectedTeamId]
-    );
-    const availableRotations = selectedTeam && getTeamShift(selectedTeam) === 'night'
-        ? NIGHT_ROTATIONS
-        : DAY_ROTATIONS;
+    const selectedTeam = teams.find((team) => String(team.id) === String(selectedTeamId)) || null;
 
     const handleSaveBusinessNumber = async () => {
         const normalized = businessNumber.replace(/[^0-9]/g, '');
@@ -128,31 +93,10 @@ export default function ExcelScheduleSettings({ onBack }) {
         ));
     };
 
-    const toggleRotation = (employeeId, rotation) => {
-        setEmployees((previous) => previous.map((employee) => {
-            if (String(employee.id) !== String(employeeId)) return employee;
-            const current = Array.isArray(employee.excelRotations) ? employee.excelRotations : [];
-            const nextSet = new Set(current);
-            if (nextSet.has(rotation)) nextSet.delete(rotation);
-            else nextSet.add(rotation);
-            const next = availableRotations.filter((item) => nextSet.has(item));
-            return { ...employee, excelRotations: next };
-        }));
-        setNotice('직원별 회전 설정을 저장했습니다.');
-    };
-
-    const updateManualLoginId = (employeeId, value) => {
-        setEmployees((previous) => previous.map((employee) =>
-            String(employee.id) === String(employeeId)
-                ? { ...employee, exportLoginId: value.trim() }
-                : employee
-        ));
-    };
-
     if (isLoading) {
         return (
             <div className="admin-safe-top flex min-h-screen items-center justify-center bg-slate-50 p-6 text-sm font-semibold text-slate-500">
-                엑셀 근무표 설정을 불러오는 중입니다…
+                엑셀 업로드 설정을 불러오는 중입니다…
             </div>
         );
     }
@@ -160,15 +104,15 @@ export default function ExcelScheduleSettings({ onBack }) {
     return (
         <div className="admin-safe-top flex min-h-screen w-full flex-col bg-slate-50 font-sans text-slate-800">
             <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-3 shadow-sm sm:px-4">
-                <button onClick={onBack} className="rounded-full p-2 text-slate-600 hover:bg-slate-100" aria-label="근무표로 돌아가기">
+                <button onClick={onBack} className="rounded-full p-2 text-slate-600 hover:bg-slate-100" aria-label="관리자 화면으로 돌아가기">
                     <ArrowLeft size={22} />
                 </button>
                 <div className="min-w-0">
                     <h1 className="flex items-center gap-2 text-lg font-black">
                         <FileSpreadsheet size={20} className="text-emerald-600" />
-                        엑셀 근무표 설정
+                        엑셀 업로드 설정
                     </h1>
-                    <p className="mt-0.5 text-xs text-slate-500">회사 정보와 직원별 업로드 항목을 관리합니다.</p>
+                    <p className="mt-0.5 text-xs text-slate-500">회사 사업자번호와 팀별 캠프명만 관리합니다.</p>
                 </div>
             </header>
 
@@ -183,8 +127,8 @@ export default function ExcelScheduleSettings({ onBack }) {
                     <section className="rounded-2xl border border-slate-200 bg-white p-5 text-center">
                         <Building2 className="mx-auto text-slate-400" size={28} />
                         <h2 className="mt-2 font-black">회사 소유자 권한이 필요합니다.</h2>
-                        <p className="mt-1 text-xs leading-5 text-slate-500">사업자등록번호는 회사 공통 정보이므로 회사 소유자 계정에서 설정할 수 있습니다.</p>
-                        <button onClick={onBack} className="mt-4 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-bold text-white">근무표로 돌아가기</button>
+                        <p className="mt-1 text-xs leading-5 text-slate-500">회사 공통 사업자등록번호는 회사 소유자 계정에서만 설정할 수 있습니다.</p>
+                        <button onClick={onBack} className="mt-4 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-bold text-white">관리자 화면으로 돌아가기</button>
                     </section>
                 ) : (
                     <>
@@ -213,12 +157,12 @@ export default function ExcelScheduleSettings({ onBack }) {
                                     <Check size={16} /> {isSavingBusinessNumber ? '저장 중' : '저장'}
                                 </button>
                             </div>
-                            <p className="mt-2 text-xs leading-5 text-slate-500">회사에 한 번 저장하면 모든 직원의 엑셀 행에 자동으로 입력됩니다.</p>
+                            <p className="mt-2 text-xs leading-5 text-slate-500">한 번 저장하면 엑셀 근무표의 모든 행에 자동으로 입력됩니다.</p>
                         </section>
 
                         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                             <h2 className="font-black">팀별 캠프명</h2>
-                            <p className="mt-1 text-xs leading-5 text-slate-500">기본값은 팀의 지역명입니다. 업로드 양식에 표시할 캠프명으로 수정할 수 있습니다.</p>
+                            <p className="mt-1 text-xs leading-5 text-slate-500">기본값은 팀의 지역명입니다. 업로드 양식에 사용할 캠프명으로 변경할 수 있습니다.</p>
                             <label className="mt-4 block text-xs font-bold text-slate-600">팀 선택</label>
                             <select
                                 value={selectedTeamId}
@@ -227,7 +171,7 @@ export default function ExcelScheduleSettings({ onBack }) {
                             >
                                 {teams.map((team) => (
                                     <option key={team.id} value={team.id}>
-                                        {(team.region || '기본 지역') + ' · ' + getShiftLabel(team) + ' · ' + (team.name || '팀')}
+                                        {(team.region || '기본 지역') + ' · ' + getTeamShift(team) + ' · ' + (team.name || '팀')}
                                     </option>
                                 ))}
                             </select>
@@ -240,75 +184,10 @@ export default function ExcelScheduleSettings({ onBack }) {
                                         placeholder="예: 청주1"
                                         className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold outline-none focus:border-indigo-500"
                                     />
-                                    <p className="mt-1 text-[11px] text-emerald-700">변경 내용은 이 기기에 자동 저장됩니다.</p>
+                                    <p className="mt-1 text-[11px] text-emerald-700">팀 정보에 자동 저장됩니다.</p>
                                 </div>
                             )}
                             {teams.length === 0 && <p className="mt-3 text-xs text-amber-700">먼저 팀 및 지역 설정에서 팀을 등록해주세요.</p>}
-                        </section>
-
-                        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                            <div className="flex items-center justify-between gap-2">
-                                <h2 className="flex items-center gap-2 font-black">
-                                    <Users size={18} className="text-indigo-600" />
-                                    직원별 아이디 · 회전
-                                </h2>
-                                <span className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">{teamEmployees.length}명</span>
-                            </div>
-                            <p className="mt-1 text-xs leading-5 text-slate-500">출근으로 내보낼 직원에게 회전을 선택하세요. 여러 회전은 선택한 순서대로 쉼표로 연결됩니다.</p>
-                            {!selectedTeam && <p className="mt-3 text-sm text-slate-500">팀을 먼저 등록해주세요.</p>}
-                            <div className="mt-3 space-y-2">
-                                {teamEmployees.map((employee) => {
-                                    const accountUsername = getAccountUsername(employee);
-                                    const loginId = accountUsername || employee.exportLoginId || '';
-                                    const selectedRotations = Array.isArray(employee.excelRotations) ? employee.excelRotations : [];
-                                    return (
-                                        <article key={employee.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                            <div className="flex items-start justify-between gap-2">
-                                                <div className="min-w-0">
-                                                    <p className="truncate text-sm font-black text-slate-800">{employee.name || '이름 미등록'}</p>
-                                                    <p className="mt-0.5 truncate text-[11px] text-slate-500">{loginId || '업로드 아이디 미등록'}</p>
-                                                </div>
-                                                <span className="shrink-0 rounded-lg bg-white px-2 py-1 text-[10px] font-bold text-slate-500">{getEmployeeTypeLabel(employee)}</span>
-                                            </div>
-                                            {!accountUsername && (
-                                                <label className="mt-2 block text-[11px] font-bold text-slate-600">
-                                                    업로드 아이디
-                                                    <input
-                                                        value={employee.exportLoginId || ''}
-                                                        onChange={(event) => updateManualLoginId(employee.id, event.target.value)}
-                                                        placeholder="실제 업로드용 아이디"
-                                                        className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium outline-none focus:border-indigo-500"
-                                                    />
-                                                </label>
-                                            )}
-                                            <div className="mt-3 flex flex-wrap gap-2">
-                                                {availableRotations.map((rotation) => {
-                                                    const checked = selectedRotations.includes(rotation);
-                                                    return (
-                                                        <label key={rotation} className={'inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold ' + (checked ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-500')}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={checked}
-                                                                onChange={() => toggleRotation(employee.id, rotation)}
-                                                                className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600"
-                                                            />
-                                                            {rotation}
-                                                        </label>
-                                                    );
-                                                })}
-                                            </div>
-                                        </article>
-                                    );
-                                })}
-                                {selectedTeam && teamEmployees.length === 0 && (
-                                    <div className="rounded-xl border border-dashed border-slate-300 p-5 text-center text-xs text-slate-500">이 팀에 등록된 직원이 없습니다.</div>
-                                )}
-                            </div>
-                            <div className="mt-3 flex items-start gap-2 rounded-xl bg-indigo-50 p-3 text-xs leading-5 text-indigo-800">
-                                <Info size={16} className="mt-0.5 shrink-0" />
-                                <p>여러 업무라우트는 노선 배치 정보를 자동으로 읽어 <strong>915A,915B,915C</strong>처럼 한 셀에 쉼표로 저장합니다. 라우트는 기존 노선 배치에서 관리합니다.</p>
-                            </div>
-                            <p className="mt-2 text-[11px] text-emerald-700">회전·업로드 아이디 변경은 자동 저장됩니다. {memberSyncStatus === 'loading' ? '앱 계정 아이디를 동기화하고 있습니다.' : ''}</p>
                         </section>
 
                         {notice && (
