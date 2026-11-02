@@ -6,6 +6,7 @@ export const WEEKLY_EXCEL_HEADERS = [
     '캠프명',
     '웨이브',
     '아이디',
+    '차량번호',
     '업무상태',
     '회전',
     '업무라우트'
@@ -75,11 +76,17 @@ function getEmployeeRoutes(employee, routes) {
 
 function getEmployeeLoginId(employee) {
     return String(
-        employee.accountUsername ||
-        employee.username ||
-        employee.exportLoginId ||
-        ''
+        employee.accountMember || employee.linkedUserId
+            ? (employee.accountUsername || employee.username || '')
+            : (employee.username || '')
     ).trim();
+}
+
+function getEmployeeVehicleNumber(employee) {
+    if (employee.accountMember || employee.linkedUserId) {
+        return String(employee.accountVehicleNumber ?? '').trim();
+    }
+    return String(employee.vehicle_number || employee.vehicleNumber || '').trim();
 }
 
 function getRotationValue(employee, allowedRotations) {
@@ -115,7 +122,7 @@ export function buildWeeklyScheduleExportRows(options) {
     employees.filter(function (employee) { return employee.active !== false; }).forEach(function (employee) {
         const loginId = getEmployeeLoginId(employee);
         if (!loginId) {
-            errors.push((employee.name || '이름 없는 직원') + ': 업로드 아이디가 없습니다.');
+            errors.push((employee.name || '이름 없는 직원') + ': 직원 프로필의 아이디가 없습니다.');
             return;
         }
 
@@ -123,6 +130,7 @@ export function buildWeeklyScheduleExportRows(options) {
             String(employee.type || employee.employee_type || employee.employeeType || '').toLowerCase() === 'substitute' ||
             String(employee.type || employee.employee_type || employee.employeeType || '').toLowerCase() === 'backup';
         const rotation = getRotationValue(employee, allowedRotations);
+        const vehicleNumber = getEmployeeVehicleNumber(employee);
 
         weekDates.forEach(function (date) {
             const dateKey = localDateString(date);
@@ -161,6 +169,7 @@ export function buildWeeklyScheduleExportRows(options) {
                 campName,
                 wave,
                 loginId,
+                vehicleNumber,
                 status,
                 isWorking ? rotation : '',
                 isWorking ? routeValue : ''
@@ -225,10 +234,10 @@ function worksheetXml(rows) {
         '<col min="5" max="5" width="19" customWidth="1"/>' +
         '<col min="6" max="6" width="12" customWidth="1"/>' +
         '<col min="7" max="7" width="17" customWidth="1"/>' +
-        '<col min="8" max="8" width="30" customWidth="1"/>' +
+        '<col min="8" max="8" width="17" customWidth="1"/><col min="9" max="9" width="30" customWidth="1"/>' +
         '</cols>' +
         '<sheetData>' + rowXml + '</sheetData>' +
-        '<autoFilter ref="A1:H' + Math.max(1, rows.length) + '"/>' +
+        '<autoFilter ref="A1:I' + Math.max(1, rows.length) + '"/>' +
         '</worksheet>';
 }
 
