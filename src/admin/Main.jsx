@@ -33,7 +33,7 @@ function AdminDashboard({ onBack }) {
                 return;
             }
             if (currentView === 'excelSettings') {
-                setCurrentView('schedule');
+                setCurrentView('main');
             } else if (currentView !== 'main') {
                 setCurrentView('main');
             } else if (onBack) {
@@ -65,7 +65,7 @@ function AdminDashboard({ onBack }) {
     if (currentView === 'settings') return <AdminSettings onBack={() => setCurrentView('main')} />;
     if (currentView === 'fixedOff') return <FixedOffStatus onBack={() => setCurrentView('main')} />;
     if (currentView === 'backupDemand') return <BackupDemandAnalysis onBack={() => setCurrentView('main')} />;
-    if (currentView === 'excelSettings') return <ExcelScheduleSettings onBack={() => setCurrentView('schedule')} />;
+    if (currentView === 'excelSettings') return <ExcelScheduleSettings onBack={() => setCurrentView('main')} />;
 
     return (
         <div className="admin-safe-top w-full h-full min-h-screen bg-gray-100 p-5 flex flex-col font-sans">
