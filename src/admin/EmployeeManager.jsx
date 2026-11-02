@@ -305,9 +305,7 @@ export default function EmployeeManager({ onBack }) {
                 longWeek: [...fixedOffWeekdaysLongWeek].sort((a, b) => a - b)
             } : null,
             active: selectedEmployee.active !== false,
-            vehicle_number: selectedEmployee.accountMember
-                ? String(selectedEmployee.accountVehicleNumber || selectedEmployee.vehicle_number || '').trim()
-                : String(formData.get('vehicle_number') || '').trim(),
+            vehicle_number: String(formData.get('vehicle_number') || '').trim(),
             excelRotations: getExcelRotationOptions(teams.find((team) => String(team.id) === String(newTeamId)))
                 .filter((rotation) => excelRotations.includes(rotation)),
             target: ''
@@ -595,27 +593,10 @@ export default function EmployeeManager({ onBack }) {
                                 </div>
                             </div>
 
-                            {selectedEmployee.accountMember ? (
-                                <section className="rounded-xl border border-sky-100 bg-sky-50/70 p-3">
-                                    <h3 className="text-xs font-black text-sky-800">직원 앱 프로필 정보</h3>
-                                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                                        <div className="min-w-0">
-                                            <p className="text-slate-500">아이디</p>
-                                            <p className="mt-0.5 break-all font-bold text-slate-800">{selectedEmployee.accountUsername || '미등록'}</p>
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="text-slate-500">차량번호</p>
-                                            <p className="mt-0.5 break-all font-bold text-slate-800">{selectedEmployee.accountVehicleNumber || '미등록'}</p>
-                                        </div>
-                                    </div>
-                                    <p className="mt-2 text-[10px] leading-4 text-sky-700">계정의 ‘내 정보’에 저장된 값을 엑셀에 그대로 사용합니다.</p>
-                                </section>
-                            ) : (
-                                <div>
-                                    <label className="mb-1 block text-xs font-black text-gray-600">차량번호</label>
-                                    <input name="vehicle_number" defaultValue={selectedEmployee.vehicle_number || selectedEmployee.vehicleNumber || ''} placeholder="예: 12가 3456" className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-indigo-500" />
-                                </div>
-                            )}
+                            <div>
+                                <label className="mb-1 block text-xs font-black text-gray-600">차량번호</label>
+                                <input name="vehicle_number" defaultValue={selectedEmployee.vehicle_number || selectedEmployee.vehicleNumber || ''} placeholder="예: 12가 3456" className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-indigo-500" />
+                            </div>
 
                             <section className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-3">
                                 <div className="flex items-center justify-between gap-2">
