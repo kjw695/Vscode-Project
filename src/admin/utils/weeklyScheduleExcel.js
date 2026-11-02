@@ -134,9 +134,9 @@ export function buildWeeklyScheduleExportRows(options) {
 
             const assignment = isBackup ? getEmployeeAssignment(record, employee) : null;
             const isOff = isEmployeeOff(record, employee);
-            // 백업 직원은 실제 노선이 배정된 날만 출근으로 내보냅니다.
-            // 배정되지 않은 날은 배포용 근무표에서 휴무로 표시합니다.
-            const isWorking = isBackup ? Boolean(assignment) && !isOff : !isOff;
+            // 화면의 주간근무표와 동일하게, 휴무로 지정되지 않은 백업 직원은 출근으로 표시합니다.
+            // 대체 배정이 있으면 대체 대상의 라우트를 사용하고, 대기 근무는 라우트를 비워 둡니다.
+            const isWorking = !isOff;
             const status = isWorking ? '출근' : '휴무';
             let routeValue = '';
 
@@ -147,8 +147,11 @@ export function buildWeeklyScheduleExportRows(options) {
                 if (!rotation) {
                     errors.push((employee.name || loginId) + ': ' + allowedRotations.join(', ') + ' 중 회전을 설정해주세요.');
                 }
-                if (!routeValue) {
+                if (!isBackup && !routeValue) {
                     errors.push((employee.name || loginId) + ': ' + dateKey + ' 업무라우트가 배정되지 않았습니다.');
+                }
+                if (isBackup && assignment && !routeValue) {
+                    errors.push((employee.name || loginId) + ': ' + dateKey + ' 백업 배정 라우트가 비어 있습니다.');
                 }
             }
 
