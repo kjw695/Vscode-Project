@@ -26,6 +26,11 @@ function AdminDashboard({ onBack }) {
                 window.dispatchEvent(new Event('admin-settings-back'));
                 return;
             }
+            // 직원 상세 또는 격주 짝 관리가 열려 있으면 먼저 해당 화면만 닫습니다.
+            if (typeof window !== 'undefined' && window.__employeeManagerHasOverlay) {
+                window.dispatchEvent(new Event('employee-manager-back'));
+                return;
+            }
             if (currentView !== 'main') {
                 setCurrentView('main');
             } else if (onBack) {
