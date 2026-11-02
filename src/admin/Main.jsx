@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { useAuth } from '../contexts/AuthContext';
-import { Users, Calendar as CalendarIcon, Settings, LogOut, ShieldCheck, AlertCircle, Map, CalendarDays, BarChart3 } from 'lucide-react';
+import { Users, Calendar as CalendarIcon, Settings, LogOut, ShieldCheck, AlertCircle, Map, CalendarDays, BarChart3, FileSpreadsheet } from 'lucide-react';
 import EmployeeManager from './EmployeeManager'; 
 import Calendar from './Calendar'; 
 import AdminSettings from './Settings';
@@ -33,7 +33,7 @@ function AdminDashboard({ onBack }) {
                 return;
             }
             if (currentView === 'excelSettings') {
-                setCurrentView('schedule');
+                setCurrentView('main');
             } else if (currentView !== 'main') {
                 setCurrentView('main');
             } else if (onBack) {
@@ -61,11 +61,11 @@ function AdminDashboard({ onBack }) {
     // 🔀 화면 전환 라우팅
     if (currentView === 'employee') return <EmployeeManager onBack={() => setCurrentView('main')} />;
     if (currentView === 'route') return <RouteManager onBack={() => setCurrentView('main')} />;
-    if (currentView === 'schedule') return <Calendar onBack={() => setCurrentView('main')} onOpenExcelSettings={() => setCurrentView('excelSettings')} />; 
+    if (currentView === 'schedule') return <Calendar onBack={() => setCurrentView('main')} />; 
     if (currentView === 'settings') return <AdminSettings onBack={() => setCurrentView('main')} />;
     if (currentView === 'fixedOff') return <FixedOffStatus onBack={() => setCurrentView('main')} />;
     if (currentView === 'backupDemand') return <BackupDemandAnalysis onBack={() => setCurrentView('main')} />;
-    if (currentView === 'excelSettings') return <ExcelScheduleSettings onBack={() => setCurrentView('schedule')} />;
+    if (currentView === 'excelSettings') return <ExcelScheduleSettings onBack={() => setCurrentView('main')} />;
 
     return (
         <div className="admin-safe-top w-full h-full min-h-screen bg-gray-100 p-5 flex flex-col font-sans">
@@ -159,6 +159,16 @@ function AdminDashboard({ onBack }) {
                         <div className="min-w-0 flex-1 text-left">
                             <h2 className="break-words text-sm font-bold leading-tight sm:text-base lg:text-lg">팀 및 지역 설정</h2>
                             <p className="mt-1 whitespace-nowrap text-[clamp(7px,2.2vw,10px)] leading-4 text-gray-500 sm:text-xs">조직 관리</p>
+                        </div>
+                    </div>
+                </button>
+
+                <button onClick={() => setCurrentView('excelSettings')} className="h-full min-w-0 w-full p-3 sm:p-4 bg-white text-gray-800 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-emerald-300 transition-colors">
+                    <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                        <div className="shrink-0 p-2 sm:p-3 bg-emerald-50 text-emerald-700 rounded-xl"><FileSpreadsheet size={24} /></div>
+                        <div className="min-w-0 flex-1 text-left">
+                            <h2 className="break-words text-sm font-bold leading-tight sm:text-base lg:text-lg">엑셀 업로드 설정</h2>
+                            <p className="mt-1 whitespace-nowrap text-[clamp(7px,2.2vw,10px)] leading-4 text-gray-500 sm:text-xs">사업자번호 · 캠프명</p>
                         </div>
                     </div>
                 </button>
