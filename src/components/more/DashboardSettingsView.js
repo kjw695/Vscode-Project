@@ -86,7 +86,7 @@ const DashboardSettingsView = ({
                     <button onClick={onBack} className={`p-2 -ml-2 rounded-full ${isDarkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-200 text-gray-600'}`}>
                         <ArrowLeft size={24} />
                     </button>
-                    <h2 className="text-xl font-bold ml-2">홈 화면 설정</h2>
+                    <h2 className="text-xl font-bold ml-2">홈 화면 구성</h2>
                 </div>
                 <button onClick={handleSave} className={`p-2 px-4 rounded-full font-bold flex items-center shadow-md active:scale-95 transition-transform ${isDarkMode ? 'bg-yellow-500 text-gray-900' : 'bg-yellow-400 text-yellow-900'}`}>
                     <Check size={18} className="mr-1" /> 저장
