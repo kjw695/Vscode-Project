@@ -66,6 +66,64 @@ $function$;
 REVOKE ALL ON FUNCTION public.list_my_organization_members_with_username() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.list_my_organization_members_with_username() TO authenticated;
 
+
+-- Read employee-account profile fields for the signed-in organization's owner.
+-- ID and vehicle number come from the existing AccountView profile fields.
+CREATE OR REPLACE FUNCTION public.list_my_organization_export_members()
+RETURNS TABLE(
+    member_id uuid,
+    member_display_name text,
+    member_username text,
+    member_vehicle_number text
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $function$
+DECLARE
+    v_user_id uuid := auth.uid();
+    v_org_id uuid;
+BEGIN
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION '로그인이 필요합니다.';
+    END IF;
+
+    SELECT p.organization_id INTO v_org_id
+    FROM public.profiles p
+    WHERE p.id = v_user_id;
+
+    IF v_org_id IS NULL OR NOT EXISTS (
+        SELECT 1 FROM public.organizations o
+        WHERE o.id = v_org_id AND o.owner_id = v_user_id
+    ) THEN
+        RAISE EXCEPTION '회사 소유자만 직원 프로필 정보를 엑셀로 조회할 수 있습니다.';
+    END IF;
+
+    RETURN QUERY
+    SELECT
+        p.id,
+        COALESCE(
+            NULLIF(BTRIM(p.display_name), ''),
+            NULLIF(BTRIM(p.full_name), ''),
+            NULLIF(BTRIM(u.raw_user_meta_data ->> 'full_name'), ''),
+            NULLIF(BTRIM(u.raw_user_meta_data ->> 'name'), ''),
+            NULLIF(BTRIM(u.raw_user_meta_data ->> 'preferred_username'), ''),
+            NULLIF(BTRIM(u.raw_user_meta_data ->> 'nickname'), ''),
+            '이름 미등록'
+        )::text,
+        COALESCE(NULLIF(BTRIM(p.username), ''), '')::text,
+        COALESCE(NULLIF(BTRIM(p.vehicle_number), ''), '')::text
+    FROM public.profiles p
+    LEFT JOIN auth.users u ON u.id = p.id
+    WHERE p.organization_id = v_org_id
+    ORDER BY 2, p.id;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.list_my_organization_export_members() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.list_my_organization_export_members() TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.get_my_organization_excel_settings()
 RETURNS jsonb
 LANGUAGE plpgsql
