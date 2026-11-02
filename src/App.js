@@ -1452,12 +1452,20 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
 
                                                         {calendarMode === 'money' ? (
                                                             <>
+                                                                {dayInfo.isCurrentMonth && dayInfo.volumeDisplayTotal > 0 && (
+                                                                    <span className={homeCalendarDesign === 'current'
+                                                                        ? 'text-[9px] font-bold leading-tight text-gray-600 dark:text-gray-300'
+                                                                        : 'text-[8px] font-bold leading-[9px] text-gray-600 dark:text-gray-300'
+                                                                    }>
+                                                                        {dayInfo.volumeDisplayTotal.toLocaleString()}건
+                                                                    </span>
+                                                                )}
                                                                 {dayInfo.isCurrentMonth && dayInfo.revenue > 0 && (
                                                                     <span className={homeCalendarDesign === 'current'
-                                                                        ? 'text-red-500 text-[9px] font-medium leading-tight'
-                                                                        : 'text-red-500 text-[8px] font-medium leading-[9px]'
+                                                                        ? 'text-red-500 text-[9px] font-semibold leading-tight'
+                                                                        : 'text-red-500 text-[8px] font-semibold leading-[9px]'
                                                                     }>
-                                                                        {dayInfo.revenue.toLocaleString()}
+                                                                        {dayInfo.revenue.toLocaleString()}원
                                                                     </span>
                                                                 )}
                                                                 {dayInfo.isCurrentMonth && dayInfo.expenses > 0 && (
@@ -1465,7 +1473,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                                                         ? 'text-blue-500 text-[9px] font-medium leading-tight'
                                                                         : 'text-blue-500 text-[8px] font-medium leading-[9px]'
                                                                     }>
-                                                                        {dayInfo.expenses.toLocaleString()}
+                                                                        {dayInfo.expenses.toLocaleString()}원
                                                                     </span>
                                                                 )}
                                                             </>
@@ -1487,21 +1495,13 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                                                                     ? 'min-w-0 truncate text-[8px] font-semibold leading-[9px] text-gray-700 dark:text-gray-300'
                                                                                     : 'min-w-0 truncate text-[7px] font-semibold leading-[8px] text-gray-700 dark:text-gray-300'
                                                                                 }
-                                                                                title={`${label} ${amount}개`}
+                                                                                title={`${label} ${amount}건`}
                                                                             >
                                                                                 {homeCalendarDesign === 'classic' ? metric.shortLabel : label} {amount}
                                                                             </span>
                                                                         );
                                                                     })}
                                                                 </div>
-                                                                {dayInfo.isCurrentMonth && dayInfo.volumeDisplayTotal > 0 && (
-                                                                    <span className={homeCalendarDesign === 'current'
-                                                                        ? 'text-[8px] font-black leading-[9px] text-orange-500'
-                                                                        : 'text-[7px] font-black leading-[8px] text-orange-500'
-                                                                    }>
-                                                                        합계 {dayInfo.volumeDisplayTotal.toLocaleString()}개
-                                                                    </span>
-                                                                )}
                                                             </>
                                                         )}
                                                     </div>
