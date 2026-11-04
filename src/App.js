@@ -1550,6 +1550,17 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                     setActiveContentTab('adminSettings');
                                     setMoreSubView('insurance');
                                 }}
+                                currentCalendarDate={currentCalendarDate}
+                                calendarDays={calendarDaysWithDayOff}
+                                calendarMode={calendarMode}
+                                onToggleCalendarMode={(mode) => setCalendarMode(mode)}
+                                onMonthChange={handleMonthChange}
+                                onToday={handleTodayClick}
+                                onDateClick={handleCalendarDateClick}
+                                onOpenDayOff={() => setIsDayOffModalOpen(true)}
+                                homeCalendarDesign={homeCalendarDesign}
+                                homeCalendarVolumeItems={homeCalendarVolumeItems}
+                                incomeConfig={incomeConfig}
                             />
                         )}
 
