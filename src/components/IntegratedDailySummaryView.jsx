@@ -76,6 +76,7 @@ const IntegratedDailySummaryView = ({
     incomeConfig = [],
     isDarkMode,
     onBack,
+    onSwitchPreview,
     onOpenInsurance,
     currentCalendarDate,
     calendarDays = [],
@@ -224,7 +225,7 @@ const IntegratedDailySummaryView = ({
 
     return (
         <div className="w-full px-2 pb-3">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between gap-1 mb-2">
                 <button
                     type="button"
                     onClick={onBack}
@@ -233,7 +234,18 @@ const IntegratedDailySummaryView = ({
                     <ArrowLeft size={17} />
                     기본 홈
                 </button>
-                <span className={`text-xs font-medium ${mutedClass}`}>
+                <div className={`inline-flex rounded-xl p-0.5 text-[10px] font-bold ${dark ? 'bg-gray-800' : 'bg-slate-100'}`}>
+                    <button
+                        type="button"
+                        className={`rounded-lg px-2.5 py-1.5 ${dark ? 'bg-gray-700 text-white' : 'bg-white text-slate-900 shadow-sm'}`}
+                    >통합형</button>
+                    <button
+                        type="button"
+                        onClick={() => onSwitchPreview?.('bluecoins')}
+                        className={`rounded-lg px-2.5 py-1.5 ${dark ? 'text-gray-400' : 'text-slate-500'}`}
+                    >장부형</button>
+                </div>
+                <span className={`text-[11px] font-medium whitespace-nowrap ${mutedClass}`}>
                     {selectedMonth ? selectedMonth.replace('-', '년 ') + '월' : ''}
                 </span>
             </div>
