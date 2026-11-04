@@ -51,6 +51,7 @@ import { AppUpdate } from '@capawesome/capacitor-app-update';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import GoalSummaryCards from './components/GoalSummaryCards';
+import IntegratedDailySummaryView from './components/IntegratedDailySummaryView';
 import AverageItemsView from './components/more/AverageItemsView';
 import DashboardSettingsView from './components/more/DashboardSettingsView';
 import VolumeCalendarSettingsView from './components/more/VolumeCalendarSettingsView';
@@ -1293,6 +1294,15 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                     <>
                        {activeContentTab === 'monthlyProfit' && (
     <>
+        <div className="flex justify-end px-1 pb-1">
+            <button
+                type="button"
+                onClick={() => setActiveContentTab('integratedDailySummary')}
+                className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold transition-colors ${isDarkMode ? 'text-gray-300 bg-gray-800 hover:bg-gray-700' : 'text-slate-600 bg-slate-50 hover:bg-slate-100'}`}
+            >
+                통합형 일일요약 미리보기 <ChevronRight size={14} />
+            </button>
+        </div>
         <GoalSummaryCards 
             entries={entries}
             monthlyProfit={monthlyProfit} 
@@ -1520,6 +1530,28 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
     </div>
     </>
 )}
+
+                        {activeContentTab === 'integratedDailySummary' && (
+                            <IntegratedDailySummaryView
+                                entries={entries}
+                                monthlyProfit={monthlyProfit}
+                                previousMonthlyProfit={previousMonthlyProfit}
+                                selectedMonth={selectedMonth}
+                                monthlyStartDay={monthlyStartDay}
+                                monthlyEndDay={monthlyEndDay}
+                                goal={goalAmount}
+                                selectedInsurance={selectedInsurance}
+                                selectedItemsForAverage={selectedItemsForAverage}
+                                itemLabels={itemLabels}
+                                isDarkMode={isDarkMode}
+                                onBack={() => setActiveContentTab('monthlyProfit')}
+                                onOpenInsurance={() => {
+                                    setSelectedMainTab('more');
+                                    setActiveContentTab('adminSettings');
+                                    setMoreSubView('insurance');
+                                }}
+                            />
+                        )}
 
                         {activeContentTab === 'dataEntry' && (
                             <div className="w-full h-full flex flex-col pt-2" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
