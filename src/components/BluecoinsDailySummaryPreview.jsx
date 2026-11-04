@@ -154,8 +154,7 @@ const BluecoinsDailySummaryPreview = ({
         ? Math.round(Math.max(0, Number(monthlyGoalVolume) - currentVolume) / remainingWorkDays)
         : 0;
     const holidayCount = calendarDays.filter((day) => day?.isCurrentMonth && day?.isDayOff).length;
-    const periodDayCount = calendarDays.filter((day) => day?.isCurrentMonth).length;
-    const totalOffDays = Math.max(holidayCount, Math.max(0, periodDayCount - effectiveTargetDays));
+    const totalOffDays = holidayCount;
     const goalProgress = calendarMode === 'money'
         ? Math.min(100, Math.round((currentRevenue / Math.max(1, Number(goal) || 1)) * 100))
         : Math.min(100, Math.round((currentVolume / Math.max(1, Number(monthlyGoalVolume) || 1)) * 100));
