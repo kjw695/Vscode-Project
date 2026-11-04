@@ -162,21 +162,6 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
       },
   };
 
-  // 파츠별로 아주 옅은 배경 톤만 달리해 정보의 종류를 빠르게 구분합니다.
-  const cardSurfaceClasses = {
-      revenue: isDarkMode ? 'bg-amber-950/30' : 'bg-amber-50',
-      estimatedSalary: isDarkMode ? 'bg-emerald-950/30' : 'bg-emerald-50',
-      monthlyHolidays: isDarkMode ? 'bg-indigo-950/30' : 'bg-indigo-50',
-      insurance: isDarkMode ? 'bg-slate-800' : 'bg-slate-50',
-      workDays: isDarkMode ? 'bg-blue-950/30' : 'bg-blue-50',
-      totalVolume: isDarkMode ? 'bg-violet-950/30' : 'bg-violet-50',
-      avgVolume: isDarkMode ? 'bg-green-950/30' : 'bg-green-50',
-      dailyAvg: isDarkMode ? 'bg-sky-950/30' : 'bg-sky-50',
-      recommended: isDarkMode ? 'bg-orange-950/30' : 'bg-orange-50',
-      remainingWorkDays: isDarkMode ? 'bg-rose-950/30' : 'bg-rose-50',
-      compareLastMonth: isDarkMode ? 'bg-cyan-950/30' : 'bg-cyan-50',
-  };
-
   const visibleCards = dashboardConfig.filter(item => item.isVisible);
 
   return (
@@ -193,56 +178,70 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
                 if (item.id === 'revenue') displayLabel = `${displayMonth}월 매출`;
 
                 const cardWidth = Math.max(1, Math.min(4, Number(item.w) || 1));
-                const isHorizontal = cardWidth >= 3;
 
-                // 작은 파츠일수록 여백을 줄이고, 넓은 파츠는 숫자를 더 크게 보여줍니다.
-                let baseFontSizeClass = "text-[clamp(10px,14cqw,13px)]";
-                let paddingClass = "px-1.5 py-1.5";
+                // 모든 크기에서 제목 위, 값 아래의 동일한 정보 구조를 유지합니다.
+                let baseFontSizeClass = "text-[12px]";
+                let paddingClass = "px-2 py-1.5";
+                let labelFontSize = "9px";
+                let maxValueFontSize = "1.05em";
 
                 if (cardWidth === 2) {
-                    baseFontSizeClass = "text-[clamp(11px,9cqw,16px)]";
-                    paddingClass = "px-2 py-2";
-                } else if (cardWidth === 3) {
-                    baseFontSizeClass = "text-[clamp(13px,7cqw,19px)]";
+                    baseFontSizeClass = "text-[14px]";
                     paddingClass = "px-2.5 py-2";
-                } else if (cardWidth === 4) {
-                    baseFontSizeClass = "text-[clamp(15px,5.5cqw,22px)]";
+                    labelFontSize = "10px";
+                    maxValueFontSize = "1.12em";
+                } else if (cardWidth === 3) {
+                    baseFontSizeClass = "text-[16px]";
                     paddingClass = "px-3 py-2.5";
+                    labelFontSize = "11px";
+                    maxValueFontSize = "1.2em";
+                } else if (cardWidth === 4) {
+                    baseFontSizeClass = "text-[18px]";
+                    paddingClass = "px-3.5 py-3";
+                    labelFontSize = "12px";
+                    maxValueFontSize = "1.25em";
                 }
+
+                const isObjectValue = typeof cardInfo.value === 'object';
+                const valueLength = Math.max(String(cardInfo.value).length * 0.55, 3);
+                const valueScale = 86 / valueLength;
+                const valueColorClass = item.id === 'compareLastMonth'
+                    ? cardInfo.colorClass
+                    : 'text-slate-900 dark:text-slate-50';
 
                 return (
                     <div
                         key={item.id}
-                        className={`[container-type:inline-size] min-w-0 overflow-hidden rounded-[16px] border border-white/80 dark:border-white/5 shadow-[0_1px_6px_rgba(15,23,42,0.045)] flex transition-colors w-full h-full
+                        className={`[container-type:inline-size] min-w-0 overflow-hidden rounded-[16px] border flex flex-col items-start justify-center gap-1 w-full h-full transition-colors duration-150
                             ${paddingClass} ${baseFontSizeClass}
-                            ${cardSurfaceClasses[item.id] || (isDarkMode ? 'bg-slate-800' : 'bg-slate-50')}
-                            ${isHorizontal ? 'flex-row items-center justify-between gap-2' : 'flex-col items-start justify-between gap-1'}
+                            ${isDarkMode
+                                ? 'bg-slate-800/85 border-slate-700/70'
+                                : 'bg-white border-slate-200/80'}
+                            shadow-[0_1px_4px_rgba(15,23,42,0.035)]
                         `}
                         style={{
                             gridColumn: `${Number(item.x) + 1} / span ${cardWidth}`,
                             gridRow: `${Number(item.y) + 1} / span ${Number(item.h)}`,
-                            // 기존의 작은 파츠 높이 규칙과 배치 동작은 그대로 유지합니다.
+                            // 기존 작은 파츠의 높이 규칙과 사용자가 조절한 그리드 배치를 보존합니다.
                             ...(cardWidth < 3
                                 ? { height: 'calc(60px + 2vw)', alignSelf: 'start' }
                                 : {}),
                         }}
                     >
                         <div
-                            className="min-w-0 w-full text-left text-slate-500 dark:text-slate-400 font-semibold leading-none tracking-tight whitespace-nowrap"
-                            style={{ fontSize: cardWidth === 1 ? '9px' : cardWidth === 2 ? '10px' : '0.72em' }}
+                            className="min-w-0 w-full text-left text-slate-500 dark:text-slate-400 font-medium leading-none tracking-tight whitespace-nowrap"
+                            style={{ fontSize: labelFontSize }}
                         >
                             {displayLabel}
                         </div>
 
                         <div
-                            className={`min-w-0 w-full font-bold leading-none tracking-tight ${cardInfo.colorClass} whitespace-nowrap flex
-                                ${isHorizontal ? 'justify-end text-right' : 'justify-start text-left'}
-                            `}
+                            className={`min-w-0 w-full font-semibold leading-none tracking-tight whitespace-nowrap flex justify-start text-left ${valueColorClass}`}
                             style={{
-                                // 보험사 링크/버튼은 기존 클릭 동작을 유지하고, 숫자 값은 카드 폭에 맞춰 자동 축소합니다.
-                                fontSize: typeof cardInfo.value === 'object'
+                                // 긴 값은 카드 폭에 맞춰 축소하고, 보험사 링크/버튼은 기존 클릭 동작을 유지합니다.
+                                fontSize: isObjectValue
                                     ? '1em'
-                                    : `clamp(10px, 86cqw / ${Math.max(String(cardInfo.value).length * 0.54, 3)}, 1.25em)`
+                                    : `clamp(10px, ${valueScale}cqw, ${maxValueFontSize})`
                             }}
                         >
                             {cardInfo.value}
