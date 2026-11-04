@@ -96,6 +96,13 @@ const BluecoinsDailySummaryPreview = ({
     const [targetWorkDays, setTargetWorkDays] = useState(25);
     const [monthlyGoalVolume, setMonthlyGoalVolume] = useState(7500);
     const [selectedDate, setSelectedDate] = useState(() => {
+        const activeCalendarDates = (Array.isArray(calendarDays) ? calendarDays : [])
+            .filter((day) => day?.isCurrentMonth && (Number(day?.revenue) > 0 || Number(day?.expenses) > 0))
+            .map((day) => day.date)
+            .filter((date) => typeof date === 'string')
+            .sort();
+        if (activeCalendarDates.length) return activeCalendarDates[activeCalendarDates.length - 1];
+
         const validDates = (Array.isArray(entries) ? entries : [])
             .map((entry) => entry?.date)
             .filter((date) => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date))
