@@ -1,11 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import {
     ArrowLeft,
-    ArrowRightLeft,
     ArrowUpRight,
     BarChart3,
-    Calendar as CalendarIcon,
-    Check,
     ChevronLeft,
     ChevronRight,
     Layers,
@@ -75,8 +72,6 @@ const BluecoinsDailySummaryPreview = ({
     monthlyProfit = {},
     previousMonthlyProfit = {},
     selectedMonth,
-    monthlyStartDay,
-    monthlyEndDay,
     goal = 0,
     selectedInsurance,
     selectedItemsForAverage = ['배송', '반품'],
@@ -216,25 +211,6 @@ const BluecoinsDailySummaryPreview = ({
     }, [reportData]);
 
     const unitPriceRows = reportData.unitPriceAnalysis || [];
-
-    const roundRows = useMemo(() => {
-        const grouped = {};
-        reportEntries.forEach((entry) => {
-            const round = Number(entry?.round) || 0;
-            const key = round === 0 ? '기타/미분류' : round + '회차';
-            if (!grouped[key]) grouped[key] = { label: key, income: 0, expense: 0, volume: 0, count: 0 };
-            const oneEntry = calculateData([entry], itemLabels);
-            grouped[key].income += Number(oneEntry.totalRevenue) || 0;
-            grouped[key].expense += Number(oneEntry.totalExpenses) || 0;
-            grouped[key].volume += getDayVolume(oneEntry, selectedItemsForAverage);
-            grouped[key].count += 1;
-        });
-        return Object.values(grouped).sort((a, b) => {
-            if (a.label === '기타/미분류') return 1;
-            if (b.label === '기타/미분류') return -1;
-            return Number(a.label.replace('회차', '')) - Number(b.label.replace('회차', ''));
-        });
-    }, [reportEntries, itemLabels, selectedItemsForAverage]);
 
     const transactionRows = useMemo(() => {
         return reportEntries.map((entry, index) => {
