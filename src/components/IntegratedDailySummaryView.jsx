@@ -376,7 +376,7 @@ const IntegratedDailySummaryView = ({
                 <div className="grid grid-cols-[1fr_auto_auto] items-center gap-1 px-2 py-2">
                     <button
                         type="button"
-                        onClick={onToggleCalendarMode}
+                        onClick={() => onToggleCalendarMode?.(calendarMode === 'money' ? 'volume' : 'money')}
                         className={`justify-self-start rounded-lg border px-2 py-1 text-[10px] font-bold ${dark ? 'border-gray-600 bg-gray-700 text-gray-200' : 'border-gray-200 bg-gray-50 text-gray-700'}`}
                     >
                         <span className="inline-flex items-center gap-1"><ArrowRightLeft size={11}/>{calendarMode === 'money' ? '금액' : '물량'}</span>
