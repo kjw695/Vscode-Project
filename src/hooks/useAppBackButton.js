@@ -60,6 +60,12 @@ const useAppBackButton = ({
                     return;
                 }
 
+                // 통합형 일일요약 미리보기는 기존 홈으로 복귀합니다.
+                if (activeContentTab === 'integratedDailySummary') {
+                    setActiveContentTab('monthlyProfit');
+                    return;
+                }
+
                 // 5. '더보기' 안의 하위 화면이면 -> 더보기 메인으로
                 if (selectedMainTab === 'more' && moreSubView !== 'main') {
                     setMoreSubView('main');
