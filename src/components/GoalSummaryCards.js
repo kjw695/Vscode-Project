@@ -162,12 +162,26 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
       },
   };
 
+  // 파츠별로 톤만 구분해 휴대폰 기본 위젯처럼 가볍고 정돈된 표면을 만듭니다.
+  const cardSurfaceClasses = {
+      revenue: isDarkMode ? 'bg-amber-950/35' : 'bg-amber-50',
+      estimatedSalary: isDarkMode ? 'bg-emerald-950/35' : 'bg-emerald-50',
+      monthlyHolidays: isDarkMode ? 'bg-indigo-950/35' : 'bg-indigo-50',
+      insurance: isDarkMode ? 'bg-slate-800/90' : 'bg-slate-50',
+      workDays: isDarkMode ? 'bg-blue-950/35' : 'bg-blue-50',
+      totalVolume: isDarkMode ? 'bg-violet-950/35' : 'bg-violet-50',
+      avgVolume: isDarkMode ? 'bg-green-950/35' : 'bg-green-50',
+      dailyAvg: isDarkMode ? 'bg-sky-950/35' : 'bg-sky-50',
+      recommended: isDarkMode ? 'bg-orange-950/35' : 'bg-orange-50',
+      remainingWorkDays: isDarkMode ? 'bg-rose-950/35' : 'bg-rose-50',
+      compareLastMonth: isDarkMode ? 'bg-cyan-950/35' : 'bg-cyan-50',
+  };
   const visibleCards = dashboardConfig.filter(item => item.isVisible);
 
   return (
     <div className="relative w-full mb-1 px-1 pt-2"> 
         <div 
-            className="grid grid-cols-4 gap-[2vw] w-full"
+            className="grid grid-cols-4 gap-2 w-full"
             style={{ gridAutoRows: 'minmax(30px, auto)' }} 
         >
             {visibleCards.map((item) => {
@@ -200,9 +214,9 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
 
                    <div 
                         key={item.id} 
-                        className={`[container-type:inline-size] rounded-xl sm:rounded-2xl shadow-sm border flex transition-all w-full h-full
+                        className={`[container-type:inline-size] min-w-0 overflow-hidden rounded-[20px] shadow-[0_2px_10px_rgba(15,23,42,0.045)] border border-white/70 dark:border-white/5 flex transition-shadow w-full h-full
                             ${paddingClass} ${baseFontSizeClass} 
-                            ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-100'}
+                            ${cardSurfaceClasses[item.id] || (isDarkMode ? 'bg-slate-800' : 'bg-slate-50')}
                             /* ✨ 2. 3칸 이상은 좌우 끝 밀착(justify-between), 2칸 이하는 상하 꽉 채우기(flex-col) */
                             ${isHorizontal ? 'flex-row items-center justify-between px-4 sm:px-6' : 'flex-col'}
                         `}
@@ -217,7 +231,7 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
                     >
                     {/* ✨ 3. 윗부분 박스 (제목): 높이 30%를 차지하며 위로 밀착 */}
                         <div 
-                            className={`w-full text-gray-500 dark:text-gray-400 font-medium leading-tight whitespace-nowrap ${isHorizontal ? 'text-left' : 'h-[30%] flex items-start justify-center pt-0.5'}`}
+                            className={`w-full text-gray-500 dark:text-gray-400 font-semibold tracking-tight leading-tight whitespace-nowrap ${isHorizontal ? 'text-left' : 'h-[30%] flex items-start justify-center pt-0.5'}`}
                             style={{ fontSize: '0.8em' }}
                         >
                             {displayLabel}
