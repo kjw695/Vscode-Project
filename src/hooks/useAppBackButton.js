@@ -10,7 +10,8 @@ const useAppBackButton = ({
     moreSubView, setMoreSubView,
     selectedMainTab, setSelectedMainTab,
     activeContentTab, setActiveContentTab,
-    isEditing = false, closeEditMode = () => {}
+    isEditing = false, closeEditMode = () => {}, handleDayOffBack,
+    isDayOffModalOpen = false, setIsDayOffModalOpen = () => {}
 }) => {
     useEffect(() => {
         let backButtonListener;
@@ -41,10 +42,27 @@ const useAppBackButton = ({
                     return;
                 }
 
+                // 휴무 달력에서 진행 중인 교환/추가휴무 선택을 먼저 취소합니다.
+                if (handleDayOffBack && handleDayOffBack()) {
+                    return;
+                }
+
+                // 메인 달력에서 연 휴무 창이면 현재 창만 닫고 이전 화면으로 돌아갑니다.
+                if (isDayOffModalOpen) {
+                    setIsDayOffModalOpen(false);
+                    return;
+                }
+
                 // ✨ 4. 주소(Hash) 확인 및 뒤로 가기 (할부 창, 계산기 창 등)
                 // 이제 팝업이 모두 닫힌 상태에서만 할부 창이 닫힙니다.
                 if (window.location.hash) {
                     window.history.back();
+                    return;
+                }
+
+                // 통합형 일일요약 미리보기는 기존 홈으로 복귀합니다.
+                if (activeContentTab === 'integratedDailySummary') {
+                    setActiveContentTab('monthlyProfit');
                     return;
                 }
 
@@ -78,8 +96,8 @@ const useAppBackButton = ({
             }
         };
     }, [
-        modalState, isFilterModalOpen, isExpenseSettingsModalOpen, moreSubView, selectedMainTab, showConfirmation, 
-        isEditing, closeEditMode
+        modalState, isFilterModalOpen, isExpenseSettingsModalOpen, moreSubView, selectedMainTab, activeContentTab, showConfirmation, 
+        isEditing, closeEditMode, handleDayOffBack, isDayOffModalOpen, setIsDayOffModalOpen
     ]);
 };
 

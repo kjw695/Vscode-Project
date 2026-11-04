@@ -1,22 +1,50 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Menu, Settings, RefreshCw, ArrowLeft } from 'lucide-react';
 import CalendarTab from './CalendarTab';
 import PreferredTab from './PreferredTab';
 import ExchangeTab from './ExchangeTab';
+import ExtraDayOffRequestTab from './ExtraDayOffRequestTab';
 
 export const DayOffModal = ({ 
     isOpen, onClose, isDarkMode, showMessage, 
     monthlyStartDay, monthlyEndDay, selectedMonth,
-    currentUser, teamId
+    currentUser, teamId, registerBackHandler
 }) => {
     // ✨ 화면 모드 상태: 'main'(나의 스케줄 달력) | 'settings'(휴무 설정)
     const [viewMode, setViewMode] = useState('main');
     
-    // ✨ 설정 화면 내 탭 상태: 'preferred'(근무스케줄), 'exchange'(휴무일 교환하기), 'alternative'(대체휴일 교환)
+    // 휴무 설정 탭: 근무스케줄, 휴무일 교환하기, 추가휴무 요청
     const [settingTab, setSettingTab] = useState('preferred');
+    const calendarBackHandlerRef = useRef(null);
+
+    // 휴무 설정 화면에서는 먼저 나의 스케줄로 돌아가고, 달력 작업 단계는 달력에 위임합니다.
+    const registerCalendarBackHandler = useCallback((handler) => {
+        calendarBackHandlerRef.current = handler;
+        return () => {
+            if (calendarBackHandlerRef.current === handler) {
+                calendarBackHandlerRef.current = null;
+            }
+        };
+    }, []);
+
+    const handleDayOffModalBack = useCallback(() => {
+        if (viewMode === 'settings') {
+            setViewMode('main');
+            return true;
+        }
+
+        const calendarHandler = calendarBackHandlerRef.current;
+        return typeof calendarHandler === 'function' ? calendarHandler() : false;
+    }, [viewMode]);
+
+    useEffect(() => {
+        if (!isOpen || !registerBackHandler) return undefined;
+        return registerBackHandler(handleDayOffModalBack);
+    }, [isOpen, registerBackHandler, handleDayOffModalBack]);
 
     // ✨ 새로고침 로딩 상태 추가
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
 
     // 모달이 열릴 때마다 '나의 스케줄' 기본 화면으로 초기화
     useEffect(() => {
@@ -64,6 +92,7 @@ export const DayOffModal = ({
                                     onClick={() => {
                                         if (isRefreshing) return;
                                         setIsRefreshing(true);
+                                        setScheduleRefreshKey((previous) => previous + 1);
                                         setTimeout(() => {
                                             setIsRefreshing(false);
                                         }, 1000);
@@ -89,6 +118,8 @@ export const DayOffModal = ({
                                 onClose={onClose}
                                 teamId={teamId}
                                 currentUser={currentUser}
+                                refreshKey={scheduleRefreshKey}
+                                registerBackHandler={registerCalendarBackHandler}
                                 onNavigateToExchange={() => {
                                     setViewMode('settings');
                                     setSettingTab('exchange');
@@ -130,12 +161,11 @@ export const DayOffModal = ({
                                 onClick={() => setSettingTab('alternative')}
                                 className={`flex-1 py-3.5 text-center transition-all border-b-[3px] whitespace-nowrap px-1 ${settingTab === 'alternative' ? 'border-[#1E56D0] text-[#1E56D0] dark:border-blue-400 dark:text-blue-400' : 'border-transparent text-gray-500'}`}
                             >
-                                대체휴일(관) 교환
+                                추가휴무 요청
                             </button>
                         </div>
 
                         {/* 탭 내용 영역 */}
-                       {/* 탭 내용 영역 */}
                         <div className="flex-1 w-full relative overflow-hidden bg-white dark:bg-gray-900">
                             <div className="absolute inset-0 overflow-y-auto flex flex-col pb-48">
                                 {settingTab === 'preferred' && (
@@ -153,9 +183,10 @@ export const DayOffModal = ({
                                     />
                                 )}
                                 {settingTab === 'alternative' && (
-                                    <div className="flex-1 flex items-center justify-center text-gray-400 text-sm mt-20">
-                                        대체휴일 교환 기능은 준비 중입니다.
-                                    </div>
+                                    <ExtraDayOffRequestTab
+                                        currentUser={currentUser}
+                                        teamId={teamId}
+                                    />
                                 )}
                             </div>
                         </div>

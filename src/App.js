@@ -51,17 +51,23 @@ import { AppUpdate } from '@capawesome/capacitor-app-update';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import GoalSummaryCards from './components/GoalSummaryCards';
+import IntegratedDailySummaryView from './components/IntegratedDailySummaryView';
 import AverageItemsView from './components/more/AverageItemsView';
 import DashboardSettingsView from './components/more/DashboardSettingsView';
+import VolumeCalendarSettingsView from './components/more/VolumeCalendarSettingsView';
 import useDashboardSettings from './hooks/useDashboardSettings';
 // ✨ 휴무관리 모달 추가
 import { DayOffModal } from './components/dayOff/DayOffModal';
+import { supabase } from './lib/supabaseClient';
+import {
+    fetchMyOrganizationWeeklySchedules,
+    fetchMyOrganizationScheduleSyncFrom
+} from './services/organizationScheduleService';
 //로그인
 import LoginPage from './components/auth/LoginPage';
 import { useAuth } from './contexts/AuthContext';
 //팀관리
 import TeamManagementView from './components/team/TeamManagementView';
-import { joinTeamByCode } from './services/teamService';
 //관리자페이지
 import Main from './admin/Main';
 
@@ -101,6 +107,20 @@ const getSmartCurrentMonth = (startDay = 26) => {
     return `${year}-${String(month).padStart(2, '0')}`;
 };
 
+const HOME_CALENDAR_VOLUME_METRICS = [
+    { key: 'deliveryCount', label: '배송', shortLabel: '배' },
+    { key: 'deliveryInterruptionAmount', label: '중단', shortLabel: '중' },
+    { key: 'returnCount', label: '반품', shortLabel: '반' },
+    { key: 'freshBagCount', label: '프레시백', shortLabel: '프' }
+];
+
+const DEFAULT_HOME_CALENDAR_VOLUME_ITEMS = {
+    deliveryCount: true,
+    deliveryInterruptionAmount: true,
+    returnCount: true,
+    freshBagCount: true
+};
+
 function AppContent() {
     const navigate = useNavigate();
     useMigrationOnLogin();
@@ -109,26 +129,6 @@ const { isLoggedIn, user, profile } = useAuth();
 
 // ✨ 추가: 관리자 센터 수동 오픈 상태
     const [showAdminCenter, setShowAdminCenter] = useState(false);
-
-// ✨ 초대 링크(?code=xxxx)로 접속 시 자동 팀 가입 처리
-    useEffect(() => {
-        const handleAutoJoin = async () => {
-            const params = new URLSearchParams(window.location.search);
-            const inviteCode = params.get('code');
-
-            if (inviteCode && user) {
-                try {
-                    const res = await joinTeamByCode(inviteCode, user.id);
-                    if (showMessage) showMessage(res.message);
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                } catch (e) {
-                    console.error("자동 팀 가입 실패:", e.message);
-                }
-            }
-        };
-
-        handleAutoJoin();
-    }, [user]);
 
     // ✨ [추가] 현재 폰이 아이폰(iOS)인지 안드로이드인지 확인하는 마법!
     const isIOS = Capacitor.getPlatform() === 'ios';
@@ -153,10 +153,9 @@ const { isLoggedIn, user, profile } = useAuth();
         return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     });
     const [isFabVisible, setIsFabVisible] = useState(false);
-    const [selectedMainTab, setSelectedMainTab] = useState('home');
-    const [activeContentTab, setActiveContentTab] = useState('monthlyProfit');
+
     const [activeDataTab, setActiveDataTab] = useState('entry');
-    const [moreSubView, setMoreSubView] = useState('main');
+
     const [initialExpenseTab, setInitialExpenseTab] = useState('income');
     const [isExpenseSettingsModalOpen, setIsExpenseSettingsModalOpen] = useState(false); // ✨ 항목 관리 팝업 상태
 
@@ -179,6 +178,27 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
     const [calendarMode, setCalendarMode] = useState('money');
+    const [homeCalendarDesign] = useState(() => {
+        try {
+            const settings = JSON.parse(localStorage.getItem('appSettings') || '{}');
+            return settings.homeCalendarDesign === 'classic' ? 'classic' : 'current';
+        } catch (error) {
+            console.warn('홈 달력 디자인 설정을 읽지 못했습니다:', error);
+            return 'current';
+        }
+    });
+    const [homeCalendarVolumeItems, setHomeCalendarVolumeItems] = useState(() => {
+        try {
+            const settings = JSON.parse(localStorage.getItem('appSettings') || '{}');
+            return {
+                ...DEFAULT_HOME_CALENDAR_VOLUME_ITEMS,
+                ...(settings.homeCalendarVolumeItems || {})
+            };
+        } catch (error) {
+            console.warn('홈 달력 물량 항목 설정을 읽지 못했습니다:', error);
+            return DEFAULT_HOME_CALENDAR_VOLUME_ITEMS;
+        }
+    });
 
     const [statisticsView, setStatisticsView] = useState('monthly');
     const [monthlyStatsSubTab, setMonthlyStatsSubTab] = useState('overview');
@@ -225,6 +245,10 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [isDayOffModalOpen, setIsDayOffModalOpen] = useState(false); // ✨ 휴무 모달 상태 추가
+    // 홈 달력은 기존 배송 실적을 유지하면서 휴무 페이지와 같은 회사 일정/신청 상태를 읽습니다.
+    const [homePublishedSchedules, setHomePublishedSchedules] = useState([]);
+    const [homeScheduleSyncFrom, setHomeScheduleSyncFrom] = useState(null);
+    const [homeExtraDayOffRequests, setHomeExtraDayOffRequests] = useState([]);
     const [filters, setFilters] = useState({ period: 'all', startDate: '', endDate: '', type: 'all' });
 
     // --- 팝업 및 로딩 ---
@@ -239,6 +263,76 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const touchEndY = useRef(null);
     const mainTouchStartX = useRef(null); // ✨ [추가] 바탕화면 스와이프 전용
     const mainTouchStartY = useRef(null);
+    const [selectedMainTab, setSelectedMainTab] = useState('home');
+    const [activeContentTab, setActiveContentTab] = useState('monthlyProfit');
+        const [moreSubView, setMoreSubView] = useState('main');
+    const [autoEditAccountProfile, setAutoEditAccountProfile] = useState(false);
+
+
+// 초대 링크를 열면 팀 관리 화면으로 이동하고 코드를 전달합니다.
+// 실제 가입은 사용자가 '팀 가입하기'를 눌렀을 때 실행합니다.
+useEffect(() => {
+    const openInviteScreen = (rawCode) => {
+        const code = String(rawCode || '').trim();
+
+        if (!code) return;
+
+        try {
+            localStorage.setItem('pendingInviteCode', code);
+        } catch (error) {
+            console.error('[Invite] 초대코드 저장 실패:', error);
+            return;
+        }
+
+        if (user) {
+            setSelectedMainTab('more');
+            setActiveContentTab('adminSettings');
+            setMoreSubView('team');
+        }
+    };
+
+    const handleInviteEvent = (event) => {
+        const code =
+            event.detail?.code ||
+            localStorage.getItem('pendingInviteCode');
+
+        openInviteScreen(code);
+    };
+
+    window.addEventListener(
+        'deliverytracker:invite-link',
+        handleInviteEvent
+    );
+
+    // 기존 ?code= 형식의 링크도 지원합니다.
+    const params = new URLSearchParams(window.location.search);
+    const queryCode = params.get('code');
+
+    if (queryCode) {
+        openInviteScreen(queryCode);
+
+        window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname
+        );
+    } else if (user) {
+        // 로그인 전에 받은 초대코드가 있으면 로그인 후 처리합니다.
+        const pendingCode = localStorage.getItem('pendingInviteCode');
+
+        if (pendingCode) {
+            openInviteScreen(pendingCode);
+        }
+    }
+
+    return () => {
+        window.removeEventListener(
+            'deliverytracker:invite-link',
+            handleInviteEvent
+        );
+    };
+}, [user]);
+
 
    useEffect(() => {
         if (localStorage.getItem('returnToAccount') === 'true') {
@@ -754,7 +848,7 @@ const handleTodayClick = () => {
         
      
 
-    const generateCalendarDays = useCallback(() => {
+    const generateCalendarDays = () => {
         const year = currentCalendarDate.getFullYear();
         const month = currentCalendarDate.getMonth();
         let periodStartDate, periodEndDate;
@@ -791,25 +885,31 @@ const handleTodayClick = () => {
         while (dayIterator <= calendarEndDate) {
             const formattedDate = toDateStr(dayIterator);
             
-            //✨ [추가] 이 날짜에 '휴무' 이름표가 붙은 데이터가 있는지 확인
-            const isDayOff = entries.some(e => e.date === formattedDate && e.memo === '[휴무]');
-
             const isWithinPeriod = formattedDate >= pStartStr && formattedDate <= pEndStr;
             const isToday = formattedDate === todayStr;
             
             const dailyData = breakdown[formattedDate] || { revenue: 0, expenses: 0 };
             
 
-            // ✨ [새로 추가된 로직] 그날의 총 물량 계산하기
+            // 기존 평균 물량 계산은 유지하고, 달력 표시용 항목별 건수만 별도로 집계합니다.
             let dailyVolume = 0;
+            const dailyVolumeBreakdown = HOME_CALENDAR_VOLUME_METRICS.reduce((result, item) => {
+                result[item.key] = 0;
+                return result;
+            }, {});
+
             if (isWithinPeriod) {
                 const dailyEntries = entries.filter(e => e.date === formattedDate && e.type === 'income');
                 dailyEntries.forEach(entry => {
                     if (entry.customItems && entry.customItems.length > 0) {
                         entry.customItems.forEach(item => {
+                            const count = Number(item.count || 0);
                             const label = itemLabels[item.key] || item.key;
                             if (selectedItemsForAverage.includes(label)) {
-                                dailyVolume += Number(item.count || 0);
+                                dailyVolume += count;
+                            }
+                            if (Object.prototype.hasOwnProperty.call(dailyVolumeBreakdown, item.key)) {
+                                dailyVolumeBreakdown[item.key] += count;
                             }
                         });
                     } else {
@@ -818,6 +918,9 @@ const handleTodayClick = () => {
                             if (selectedItemsForAverage.includes(label)) {
                                 dailyVolume += Number(entry[config.key] || 0);
                             }
+                        });
+                        HOME_CALENDAR_VOLUME_METRICS.forEach((item) => {
+                            dailyVolumeBreakdown[item.key] += Number(entry[item.key] || 0);
                         });
                     }
                 });
@@ -831,15 +934,203 @@ const handleTodayClick = () => {
                 revenue: isWithinPeriod ? dailyData.revenue : 0, 
                 expenses: isWithinPeriod ? dailyData.expenses : 0 ,
                 volume: dailyVolume,
-                isDayOff: isDayOff
+                volumeBreakdown: dailyVolumeBreakdown
             });
 
             dayIterator.setDate(dayIterator.getDate() + 1);
         }
         return days;
-    }, [currentCalendarDate, monthlyStartDay, monthlyEndDay, monthlyProfit.dailyBreakdown, entries, itemLabels, selectedItemsForAverage, incomeConfig]);
+    };
+
+
+    // 휴무 데이터 조회 기간은 실적 달력 생성 전에 독립적으로 계산합니다.
+    const homeCalendarQueryRange = (() => {
+        const year = currentCalendarDate.getFullYear();
+        const month = currentCalendarDate.getMonth();
+        const startDay = Number(monthlyStartDay) || 26;
+        const endDay = Number(monthlyEndDay) || 25;
+        const periodStart = startDay > endDay
+            ? new Date(year, month - 1, startDay)
+            : new Date(year, month, startDay);
+        const periodEnd = new Date(year, month, endDay);
+        const calendarStart = new Date(periodStart);
+        calendarStart.setDate(calendarStart.getDate() - calendarStart.getDay());
+        const calendarEnd = new Date(periodEnd);
+        if (calendarEnd.getDay() !== 6) {
+            calendarEnd.setDate(calendarEnd.getDate() + (6 - calendarEnd.getDay()));
+        }
+        const toDateString = (date) =>
+            `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        return { startDate: toDateString(calendarStart), endDate: toDateString(calendarEnd) };
+    })();
+    const homeCalendarStartDate = homeCalendarQueryRange.startDate;
+    const homeCalendarEndDate = homeCalendarQueryRange.endDate;
+
+    useEffect(() => {
+        const organizationId = profile?.organization_id;
+        if (!organizationId || !user?.id || !homeCalendarStartDate || !homeCalendarEndDate) {
+            setHomePublishedSchedules([]);
+            setHomeScheduleSyncFrom(null);
+            setHomeExtraDayOffRequests([]);
+            return undefined;
+        }
+
+        let isActive = true;
+        const loadHomeDayOffData = async () => {
+            try {
+                const [rows, syncFrom] = await Promise.all([
+                    fetchMyOrganizationWeeklySchedules(homeCalendarStartDate, homeCalendarEndDate),
+                    fetchMyOrganizationScheduleSyncFrom()
+                ]);
+                if (isActive) {
+                    setHomePublishedSchedules(Array.isArray(rows) ? rows : []);
+                    setHomeScheduleSyncFrom(syncFrom || null);
+                }
+            } catch (error) {
+                console.error('홈 달력의 관리자 확정 근무표 조회 실패:', error);
+                if (isActive) {
+                    setHomePublishedSchedules([]);
+                    setHomeScheduleSyncFrom(null);
+                }
+            }
+
+            // 추가휴무 신청 상태는 근무표 조회와 분리해 읽어, 한쪽 오류가 다른 쪽 표시를 막지 않게 합니다.
+            try {
+                const { data, error } = await supabase.rpc('list_my_extra_day_off_requests');
+                if (error) throw error;
+                if (isActive) {
+                    setHomeExtraDayOffRequests(Array.isArray(data) ? data : []);
+                }
+            } catch (error) {
+                console.error('홈 달력의 추가휴무 신청 상태 조회 실패:', error);
+            }
+        };
+
+        loadHomeDayOffData();
+        const timer = window.setInterval(loadHomeDayOffData, 15000);
+        return () => {
+            isActive = false;
+            window.clearInterval(timer);
+        };
+    }, [
+        profile?.organization_id,
+        user?.id,
+        homeCalendarStartDate,
+        homeCalendarEndDate
+    ]);
+
+    // 직원 본인에게 해당하는 관리자 확정 근무표 상태를 날짜별로 정리합니다.
+    const homeMyPublishedScheduleByDate = useMemo(() => {
+        const result = {};
+        const userId = String(user?.id || '');
+        if (!profile?.organization_id || !userId) return result;
+
+        homePublishedSchedules.forEach((published) => {
+            const ownDetails = published.employee_details?.[userId];
+            if (!ownDetails) return;
+
+            if (published.status !== 'confirmed') {
+                const weekStart = new Date(`${published.week_start}T12:00:00`);
+                for (let offset = 0; offset < 7; offset += 1) {
+                    const date = new Date(weekStart);
+                    date.setDate(weekStart.getDate() + offset);
+                    const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                    if (homeScheduleSyncFrom && dateKey < homeScheduleSyncFrom) continue;
+                    result[dateKey] = { status: 'pending' };
+                }
+                return;
+            }
+
+            Object.entries(published.schedule || {}).forEach(([dateKey, dayRecord]) => {
+                if (homeScheduleSyncFrom && dateKey < homeScheduleSyncFrom) return;
+
+                let status = ['off', 'backup', 'work', 'pending'].includes(dayRecord?.status)
+                    ? dayRecord.status
+                    : null;
+
+                if (!status) {
+                    const offIds = Array.isArray(dayRecord?.offEmployeeIds)
+                        ? dayRecord.offEmployeeIds
+                        : [];
+                    const isOff = offIds.some((item) => {
+                        const id = item && typeof item === 'object'
+                            ? (item.employeeId || item.employee_id || item.id)
+                            : item;
+                        return String(id) === userId;
+                    });
+                    const assignment = dayRecord?.assignment ||
+                        (Array.isArray(dayRecord?.subs)
+                            ? dayRecord.subs.find((item) => String(item.subId) === userId) || null
+                            : null);
+                    status = isOff ? 'off' : assignment ? 'backup' : 'work';
+                }
+
+                result[dateKey] = { status };
+            });
+        });
+
+        return result;
+    }, [
+        homePublishedSchedules,
+        user?.id,
+        profile?.organization_id,
+        homeScheduleSyncFrom
+    ]);
+
+    // 날짜별로 가장 최근 추가휴무 신청 상태 하나만 표시합니다.
+    const homeExtraDayOffRequestStatusByDate = useMemo(() => {
+        const statusByDate = {};
+        [...homeExtraDayOffRequests]
+            .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+            .forEach((request) => {
+                if (!request.requested_date) return;
+                const dateKey = String(request.requested_date).slice(0, 10);
+                if (!Object.prototype.hasOwnProperty.call(statusByDate, dateKey)) {
+                    statusByDate[dateKey] = request.status;
+                }
+            });
+        return statusByDate;
+    }, [homeExtraDayOffRequests]);
 
     const calendarDays = generateCalendarDays();
+
+    // 서버의 휴무/신청 상태는 기본 배송 실적 달력이 만들어진 다음 별도로 합칩니다.
+    // 초기 렌더링에서 아직 로딩되지 않은 상태 맵을 참조하지 않도록 순서를 분리합니다.
+    const calendarDaysWithDayOff = calendarDays.map((dayInfo) => {
+        const dateKey = dayInfo.date;
+        const personalIsDayOff = entries.some((entry) => {
+            if (entry.date !== dateKey) return false;
+            return Boolean(entry.memo && entry.memo.includes('휴무')) ||
+                (Array.isArray(entry.customItems) &&
+                    entry.customItems.some((item) => item?.key === 'dayOff'));
+        });
+        const hasOrganization = Boolean(profile?.organization_id);
+        const isBeforeScheduleSync = Boolean(
+            hasOrganization &&
+            homeScheduleSyncFrom &&
+            dateKey < homeScheduleSyncFrom
+        );
+        const managerDayStatus = homeMyPublishedScheduleByDate[dateKey]?.status || null;
+        const isDayOff = hasOrganization
+            ? (isBeforeScheduleSync ? personalIsDayOff : managerDayStatus === 'off')
+            : personalIsDayOff;
+        const extraDayOffRequestStatus = hasOrganization
+            ? homeExtraDayOffRequestStatusByDate[dateKey] || null
+            : null;
+        const volumeDisplayTotal = HOME_CALENDAR_VOLUME_METRICS.reduce((total, metric) => {
+            return total + (homeCalendarVolumeItems[metric.key]
+                ? Number(dayInfo.volumeBreakdown?.[metric.key] || 0)
+                : 0);
+        }, 0);
+
+        return {
+            ...dayInfo,
+            isDayOff,
+            extraDayOffRequestStatus,
+            volumeDisplayTotal
+        };
+    });
+
     const yearlyPeriod = useMemo(() => {
         const year = parseInt(selectedYear); let startDate, endDate;
         if (monthlyStartDay > monthlyEndDay) { startDate = new Date(year - 1, 11, monthlyStartDay); endDate = new Date(year, 11, monthlyEndDay); }
@@ -872,7 +1163,25 @@ const handleTodayClick = () => {
     }, [monthlyEndDay]);
 
 
+    // 휴무 달력에서 현재 진행 중인 작업을 Android 뒤로가기로 취소할 수 있게 연결합니다.
+    const dayOffBackHandlerRef = useRef(null);
+    const registerDayOffBackHandler = useCallback((handler) => {
+        dayOffBackHandlerRef.current = handler;
+        return () => {
+            if (dayOffBackHandlerRef.current === handler) {
+                dayOffBackHandlerRef.current = null;
+            }
+        };
+    }, []);
+    const handleDayOffBack = useCallback(() => {
+        const handler = dayOffBackHandlerRef.current;
+        return typeof handler === 'function' ? handler() : false;
+    }, []);
+
     useAppBackButton({
+        handleDayOffBack,
+        isDayOffModalOpen,
+        setIsDayOffModalOpen,
         modalState, closeModal, showConfirmation, isFilterModalOpen, setIsFilterModalOpen,
         isExpenseSettingsModalOpen, setIsExpenseSettingsModalOpen,
         moreSubView, setMoreSubView, selectedMainTab, setSelectedMainTab, activeContentTab, setActiveContentTab,
@@ -984,6 +1293,15 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                     <>
                        {activeContentTab === 'monthlyProfit' && (
     <>
+        <div className="flex justify-end px-1 pb-1">
+            <button
+                type="button"
+                onClick={() => setActiveContentTab('integratedDailySummary')}
+                className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold transition-colors ${isDarkMode ? 'text-gray-300 bg-gray-800 hover:bg-gray-700' : 'text-slate-600 bg-slate-50 hover:bg-slate-100'}`}
+            >
+                통합형 일일요약 미리보기 <ChevronRight size={14} />
+            </button>
+        </div>
         <GoalSummaryCards 
             entries={entries}
             monthlyProfit={monthlyProfit} 
@@ -1065,84 +1383,174 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                         onTouchMove={onCalendarTouchMove}
                                         onTouchEnd={onCalendarTouchEnd}
                                     >
-                                        <div className="grid grid-cols-7 text-center mb-1"> 
+                                        <div className={`grid grid-cols-7 mb-0 text-center text-[11px] font-black uppercase w-full py-1.5 border-y ${isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'}`}>
                                             {['일', '월', '화', '수', '목', '금', '토'].map((day, i) => (
-                                                <div key={day} className={`text-xs sm:text-sm font-bold ${
-                                                    i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : (isDarkMode ? 'text-gray-400' : 'text-gray-500')
-                                                }`}>
+                                                <div key={day} className={i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : (isDarkMode ? 'text-gray-400' : 'text-gray-500')}>
                                                     {day}
                                                 </div>
                                             ))}
                                         </div>
 
-                                        <div className="grid grid-cols-7 gap-x-0 gap-y-0"> 
-                                            {calendarDays.map((dayInfo, index) => (
-                                                <div 
-                                                    key={index} 
-                                                    onClick={() => handleCalendarDateClick(dayInfo.date)} 
-                                                    className={`
-                                                        cursor-pointer h-[55px] flex flex-col rounded-md transition-colors
-                                                        ${dayInfo.isDayOff 
-                                                            ? (isDarkMode ? 'bg-gray-700/60' : 'bg-gray-200') // ✨ 휴무일이면 회색 배경!
-                                                            : (isDarkMode ? 'bg-gray-800' : 'bg-white')       // 평상시 배경
-                                                        }
-                                                    `}
+                                        <div className={homeCalendarDesign === 'current'
+                                            ? `grid grid-cols-7 w-full border-l ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`
+                                            : 'grid grid-cols-7 gap-x-0 gap-y-0'
+                                        }>
+                                            {calendarDaysWithDayOff.map((dayInfo, index) => (
+                                                <div
+                                                    key={dayInfo.date}
+                                                    onClick={() => handleCalendarDateClick(dayInfo.date)}
+                                                    className={homeCalendarDesign === 'current'
+                                                        ? `relative flex flex-col items-center justify-start p-1 h-20 border-b border-r transition-colors cursor-pointer
+                                                            ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}
+                                                            ${dayInfo.isToday
+                                                                ? (isDarkMode ? 'bg-green-900/60' : 'bg-green-100')
+                                                                : dayInfo.isDayOff
+                                                                    ? (isDarkMode ? 'bg-gray-700/60' : 'bg-gray-100')
+                                                                    : (isDarkMode ? 'bg-gray-800' : 'bg-white')}
+                                                        `
+                                                        : `relative flex flex-col items-center justify-start h-[55px] rounded-md transition-colors cursor-pointer
+                                                            ${dayInfo.isDayOff
+                                                                ? (isDarkMode ? 'bg-gray-700/60' : 'bg-gray-200')
+                                                                : (isDarkMode ? 'bg-gray-800' : 'bg-white')}
+                                                        `
+                                                    }
                                                 >
-                                                    <div className="h-[35px] w-full flex items-center justify-center pb-0.5"> 
-                                                       <span className={`
-    flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold
-    ${!dayInfo.isCurrentMonth ? (isDarkMode ? 'text-gray-600' : 'text-gray-300') : ''} 
-    ${dayInfo.isCurrentMonth && index % 7 === 0 ? 'text-red-500' : ''} 
-    ${dayInfo.isCurrentMonth && index % 7 === 6 ? 'text-blue-500' : ''} 
-    ${dayInfo.isToday ? 'border-4 border-yellow-400 shadow-sm' : ''} 
-`}>
-    {dayInfo.day}
-</span>
+                                                    <div className={homeCalendarDesign === 'current'
+                                                        ? 'relative flex w-full items-center justify-between px-1'
+                                                        : 'relative flex h-[30px] w-full items-center justify-center'
+                                                    }>
+                                                        <span className={homeCalendarDesign === 'current'
+                                                            ? `text-[clamp(9px,3.6vw,13px)] font-bold
+                                                                ${!dayInfo.isCurrentMonth ? (isDarkMode ? 'text-gray-600' : 'text-gray-400') : ''}
+                                                                ${dayInfo.isCurrentMonth && index % 7 === 0 ? 'text-red-500' : ''}
+                                                                ${dayInfo.isCurrentMonth && index % 7 === 6 ? 'text-blue-500' : ''}
+                                                                ${dayInfo.isToday ? (isDarkMode ? 'text-green-200' : 'text-green-800') : ''}
+                                                            `
+                                                            : `flex items-center justify-center w-8 h-8 rounded-full text-[clamp(10px,3.8vw,14px)] font-semibold
+                                                                ${!dayInfo.isCurrentMonth ? (isDarkMode ? 'text-gray-600' : 'text-gray-300') : ''}
+                                                                ${dayInfo.isCurrentMonth && index % 7 === 0 ? 'text-red-500' : ''}
+                                                                ${dayInfo.isCurrentMonth && index % 7 === 6 ? 'text-blue-500' : ''}
+                                                                ${dayInfo.isToday ? 'border-4 border-yellow-400 shadow-sm' : ''}
+                                                            `
+                                                        }>
+                                                            {dayInfo.day}
+                                                        </span>
+
+                                                        {dayInfo.isCurrentMonth && dayInfo.extraDayOffRequestStatus === 'pending' && (
+                                                            <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-orange-500" title="휴무 신청 대기" aria-label="휴무 신청 대기" />
+                                                        )}
+                                                        {dayInfo.isCurrentMonth && dayInfo.extraDayOffRequestStatus === 'approved' && (
+                                                            <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-blue-500" title="휴무 신청 승인" aria-label="휴무 신청 승인" />
+                                                        )}
+                                                        {dayInfo.isCurrentMonth && dayInfo.extraDayOffRequestStatus === 'declined' && (
+                                                            <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-red-500" title="휴무 신청 거절" aria-label="휴무 신청 거절" />
+                                                        )}
                                                     </div>
 
-                                                   <div className="flex-1 w-full flex flex-col items-center justify-start -mt-0.5">
-  {/* ✨ 휴무일 경우 글자 표시 (금액/물량 상관없이 무조건 띄워라!) */}
-{dayInfo.isDayOff && (
-    <span className="text-indigo-500 dark:text-indigo-400 text-[9px] font-black leading-none mt-0.5">휴무</span>
-)}
+                                                    <div className={homeCalendarDesign === 'current'
+                                                        ? 'flex flex-col items-center justify-start mt-1 w-full space-y-0.5'
+                                                        : 'flex flex-col items-center justify-start w-full px-0.5 -mt-0.5 space-y-0'
+                                                    }>
+                                                        {dayInfo.isCurrentMonth && dayInfo.isDayOff && (
+                                                            <span className={homeCalendarDesign === 'current'
+                                                                ? 'whitespace-nowrap text-[clamp(6px,2.4vw,10px)] font-bold leading-[10px] text-gray-500 dark:text-gray-400'
+                                                                : 'whitespace-nowrap text-[clamp(5px,1.9vw,7px)] font-bold leading-[8px] text-indigo-500 dark:text-indigo-400'
+                                                            }>
+                                                                ○ 휴무
+                                                            </span>
+                                                        )}
 
-{calendarMode === 'money' ? (
-    <>
-        {dayInfo.isCurrentMonth && dayInfo.revenue > 0 && (
-            <span className="text-red-500 text-[8px] font-medium leading-none mb-0.5">
-                {dayInfo.revenue.toLocaleString()}
-            </span>
-        )}
-        {dayInfo.isCurrentMonth && dayInfo.expenses > 0 && (
-            <span className="text-blue-500 text-[8px] font-medium leading-none">
-                {dayInfo.expenses.toLocaleString()}
-            </span>
-        )}
-    </>
-) : (
-    <>
-        {dayInfo.isCurrentMonth && dayInfo.volume > 0 && (
-            <span className={`text-[9px] font-black leading-none mt-1 tracking-tighter ${
-                dayInfo.volume > (monthlyProfit.dailyAverageVolume * 1.1) ? 'text-red-500' :       /* 평균보다 10% 이상 많으면 빨강 */
-                dayInfo.volume < (monthlyProfit.dailyAverageVolume * 0.9) ? 'text-blue-500' :      /* 평균보다 10% 이상 적으면 파랑 */
-                'text-orange-500'                                                                  /* 그 중간은 보통(주황) */
-            }`}>
-                {dayInfo.volume.toLocaleString()}개
-            </span>
-        )}
-    </>
-)}
-                
-    
-</div>
-
+                                                        {calendarMode === 'money' ? (
+                                                            <>
+                                                                {dayInfo.isCurrentMonth && dayInfo.volumeDisplayTotal > 0 && (
+                                                                    <span className={homeCalendarDesign === 'current'
+                                                                        ? 'whitespace-nowrap text-[clamp(6px,2.2vw,9px)] font-bold leading-tight text-gray-600 dark:text-gray-300'
+                                                                        : 'whitespace-nowrap text-[clamp(5px,1.8vw,8px)] font-bold leading-[9px] text-gray-600 dark:text-gray-300'
+                                                                    }>
+                                                                        {dayInfo.volumeDisplayTotal.toLocaleString()}건
+                                                                    </span>
+                                                                )}
+                                                                {dayInfo.isCurrentMonth && dayInfo.revenue > 0 && (
+                                                                    <span className={homeCalendarDesign === 'current'
+                                                                        ? 'whitespace-nowrap text-red-500 text-[clamp(6px,2.2vw,9px)] font-semibold leading-tight'
+                                                                        : 'whitespace-nowrap text-red-500 text-[clamp(5px,1.8vw,8px)] font-semibold leading-[9px]'
+                                                                    }>
+                                                                        {dayInfo.revenue.toLocaleString()}원
+                                                                    </span>
+                                                                )}
+                                                                {dayInfo.isCurrentMonth && dayInfo.expenses > 0 && (
+                                                                    <span className={homeCalendarDesign === 'current'
+                                                                        ? 'whitespace-nowrap text-blue-500 text-[clamp(6px,2.2vw,9px)] font-medium leading-tight'
+                                                                        : 'whitespace-nowrap text-blue-500 text-[clamp(5px,1.8vw,8px)] font-medium leading-[9px]'
+                                                                    }>
+                                                                        {dayInfo.expenses.toLocaleString()}원
+                                                                    </span>
+                                                                )}
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <div className={homeCalendarDesign === 'current'
+                                                                    ? 'flex flex-col items-center gap-y-0 w-full'
+                                                                    : 'grid grid-cols-2 gap-x-0.5 gap-y-0 w-full'
+                                                                }>
+                                                                    {dayInfo.isCurrentMonth && HOME_CALENDAR_VOLUME_METRICS.map((metric) => {
+                                                                        if (!homeCalendarVolumeItems[metric.key]) return null;
+                                                                        const amount = Number(dayInfo.volumeBreakdown?.[metric.key] || 0);
+                                                                        if (amount <= 0) return null;
+                                                                        const label = incomeConfig.find((item) => item.key === metric.key)?.label || metric.label;
+                                                                        return (
+                                                                            <span
+                                                                                key={metric.key}
+                                                                                className={homeCalendarDesign === 'current'
+                                                                                    ? 'min-w-0 whitespace-nowrap text-[clamp(5px,1.55vw,8px)] font-semibold leading-[9px] text-gray-700 dark:text-gray-300'
+                                                                                    : 'min-w-0 whitespace-nowrap text-[clamp(5px,1.35vw,7px)] font-semibold leading-[8px] text-gray-700 dark:text-gray-300'
+                                                                                }
+                                                                                title={`${label} ${amount}건`}
+                                                                            >
+                                                                                {homeCalendarDesign === 'classic' ? metric.shortLabel : label} {amount}
+                                                                            </span>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             ))}
-                                      </div>
+                                        </div>
+
+                                        <div className={`mt-1 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-1 text-[9px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                            <span><span className="text-gray-400">○</span> 휴무</span>
+                                            <span><span className="text-orange-500">●</span> 대기</span>
+                                            <span><span className="text-blue-500">●</span> 승인</span>
+                                            <span><span className="text-red-500">●</span> 거절</span>
+                                        </div>
     </div>
     </div>
     </>
 )}
+
+                        {activeContentTab === 'integratedDailySummary' && (
+                            <IntegratedDailySummaryView
+                                entries={entries}
+                                monthlyProfit={monthlyProfit}
+                                previousMonthlyProfit={previousMonthlyProfit}
+                                selectedMonth={selectedMonth}
+                                monthlyStartDay={monthlyStartDay}
+                                monthlyEndDay={monthlyEndDay}
+                                goal={goalAmount}
+                                selectedInsurance={selectedInsurance}
+                                selectedItemsForAverage={selectedItemsForAverage}
+                                itemLabels={itemLabels}
+                                isDarkMode={isDarkMode}
+                                onBack={() => setActiveContentTab('monthlyProfit')}
+                                onOpenInsurance={() => {
+                                    setSelectedMainTab('more');
+                                    setActiveContentTab('adminSettings');
+                                    setMoreSubView('insurance');
+                                }}
+                            />
+                        )}
 
                         {activeContentTab === 'dataEntry' && (
                             <div className="w-full h-full flex flex-col pt-2" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
@@ -1232,13 +1640,38 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                         {activeContentTab === 'adminSettings' && (
                             <div className={`p-4 sm:p-6 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
                                 {moreSubView === 'main' && <MoreView onNavigate={setMoreSubView} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />}
-                                {moreSubView === 'account' && <AccountView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} handleLogout={handleLogout} />}
+                                {moreSubView === 'account' && (
+                                    <AccountView
+                                        onBack={() => {
+                                            setAutoEditAccountProfile(false);
+                                            let returnToTeam = false;
+                                            try {
+                                                returnToTeam = localStorage.getItem('returnToTeamAfterProfile') === 'true';
+                                                if (returnToTeam) {
+                                                    localStorage.removeItem('returnToTeamAfterProfile');
+                                                }
+                                            } catch (error) {
+                                                console.warn('[Invite] 가입 재개 상태 확인 실패:', error);
+                                            }
+                                            setMoreSubView(returnToTeam ? 'team' : 'main');
+                                        }}
+                                        isDarkMode={isDarkMode}
+                                        handleLogout={handleLogout}
+                                        autoEdit={autoEditAccountProfile}
+                                    />
+                                )}
                                 {moreSubView === 'team' && (
         <TeamManagementView 
             onBack={() => setMoreSubView('main')} 
             isDarkMode={isDarkMode} 
             showMessage={showMessage} 
-            onGoToAdmin={() => setShowAdminCenter(true)} 
+            onGoToAdmin={() => setShowAdminCenter(true)}
+            onGoToAccount={() => {
+                setSelectedMainTab('more');
+                setActiveContentTab('adminSettings');
+                setAutoEditAccountProfile(true);
+                setMoreSubView('account');
+            }}
         />
     )}
                                     {moreSubView === 'dayOff' && (
@@ -1252,6 +1685,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
         selectedMonth={selectedMonth} 
         currentUser={user} 
             teamId={profile?.organization_id}
+            registerBackHandler={registerDayOffBackHandler}
     />
 )}
                                 {moreSubView === 'unitPrice' && <UnitPriceView onBack={() => { setMoreSubView('main'); setTargetItemKey(null); }} isDarkMode={isDarkMode} adminFavoritePricesInput={adminFavoritePricesInput} setAdminFavoritePricesInput={setAdminFavoritePricesInput} handleSaveFavoritePrices={handleSaveFavoritePrices} favoriteUnitPrices={favoriteUnitPrices} targetItemKey={targetItemKey} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} />}
@@ -1260,13 +1694,29 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                             {/* ✨ 더보기 메뉴에서 진입할 때는 무조건 '수익(income)' 탭으로 고정! */}
                                 {moreSubView === 'expenseSettings' && <ExpenseSettingsView initialTab="income" onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} expenseConfig={expenseConfig} setExpenseConfig={setExpenseConfig} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} onNavigate={(view, key) => { setMoreSubView(view); if (key) setTargetItemKey(key); }} />}
 {moreSubView === 'dashboard_settings' && (
-    <DashboardSettingsView 
+    <DashboardSettingsView
         isDarkMode={isDarkMode}
         onBack={() => setMoreSubView('main')}
         config={dashboardConfig}
         onSave={(newConfig) => {
-            saveDashboardConfig(newConfig); // 훅의 저장 함수 사용
-            showMessage("✅ 홈 화면 설정이 저장되었습니다.");
+            saveDashboardConfig(newConfig);
+            showMessage("✅ 홈 화면 구성이 저장되었습니다.");
+        }}
+    />
+)}
+{moreSubView === 'calendar_volume_settings' && (
+    <VolumeCalendarSettingsView
+        isDarkMode={isDarkMode}
+        onBack={() => setMoreSubView('main')}
+        volumeDisplayItems={homeCalendarVolumeItems}
+        onSave={(newVolumeDisplayItems) => {
+            const nextVolumeItems = {
+                ...DEFAULT_HOME_CALENDAR_VOLUME_ITEMS,
+                ...(newVolumeDisplayItems || {})
+            };
+            setHomeCalendarVolumeItems(nextVolumeItems);
+            saveSettingsToLocal({ homeCalendarVolumeItems: nextVolumeItems });
+            showMessage("✅ 물량 달력 표시 설정이 저장되었습니다.");
         }}
     />
 )}
@@ -1441,6 +1891,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                 handleDelete={handleDelete}
                 currentUser={user}
                 teamId={profile?.organization_id}
+                registerBackHandler={registerDayOffBackHandler}
             /> 
         </div>
     );

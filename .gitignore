@@ -21,3 +21,9 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Local environment files may contain API credentials. Keep only the safe template tracked.
+.env
+env
+.env.*
+!.env.example

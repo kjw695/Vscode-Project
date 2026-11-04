@@ -37,37 +37,104 @@ export function AuthProvider({ children }) {
             setUser(session?.user ?? null);
         });
 
-      // ✨ [모바일 핵심] 딥링크(로그인 완료 후 앱으로 복귀) 수신 처리
-        const setupDeepLink = async () => {
-            await App.addListener('appUrlOpen', async (event) => {
-                if (event.url.includes('login-callback')) {
-                    // 1. 열려있던 구글 로그인 브라우저 창 닫기
-                    await Browser.close().catch(() => {});
-                    
-                    // 2. 반환된 URL에서 인증 토큰 부분 추출
-                    const urlObj = new URL(event.url);
-                    
-                    if (urlObj.hash) {
-                        window.location.hash = urlObj.hash;
-                        
-                        // ✨ 추가: 새로고침 직전에 "계정 화면이었다"고 메모 남기기
-                        localStorage.setItem('returnToAccount', 'true'); 
-                        
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 100);
-                    }
+      // 모바일 딥링크: 로그인 복귀와 팀 초대를 함께 처리합니다.
+let appUrlListener = null;
+
+const handleIncomingUrl = async (rawUrl) => {
+    if (!isMounted || !rawUrl) return;
+
+    let urlObj;
+
+    try {
+        urlObj = new URL(rawUrl);
+    } catch (error) {
+        console.warn('[DeepLink] URL 해석 실패:', error);
+        return;
+    }
+
+    // 1. 기존 Google / Apple 로그인 복귀 처리
+    if (urlObj.host === 'login-callback') {
+        await Browser.close().catch(() => {});
+
+        if (urlObj.hash) {
+            window.location.hash = urlObj.hash;
+
+            localStorage.setItem('returnToAccount', 'true');
+
+            window.setTimeout(() => {
+                if (isMounted) {
+                    window.location.reload();
                 }
+            }, 100);
+        }
+
+        return;
+    }
+
+    // 2. 팀 초대 링크 처리
+    if (urlObj.host === 'invite') {
+        const inviteCode = (
+            urlObj.searchParams.get('code') || ''
+        ).trim();
+
+        if (!inviteCode) {
+            console.warn('[Invite] 링크에 초대코드가 없습니다.');
+            return;
+        }
+
+        try {
+            // 로그인 전 링크를 열어도 코드를 보존합니다.
+            localStorage.setItem('pendingInviteCode', inviteCode);
+        } catch (error) {
+            console.error('[Invite] 초대코드 임시 저장 실패:', error);
+            return;
+        }
+
+        // App.js와 팀 관리 화면에 초대 링크가 열렸음을 전달합니다.
+        window.dispatchEvent(
+            new CustomEvent('deliverytracker:invite-link', {
+                detail: { code: inviteCode }
+            })
+        );
+    }
+};
+
+const setupDeepLink = async () => {
+    const handle = await App.addListener(
+        'appUrlOpen',
+        (event) => {
+            handleIncomingUrl(event.url).catch((error) => {
+                console.error('[DeepLink] URL 처리 실패:', error);
             });
-        };
-        setupDeepLink();
+        }
+    );
+
+    // 등록이 끝나기 전에 컴포넌트가 정리됐다면 리스너를 제거합니다.
+    if (!isMounted) {
+        await handle.remove();
+        return;
+    }
+
+    appUrlListener = handle;
+
+    // 초대 링크로 앱이 처음 실행된 경우도 처리합니다.
+    const launchUrl = await App.getLaunchUrl();
+
+    if (isMounted && launchUrl?.url) {
+        await handleIncomingUrl(launchUrl.url);
+    }
+};
+
+setupDeepLink().catch((error) => {
+    console.error('[DeepLink] 초기화 실패:', error);
+});
 
 
-        return () => {
-            isMounted = false;
-            listener?.subscription?.unsubscribe();
-            App.removeAllListeners('appUrlOpen'); // 리스너 정리
-        };
+       return () => {
+    isMounted = false;
+    listener?.subscription?.unsubscribe();
+    appUrlListener?.remove();
+};
     }, []);
 
     // 로그인한 사용자의 profiles 정보를 별도로 불러옵니다 (조직 소속, 관리자 여부 등)
