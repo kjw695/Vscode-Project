@@ -361,11 +361,7 @@ const IntegratedDailySummaryView = ({
                 </div>
             </section>
 
-            <section className={`mt-2 rounded-xl border px-2 py-1 ${panelClass}`}>
-                <div className="flex items-center justify-between px-1 pt-1">
-                    <div className="text-xs font-bold">목표 달성 현황</div>
-                    <div className={`text-[10px] ${mutedClass}`}>기존 목표바</div>
-                </div>
+            <div className={`mt-2 rounded-lg p-2 sm:p-4 shadow-md ${dark ? 'bg-gray-800' : 'bg-white'}`}>
                 <GoalProgressBar
                     current={monthlyProfit?.totalRevenue || 0}
                     goal={goal}
@@ -374,7 +370,7 @@ const IntegratedDailySummaryView = ({
                     selectedItemsForAverage={selectedItemsForAverage}
                     incomeConfig={incomeConfig}
                 />
-            </section>
+            </div>
 
             <section className={`mt-2 overflow-hidden rounded-xl border ${panelClass}`}>
                 <div className="grid grid-cols-[1fr_auto_auto] items-center gap-1 px-2 py-2">
