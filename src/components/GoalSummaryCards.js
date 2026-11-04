@@ -162,85 +162,95 @@ monthlyHolidays: { value: `${monthlyHolidaysCount}일`, colorClass: "text-indigo
       },
   };
 
+  // 파츠별로 아주 옅은 배경 톤만 달리해 정보의 종류를 빠르게 구분합니다.
+  const cardSurfaceClasses = {
+      revenue: isDarkMode ? 'bg-amber-950/30' : 'bg-amber-50',
+      estimatedSalary: isDarkMode ? 'bg-emerald-950/30' : 'bg-emerald-50',
+      monthlyHolidays: isDarkMode ? 'bg-indigo-950/30' : 'bg-indigo-50',
+      insurance: isDarkMode ? 'bg-slate-800' : 'bg-slate-50',
+      workDays: isDarkMode ? 'bg-blue-950/30' : 'bg-blue-50',
+      totalVolume: isDarkMode ? 'bg-violet-950/30' : 'bg-violet-50',
+      avgVolume: isDarkMode ? 'bg-green-950/30' : 'bg-green-50',
+      dailyAvg: isDarkMode ? 'bg-sky-950/30' : 'bg-sky-50',
+      recommended: isDarkMode ? 'bg-orange-950/30' : 'bg-orange-50',
+      remainingWorkDays: isDarkMode ? 'bg-rose-950/30' : 'bg-rose-50',
+      compareLastMonth: isDarkMode ? 'bg-cyan-950/30' : 'bg-cyan-50',
+  };
+
   const visibleCards = dashboardConfig.filter(item => item.isVisible);
 
   return (
-    <div className="relative w-full mb-1 px-1 pt-2"> 
-        <div 
-            className="grid grid-cols-4 gap-[2vw] w-full"
-            style={{ gridAutoRows: 'minmax(30px, auto)' }} 
+    <div className="relative w-full mb-1 px-1 pt-1">
+        <div
+            className="grid grid-cols-4 gap-1.5 w-full"
+            style={{ gridAutoRows: 'minmax(30px, auto)' }}
         >
             {visibleCards.map((item) => {
                 const cardInfo = cardDataMap[item.id];
                 if (!cardInfo) return null;
-                
+
                 let displayLabel = item.label;
                 if (item.id === 'revenue') displayLabel = `${displayMonth}월 매출`;
 
-                // ✨ [레이아웃 결정] 3칸 이상이면 가로(row), 2칸 이하면 세로(col)
-                const isHorizontal = item.w >= 3;
+                const cardWidth = Math.max(1, Math.min(4, Number(item.w) || 1));
+                const isHorizontal = cardWidth >= 3;
 
-     // ✨ [진짜 박스 반응형 - Container Query 비율 적용!]
-                let baseFontSizeClass = "text-[clamp(11px,14cqw,18px)]"; 
-                // ✨ 1. 상하 여백을 타이트하게 조절합니다 (위쪽을 좁게).
-                let paddingClass = "px-0.5 pt-1.5 pb-2"; 
+                // 작은 파츠일수록 여백을 줄이고, 넓은 파츠는 숫자를 더 크게 보여줍니다.
+                let baseFontSizeClass = "text-[clamp(10px,14cqw,13px)]";
+                let paddingClass = "px-1.5 py-1.5";
 
-                if (item.w === 4) {
-                    baseFontSizeClass = "text-[clamp(18px,6cqw,28px)]"; 
-                    paddingClass = "px-4 py-3 sm:p-5"; 
-                } else if (item.w === 3) {
-                    baseFontSizeClass = "text-[clamp(15px,8cqw,24px)]"; 
-                    paddingClass = "px-3 py-2.5 sm:p-4"; 
-                } else if (item.w === 2) {
-                    baseFontSizeClass = "text-[clamp(13px,10cqw,20px)]"; 
-                    paddingClass = "px-1 pt-1.5 pb-2"; 
+                if (cardWidth === 2) {
+                    baseFontSizeClass = "text-[clamp(11px,9cqw,16px)]";
+                    paddingClass = "px-2 py-2";
+                } else if (cardWidth === 3) {
+                    baseFontSizeClass = "text-[clamp(13px,7cqw,19px)]";
+                    paddingClass = "px-2.5 py-2";
+                } else if (cardWidth === 4) {
+                    baseFontSizeClass = "text-[clamp(15px,5.5cqw,22px)]";
+                    paddingClass = "px-3 py-2.5";
                 }
 
-             return (
-
-                   <div 
-                        key={item.id} 
-                        className={`[container-type:inline-size] rounded-xl sm:rounded-2xl shadow-sm border flex transition-all w-full h-full
-                            ${paddingClass} ${baseFontSizeClass} 
-                            ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-100'}
-                            /* ✨ 2. 3칸 이상은 좌우 끝 밀착(justify-between), 2칸 이하는 상하 꽉 채우기(flex-col) */
-                            ${isHorizontal ? 'flex-row items-center justify-between px-4 sm:px-6' : 'flex-col'}
+                return (
+                    <div
+                        key={item.id}
+                        className={`[container-type:inline-size] min-w-0 overflow-hidden rounded-[16px] border border-white/80 dark:border-white/5 shadow-[0_1px_6px_rgba(15,23,42,0.045)] flex transition-colors w-full h-full
+                            ${paddingClass} ${baseFontSizeClass}
+                            ${cardSurfaceClasses[item.id] || (isDarkMode ? 'bg-slate-800' : 'bg-slate-50')}
+                            ${isHorizontal ? 'flex-row items-center justify-between gap-2' : 'flex-col items-start justify-between gap-1'}
                         `}
                         style={{
-                            gridColumn: `${Number(item.x) + 1} / span ${Number(item.w)}`,
+                            gridColumn: `${Number(item.x) + 1} / span ${cardWidth}`,
                             gridRow: `${Number(item.y) + 1} / span ${Number(item.h)}`,
-                            // 작은 파츠만 같은 높이로 고정해 제목 30% / 값 70% 영역이 일정하게 유지되도록 합니다.
-                            ...(Number(item.w) < 3
+                            // 기존의 작은 파츠 높이 규칙과 배치 동작은 그대로 유지합니다.
+                            ...(cardWidth < 3
                                 ? { height: 'calc(60px + 2vw)', alignSelf: 'start' }
                                 : {}),
                         }}
                     >
-                    {/* ✨ 3. 윗부분 박스 (제목): 높이 30%를 차지하며 위로 밀착 */}
-                        <div 
-                            className={`w-full text-gray-500 dark:text-gray-400 font-medium leading-tight whitespace-nowrap ${isHorizontal ? 'text-left' : 'h-[30%] flex items-start justify-center pt-0.5'}`}
-                            style={{ fontSize: '0.8em' }}
+                        <div
+                            className="min-w-0 w-full text-left text-slate-500 dark:text-slate-400 font-semibold leading-none tracking-tight whitespace-nowrap"
+                            style={{ fontSize: cardWidth === 1 ? '9px' : cardWidth === 2 ? '10px' : '0.72em' }}
                         >
                             {displayLabel}
                         </div>
-                        
-                      {/* ✨ 4. 아랫부분 박스 (값): 높이 70%를 차지하며 아래로 밀착 */}
-                        <div 
-                            className={`w-full font-bold leading-tight tracking-tighter ${cardInfo.colorClass} whitespace-nowrap flex ${isHorizontal ? 'text-right items-center justify-end' : 'h-[70%] items-end justify-center'}`}
-                            style={{ 
-                                // ✨ 1. '보험사' 같은 React 객체는 고정 크기(1em)를 주어 [object Object] 인식 버그를 차단합니다.
-                                // ✨ 2. 숫자/콤마는 글자 폭이 좁으므로 가중치를 0.45로 대폭 낮춰 오작동 축소를 방지합니다.
-                                // ✨ 3. 최대 글자 크기를 1.3em으로 살짝 더 키워 빈 공간 없이 시원하게 꽉 채웁니다.
-                                fontSize: typeof cardInfo.value === 'object' 
-                                    ? '1em' 
-                                    : `clamp(11px, 95cqw / ${Math.max(String(cardInfo.value).length * 0.45, 3)}, 1.3em)` 
+
+                        <div
+                            className={`min-w-0 w-full font-bold leading-none tracking-tight ${cardInfo.colorClass} whitespace-nowrap flex
+                                ${isHorizontal ? 'justify-end text-right' : 'justify-start text-left'}
+                            `}
+                            style={{
+                                // 보험사 링크/버튼은 기존 클릭 동작을 유지하고, 숫자 값은 카드 폭에 맞춰 자동 축소합니다.
+                                fontSize: typeof cardInfo.value === 'object'
+                                    ? '1em'
+                                    : `clamp(10px, 86cqw / ${Math.max(String(cardInfo.value).length * 0.54, 3)}, 1.25em)`
                             }}
                         >
                             {cardInfo.value}
-                        </div> 
+                        </div>
                     </div>
                 );
             })}
-        </div> 
+        </div>
     </div>
   );
 };
