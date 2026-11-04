@@ -96,7 +96,7 @@ const useAppBackButton = ({
             }
         };
     }, [
-        modalState, isFilterModalOpen, isExpenseSettingsModalOpen, moreSubView, selectedMainTab, showConfirmation, 
+        modalState, isFilterModalOpen, isExpenseSettingsModalOpen, moreSubView, selectedMainTab, activeContentTab, showConfirmation, 
         isEditing, closeEditMode, handleDayOffBack, isDayOffModalOpen, setIsDayOffModalOpen
     ]);
 };
