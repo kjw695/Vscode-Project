@@ -52,6 +52,7 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import GoalSummaryCards from './components/GoalSummaryCards';
 import IntegratedDailySummaryView from './components/IntegratedDailySummaryView';
+import BluecoinsDailySummaryPreview from './components/BluecoinsDailySummaryPreview';
 import AverageItemsView from './components/more/AverageItemsView';
 import DashboardSettingsView from './components/more/DashboardSettingsView';
 import VolumeCalendarSettingsView from './components/more/VolumeCalendarSettingsView';
@@ -1545,6 +1546,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 itemLabels={itemLabels}
                                 isDarkMode={isDarkMode}
                                 onBack={() => setActiveContentTab('monthlyProfit')}
+                                onSwitchPreview={() => setActiveContentTab('bluecoinsDailySummary')}
                                 onOpenInsurance={() => {
                                     setSelectedMainTab('more');
                                     setActiveContentTab('adminSettings');
@@ -1561,6 +1563,35 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 homeCalendarDesign={homeCalendarDesign}
                                 homeCalendarVolumeItems={homeCalendarVolumeItems}
                                 incomeConfig={incomeConfig}
+                            />
+                        )}
+
+
+                        {activeContentTab === 'bluecoinsDailySummary' && (
+                            <BluecoinsDailySummaryPreview
+                                entries={entries}
+                                monthlyProfit={monthlyProfit}
+                                previousMonthlyProfit={previousMonthlyProfit}
+                                selectedMonth={selectedMonth}
+                                goal={goalAmount}
+                                selectedInsurance={selectedInsurance}
+                                selectedItemsForAverage={selectedItemsForAverage}
+                                itemLabels={itemLabels}
+                                isDarkMode={isDarkMode}
+                                onBack={() => setActiveContentTab('monthlyProfit')}
+                                onSwitchPreview={() => setActiveContentTab('integratedDailySummary')}
+                                onOpenInsurance={() => {
+                                    setSelectedMainTab('more');
+                                    setActiveContentTab('adminSettings');
+                                    setMoreSubView('insurance');
+                                }}
+                                currentCalendarDate={currentCalendarDate}
+                                calendarDays={calendarDaysWithDayOff}
+                                calendarMode={calendarMode}
+                                onToggleCalendarMode={(mode) => setCalendarMode(mode)}
+                                onMonthChange={handleMonthChange}
+                                onToday={handleTodayClick}
+                                onDateClick={handleCalendarDateClick}
                             />
                         )}
 
