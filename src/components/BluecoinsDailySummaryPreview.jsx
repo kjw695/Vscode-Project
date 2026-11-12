@@ -648,10 +648,10 @@ const BluecoinsDailySummaryPreview = ({
                                                 <span className="whitespace-nowrap text-[clamp(7px,2.25vw,10px)] font-bold leading-tight text-slate-600 dark:text-slate-300">{volumeTotal.toLocaleString()}건</span>
                                             )}
                                             {isCurrentMonth && Number(dayInfo?.revenue) > 0 && (
-                                                <span className="whitespace-nowrap text-rose-500 text-[clamp(7px,2.25vw,10px)] font-semibold leading-tight">{formatCompactManWon(dayInfo.revenue)}</span>
+                                                <span className="whitespace-nowrap text-rose-500 text-[clamp(7px,2.25vw,10px)] font-semibold leading-tight">{Number(dayInfo.revenue).toLocaleString()}원</span>
                                             )}
                                             {isCurrentMonth && Number(dayInfo?.expenses) > 0 && (
-                                                <span className="whitespace-nowrap text-blue-500 text-[clamp(7px,2.25vw,10px)] font-medium leading-tight">{formatCompactManWon(dayInfo.expenses)}</span>
+                                                <span className="whitespace-nowrap text-blue-500 text-[clamp(7px,2.25vw,10px)] font-medium leading-tight">{Number(dayInfo.expenses).toLocaleString()}원</span>
                                             )}
                                         </>
                                     ) : (
