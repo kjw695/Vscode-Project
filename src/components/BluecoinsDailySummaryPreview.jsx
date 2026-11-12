@@ -366,10 +366,16 @@ const BluecoinsDailySummaryPreview = ({
         if (startIndex < 0) return;
 
         const dayWidth = chartScrollRef.current.clientWidth / 7;
-        chartScrollRef.current.scrollTo({
-            left: startIndex * dayWidth,
-            behavior: request?.behavior || 'auto'
-        });
+        const targetScrollLeft = startIndex * dayWidth;
+        if (request?.behavior === 'smooth') {
+            chartScrollRef.current.scrollTo({
+                left: targetScrollLeft,
+                behavior: 'smooth'
+            });
+        } else {
+            // 달력에서 날짜를 고르면 중간 날짜를 순서대로 거치지 않고 즉시 해당 주간으로 이동합니다.
+            chartScrollRef.current.scrollLeft = targetScrollLeft;
+        }
         setChartVisibleStartIndex(startIndex);
         chartAlignmentRequestRef.current = null;
         chartInitialAlignmentRef.current = false;
