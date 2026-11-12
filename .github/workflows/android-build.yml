@@ -1,0 +1,113 @@
+name: Android Build Verification
+
+on:
+  push:
+    branches:
+      - security-audit
+  pull_request:
+    branches:
+      - security-audit
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-android:
+    name: React + Capacitor + Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      REACT_APP_API_KEY: ${{ secrets.REACT_APP_API_KEY }}
+      REACT_APP_AUTH_DOMAIN: ${{ secrets.REACT_APP_AUTH_DOMAIN }}
+      REACT_APP_PROJECT_ID: ${{ secrets.REACT_APP_PROJECT_ID }}
+      REACT_APP_STORAGE_BUCKET: ${{ secrets.REACT_APP_STORAGE_BUCKET }}
+      REACT_APP_MESSAGING_SENDER_ID: ${{ secrets.REACT_APP_MESSAGING_SENDER_ID }}
+      REACT_APP_APP_ID: ${{ secrets.REACT_APP_APP_ID }}
+      REACT_APP_MEASUREMENT_ID: ${{ secrets.REACT_APP_MEASUREMENT_ID }}
+      REACT_APP_SUPABASE_URL: ${{ secrets.REACT_APP_SUPABASE_URL }}
+      REACT_APP_SUPABASE_ANON_KEY: ${{ secrets.REACT_APP_SUPABASE_ANON_KEY }}
+      REACT_APP_KMA_API_KEY: ${{ secrets.REACT_APP_KMA_API_KEY }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Validate app configuration
+        shell: bash
+        run: |
+          required=(
+            REACT_APP_API_KEY
+            REACT_APP_AUTH_DOMAIN
+            REACT_APP_PROJECT_ID
+            REACT_APP_STORAGE_BUCKET
+            REACT_APP_MESSAGING_SENDER_ID
+            REACT_APP_APP_ID
+            REACT_APP_SUPABASE_URL
+            REACT_APP_SUPABASE_ANON_KEY
+            REACT_APP_KMA_API_KEY
+          )
+          missing=()
+          for name in "${required[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+
+          if (( ${#missing[@]} > 0 )); then
+            printf '::error::GitHub Actions repository secrets are missing: %s\n' "${missing[*]}"
+            echo 'Add these names under Settings > Secrets and variables > Actions. Do not put secret values in source files.'
+            exit 1
+          fi
+          echo 'Required Firebase, Supabase, and weather configuration is present.'
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Build React production bundle
+        run: npm run build
+
+      - name: Sync web assets and native plugins to Android
+        run: npx cap sync android
+
+      - name: Install Android 36 SDK components
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Build Android debug APK
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-apk-${{ github.sha }}
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
