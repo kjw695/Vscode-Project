@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import {
     ArrowLeft,
     ArrowUpRight,
+    ArrowRightLeft,
     BarChart3,
     ChevronLeft,
     ChevronRight,
@@ -13,6 +14,12 @@ import { calculateData } from '../utils/calculator';
 import GoalProgressBar from './GoalProgressBar';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+const VOLUME_METRICS = [
+    { key: 'deliveryCount', label: '배송', shortLabel: '배' },
+    { key: 'deliveryInterruptionAmount', label: '중단', shortLabel: '중' },
+    { key: 'returnCount', label: '반품', shortLabel: '반' },
+    { key: 'freshBagCount', label: '프레시백', shortLabel: '프' }
+];
 const CATEGORY_BAR_CLASSES = [
     'bg-cyan-500',
     'bg-pink-500',
@@ -85,15 +92,19 @@ const BluecoinsDailySummaryPreview = ({
     onToggleCalendarMode,
     onMonthChange,
     onToday,
-    onDateClick
+    onDateClick,
+    onOpenDayOff,
+    homeCalendarDesign = 'current',
+    homeCalendarVolumeItems = {},
+    incomeConfig = []
 }) => {
     const dark = Boolean(isDarkMode);
-    const [calendarDisplayStyle, setCalendarDisplayStyle] = useState('both');
     const [activeReportTab, setActiveReportTab] = useState('categories');
     const [isDayMode, setIsDayMode] = useState(true);
-    const swipeStartRef = useRef(null);
+    const chartSwipeRef = useRef(null);
     const suppressChartClickRef = useRef(false);
-    const [swipeDirection, setSwipeDirection] = useState(null);
+    const [chartDragOffset, setChartDragOffset] = useState(0);
+    const [chartTransitioning, setChartTransitioning] = useState(false);
     const [selectedDate, setSelectedDate] = useState(() => {
         const activeCalendarDates = (Array.isArray(calendarDays) ? calendarDays : [])
             .filter((day) => day?.isCurrentMonth && (Number(day?.revenue) > 0 || Number(day?.expenses) > 0))
@@ -122,8 +133,8 @@ const BluecoinsDailySummaryPreview = ({
         }, {});
     }, [entries, itemLabels]);
 
-    const recent7Days = useMemo(() => {
-        const base = parseLocalDate(selectedDate);
+    const buildRecentDays = (anchorDate) => {
+        const base = parseLocalDate(anchorDate);
         return Array.from({ length: 7 }, (_, index) => {
             const date = new Date(base);
             date.setDate(base.getDate() - (6 - index));
@@ -139,7 +150,26 @@ const BluecoinsDailySummaryPreview = ({
                 volume: getDayVolume(daily, selectedItemsForAverage)
             };
         });
-    }, [selectedDate, dailyMap, selectedItemsForAverage]);
+    };
+
+    const getShiftedDateKey = (dateKey, amount) => {
+        const date = parseLocalDate(dateKey);
+        date.setDate(date.getDate() + amount);
+        return toDateKey(date);
+    };
+
+    const previousRecent7Days = useMemo(
+        () => buildRecentDays(getShiftedDateKey(selectedDate, -1)),
+        [selectedDate, dailyMap, selectedItemsForAverage]
+    );
+    const recent7Days = useMemo(
+        () => buildRecentDays(selectedDate),
+        [selectedDate, dailyMap, selectedItemsForAverage]
+    );
+    const nextRecent7Days = useMemo(
+        () => buildRecentDays(getShiftedDateKey(selectedDate, 1)),
+        [selectedDate, dailyMap, selectedItemsForAverage]
+    );
 
     const currentVolume = getSelectedVolume(monthlyProfit, selectedItemsForAverage);
     const previousVolume = getSelectedVolume(previousMonthlyProfit, selectedItemsForAverage);
@@ -164,10 +194,6 @@ const BluecoinsDailySummaryPreview = ({
     const averageVolumeDiff = dailyAverageVolume - (Number(previousMonthlyProfit?.totalWorkingDays) > 0
         ? Math.round(previousVolume / Number(previousMonthlyProfit.totalWorkingDays))
         : 0);
-    const maxRecentValue = Math.max(
-        1,
-        ...recent7Days.map((day) => calendarMode === 'money' ? day.income : day.volume)
-    );
     const selectedDayData = dailyMap[selectedDate] || {};
     const selectedDayIncome = Number(selectedDayData.totalRevenue) || 0;
     const selectedDayExpense = Number(selectedDayData.totalExpenses) || 0;
@@ -250,28 +276,157 @@ const BluecoinsDailySummaryPreview = ({
     };
 
     const handleRecent7DaysTouchStart = (event) => {
+        if (chartSwipeRef.current?.phase === 'settling' || chartSwipeRef.current?.phase === 'returning') return;
         const touch = event.touches?.[0];
         if (!touch) return;
-        swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
+        chartSwipeRef.current = {
+            startX: touch.clientX,
+            startY: touch.clientY,
+            width: Math.max(1, event.currentTarget.clientWidth),
+            phase: 'pending',
+            direction: 0
+        };
+        setChartDragOffset(0);
+        setChartTransitioning(false);
+    };
+
+    const handleRecent7DaysTouchMove = (event) => {
+        const swipe = chartSwipeRef.current;
+        const touch = event.touches?.[0];
+        if (!swipe || !touch || swipe.phase === 'cancelled') return;
+
+        const deltaX = touch.clientX - swipe.startX;
+        const deltaY = touch.clientY - swipe.startY;
+
+        if (swipe.phase === 'pending') {
+            if (Math.abs(deltaX) < 7 && Math.abs(deltaY) < 7) return;
+            if (Math.abs(deltaY) > Math.abs(deltaX) * 1.1) {
+                swipe.phase = 'cancelled';
+                return;
+            }
+            if (Math.abs(deltaX) <= Math.abs(deltaY) * 1.1) return;
+
+            swipe.phase = 'dragging';
+            suppressChartClickRef.current = true;
+            window.setTimeout(() => {
+                suppressChartClickRef.current = false;
+            }, 420);
+        }
+
+        if (swipe.phase === 'dragging') {
+            setChartDragOffset(Math.max(-swipe.width, Math.min(swipe.width, deltaX)));
+        }
     };
 
     const handleRecent7DaysTouchEnd = (event) => {
-        const start = swipeStartRef.current;
-        swipeStartRef.current = null;
+        const swipe = chartSwipeRef.current;
         const touch = event.changedTouches?.[0];
-        if (!start || !touch) return;
+        if (!swipe || !touch) {
+            chartSwipeRef.current = null;
+            return;
+        }
 
-        const deltaX = touch.clientX - start.x;
-        const deltaY = touch.clientY - start.y;
-        if (Math.abs(deltaX) < 40 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.2) return;
+        if (swipe.phase !== 'dragging') {
+            chartSwipeRef.current = null;
+            return;
+        }
 
-        const direction = deltaX < 0 ? 'next' : 'previous';
-        setSwipeDirection(direction);
-        suppressChartClickRef.current = true;
-        window.setTimeout(() => {
-            suppressChartClickRef.current = false;
-        }, 350);
-        shiftSelectedDate(direction === 'next' ? 1 : -1);
+        const deltaX = touch.clientX - swipe.startX;
+        const threshold = Math.max(48, swipe.width * 0.18);
+        if (Math.abs(deltaX) < threshold) {
+            chartSwipeRef.current = { phase: 'returning', direction: 0 };
+            setChartTransitioning(true);
+            setChartDragOffset(0);
+            return;
+        }
+
+        const direction = deltaX < 0 ? 1 : -1;
+        chartSwipeRef.current = { phase: 'settling', direction };
+        setChartTransitioning(true);
+        setChartDragOffset(direction > 0 ? -swipe.width : swipe.width);
+    };
+
+    const handleRecent7DaysTransitionEnd = (event) => {
+        if (event.propertyName !== 'transform') return;
+        const swipe = chartSwipeRef.current;
+        if (!swipe) return;
+
+        if (swipe.phase === 'settling') {
+            const nextDate = parseLocalDate(selectedDate);
+            nextDate.setDate(nextDate.getDate() + swipe.direction);
+            chartSwipeRef.current = null;
+            setSelectedDate(toDateKey(nextDate));
+            setChartDragOffset(0);
+            setChartTransitioning(false);
+        } else if (swipe.phase === 'returning') {
+            chartSwipeRef.current = null;
+            setChartDragOffset(0);
+            setChartTransitioning(false);
+        }
+    };
+
+    const handleRecent7DaysTouchCancel = () => {
+        const swipe = chartSwipeRef.current;
+        if (swipe?.phase === 'dragging') {
+            chartSwipeRef.current = { phase: 'returning', direction: 0 };
+            setChartTransitioning(true);
+            setChartDragOffset(0);
+        } else {
+            chartSwipeRef.current = null;
+        }
+    };
+
+    const renderRecentChart = (days) => {
+        const maxValue = Math.max(
+            1,
+            ...days.map((day) => calendarMode === 'money' ? day.income : day.volume)
+        );
+
+        return (
+            <div className="grid grid-cols-7 items-end gap-1">
+                {days.map((day, index) => {
+                    const value = calendarMode === 'money' ? day.income : day.volume;
+                    const barHeight = value > 0 ? Math.max(7, Math.round((value / maxValue) * 58)) : 4;
+                    const label = calendarMode === 'money'
+                        ? formatCompactManWon(day.income)
+                        : (day.volume > 0 ? day.volume.toLocaleString() + '건' : '-');
+                    const isSelected = index === 6;
+                    return (
+                        <button
+                            key={day.date}
+                            type="button"
+                            onClick={() => {
+                                if (suppressChartClickRef.current) return;
+                                setSelectedDate(day.date);
+                            }}
+                            className={'flex min-w-0 flex-col items-center rounded-xl px-0.5 py-1 ' + (
+                                isSelected
+                                    ? (calendarMode === 'money' ? 'bg-blue-500/10 ring-1 ring-blue-500/70' : 'bg-emerald-500/10 ring-1 ring-emerald-500/70')
+                                    : (dark ? 'hover:bg-slate-700/50' : 'hover:bg-slate-200/60')
+                            )}
+                        >
+                            <div className="flex h-[76px] w-full flex-col items-center justify-end">
+                                <span className={'mb-1 whitespace-nowrap text-[9px] font-black leading-none ' + (isSelected ? selectedTone : mutedClass)}>{label}</span>
+                                <div
+                                    style={{ height: barHeight + 'px' }}
+                                    className={'w-5 rounded-t-lg ' + (
+                                        value <= 0
+                                            ? (dark ? 'bg-slate-700' : 'bg-slate-200')
+                                            : calendarMode === 'money'
+                                                ? 'bg-blue-500/80'
+                                                : 'bg-emerald-500/80'
+                                    )}
+                                />
+                            </div>
+                            <span className={'mt-1 text-[11px] font-black ' + (
+                                isSelected ? selectedTone : day.weekdayIndex === 0 ? 'text-rose-500' : day.weekdayIndex === 6 ? 'text-blue-500' : ''
+                            )}>{day.day}</span>
+                            <span className={'text-[9px] font-bold ' + mutedClass}>{day.dayNumber}일</span>
+                        </button>
+                    );
+                })}
+            </div>
+        );
     };
 
     const reportTitle = isDayMode
@@ -328,7 +483,7 @@ const BluecoinsDailySummaryPreview = ({
                     </button>
                 </div>
 
-                <div className={'border-t px-3 pt-3 pb-3 ' + dividerClass}>
+                <div className={'border-t px-2 pt-2 pb-2 ' + dividerClass}>
                     <div className="flex min-w-0 items-center gap-1">
                         <div className={'flex shrink-0 items-center gap-0 rounded-xl p-0.5 ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
                             <button
@@ -337,7 +492,7 @@ const BluecoinsDailySummaryPreview = ({
                                 className="rounded-lg p-0.5 hover:bg-white/70 dark:hover:bg-slate-700"
                                 aria-label="이전 날짜"
                             ><ChevronLeft size={13} /></button>
-                            <span className="whitespace-nowrap px-0.5 text-[10px] sm:text-[11px] font-black">
+                            <span className="whitespace-nowrap px-0.5 text-[11px] sm:text-xs font-black">
                                 {selectedDate.slice(5).replace('-', '.')} ({WEEKDAYS[parseLocalDate(selectedDate).getDay()]})
                             </span>
                             <button
@@ -347,7 +502,7 @@ const BluecoinsDailySummaryPreview = ({
                                 aria-label="다음 날짜"
                             ><ChevronRight size={13} /></button>
                         </div>
-                        <div className={'min-w-0 flex-1 overflow-hidden text-ellipsis rounded-xl px-1 py-1 text-center text-[8px] sm:text-[9px] font-black whitespace-nowrap ' + (
+                        <div className={'min-w-0 flex-1 overflow-hidden text-ellipsis rounded-xl px-1 py-1 text-center text-[10px] sm:text-[11px] font-black whitespace-nowrap ' + (
                             (calendarMode === 'money' ? incomeDiff : volumeDiff) >= 0
                                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                                 : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
@@ -370,65 +525,27 @@ const BluecoinsDailySummaryPreview = ({
                         </div>
                     </div>
 
-                    <style>{'@keyframes bluecoinsRecentSlideFromRight { from { opacity: 0.72; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } } @keyframes bluecoinsRecentSlideFromLeft { from { opacity: 0.72; transform: translateX(-14px); } to { opacity: 1; transform: translateX(0); } }'}</style>
                     <div
-                        key={selectedDate}
                         onTouchStart={handleRecent7DaysTouchStart}
+                        onTouchMove={handleRecent7DaysTouchMove}
                         onTouchEnd={handleRecent7DaysTouchEnd}
-                        onTouchCancel={() => { swipeStartRef.current = null; }}
-                        style={{
-                            touchAction: 'pan-y',
-                            animation: swipeDirection === 'next'
-                                ? 'bluecoinsRecentSlideFromRight 220ms ease-out'
-                                : swipeDirection === 'previous'
-                                    ? 'bluecoinsRecentSlideFromLeft 220ms ease-out'
-                                    : 'none'
-                        }}
-                        className={'mt-2 rounded-2xl border px-2 pt-3 pb-2 ' + (dark ? 'border-slate-800 bg-slate-800/40' : 'border-slate-100 bg-slate-50')}
+                        onTouchCancel={handleRecent7DaysTouchCancel}
+                        className={'mt-1 overflow-hidden rounded-2xl border px-2 pt-2 pb-2 ' + (dark ? 'border-slate-800 bg-slate-800/40' : 'border-slate-100 bg-slate-50')}
+                        style={{ touchAction: 'pan-y' }}
                     >
-                        <div className="grid grid-cols-7 items-end gap-1">
-                            {recent7Days.map((day) => {
-                                const value = calendarMode === 'money' ? day.income : day.volume;
-                                const barHeight = value > 0 ? Math.max(7, Math.round((value / maxRecentValue) * 58)) : 4;
-                                const label = calendarMode === 'money'
-                                    ? formatCompactManWon(day.income)
-                                    : (day.volume > 0 ? day.volume.toLocaleString() + '건' : '-');
-                                const isSelected = day.date === selectedDate;
-                                return (
-                                    <button
-                                        key={day.date}
-                                        type="button"
-                                        onClick={() => {
-                                            if (suppressChartClickRef.current) return;
-                                            setSwipeDirection(null);
-                                            setSelectedDate(day.date);
-                                        }}
-                                        className={'flex min-w-0 flex-col items-center rounded-xl px-0.5 py-1 transition ' + (
-                                            isSelected
-                                                ? (calendarMode === 'money' ? 'bg-blue-500/10 ring-1 ring-blue-500/70' : 'bg-emerald-500/10 ring-1 ring-emerald-500/70')
-                                                : (dark ? 'hover:bg-slate-700/50' : 'hover:bg-slate-200/60')
-                                        )}
-                                    >
-                                        <div className="flex h-[76px] w-full flex-col items-center justify-end">
-                                            <span className={'mb-1 whitespace-nowrap text-[9px] font-black leading-none ' + (isSelected ? selectedTone : mutedClass)}>{label}</span>
-                                            <div
-                                                style={{ height: barHeight + 'px' }}
-                                                className={'w-5 rounded-t-lg transition-all ' + (
-                                                    value <= 0
-                                                        ? (dark ? 'bg-slate-700' : 'bg-slate-200')
-                                                        : calendarMode === 'money'
-                                                            ? 'bg-blue-500/80'
-                                                            : 'bg-emerald-500/80'
-                                                )}
-                                            />
-                                        </div>
-                                        <span className={'mt-1 text-[11px] font-black ' + (
-                                            isSelected ? selectedTone : day.weekdayIndex === 0 ? 'text-rose-500' : day.weekdayIndex === 6 ? 'text-blue-500' : ''
-                                        )}>{day.day}</span>
-                                        <span className={'text-[9px] font-bold ' + mutedClass}>{day.dayNumber}일</span>
-                                    </button>
-                                );
-                            })}
+                        <div
+                            onTransitionEnd={handleRecent7DaysTransitionEnd}
+                            style={{
+                                display: 'flex',
+                                width: '300%',
+                                transform: 'translate3d(calc(-33.333333% + ' + chartDragOffset + 'px), 0, 0)',
+                                transition: chartTransitioning ? 'transform 280ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
+                                willChange: chartTransitioning || chartSwipeRef.current?.phase === 'dragging' ? 'transform' : 'auto'
+                            }}
+                        >
+                            <div style={{ flex: '0 0 33.333333%', minWidth: 0 }}>{renderRecentChart(previousRecent7Days)}</div>
+                            <div style={{ flex: '0 0 33.333333%', minWidth: 0 }}>{renderRecentChart(recent7Days)}</div>
+                            <div style={{ flex: '0 0 33.333333%', minWidth: 0 }}>{renderRecentChart(nextRecent7Days)}</div>
                         </div>
                     </div>
 
@@ -486,106 +603,136 @@ const BluecoinsDailySummaryPreview = ({
                 </div>
             </section>
 
-            <section className={'mt-2 rounded-2xl border p-3 shadow-sm ' + panelClass}>
-                <div className="flex items-center justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-1">
-                        <button
-                            type="button"
-                            onClick={() => onMonthChange?.(-1)}
-                            className="rounded-full p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800"
-                            aria-label="이전 장부 기간"
-                        ><ChevronLeft size={17} /></button>
-                        <h2 className="whitespace-nowrap text-sm font-black">
-                            {currentCalendarDate?.getFullYear()}년 {Number(currentCalendarDate?.getMonth()) + 1}월
-                        </h2>
-                        <button
-                            type="button"
-                            onClick={() => onMonthChange?.(1)}
-                            className="rounded-full p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800"
-                            aria-label="다음 장부 기간"
-                        ><ChevronRight size={17} /></button>
-                        <button
-                            type="button"
-                            onClick={onToday}
-                            className={'ml-0.5 rounded-lg px-2 py-1 text-[9px] font-bold ' + (dark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600')}
-                        >오늘</button>
+            <section className={'mt-2 overflow-hidden rounded-2xl border shadow-sm ' + panelClass}>
+                <div className="grid grid-cols-[1fr_auto_auto] items-center gap-1 px-2 py-2">
+                    <button
+                        type="button"
+                        onClick={() => onToggleCalendarMode?.(calendarMode === 'money' ? 'volume' : 'money')}
+                        className={'justify-self-start rounded-lg border px-2 py-1 text-[10px] font-bold ' + (dark ? 'border-slate-700 bg-slate-800 text-slate-200' : 'border-slate-200 bg-slate-50 text-slate-700')}
+                    >
+                        <span className="inline-flex items-center gap-1"><ArrowRightLeft size={11} />{calendarMode === 'money' ? '금액' : '물량'}</span>
+                    </button>
+                    <div className="flex items-center gap-1">
+                        <button type="button" onClick={() => onMonthChange?.(-1)} className="rounded-md p-0.5" aria-label="이전 달"><ChevronLeft size={19} /></button>
+                        <div className="whitespace-nowrap text-sm font-black">{currentCalendarDate?.getFullYear()}년 {Number(currentCalendarDate?.getMonth()) + 1}월</div>
+                        <button type="button" onClick={() => onMonthChange?.(1)} className="rounded-md p-0.5" aria-label="다음 달"><ChevronRight size={19} /></button>
                     </div>
-                    <div className={'inline-flex shrink-0 rounded-xl p-0.5 text-[9px] font-bold ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
-                        {[
-                            { key: 'dots', label: '점' },
-                            { key: 'both', label: '점+금액' },
-                            { key: 'numbers', label: '금액' }
-                        ].map((option) => (
-                            <button
-                                key={option.key}
-                                type="button"
-                                onClick={() => setCalendarDisplayStyle(option.key)}
-                                className={'rounded-lg px-2 py-1 ' + (calendarDisplayStyle === option.key ? (dark ? 'bg-slate-700 text-white' : 'bg-white text-blue-600 shadow-sm') : mutedClass)}
-                            >{option.label}</button>
-                        ))}
+                    <div className="flex items-center gap-1 justify-self-end">
+                        <button type="button" onClick={onOpenDayOff} className="rounded-lg border border-indigo-300 px-2 py-1 text-[10px] font-bold text-indigo-500">휴무</button>
+                        <button type="button" onClick={onToday} className="rounded-lg border border-amber-300 px-2 py-1 text-[10px] font-bold text-amber-500">오늘</button>
                     </div>
                 </div>
 
-                <div className={'mt-3 grid grid-cols-7 text-center text-[10px] font-black ' + mutedClass}>
-                    <span className="text-rose-500">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span className="text-blue-500">토</span>
+                <div className={'grid grid-cols-7 border-y text-center text-[10px] font-black ' + dividerClass}>
+                    {WEEKDAYS.map((day, index) => (
+                        <div key={day} className={'py-1.5 ' + (index === 0 ? 'text-rose-500' : index === 6 ? 'text-blue-500' : mutedClass)}>{day}</div>
+                    ))}
                 </div>
-                <div className="mt-1 grid grid-cols-7 gap-1">
-                    {calendarDays.map((day, index) => {
-                        const hasActivity = Number(day?.revenue) > 0 || Number(day?.expenses) > 0 || Number(day?.volumeDisplayTotal ?? day?.volume) > 0;
-                        const isSelected = day?.date === selectedDate;
-                        const isCurrentPeriod = Boolean(day?.isCurrentMonth);
-                        const volumeValue = Number(day?.volumeDisplayTotal ?? day?.volume) || 0;
-                        const isPending = day?.extraDayOffRequestStatus === 'pending';
-                        const isApproved = day?.extraDayOffRequestStatus === 'approved' || day?.extraDayOffRequestStatus === 'accepted';
-                        const isRejected = day?.extraDayOffRequestStatus === 'rejected';
+
+                <div className={homeCalendarDesign === 'current'
+                    ? 'grid w-full grid-cols-7 border-l ' + dividerClass
+                    : 'grid grid-cols-7 gap-x-0 gap-y-0'
+                }>
+                    {calendarDays.map((dayInfo, index) => {
+                        const isCurrentMonth = Boolean(dayInfo?.isCurrentMonth);
+                        const isSelected = dayInfo?.date === selectedDate;
+                        const isToday = Boolean(dayInfo?.isToday);
+                        const isPending = dayInfo?.extraDayOffRequestStatus === 'pending';
+                        const isApproved = dayInfo?.extraDayOffRequestStatus === 'approved' || dayInfo?.extraDayOffRequestStatus === 'accepted';
+                        const isRejected = dayInfo?.extraDayOffRequestStatus === 'rejected' || dayInfo?.extraDayOffRequestStatus === 'declined';
+                        const volumeTotal = Number(dayInfo?.volumeDisplayTotal ?? dayInfo?.volume) || 0;
+
                         return (
                             <button
-                                key={day?.date || 'blank-' + index}
                                 type="button"
-                                disabled={!day?.date}
-                                onClick={() => day?.date && setSelectedDate(day.date)}
-                                className={'relative flex aspect-square min-w-0 flex-col items-center justify-between rounded-xl border p-1 transition ' + (
+                                key={dayInfo?.date || 'empty-' + index}
+                                disabled={!dayInfo?.date}
+                                onClick={() => dayInfo?.date && setSelectedDate(dayInfo.date)}
+                                className={(homeCalendarDesign === 'current'
+                                    ? 'relative flex h-20 min-w-0 flex-col items-center justify-start border-b border-r p-1 text-left transition-colors ' + dividerClass
+                                    : 'relative flex h-[62px] min-w-0 flex-col items-center justify-start rounded-md transition-colors') + ' ' + (
                                     isSelected
-                                        ? 'border-blue-500 bg-blue-500/10 ring-1 ring-blue-500'
-                                        : hasActivity && isCurrentPeriod
-                                            ? (dark ? 'border-slate-700 bg-slate-800/60' : 'border-slate-100 bg-slate-50')
-                                            : 'border-transparent'
-                                ) + (!isCurrentPeriod ? ' opacity-40' : '')}
+                                        ? (dark ? 'bg-blue-900/40 ring-1 ring-inset ring-blue-500' : 'bg-blue-50 ring-1 ring-inset ring-blue-500')
+                                        : isToday
+                                            ? (dark ? 'bg-green-900/50' : 'bg-green-100')
+                                            : dayInfo?.isDayOff
+                                                ? (dark ? 'bg-slate-800' : 'bg-slate-100')
+                                                : (dark ? 'bg-slate-900' : 'bg-white')
+                                ) + (!isCurrentMonth ? ' opacity-40' : '')
+                                }
                             >
-                                <span className={'text-[10px] font-black ' + (
-                                    isSelected ? 'text-blue-500' : index % 7 === 0 ? 'text-rose-500' : index % 7 === 6 ? 'text-blue-500' : ''
-                                )}>{day?.day || ''}</span>
-                                {calendarDisplayStyle !== 'numbers' && (
-                                    <div className="flex min-h-[7px] items-center gap-1">
-                                        {Number(day?.revenue) > 0 && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />}
-                                        {Number(day?.expenses) > 0 && <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />}
-                                        {day?.isDayOff && <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />}
-                                        {isPending && <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />}
-                                        {isApproved && <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />}
-                                        {isRejected && <span className="h-1.5 w-1.5 rounded-full bg-red-500" />}
-                                    </div>
-                                )}
-                                {calendarDisplayStyle !== 'dots' && (
-                                    <div className="w-full space-y-0.5 text-center leading-none">
-                                        {isCurrentPeriod && Number(day?.revenue) > 0 && (
-                                            <span className="block truncate text-[7px] font-bold text-emerald-600 dark:text-emerald-400">+{formatCompactManWon(day.revenue)}</span>
-                                        )}
-                                        {isCurrentPeriod && Number(day?.expenses) > 0 && (
-                                            <span className="block truncate text-[7px] font-bold text-rose-500">-{formatCompactManWon(day.expenses)}</span>
-                                        )}
-                                        {isCurrentPeriod && calendarMode === 'volume' && volumeValue > 0 && (
-                                            <span className="block truncate text-[7px] font-bold text-slate-600 dark:text-slate-300">{volumeValue}건</span>
-                                        )}
-                                    </div>
-                                )}
+                                <div className={homeCalendarDesign === 'current'
+                                    ? 'relative flex w-full items-center justify-between px-1'
+                                    : 'relative flex h-[30px] w-full items-center justify-center'
+                                }>
+                                    <span className={homeCalendarDesign === 'current'
+                                        ? 'text-[clamp(11px,3.8vw,14px)] font-bold ' +
+                                            (!isCurrentMonth ? (dark ? 'text-slate-600' : 'text-slate-400') : '') +
+                                            (isCurrentMonth && index % 7 === 0 ? ' text-rose-500' : '') +
+                                            (isCurrentMonth && index % 7 === 6 ? ' text-blue-500' : '') +
+                                            (isToday ? (dark ? ' text-green-200' : ' text-green-800') : '')
+                                        : 'flex h-8 w-8 items-center justify-center rounded-full text-[clamp(11px,3.8vw,14px)] font-semibold ' +
+                                            (!isCurrentMonth ? (dark ? 'text-slate-600' : 'text-slate-300') : '') +
+                                            (isCurrentMonth && index % 7 === 0 ? ' text-rose-500' : '') +
+                                            (isCurrentMonth && index % 7 === 6 ? ' text-blue-500' : '') +
+                                            (isToday ? ' border-4 border-yellow-400 shadow-sm' : '')
+                                    }>{dayInfo?.day || ''}</span>
+
+                                    {isCurrentMonth && dayInfo?.extraDayOffRequestStatus && (
+                                        <span className={'absolute top-1 right-1 h-1.5 w-1.5 rounded-full ' + (
+                                            isPending ? 'bg-orange-500' : isApproved ? 'bg-blue-500' : isRejected ? 'bg-red-500' : ''
+                                        )} />
+                                    )}
+                                </div>
+
+                                <div className={homeCalendarDesign === 'current'
+                                    ? 'mt-1 flex w-full flex-col items-center justify-start gap-y-0.5'
+                                    : 'flex w-full flex-col items-center justify-start px-0.5 -mt-0.5'
+                                }>
+                                    {isCurrentMonth && dayInfo?.isDayOff && (
+                                        <span className="whitespace-nowrap text-[clamp(7px,2.35vw,10px)] font-bold leading-tight text-slate-500 dark:text-slate-400">○ 휴무</span>
+                                    )}
+
+                                    {calendarMode === 'money' ? (
+                                        <>
+                                            {isCurrentMonth && volumeTotal > 0 && (
+                                                <span className="whitespace-nowrap text-[clamp(7px,2.25vw,10px)] font-bold leading-tight text-slate-600 dark:text-slate-300">{volumeTotal.toLocaleString()}건</span>
+                                            )}
+                                            {isCurrentMonth && Number(dayInfo?.revenue) > 0 && (
+                                                <span className="whitespace-nowrap text-rose-500 text-[clamp(7px,2.25vw,10px)] font-semibold leading-tight">{formatCompactManWon(dayInfo.revenue)}</span>
+                                            )}
+                                            {isCurrentMonth && Number(dayInfo?.expenses) > 0 && (
+                                                <span className="whitespace-nowrap text-blue-500 text-[clamp(7px,2.25vw,10px)] font-medium leading-tight">{formatCompactManWon(dayInfo.expenses)}</span>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <div className={homeCalendarDesign === 'current'
+                                            ? 'flex w-full flex-col items-center gap-y-0'
+                                            : 'grid w-full grid-cols-2 gap-x-0.5 gap-y-0'
+                                        }>
+                                            {isCurrentMonth && VOLUME_METRICS.map((metric) => {
+                                                if (homeCalendarVolumeItems && homeCalendarVolumeItems[metric.key] === false) return null;
+                                                const amount = Number(dayInfo?.volumeBreakdown?.[metric.key] || 0);
+                                                if (amount <= 0) return null;
+                                                const label = incomeConfig.find((item) => item.key === metric.key)?.label || metric.label;
+                                                return (
+                                                    <span
+                                                        key={metric.key}
+                                                        className="min-w-0 whitespace-nowrap text-[clamp(6px,1.9vw,9px)] font-semibold leading-tight text-slate-700 dark:text-slate-300"
+                                                        title={label + ' ' + amount + '건'}
+                                                    >{homeCalendarDesign === 'classic' ? metric.shortLabel : label} {amount}</span>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
                             </button>
                         );
                     })}
                 </div>
-                <div className={'mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1 border-t pt-2 text-[9px] font-bold ' + dividerClass + ' ' + mutedClass}>
-                    <span><span className="text-emerald-500">●</span> 수익</span>
-                    <span><span className="text-rose-500">●</span> 지출</span>
-                    <span><span className="text-slate-400">●</span> 휴무</span>
+
+                <div className={'flex flex-wrap justify-center gap-x-3 gap-y-1 px-1 py-1.5 text-[9px] font-bold ' + mutedClass}>
+                    <span><span className="text-slate-400">○</span> 휴무</span>
                     <span><span className="text-orange-500">●</span> 대기</span>
                     <span><span className="text-blue-500">●</span> 승인</span>
                     <span><span className="text-red-500">●</span> 거절</span>
