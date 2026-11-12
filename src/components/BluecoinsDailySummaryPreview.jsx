@@ -166,8 +166,7 @@ const BluecoinsDailySummaryPreview = ({
     const chartDateBounds = useMemo(() => {
         const validDates = [
             ...(Array.isArray(entries) ? entries.map((entry) => entry?.date) : []),
-            ...(Array.isArray(calendarDays) ? calendarDays.map((day) => day?.date) : []),
-            selectedDate
+            ...(Array.isArray(calendarDays) ? calendarDays.map((day) => day?.date) : [])
         ]
             .filter((date) => typeof date === 'string' && date.length === 10 && date[4] === '-' && date[7] === '-')
             .sort();
