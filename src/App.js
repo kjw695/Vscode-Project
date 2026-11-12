@@ -158,6 +158,7 @@ const { isLoggedIn, user, profile } = useAuth();
     const [activeDataTab, setActiveDataTab] = useState('entry');
 
     const [initialExpenseTab, setInitialExpenseTab] = useState('income');
+    const [bluecoinsSelectedDate, setBluecoinsSelectedDate] = useState('');
     const [isExpenseSettingsModalOpen, setIsExpenseSettingsModalOpen] = useState(false); // ✨ 항목 관리 팝업 상태
 
     // --- 데이터 입력 폼 상태 ---
@@ -1593,6 +1594,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 onToday={handleTodayClick}
                                 onDateClick={handleCalendarDateClick}
                                 onOpenDayOff={() => setIsDayOffModalOpen(true)}
+                                onSelectedDateChange={setBluecoinsSelectedDate}
                                 homeCalendarDesign={homeCalendarDesign}
                                 homeCalendarVolumeItems={homeCalendarVolumeItems}
                                 incomeConfig={incomeConfig}
@@ -1794,7 +1796,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
             </div>
 
       {/* 👇 홈 화면이거나, 달력에서 특정 날짜를 콕 짚어서 들어온 경우(custom)에만 [입력] 버튼 표시 */}
-      {(activeContentTab === 'monthlyProfit' || (activeContentTab === 'dataEntry' && activeDataTab === 'list' && filters.period === 'custom')) && (
+      {(activeContentTab === 'monthlyProfit' || activeContentTab === 'bluecoinsDailySummary' || (activeContentTab === 'dataEntry' && activeDataTab === 'list' && filters.period === 'custom')) && (
                 <button 
                     onClick={(e) => {
                         e.stopPropagation();
@@ -1810,6 +1812,20 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 setDate(filters.startDate);
                             } else {
                                 setDate(getTodayLocal());
+                            }
+                        } else if (activeContentTab === 'bluecoinsDailySummary') {
+                            // 장부형에서 누른 경우: 현재 선택한 날짜로 새 입력창을 엽니다.
+                            if (isFabVisible) {
+                                setSelectedMainTab('data');
+                                setActiveContentTab('dataEntry');
+                                setActiveDataTab('entry');
+                                setEntryToEdit(null);
+                                setDate(bluecoinsSelectedDate || getTodayLocal());
+                                setUnitPrice('');
+                                setFormData({});
+                                setFormType('income');
+                            } else {
+                                setIsFabVisible(true);
                             }
                         } else {
                             // 홈 화면에서 누른 경우 (기존과 동일)
