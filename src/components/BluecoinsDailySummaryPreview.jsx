@@ -8,10 +8,10 @@ import {
     Layers,
     ListFilter,
     Plus,
-    SlidersHorizontal,
-    Target
+    SlidersHorizontal
 } from 'lucide-react';
 import { calculateData } from '../utils/calculator';
+import GoalProgressBar from './GoalProgressBar';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const CATEGORY_BAR_CLASSES = [
@@ -94,7 +94,6 @@ const BluecoinsDailySummaryPreview = ({
     const [isDayMode, setIsDayMode] = useState(true);
     const [isConfigOpen, setIsConfigOpen] = useState(false);
     const [targetWorkDays, setTargetWorkDays] = useState(25);
-    const [monthlyGoalVolume, setMonthlyGoalVolume] = useState(7500);
     const [selectedDate, setSelectedDate] = useState(() => {
         const activeCalendarDates = (Array.isArray(calendarDays) ? calendarDays : [])
             .filter((day) => day?.isCurrentMonth && (Number(day?.revenue) > 0 || Number(day?.expenses) > 0))
@@ -153,18 +152,8 @@ const BluecoinsDailySummaryPreview = ({
     const remainingWorkDays = Math.max(0, effectiveTargetDays - workingDays);
     const expectedTotalIncome = dailyAverageIncome * effectiveTargetDays;
     const expectedTotalVolume = dailyAverageVolume * effectiveTargetDays;
-    const expectedNetPay = Math.max(0, expectedTotalIncome - currentExpenses);
-    const recommendedDailyIncome = remainingWorkDays > 0
-        ? Math.round(Math.max(0, Number(goal) - currentRevenue) / remainingWorkDays)
-        : 0;
-    const recommendedDailyVolume = remainingWorkDays > 0
-        ? Math.round(Math.max(0, Number(monthlyGoalVolume) - currentVolume) / remainingWorkDays)
-        : 0;
     const holidayCount = calendarDays.filter((day) => day?.isCurrentMonth && day?.isDayOff).length;
     const totalOffDays = holidayCount;
-    const goalProgress = calendarMode === 'money'
-        ? Math.min(100, Math.round((currentRevenue / Math.max(1, Number(goal) || 1)) * 100))
-        : Math.min(100, Math.round((currentVolume / Math.max(1, Number(monthlyGoalVolume) || 1)) * 100));
     const previousIncome = Number(previousMonthlyProfit?.totalRevenue) || 0;
     const incomeDiff = currentRevenue - previousIncome;
     const incomeDiffPct = previousIncome > 0 ? ((incomeDiff / previousIncome) * 100).toFixed(1) : '0.0';
@@ -430,64 +419,22 @@ const BluecoinsDailySummaryPreview = ({
                         </div>
                     </div>
 
-                    <div className={'mt-2 rounded-2xl border p-3 ' + (dark ? 'border-slate-800 bg-slate-800/50' : 'border-slate-200 bg-slate-50')}>
-                        <div className="flex items-center justify-between gap-2 text-[11px]">
-                            <span className="flex items-center gap-1 font-black">
-                                <Target size={12} className="text-blue-500" />
-                                목표 {calendarMode === 'money' ? formatSummaryWon(goal) : Number(monthlyGoalVolume).toLocaleString() + '건'} ({goalProgress}%)
-                            </span>
+                    <div className={'mt-2 rounded-lg p-2 sm:p-4 shadow-md ' + (dark ? 'bg-gray-800' : 'bg-white')}>
+                        <GoalProgressBar
+                            current={monthlyProfit?.totalRevenue || 0}
+                            goal={goal}
+                            isDarkMode={dark}
+                            revenueDistribution={monthlyProfit?.revenueDistribution}
+                            selectedItemsForAverage={selectedItemsForAverage}
+                            incomeConfig={incomeConfig}
+                        />
+                        <div className="mt-1 flex justify-end px-1">
                             <button
                                 type="button"
                                 onClick={() => setIsConfigOpen((value) => !value)}
                                 className="flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400"
-                            ><SlidersHorizontal size={11} /> 기준 설정</button>
+                            ><SlidersHorizontal size={11} /> 예상 근무일 기준</button>
                         </div>
-                        <div className={'mt-1.5 h-2 overflow-hidden rounded-full ' + (dark ? 'bg-slate-700' : 'bg-slate-200')}>
-                            <div
-                                className={'h-full rounded-full transition-all ' + (calendarMode === 'money' ? 'bg-blue-500' : 'bg-emerald-500')}
-                                style={{ width: goalProgress + '%' }}
-                            />
-                        </div>
-
-                        <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
-                            <div className={'rounded-xl border p-2 ' + (dark ? 'border-slate-800 bg-slate-900/90' : 'border-slate-200 bg-white')}>
-                                <span className={'block text-[9px] font-bold ' + mutedClass}>예상 급여(순수익)</span>
-                                <span className="text-[11px] font-black text-blue-600 dark:text-blue-400">{formatSummaryWon(expectedNetPay)}</span>
-                                <span className={'block text-[8px] ' + mutedClass}>현재 지출 차감 기준</span>
-                            </div>
-                            <div className={'rounded-xl border p-2 ' + (dark ? 'border-slate-800 bg-slate-900/90' : 'border-slate-200 bg-white')}>
-                                <span className={'block text-[9px] font-bold ' + mutedClass}>{calendarMode === 'money' ? '권장 일수입' : '권장 일물량'}</span>
-                                <span className="text-[11px] font-black text-amber-600 dark:text-amber-400">
-                                    {calendarMode === 'money' ? formatSummaryWon(recommendedDailyIncome) : recommendedDailyVolume.toLocaleString() + '건'}
-                                </span>
-                                <span className={'block text-[8px] ' + mutedClass}>목표 달성 기준</span>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={onOpenInsurance}
-                                className={'min-w-0 rounded-xl border p-2 ' + (dark ? 'border-slate-800 bg-slate-900/90' : 'border-slate-200 bg-white')}
-                            >
-                                <span className={'block text-[9px] font-bold ' + mutedClass}>보험사</span>
-                                <span className="block truncate text-[10px] font-black">{insuranceName}</span>
-                                <span className={'block text-[8px] ' + mutedClass}>등록 정보 보기</span>
-                            </button>
-                            <div className={'rounded-xl border p-2 ' + (dark ? 'border-slate-800 bg-slate-900/90' : 'border-slate-200 bg-white')}>
-                                <span className={'block text-[9px] font-bold ' + mutedClass}>근무일</span>
-                                <span className="text-[11px] font-black text-emerald-600 dark:text-emerald-400">{workingDays}일</span>
-                                <span className={'block text-[8px] ' + mutedClass}>출근 완료</span>
-                            </div>
-                            <div className={'rounded-xl border p-2 ' + (dark ? 'border-slate-800 bg-slate-900/90' : 'border-slate-200 bg-white')}>
-                                <span className={'block text-[9px] font-bold ' + mutedClass}>휴무일</span>
-                                <span className="text-[11px] font-black text-rose-500">{totalOffDays}일</span>
-                                <span className={'block text-[8px] ' + mutedClass}>장부 기간 기준</span>
-                            </div>
-                            <div className={'rounded-xl border p-2 ' + (dark ? 'border-slate-800 bg-slate-900/90' : 'border-slate-200 bg-white')}>
-                                <span className={'block text-[9px] font-bold ' + mutedClass}>남은 근무일</span>
-                                <span className="text-[11px] font-black text-purple-500">{remainingWorkDays}일</span>
-                                <span className={'block text-[8px] ' + mutedClass}>목표 {effectiveTargetDays}일 기준</span>
-                            </div>
-                        </div>
-
                         {isConfigOpen && (
                             <div className={'mt-2 grid grid-cols-2 gap-2 border-t pt-2 ' + dividerClass}>
                                 <label className={'text-[9px] font-bold ' + mutedClass}>
@@ -498,16 +445,6 @@ const BluecoinsDailySummaryPreview = ({
                                         max="31"
                                         value={targetWorkDays}
                                         onChange={(event) => setTargetWorkDays(Math.max(1, Math.min(31, Number(event.target.value) || 1)))}
-                                        className={'mt-1 w-full rounded-lg border px-2 py-1.5 text-xs font-bold ' + (dark ? 'border-slate-700 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-900')}
-                                    />
-                                </label>
-                                <label className={'text-[9px] font-bold ' + mutedClass}>
-                                    월 목표 물량
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        value={monthlyGoalVolume}
-                                        onChange={(event) => setMonthlyGoalVolume(Math.max(0, Number(event.target.value) || 0))}
                                         className={'mt-1 w-full rounded-lg border px-2 py-1.5 text-xs font-bold ' + (dark ? 'border-slate-700 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-900')}
                                     />
                                 </label>
