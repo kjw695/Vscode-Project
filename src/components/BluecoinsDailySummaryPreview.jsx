@@ -124,6 +124,7 @@ const BluecoinsDailySummaryPreview = ({
     onToday,
     onDateClick,
     onOpenDayOff,
+    onSelectedDateChange,
     homeCalendarDesign = 'current',
     homeCalendarVolumeItems = {},
     incomeConfig = []
@@ -151,6 +152,10 @@ const BluecoinsDailySummaryPreview = ({
             .sort();
         return validDates.length ? validDates[validDates.length - 1] : toDateKey(new Date());
     });
+
+    useEffect(() => {
+        onSelectedDateChange?.(selectedDate);
+    }, [selectedDate, onSelectedDateChange]);
 
     const dailyMap = useMemo(() => {
         const grouped = {};
@@ -599,7 +604,7 @@ const BluecoinsDailySummaryPreview = ({
             </section>
 
             <section className={'mt-2 overflow-hidden rounded-2xl border shadow-sm ' + panelClass}>
-                <div className="grid grid-cols-[1fr_auto_auto] items-center gap-1 px-2 py-2">
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1 px-2 py-2">
                     <button
                         type="button"
                         onClick={() => onToggleCalendarMode?.(calendarMode === 'money' ? 'volume' : 'money')}
@@ -607,12 +612,12 @@ const BluecoinsDailySummaryPreview = ({
                     >
                         <span className="inline-flex items-center gap-1"><ArrowRightLeft size={11} />{calendarMode === 'money' ? '금액' : '물량'}</span>
                     </button>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-self-center gap-1">
                         <button type="button" onClick={() => onMonthChange?.(-1)} className="rounded-md p-0.5" aria-label="이전 달"><ChevronLeft size={19} /></button>
                         <div className="whitespace-nowrap text-sm font-black">{currentCalendarDate?.getFullYear()}년 {Number(currentCalendarDate?.getMonth()) + 1}월</div>
                         <button type="button" onClick={() => onMonthChange?.(1)} className="rounded-md p-0.5" aria-label="다음 달"><ChevronRight size={19} /></button>
                     </div>
-                    <div className="flex items-center gap-1 justify-self-end">
+                    <div className="flex w-full max-w-[90px] items-center justify-self-end gap-0.5">
                         <button type="button" onClick={onOpenDayOff} className="rounded-lg border border-indigo-300 px-2 py-1 text-[10px] font-bold text-indigo-500">휴무</button>
                         <button type="button" onClick={onToday} className="rounded-lg border border-amber-300 px-2 py-1 text-[10px] font-bold text-amber-500">오늘</button>
                     </div>
