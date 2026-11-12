@@ -73,6 +73,31 @@ const isDayOffEntry = (entry) => Boolean(
 
 const getDayVolume = (profit, selectedItems) => getSelectedVolume(profit, selectedItems);
 
+const buildRecentDays = (anchorDate, dailyMap, selectedItems) => {
+    const base = parseLocalDate(anchorDate);
+    return Array.from({ length: 7 }, (_, index) => {
+        const date = new Date(base);
+        date.setDate(base.getDate() - (6 - index));
+        const dateKey = toDateKey(date);
+        const daily = dailyMap[dateKey] || {};
+        return {
+            date: dateKey,
+            day: WEEKDAYS[date.getDay()],
+            dayNumber: date.getDate(),
+            weekdayIndex: date.getDay(),
+            income: Number(daily.totalRevenue) || 0,
+            expense: Number(daily.totalExpenses) || 0,
+            volume: getDayVolume(daily, selectedItems)
+        };
+    });
+};
+
+const getShiftedDateKey = (dateKey, amount) => {
+    const date = parseLocalDate(dateKey);
+    date.setDate(date.getDate() + amount);
+    return toDateKey(date);
+};
+
 const BluecoinsDailySummaryPreview = ({
     entries = [],
     monthlyProfit = {},
@@ -133,41 +158,16 @@ const BluecoinsDailySummaryPreview = ({
         }, {});
     }, [entries, itemLabels]);
 
-    const buildRecentDays = (anchorDate) => {
-        const base = parseLocalDate(anchorDate);
-        return Array.from({ length: 7 }, (_, index) => {
-            const date = new Date(base);
-            date.setDate(base.getDate() - (6 - index));
-            const dateKey = toDateKey(date);
-            const daily = dailyMap[dateKey] || {};
-            return {
-                date: dateKey,
-                day: WEEKDAYS[date.getDay()],
-                dayNumber: date.getDate(),
-                weekdayIndex: date.getDay(),
-                income: Number(daily.totalRevenue) || 0,
-                expense: Number(daily.totalExpenses) || 0,
-                volume: getDayVolume(daily, selectedItemsForAverage)
-            };
-        });
-    };
-
-    const getShiftedDateKey = (dateKey, amount) => {
-        const date = parseLocalDate(dateKey);
-        date.setDate(date.getDate() + amount);
-        return toDateKey(date);
-    };
-
     const previousRecent7Days = useMemo(
-        () => buildRecentDays(getShiftedDateKey(selectedDate, -1)),
+        () => buildRecentDays(getShiftedDateKey(selectedDate, -1), dailyMap, selectedItemsForAverage),
         [selectedDate, dailyMap, selectedItemsForAverage]
     );
     const recent7Days = useMemo(
-        () => buildRecentDays(selectedDate),
+        () => buildRecentDays(selectedDate, dailyMap, selectedItemsForAverage),
         [selectedDate, dailyMap, selectedItemsForAverage]
     );
     const nextRecent7Days = useMemo(
-        () => buildRecentDays(getShiftedDateKey(selectedDate, 1)),
+        () => buildRecentDays(getShiftedDateKey(selectedDate, 1), dailyMap, selectedItemsForAverage),
         [selectedDate, dailyMap, selectedItemsForAverage]
     );
 
@@ -265,9 +265,6 @@ const BluecoinsDailySummaryPreview = ({
     const selectedTone = calendarMode === 'money'
         ? 'text-blue-600 dark:text-blue-400'
         : 'text-emerald-600 dark:text-emerald-400';
-    const selectedBg = calendarMode === 'money'
-        ? 'bg-blue-500/15 ring-blue-500'
-        : 'bg-emerald-500/15 ring-emerald-500';
 
     const shiftSelectedDate = (delta) => {
         const date = parseLocalDate(selectedDate);
