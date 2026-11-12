@@ -131,6 +131,7 @@ const BluecoinsDailySummaryPreview = ({
     const [activeReportTab, setActiveReportTab] = useState('categories');
     const [isDayMode, setIsDayMode] = useState(true);
     const chartScrollRef = useRef(null);
+    const reportSectionRef = useRef(null);
     const chartAlignmentRequestRef = useRef(null);
     const chartInitialAlignmentRef = useRef(true);
     const [chartVisibleStartIndex, setChartVisibleStartIndex] = useState(0);
@@ -192,8 +193,46 @@ const BluecoinsDailySummaryPreview = ({
     const dailyAverageVolume = workingDays > 0 ? Math.round(currentVolume / workingDays) : 0;
     const effectiveTargetDays = Math.max(25, workingDays);
     const remainingWorkDays = Math.max(0, effectiveTargetDays - workingDays);
-    const expectedTotalIncome = dailyAverageIncome * effectiveTargetDays;
     const expectedTotalVolume = dailyAverageVolume * effectiveTargetDays;
+
+    // 기본 홈의 예상월급 계산은 예상 총금액 값에만 적용합니다.
+    const salaryRemainingCalendarDays = useMemo(() => {
+        if (!selectedMonth || !monthlyEndDay) return 1;
+        try {
+            const [year, month] = selectedMonth.split('-').map(Number);
+            const endDate = new Date(year, month - 1, monthlyEndDay);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const diffDays = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+            return diffDays > 0 ? diffDays : 1;
+        } catch (error) {
+            return 1;
+        }
+    }, [selectedMonth, monthlyEndDay]);
+
+    const salaryFutureHolidays = useMemo(() => {
+        if (!Array.isArray(entries) || entries.length === 0) return 0;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        return entries.filter((entry) => {
+            if (!entry || !entry.date || typeof entry.date !== 'string') return false;
+            const parts = entry.date.split('-');
+            if (parts.length !== 3) return false;
+
+            const [year, month, day] = parts.map(Number);
+            const entryDate = new Date(year, month - 1, day);
+
+            const hasHolidayMemo = typeof entry.memo === 'string' && entry.memo.includes('휴무');
+            const isDayOffType = entry.isDayOff === true;
+            const hasDayOffCustomItem = Array.isArray(entry.customItems) &&
+                entry.customItems.some((item) => item?.key === 'dayOff' || item?.key === '휴무');
+            return entryDate >= today && (hasHolidayMemo || isDayOffType || hasDayOffCustomItem);
+        }).length;
+    }, [entries]);
+
+    const salaryRemainingWorkDays = Math.max(0, salaryRemainingCalendarDays - salaryFutureHolidays);
+    const expectedTotalIncome = currentRevenue + (dailyAverageIncome * salaryRemainingWorkDays);
     const holidayCount = calendarDays.filter((day) => day?.isCurrentMonth && day?.isDayOff).length;
     const totalOffDays = holidayCount;
     const previousIncome = Number(previousMonthlyProfit?.totalRevenue) || 0;
@@ -386,6 +425,12 @@ const BluecoinsDailySummaryPreview = ({
         );
     };
 
+    const openCategoryBreakdown = () => {
+        setIsDayMode(true);
+        setActiveReportTab('categories');
+        reportSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
     const reportTitle = isDayMode
         ? selectedDate + ' 하루 요약'
         : (selectedMonth || '') + ' 장부 기간 전체 요약';
@@ -524,7 +569,7 @@ const BluecoinsDailySummaryPreview = ({
                             <p className="mt-0.5 whitespace-nowrap text-[12px] font-black text-amber-600 dark:text-amber-400">
                                 {calendarMode === 'money' ? formatSummaryWon(expectedTotalIncome) : expectedTotalVolume.toLocaleString() + '건'}
                             </p>
-                            <p className={'mt-0.5 whitespace-nowrap text-[8px] font-semibold ' + mutedClass}>월 {effectiveTargetDays}일 근무 기준</p>
+                            <p className={'mt-0.5 whitespace-nowrap text-[8px] font-semibold ' + mutedClass}>남은 근무 {salaryRemainingWorkDays}일 반영</p>
                         </div>
                     </div>
 
@@ -545,7 +590,7 @@ const BluecoinsDailySummaryPreview = ({
                         </span>
                         <button
                             type="button"
-                            onClick={() => onDateClick?.(selectedDate)}
+                            onClick={openCategoryBreakdown}
                             className="inline-flex shrink-0 items-center gap-1 font-black text-blue-600 dark:text-blue-400"
                         ><Plus size={12} /> 내역 열기</button>
                     </div>
@@ -648,10 +693,10 @@ const BluecoinsDailySummaryPreview = ({
                                                 <span className="whitespace-nowrap text-[clamp(7px,2.25vw,10px)] font-bold leading-tight text-slate-600 dark:text-slate-300">{volumeTotal.toLocaleString()}건</span>
                                             )}
                                             {isCurrentMonth && Number(dayInfo?.revenue) > 0 && (
-                                                <span className="whitespace-nowrap text-rose-500 text-[clamp(7px,2.25vw,10px)] font-semibold leading-tight">{formatCompactManWon(dayInfo.revenue)}</span>
+                                                <span className="whitespace-nowrap text-rose-500 text-[clamp(7px,2.25vw,10px)] font-semibold leading-tight">{Number(dayInfo.revenue).toLocaleString()}원</span>
                                             )}
                                             {isCurrentMonth && Number(dayInfo?.expenses) > 0 && (
-                                                <span className="whitespace-nowrap text-blue-500 text-[clamp(7px,2.25vw,10px)] font-medium leading-tight">{formatCompactManWon(dayInfo.expenses)}</span>
+                                                <span className="whitespace-nowrap text-blue-500 text-[clamp(7px,2.25vw,10px)] font-medium leading-tight">{Number(dayInfo.expenses).toLocaleString()}원</span>
                                             )}
                                         </>
                                     ) : (
@@ -688,7 +733,10 @@ const BluecoinsDailySummaryPreview = ({
                 </div>
             </section>
 
-            <section className={'mt-2 rounded-2xl border p-3 shadow-sm ' + panelClass}>
+            <section
+                ref={reportSectionRef}
+                className={'mt-2 scroll-mt-3 rounded-2xl border p-3 shadow-sm ' + panelClass}
+            >
                 <div className={'grid grid-cols-3 rounded-xl p-1 text-[10px] font-black ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
                     <button
                         type="button"
