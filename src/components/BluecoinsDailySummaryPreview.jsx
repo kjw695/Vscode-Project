@@ -291,6 +291,73 @@ const BluecoinsDailySummaryPreview = ({
     const unitPriceRows = reportData.unitPriceAnalysis || [];
 
     const transactionRows = useMemo(() => {
+        if (!isDayMode) {
+            const groupedByRound = new Map();
+            const monthlyVolumeMetrics = VOLUME_METRICS.filter((metric) => (
+                ['deliveryCount', 'deliveryInterruptionAmount', 'returnCount'].includes(metric.key)
+            ));
+
+            reportEntries.forEach((entry) => {
+                const data = calculateData([entry], itemLabels);
+                const round = Number(entry?.round) || 0;
+                const key = round > 0 ? 'round-' + round : 'other';
+                if (!groupedByRound.has(key)) {
+                    groupedByRound.set(key, {
+                        key,
+                        round,
+                        recordCount: 0,
+                        dates: new Set(),
+                        income: 0,
+                        expense: 0,
+                        volumeBreakdown: monthlyVolumeMetrics.reduce((result, metric) => {
+                            result[metric.key] = 0;
+                            return result;
+                        }, {})
+                    });
+                }
+
+                const row = groupedByRound.get(key);
+                row.recordCount += 1;
+                if (entry?.date) row.dates.add(entry.date);
+                row.income += Number(data.totalRevenue) || 0;
+                row.expense += Number(data.totalExpenses) || 0;
+
+                monthlyVolumeMetrics.forEach((metric) => {
+                    const customItemLabels = Array.isArray(entry?.customItems)
+                        ? entry.customItems
+                            .filter((item) => item?.key === metric.key)
+                            .map((item) => itemLabels[item.key] || item.name || item.key)
+                        : [];
+                    const labelCandidates = new Set([
+                        itemLabels[metric.key],
+                        metric.label,
+                        metric.key,
+                        ...customItemLabels
+                    ].filter(Boolean));
+                    const count = Object.entries(data.revenueDetails || {}).reduce(
+                        (total, [name, value]) => (
+                            labelCandidates.has(name) ? total + (Number(value?.count) || 0) : total
+                        ),
+                        0
+                    );
+                    row.volumeBreakdown[metric.key] += count;
+                });
+            });
+
+            return Array.from(groupedByRound.values())
+                .map((row) => ({
+                    ...row,
+                    dateCount: row.dates.size,
+                    volume: Object.values(row.volumeBreakdown).reduce((total, count) => total + count, 0),
+                    isMonthAggregate: true
+                }))
+                .sort((a, b) => {
+                    if (a.round === 0) return 1;
+                    if (b.round === 0) return -1;
+                    return a.round - b.round;
+                });
+        }
+
         return reportEntries.map((entry, index) => {
             const data = calculateData([entry], itemLabels);
             const names = Array.isArray(entry?.customItems)
@@ -313,7 +380,7 @@ const BluecoinsDailySummaryPreview = ({
             if (a.date !== b.date) return b.date.localeCompare(a.date);
             return a.round - b.round;
         });
-    }, [reportEntries, itemLabels, selectedItemsForAverage]);
+    }, [reportEntries, itemLabels, selectedItemsForAverage, isDayMode]);
 
     const panelClass = dark
         ? 'bg-slate-900 border-slate-800 text-slate-100'
@@ -872,11 +939,26 @@ const BluecoinsDailySummaryPreview = ({
                                                 <span className={'rounded-md px-2 py-0.5 text-[9px] font-black ' + (dark ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-700')}>
                                                     {row.round === 0 ? '기타' : row.round + '회차'}
                                                 </span>
-                                                <span className="truncate text-[10px] font-black">{row.names.length ? row.names.join(' · ') : '배송/지출 기록'}</span>
+                                                {!row.isMonthAggregate && (
+                                                    <span className="truncate text-[10px] font-black">{row.names.length ? row.names.join(' · ') : '배송/지출 기록'}</span>
+                                                )}
                                             </div>
-                                            <p className={'mt-1 truncate text-[9px] ' + mutedClass}>
-                                                {row.date}{row.memo ? ' · ' + row.memo : ''}{' · 물량 ' + row.volume.toLocaleString() + '건'}
-                                            </p>
+                                            {row.isMonthAggregate ? (
+                                                <>
+                                                    <p className={'mt-1 text-[10px] font-semibold ' + mutedClass}>
+                                                        배송 {row.volumeBreakdown.deliveryCount.toLocaleString()}건
+                                                        {' · '}중단 {row.volumeBreakdown.deliveryInterruptionAmount.toLocaleString()}건
+                                                        {' · '}반품 {row.volumeBreakdown.returnCount.toLocaleString()}건
+                                                    </p>
+                                                    <p className={'mt-0.5 text-[9px] ' + mutedClass}>
+                                                        {row.dateCount}일 기록 · {row.recordCount}개 입력 합산
+                                                    </p>
+                                                </>
+                                            ) : (
+                                                <p className={'mt-1 truncate text-[9px] ' + mutedClass}>
+                                                    {row.date}{row.memo ? ' · ' + row.memo : ''}{' · 물량 ' + row.volume.toLocaleString() + '건'}
+                                                </p>
+                                            )}
                                         </div>
                                         <div className="shrink-0 text-right">
                                             {row.income > 0 && <div className="text-[10px] font-black text-emerald-500">+{row.income.toLocaleString()}원</div>}
