@@ -169,7 +169,7 @@ const BluecoinsDailySummaryPreview = ({
             ...(Array.isArray(calendarDays) ? calendarDays.map((day) => day?.date) : []),
             selectedDate
         ]
-            .filter((date) => typeof date === 'string' && /^\\d{4}-\\d{2}-\\d{2}$/.test(date))
+            .filter((date) => typeof date === 'string' && date.length === 10 && date[4] === '-' && date[7] === '-')
             .sort();
 
         const firstDate = validDates[0] || selectedDate;
