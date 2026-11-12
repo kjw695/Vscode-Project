@@ -324,14 +324,14 @@ const BluecoinsDailySummaryPreview = ({
         ? 'text-blue-600 dark:text-blue-400'
         : 'text-emerald-600 dark:text-emerald-400';
 
-    const selectDateAndAlignChart = (dateKey, behavior = 'smooth') => {
+    const selectDateAndAlignChart = (dateKey, behavior = 'auto') => {
         chartAlignmentRequestRef.current = { dateKey, behavior };
         setSelectedDate(dateKey);
         setChartAlignmentVersion((version) => version + 1);
     };
 
     const shiftSelectedDate = (delta) => {
-        selectDateAndAlignChart(getShiftedDateKey(selectedDate, delta));
+        selectDateAndAlignChart(getShiftedDateKey(selectedDate, delta), 'smooth');
     };
 
     const handleChartScroll = (event) => {
