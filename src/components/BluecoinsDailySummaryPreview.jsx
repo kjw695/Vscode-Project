@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ArrowLeft,
     ArrowUpRight,
@@ -73,23 +73,27 @@ const isDayOffEntry = (entry) => Boolean(
 
 const getDayVolume = (profit, selectedItems) => getSelectedVolume(profit, selectedItems);
 
-const buildRecentDays = (anchorDate, dailyMap, selectedItems) => {
-    const base = parseLocalDate(anchorDate);
-    return Array.from({ length: 7 }, (_, index) => {
-        const date = new Date(base);
-        date.setDate(base.getDate() - (6 - index));
-        const dateKey = toDateKey(date);
+const buildChartDays = (startDate, endDate, dailyMap, selectedItems) => {
+    const days = [];
+    const cursor = parseLocalDate(startDate);
+    const end = parseLocalDate(endDate);
+
+    while (cursor <= end && days.length < 10000) {
+        const dateKey = toDateKey(cursor);
         const daily = dailyMap[dateKey] || {};
-        return {
+        days.push({
             date: dateKey,
-            day: WEEKDAYS[date.getDay()],
-            dayNumber: date.getDate(),
-            weekdayIndex: date.getDay(),
+            day: WEEKDAYS[cursor.getDay()],
+            dayNumber: cursor.getDate(),
+            weekdayIndex: cursor.getDay(),
             income: Number(daily.totalRevenue) || 0,
             expense: Number(daily.totalExpenses) || 0,
             volume: getDayVolume(daily, selectedItems)
-        };
-    });
+        });
+        cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return days;
 };
 
 const getShiftedDateKey = (dateKey, amount) => {
@@ -126,10 +130,11 @@ const BluecoinsDailySummaryPreview = ({
     const dark = Boolean(isDarkMode);
     const [activeReportTab, setActiveReportTab] = useState('categories');
     const [isDayMode, setIsDayMode] = useState(true);
-    const chartSwipeRef = useRef(null);
-    const suppressChartClickRef = useRef(false);
-    const [chartDragOffset, setChartDragOffset] = useState(0);
-    const [chartTransitioning, setChartTransitioning] = useState(false);
+    const chartScrollRef = useRef(null);
+    const chartAlignmentRequestRef = useRef(null);
+    const chartInitialAlignmentRef = useRef(true);
+    const [chartVisibleStartIndex, setChartVisibleStartIndex] = useState(0);
+    const [chartAlignmentVersion, setChartAlignmentVersion] = useState(0);
     const [selectedDate, setSelectedDate] = useState(() => {
         const activeCalendarDates = (Array.isArray(calendarDays) ? calendarDays : [])
             .filter((day) => day?.isCurrentMonth && (Number(day?.revenue) > 0 || Number(day?.expenses) > 0))
@@ -158,17 +163,25 @@ const BluecoinsDailySummaryPreview = ({
         }, {});
     }, [entries, itemLabels]);
 
-    const previousRecent7Days = useMemo(
-        () => buildRecentDays(getShiftedDateKey(selectedDate, -1), dailyMap, selectedItemsForAverage),
-        [selectedDate, dailyMap, selectedItemsForAverage]
-    );
-    const recent7Days = useMemo(
-        () => buildRecentDays(selectedDate, dailyMap, selectedItemsForAverage),
-        [selectedDate, dailyMap, selectedItemsForAverage]
-    );
-    const nextRecent7Days = useMemo(
-        () => buildRecentDays(getShiftedDateKey(selectedDate, 1), dailyMap, selectedItemsForAverage),
-        [selectedDate, dailyMap, selectedItemsForAverage]
+    const chartDateBounds = useMemo(() => {
+        const validDates = [
+            ...(Array.isArray(entries) ? entries.map((entry) => entry?.date) : []),
+            ...(Array.isArray(calendarDays) ? calendarDays.map((day) => day?.date) : [])
+        ]
+            .filter((date) => typeof date === 'string' && date.length === 10 && date[4] === '-' && date[7] === '-')
+            .sort();
+
+        const firstDate = validDates[0] || selectedDate;
+        const lastDate = validDates[validDates.length - 1] || selectedDate;
+        return {
+            start: getShiftedDateKey(firstDate, -30),
+            end: getShiftedDateKey(lastDate, 30)
+        };
+    }, [entries, calendarDays, selectedDate]);
+
+    const chartDays = useMemo(
+        () => buildChartDays(chartDateBounds.start, chartDateBounds.end, dailyMap, selectedItemsForAverage),
+        [chartDateBounds.start, chartDateBounds.end, dailyMap, selectedItemsForAverage]
     );
 
     const currentVolume = getSelectedVolume(monthlyProfit, selectedItemsForAverage);
@@ -266,141 +279,88 @@ const BluecoinsDailySummaryPreview = ({
         ? 'text-blue-600 dark:text-blue-400'
         : 'text-emerald-600 dark:text-emerald-400';
 
+    const selectDateAndAlignChart = (dateKey, behavior = 'smooth') => {
+        chartAlignmentRequestRef.current = { dateKey, behavior };
+        setSelectedDate(dateKey);
+        setChartAlignmentVersion((version) => version + 1);
+    };
+
     const shiftSelectedDate = (delta) => {
-        const date = parseLocalDate(selectedDate);
-        date.setDate(date.getDate() + delta);
-        setSelectedDate(toDateKey(date));
+        selectDateAndAlignChart(getShiftedDateKey(selectedDate, delta));
     };
 
-    const handleRecent7DaysTouchStart = (event) => {
-        if (chartSwipeRef.current?.phase === 'settling' || chartSwipeRef.current?.phase === 'returning') return;
-        const touch = event.touches?.[0];
-        if (!touch) return;
-        chartSwipeRef.current = {
-            startX: touch.clientX,
-            startY: touch.clientY,
-            width: Math.max(1, event.currentTarget.clientWidth),
-            phase: 'pending',
-            direction: 0
-        };
-        setChartDragOffset(0);
-        setChartTransitioning(false);
-    };
+    const handleChartScroll = (event) => {
+        const scrollElement = event.currentTarget;
+        const dayWidth = scrollElement.clientWidth / 7;
+        if (dayWidth <= 0 || chartDays.length === 0) return;
 
-    const handleRecent7DaysTouchMove = (event) => {
-        const swipe = chartSwipeRef.current;
-        const touch = event.touches?.[0];
-        if (!swipe || !touch || swipe.phase === 'cancelled') return;
+        const maxStartIndex = Math.max(0, chartDays.length - 7);
+        const nextStartIndex = Math.max(
+            0,
+            Math.min(maxStartIndex, Math.round(scrollElement.scrollLeft / dayWidth))
+        );
+        const nextSelectedDate = chartDays[Math.min(chartDays.length - 1, nextStartIndex + 6)]?.date;
 
-        const deltaX = touch.clientX - swipe.startX;
-        const deltaY = touch.clientY - swipe.startY;
-
-        if (swipe.phase === 'pending') {
-            if (Math.abs(deltaX) < 7 && Math.abs(deltaY) < 7) return;
-            if (Math.abs(deltaY) > Math.abs(deltaX) * 1.1) {
-                swipe.phase = 'cancelled';
-                return;
-            }
-            if (Math.abs(deltaX) <= Math.abs(deltaY) * 1.1) return;
-
-            swipe.phase = 'dragging';
-            suppressChartClickRef.current = true;
-            window.setTimeout(() => {
-                suppressChartClickRef.current = false;
-            }, 420);
-        }
-
-        if (swipe.phase === 'dragging') {
-            setChartDragOffset(Math.max(-swipe.width, Math.min(swipe.width, deltaX)));
+        setChartVisibleStartIndex((current) => (
+            current === nextStartIndex ? current : nextStartIndex
+        ));
+        if (nextSelectedDate) {
+            setSelectedDate((current) => (
+                current === nextSelectedDate ? current : nextSelectedDate
+            ));
         }
     };
 
-    const handleRecent7DaysTouchEnd = (event) => {
-        const swipe = chartSwipeRef.current;
-        const touch = event.changedTouches?.[0];
-        if (!swipe || !touch) {
-            chartSwipeRef.current = null;
-            return;
-        }
+    useEffect(() => {
+        const request = chartAlignmentRequestRef.current;
+        const targetDate = request?.dateKey || (chartInitialAlignmentRef.current ? selectedDate : null);
+        if (!targetDate || !chartScrollRef.current || chartScrollRef.current.clientWidth <= 0) return;
 
-        if (swipe.phase !== 'dragging') {
-            chartSwipeRef.current = null;
-            return;
-        }
+        const firstVisibleDate = getShiftedDateKey(targetDate, -6);
+        const startIndex = chartDays.findIndex((day) => day.date === firstVisibleDate);
+        if (startIndex < 0) return;
 
-        const deltaX = touch.clientX - swipe.startX;
-        const threshold = Math.max(48, swipe.width * 0.18);
-        if (Math.abs(deltaX) < threshold) {
-            chartSwipeRef.current = { phase: 'returning', direction: 0 };
-            setChartTransitioning(true);
-            setChartDragOffset(0);
-            return;
-        }
-
-        const direction = deltaX < 0 ? 1 : -1;
-        chartSwipeRef.current = { phase: 'settling', direction };
-        setChartTransitioning(true);
-        setChartDragOffset(direction > 0 ? -swipe.width : swipe.width);
-    };
-
-    const handleRecent7DaysTransitionEnd = (event) => {
-        if (event.propertyName !== 'transform') return;
-        const swipe = chartSwipeRef.current;
-        if (!swipe) return;
-
-        if (swipe.phase === 'settling') {
-            const nextDate = parseLocalDate(selectedDate);
-            nextDate.setDate(nextDate.getDate() + swipe.direction);
-            chartSwipeRef.current = null;
-            setSelectedDate(toDateKey(nextDate));
-            setChartDragOffset(0);
-            setChartTransitioning(false);
-        } else if (swipe.phase === 'returning') {
-            chartSwipeRef.current = null;
-            setChartDragOffset(0);
-            setChartTransitioning(false);
-        }
-    };
-
-    const handleRecent7DaysTouchCancel = () => {
-        const swipe = chartSwipeRef.current;
-        if (swipe?.phase === 'dragging') {
-            chartSwipeRef.current = { phase: 'returning', direction: 0 };
-            setChartTransitioning(true);
-            setChartDragOffset(0);
-        } else {
-            chartSwipeRef.current = null;
-        }
-    };
+        const dayWidth = chartScrollRef.current.clientWidth / 7;
+        chartScrollRef.current.scrollTo({
+            left: startIndex * dayWidth,
+            behavior: request?.behavior || 'auto'
+        });
+        setChartVisibleStartIndex(startIndex);
+        chartAlignmentRequestRef.current = null;
+        chartInitialAlignmentRef.current = false;
+    }, [selectedDate, chartDays, chartAlignmentVersion]);
 
     const renderRecentChart = (days) => {
+        const visibleDays = days.slice(chartVisibleStartIndex, chartVisibleStartIndex + 7);
         const maxValue = Math.max(
             1,
-            ...days.map((day) => calendarMode === 'money' ? day.income : day.volume)
+            ...visibleDays.map((day) => calendarMode === 'money' ? day.income : day.volume)
         );
 
         return (
-            <div className="grid grid-cols-7 items-end gap-1">
-                {days.map((day, index) => {
+            <div
+                className="flex w-full items-end"
+                style={{ width: (days.length / 7) * 100 + '%' }}
+            >
+                {days.map((day) => {
                     const value = calendarMode === 'money' ? day.income : day.volume;
                     const barHeight = value > 0 ? Math.max(7, Math.round((value / maxValue) * 58)) : 4;
                     const label = calendarMode === 'money'
                         ? formatCompactManWon(day.income)
                         : (day.volume > 0 ? day.volume.toLocaleString() + '건' : '-');
-                    const isSelected = index === 6;
+                    const isSelected = day.date === selectedDate;
                     return (
                         <button
                             key={day.date}
+                            data-chart-date={day.date}
                             type="button"
-                            onClick={() => {
-                                if (suppressChartClickRef.current) return;
-                                setSelectedDate(day.date);
-                            }}
+                            onClick={() => setSelectedDate(day.date)}
                             className={'flex min-w-0 flex-col items-center rounded-xl px-0.5 py-1 ' + (
                                 isSelected
                                     ? (calendarMode === 'money' ? 'bg-blue-500/10 ring-1 ring-blue-500/70' : 'bg-emerald-500/10 ring-1 ring-emerald-500/70')
                                     : (dark ? 'hover:bg-slate-700/50' : 'hover:bg-slate-200/60')
                             )}
+                            style={{ flex: '0 0 ' + (100 / days.length) + '%' }}
                         >
                             <div className="flex h-[76px] w-full flex-col items-center justify-end">
                                 <span className={'mb-1 whitespace-nowrap text-[9px] font-black leading-none ' + (isSelected ? selectedTone : mutedClass)}>{label}</span>
@@ -522,28 +482,20 @@ const BluecoinsDailySummaryPreview = ({
                         </div>
                     </div>
 
+                    <style>{'.daily-summary-chart-scroll::-webkit-scrollbar { display: none; }'}</style>
                     <div
-                        onTouchStart={handleRecent7DaysTouchStart}
-                        onTouchMove={handleRecent7DaysTouchMove}
-                        onTouchEnd={handleRecent7DaysTouchEnd}
-                        onTouchCancel={handleRecent7DaysTouchCancel}
-                        className={'mt-1 overflow-hidden rounded-2xl border px-2 pt-2 pb-2 ' + (dark ? 'border-slate-800 bg-slate-800/40' : 'border-slate-100 bg-slate-50')}
-                        style={{ touchAction: 'pan-y' }}
+                        ref={chartScrollRef}
+                        onScroll={handleChartScroll}
+                        className={'daily-summary-chart-scroll mt-1 overflow-x-auto overflow-y-hidden rounded-2xl border pt-2 pb-2 ' + (dark ? 'border-slate-800 bg-slate-800/40' : 'border-slate-100 bg-slate-50')}
+                        style={{
+                            scrollbarWidth: 'none',
+                            msOverflowStyle: 'none',
+                            WebkitOverflowScrolling: 'touch',
+                            overscrollBehaviorX: 'contain',
+                            touchAction: 'pan-x pan-y'
+                        }}
                     >
-                        <div
-                            onTransitionEnd={handleRecent7DaysTransitionEnd}
-                            style={{
-                                display: 'flex',
-                                width: '300%',
-                                transform: 'translate3d(calc(-33.333333% + ' + chartDragOffset + 'px), 0, 0)',
-                                transition: chartTransitioning ? 'transform 280ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
-                                willChange: chartTransitioning || chartSwipeRef.current?.phase === 'dragging' ? 'transform' : 'auto'
-                            }}
-                        >
-                            <div style={{ flex: '0 0 33.333333%', minWidth: 0 }}>{renderRecentChart(previousRecent7Days)}</div>
-                            <div style={{ flex: '0 0 33.333333%', minWidth: 0 }}>{renderRecentChart(recent7Days)}</div>
-                            <div style={{ flex: '0 0 33.333333%', minWidth: 0 }}>{renderRecentChart(nextRecent7Days)}</div>
-                        </div>
+                        {renderRecentChart(chartDays)}
                     </div>
 
                     <div className={'mt-2 grid grid-cols-3 rounded-2xl p-2.5 text-center ' + (dark ? 'bg-slate-800/80' : 'bg-slate-100')}>
@@ -644,7 +596,7 @@ const BluecoinsDailySummaryPreview = ({
                                 type="button"
                                 key={dayInfo?.date || 'empty-' + index}
                                 disabled={!dayInfo?.date}
-                                onClick={() => dayInfo?.date && setSelectedDate(dayInfo.date)}
+                                onClick={() => dayInfo?.date && selectDateAndAlignChart(dayInfo.date)}
                                 className={(homeCalendarDesign === 'current'
                                     ? 'relative flex h-20 min-w-0 flex-col items-center justify-start border-b border-r p-1 text-left transition-colors ' + dividerClass
                                     : 'relative flex h-[62px] min-w-0 flex-col items-center justify-start rounded-md transition-colors') + ' ' + (
