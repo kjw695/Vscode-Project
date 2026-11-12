@@ -143,7 +143,6 @@ const BluecoinsDailySummaryPreview = ({
         return validDates.length ? validDates[validDates.length - 1] : toDateKey(new Date());
     });
     const [chartStartDate, setChartStartDate] = useState(() => getShiftedDateKey(selectedDate, -6));
-    const reportSectionRef = useRef(null);
 
     const dailyMap = useMemo(() => {
         const grouped = {};
@@ -340,7 +339,7 @@ const BluecoinsDailySummaryPreview = ({
 
         return (
             <div className="grid grid-cols-7 items-end gap-1">
-                {days.map((day) => {
+                {days.map((day, index) => {
                     const value = calendarMode === 'money' ? day.income : day.volume;
                     const barHeight = value > 0 ? Math.max(7, Math.round((value / maxValue) * 58)) : 4;
                     const label = calendarMode === 'money'
@@ -388,12 +387,6 @@ const BluecoinsDailySummaryPreview = ({
     const reportTitle = isDayMode
         ? selectedDate + ' 하루 요약'
         : (selectedMonth || '') + ' 장부 기간 전체 요약';
-
-    const openCategoryBreakdown = () => {
-        setIsDayMode(true);
-        setActiveReportTab('categories');
-        reportSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    };
 
     return (
         <div className="w-full px-2 pb-4">
@@ -545,7 +538,7 @@ const BluecoinsDailySummaryPreview = ({
                         </span>
                         <button
                             type="button"
-                            onClick={openCategoryBreakdown}
+                            onClick={() => onDateClick?.(selectedDate)}
                             className="inline-flex shrink-0 items-center gap-1 font-black text-blue-600 dark:text-blue-400"
                         ><Plus size={12} /> 내역 열기</button>
                     </div>
@@ -688,10 +681,7 @@ const BluecoinsDailySummaryPreview = ({
                 </div>
             </section>
 
-            <section
-                ref={reportSectionRef}
-                className={'mt-2 scroll-mt-3 rounded-2xl border p-3 shadow-sm ' + panelClass}
-            >
+            <section className={'mt-2 rounded-2xl border p-3 shadow-sm ' + panelClass}>
                 <div className={'grid grid-cols-3 rounded-xl p-1 text-[10px] font-black ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
                     <button
                         type="button"
