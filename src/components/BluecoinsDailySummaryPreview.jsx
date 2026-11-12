@@ -485,7 +485,7 @@ const BluecoinsDailySummaryPreview = ({
                     </div>
                     <div className="min-w-0 px-1 py-2 text-center">
                         <div className={'text-[10px] whitespace-nowrap ' + mutedClass}>남은 근무</div>
-                        <div className="mt-0.5 text-sm font-black tabular-nums text-purple-500">{remainingWorkDays}일</div>
+                        <div className="mt-0.5 text-sm font-black tabular-nums text-purple-500">{salaryRemainingWorkDays}일</div>
                     </div>
                     <button
                         type="button"
