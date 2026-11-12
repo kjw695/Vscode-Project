@@ -73,11 +73,11 @@ const isDayOffEntry = (entry) => Boolean(
 
 const getDayVolume = (profit, selectedItems) => getSelectedVolume(profit, selectedItems);
 
-const buildRecentDays = (anchorDate, dailyMap, selectedItems) => {
-    const base = parseLocalDate(anchorDate);
+const buildRecentDays = (startDate, dailyMap, selectedItems) => {
+    const base = parseLocalDate(startDate);
     return Array.from({ length: 7 }, (_, index) => {
         const date = new Date(base);
-        date.setDate(base.getDate() - (6 - index));
+        date.setDate(base.getDate() + index);
         const dateKey = toDateKey(date);
         const daily = dailyMap[dateKey] || {};
         return {
@@ -128,8 +128,6 @@ const BluecoinsDailySummaryPreview = ({
     const [isDayMode, setIsDayMode] = useState(true);
     const chartSwipeRef = useRef(null);
     const suppressChartClickRef = useRef(false);
-    const [chartDragOffset, setChartDragOffset] = useState(0);
-    const [chartTransitioning, setChartTransitioning] = useState(false);
     const [selectedDate, setSelectedDate] = useState(() => {
         const activeCalendarDates = (Array.isArray(calendarDays) ? calendarDays : [])
             .filter((day) => day?.isCurrentMonth && (Number(day?.revenue) > 0 || Number(day?.expenses) > 0))
@@ -144,6 +142,8 @@ const BluecoinsDailySummaryPreview = ({
             .sort();
         return validDates.length ? validDates[validDates.length - 1] : toDateKey(new Date());
     });
+    const [chartStartDate, setChartStartDate] = useState(() => getShiftedDateKey(selectedDate, -6));
+    const reportSectionRef = useRef(null);
 
     const dailyMap = useMemo(() => {
         const grouped = {};
@@ -158,17 +158,10 @@ const BluecoinsDailySummaryPreview = ({
         }, {});
     }, [entries, itemLabels]);
 
-    const previousRecent7Days = useMemo(
-        () => buildRecentDays(getShiftedDateKey(selectedDate, -1), dailyMap, selectedItemsForAverage),
-        [selectedDate, dailyMap, selectedItemsForAverage]
-    );
+    const chartEndDate = getShiftedDateKey(chartStartDate, 6);
     const recent7Days = useMemo(
-        () => buildRecentDays(selectedDate, dailyMap, selectedItemsForAverage),
-        [selectedDate, dailyMap, selectedItemsForAverage]
-    );
-    const nextRecent7Days = useMemo(
-        () => buildRecentDays(getShiftedDateKey(selectedDate, 1), dailyMap, selectedItemsForAverage),
-        [selectedDate, dailyMap, selectedItemsForAverage]
+        () => buildRecentDays(chartStartDate, dailyMap, selectedItemsForAverage),
+        [chartStartDate, dailyMap, selectedItemsForAverage]
     );
 
     const currentVolume = getSelectedVolume(monthlyProfit, selectedItemsForAverage);
@@ -267,24 +260,34 @@ const BluecoinsDailySummaryPreview = ({
         : 'text-emerald-600 dark:text-emerald-400';
 
     const shiftSelectedDate = (delta) => {
-        const date = parseLocalDate(selectedDate);
-        date.setDate(date.getDate() + delta);
-        setSelectedDate(toDateKey(date));
+        const nextDate = getShiftedDateKey(selectedDate, delta);
+        setSelectedDate(nextDate);
+
+        if (nextDate < chartStartDate) {
+            setChartStartDate(nextDate);
+        } else if (nextDate > chartEndDate) {
+            setChartStartDate(getShiftedDateKey(nextDate, -6));
+        }
+    };
+
+    const selectCalendarDate = (dateKey) => {
+        if (!dateKey) return;
+        setSelectedDate(dateKey);
+
+        if (dateKey < chartStartDate || dateKey > chartEndDate) {
+            setChartStartDate(getShiftedDateKey(dateKey, -3));
+        }
     };
 
     const handleRecent7DaysTouchStart = (event) => {
-        if (chartSwipeRef.current?.phase === 'settling' || chartSwipeRef.current?.phase === 'returning') return;
         const touch = event.touches?.[0];
         if (!touch) return;
         chartSwipeRef.current = {
             startX: touch.clientX,
             startY: touch.clientY,
             width: Math.max(1, event.currentTarget.clientWidth),
-            phase: 'pending',
-            direction: 0
+            phase: 'pending'
         };
-        setChartDragOffset(0);
-        setChartTransitioning(false);
     };
 
     const handleRecent7DaysTouchMove = (event) => {
@@ -302,75 +305,31 @@ const BluecoinsDailySummaryPreview = ({
                 return;
             }
             if (Math.abs(deltaX) <= Math.abs(deltaY) * 1.1) return;
-
             swipe.phase = 'dragging';
-            suppressChartClickRef.current = true;
-            window.setTimeout(() => {
-                suppressChartClickRef.current = false;
-            }, 420);
-        }
-
-        if (swipe.phase === 'dragging') {
-            setChartDragOffset(Math.max(-swipe.width, Math.min(swipe.width, deltaX)));
         }
     };
 
     const handleRecent7DaysTouchEnd = (event) => {
         const swipe = chartSwipeRef.current;
         const touch = event.changedTouches?.[0];
-        if (!swipe || !touch) {
-            chartSwipeRef.current = null;
-            return;
-        }
+        chartSwipeRef.current = null;
 
-        if (swipe.phase !== 'dragging') {
-            chartSwipeRef.current = null;
-            return;
-        }
+        if (!swipe || swipe.phase !== 'dragging' || !touch) return;
 
         const deltaX = touch.clientX - swipe.startX;
-        const threshold = Math.max(48, swipe.width * 0.18);
-        if (Math.abs(deltaX) < threshold) {
-            chartSwipeRef.current = { phase: 'returning', direction: 0 };
-            setChartTransitioning(true);
-            setChartDragOffset(0);
-            return;
-        }
+        const threshold = Math.max(36, swipe.width * 0.12);
+        if (Math.abs(deltaX) < threshold) return;
 
         const direction = deltaX < 0 ? 1 : -1;
-        chartSwipeRef.current = { phase: 'settling', direction };
-        setChartTransitioning(true);
-        setChartDragOffset(direction > 0 ? -swipe.width : swipe.width);
-    };
-
-    const handleRecent7DaysTransitionEnd = (event) => {
-        if (event.propertyName !== 'transform') return;
-        const swipe = chartSwipeRef.current;
-        if (!swipe) return;
-
-        if (swipe.phase === 'settling') {
-            const nextDate = parseLocalDate(selectedDate);
-            nextDate.setDate(nextDate.getDate() + swipe.direction);
-            chartSwipeRef.current = null;
-            setSelectedDate(toDateKey(nextDate));
-            setChartDragOffset(0);
-            setChartTransitioning(false);
-        } else if (swipe.phase === 'returning') {
-            chartSwipeRef.current = null;
-            setChartDragOffset(0);
-            setChartTransitioning(false);
-        }
+        suppressChartClickRef.current = true;
+        window.setTimeout(() => {
+            suppressChartClickRef.current = false;
+        }, 420);
+        shiftSelectedDate(direction);
     };
 
     const handleRecent7DaysTouchCancel = () => {
-        const swipe = chartSwipeRef.current;
-        if (swipe?.phase === 'dragging') {
-            chartSwipeRef.current = { phase: 'returning', direction: 0 };
-            setChartTransitioning(true);
-            setChartDragOffset(0);
-        } else {
-            chartSwipeRef.current = null;
-        }
+        chartSwipeRef.current = null;
     };
 
     const renderRecentChart = (days) => {
@@ -387,7 +346,7 @@ const BluecoinsDailySummaryPreview = ({
                     const label = calendarMode === 'money'
                         ? formatCompactManWon(day.income)
                         : (day.volume > 0 ? day.volume.toLocaleString() + '건' : '-');
-                    const isSelected = index === 6;
+                    const isSelected = day.date === selectedDate;
                     return (
                         <button
                             key={day.date}
@@ -429,6 +388,12 @@ const BluecoinsDailySummaryPreview = ({
     const reportTitle = isDayMode
         ? selectedDate + ' 하루 요약'
         : (selectedMonth || '') + ' 장부 기간 전체 요약';
+
+    const openCategoryBreakdown = () => {
+        setIsDayMode(true);
+        setActiveReportTab('categories');
+        reportSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
 
     return (
         <div className="w-full px-2 pb-4">
@@ -530,20 +495,7 @@ const BluecoinsDailySummaryPreview = ({
                         className={'mt-1 overflow-hidden rounded-2xl border px-2 pt-2 pb-2 ' + (dark ? 'border-slate-800 bg-slate-800/40' : 'border-slate-100 bg-slate-50')}
                         style={{ touchAction: 'pan-y' }}
                     >
-                        <div
-                            onTransitionEnd={handleRecent7DaysTransitionEnd}
-                            style={{
-                                display: 'flex',
-                                width: '300%',
-                                transform: 'translate3d(calc(-33.333333% + ' + chartDragOffset + 'px), 0, 0)',
-                                transition: chartTransitioning ? 'transform 280ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
-                                willChange: chartTransitioning || chartSwipeRef.current?.phase === 'dragging' ? 'transform' : 'auto'
-                            }}
-                        >
-                            <div style={{ flex: '0 0 33.333333%', minWidth: 0 }}>{renderRecentChart(previousRecent7Days)}</div>
-                            <div style={{ flex: '0 0 33.333333%', minWidth: 0 }}>{renderRecentChart(recent7Days)}</div>
-                            <div style={{ flex: '0 0 33.333333%', minWidth: 0 }}>{renderRecentChart(nextRecent7Days)}</div>
-                        </div>
+                        {renderRecentChart(recent7Days)}
                     </div>
 
                     <div className={'mt-2 grid grid-cols-3 rounded-2xl p-2.5 text-center ' + (dark ? 'bg-slate-800/80' : 'bg-slate-100')}>
@@ -593,7 +545,7 @@ const BluecoinsDailySummaryPreview = ({
                         </span>
                         <button
                             type="button"
-                            onClick={() => onDateClick?.(selectedDate)}
+                            onClick={openCategoryBreakdown}
                             className="inline-flex shrink-0 items-center gap-1 font-black text-blue-600 dark:text-blue-400"
                         ><Plus size={12} /> 내역 열기</button>
                     </div>
@@ -644,7 +596,7 @@ const BluecoinsDailySummaryPreview = ({
                                 type="button"
                                 key={dayInfo?.date || 'empty-' + index}
                                 disabled={!dayInfo?.date}
-                                onClick={() => dayInfo?.date && setSelectedDate(dayInfo.date)}
+                                onClick={() => dayInfo?.date && selectCalendarDate(dayInfo.date)}
                                 className={(homeCalendarDesign === 'current'
                                     ? 'relative flex h-20 min-w-0 flex-col items-center justify-start border-b border-r p-1 text-left transition-colors ' + dividerClass
                                     : 'relative flex h-[62px] min-w-0 flex-col items-center justify-start rounded-md transition-colors') + ' ' + (
@@ -736,7 +688,10 @@ const BluecoinsDailySummaryPreview = ({
                 </div>
             </section>
 
-            <section className={'mt-2 rounded-2xl border p-3 shadow-sm ' + panelClass}>
+            <section
+                ref={reportSectionRef}
+                className={'mt-2 scroll-mt-3 rounded-2xl border p-3 shadow-sm ' + panelClass}
+            >
                 <div className={'grid grid-cols-3 rounded-xl p-1 text-[10px] font-black ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
                     <button
                         type="button"
