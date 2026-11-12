@@ -1572,6 +1572,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 monthlyProfit={monthlyProfit}
                                 previousMonthlyProfit={previousMonthlyProfit}
                                 selectedMonth={selectedMonth}
+                                monthlyEndDay={monthlyEndDay}
                                 goal={goalAmount}
                                 selectedInsurance={selectedInsurance}
                                 selectedItemsForAverage={selectedItemsForAverage}
