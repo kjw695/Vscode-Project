@@ -1591,6 +1591,10 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 onMonthChange={handleMonthChange}
                                 onToday={handleTodayClick}
                                 onDateClick={handleCalendarDateClick}
+                                onOpenDayOff={() => setIsDayOffModalOpen(true)}
+                                homeCalendarDesign={homeCalendarDesign}
+                                homeCalendarVolumeItems={homeCalendarVolumeItems}
+                                incomeConfig={incomeConfig}
                             />
                         )}
 
