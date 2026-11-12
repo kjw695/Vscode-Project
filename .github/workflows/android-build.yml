@@ -78,7 +78,7 @@ jobs:
           done
 
           if (( ${#missing[@]} > 0 )); then
-            printf '::error::GitHub Actions repository secrets are missing: %s\n' "${missing[*]}"
+            printf '::error::GitHub Actions repository secrets are missing: %s\\n' "${missing[*]}"
             echo 'Add these names under Settings > Secrets and variables > Actions. Do not put secret values in source files.'
             exit 1
           fi
@@ -90,6 +90,7 @@ jobs:
       - name: Build React production bundle
         env:
           NODE_OPTIONS: --openssl-legacy-provider
+          CI: 'false'
         run: npm run build
 
       - name: Sync web assets and native plugins to Android
