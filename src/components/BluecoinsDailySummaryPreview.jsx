@@ -107,6 +107,7 @@ const BluecoinsDailySummaryPreview = ({
     monthlyProfit = {},
     previousMonthlyProfit = {},
     selectedMonth,
+    monthlyEndDay,
     goal = 0,
     selectedInsurance,
     selectedItemsForAverage = ['배송', '반품'],
