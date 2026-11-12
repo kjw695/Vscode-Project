@@ -191,7 +191,12 @@ const BluecoinsDailySummaryPreview = ({
     const workingDays = Number(monthlyProfit?.totalWorkingDays) || 0;
     const dailyAverageIncome = workingDays > 0 ? Math.round(currentRevenue / workingDays) : 0;
     const dailyAverageVolume = workingDays > 0 ? Math.round(currentVolume / workingDays) : 0;
-    const remainingCalendarDays = useMemo(() => {
+    const effectiveTargetDays = Math.max(25, workingDays);
+    const remainingWorkDays = Math.max(0, effectiveTargetDays - workingDays);
+    const expectedTotalVolume = dailyAverageVolume * effectiveTargetDays;
+
+    // 기본 홈의 예상월급 계산은 예상 총금액 값에만 적용합니다.
+    const salaryRemainingCalendarDays = useMemo(() => {
         if (!selectedMonth || !monthlyEndDay) return 1;
         try {
             const [year, month] = selectedMonth.split('-').map(Number);
@@ -205,7 +210,7 @@ const BluecoinsDailySummaryPreview = ({
         }
     }, [selectedMonth, monthlyEndDay]);
 
-    const futureHolidays = useMemo(() => {
+    const salaryFutureHolidays = useMemo(() => {
         if (!Array.isArray(entries) || entries.length === 0) return 0;
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -222,15 +227,12 @@ const BluecoinsDailySummaryPreview = ({
             const isDayOffType = entry.isDayOff === true;
             const hasDayOffCustomItem = Array.isArray(entry.customItems) &&
                 entry.customItems.some((item) => item?.key === 'dayOff' || item?.key === '휴무');
-            const isHoliday = hasHolidayMemo || isDayOffType || hasDayOffCustomItem;
-
-            return entryDate >= today && isHoliday;
+            return entryDate >= today && (hasHolidayMemo || isDayOffType || hasDayOffCustomItem);
         }).length;
     }, [entries]);
 
-    const remainingWorkDays = Math.max(0, remainingCalendarDays - futureHolidays);
-    const expectedTotalIncome = currentRevenue + (dailyAverageIncome * remainingWorkDays);
-    const expectedTotalVolume = currentVolume + (dailyAverageVolume * remainingWorkDays);
+    const salaryRemainingWorkDays = Math.max(0, salaryRemainingCalendarDays - salaryFutureHolidays);
+    const expectedTotalIncome = currentRevenue + (dailyAverageIncome * salaryRemainingWorkDays);
     const holidayCount = calendarDays.filter((day) => day?.isCurrentMonth && day?.isDayOff).length;
     const totalOffDays = holidayCount;
     const previousIncome = Number(previousMonthlyProfit?.totalRevenue) || 0;
@@ -561,7 +563,7 @@ const BluecoinsDailySummaryPreview = ({
                             <p className="mt-0.5 whitespace-nowrap text-[12px] font-black text-amber-600 dark:text-amber-400">
                                 {calendarMode === 'money' ? formatSummaryWon(expectedTotalIncome) : expectedTotalVolume.toLocaleString() + '건'}
                             </p>
-                            <p className={'mt-0.5 whitespace-nowrap text-[8px] font-semibold ' + mutedClass}>남은 근무 {remainingWorkDays}일 반영</p>
+                            <p className={'mt-0.5 whitespace-nowrap text-[8px] font-semibold ' + mutedClass}>월 {effectiveTargetDays}일 근무 기준</p>
                         </div>
                     </div>
 
