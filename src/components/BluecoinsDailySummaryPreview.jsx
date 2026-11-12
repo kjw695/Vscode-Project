@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
     ArrowLeft,
     ArrowUpRight,
@@ -7,8 +7,7 @@ import {
     ChevronRight,
     Layers,
     ListFilter,
-    Plus,
-    SlidersHorizontal
+    Plus
 } from 'lucide-react';
 import { calculateData } from '../utils/calculator';
 import GoalProgressBar from './GoalProgressBar';
@@ -92,8 +91,9 @@ const BluecoinsDailySummaryPreview = ({
     const [calendarDisplayStyle, setCalendarDisplayStyle] = useState('both');
     const [activeReportTab, setActiveReportTab] = useState('categories');
     const [isDayMode, setIsDayMode] = useState(true);
-    const [isConfigOpen, setIsConfigOpen] = useState(false);
-    const [targetWorkDays, setTargetWorkDays] = useState(25);
+    const swipeStartRef = useRef(null);
+    const suppressChartClickRef = useRef(false);
+    const [swipeDirection, setSwipeDirection] = useState(null);
     const [selectedDate, setSelectedDate] = useState(() => {
         const activeCalendarDates = (Array.isArray(calendarDays) ? calendarDays : [])
             .filter((day) => day?.isCurrentMonth && (Number(day?.revenue) > 0 || Number(day?.expenses) > 0))
@@ -147,7 +147,7 @@ const BluecoinsDailySummaryPreview = ({
     const workingDays = Number(monthlyProfit?.totalWorkingDays) || 0;
     const dailyAverageIncome = workingDays > 0 ? Math.round(currentRevenue / workingDays) : 0;
     const dailyAverageVolume = workingDays > 0 ? Math.round(currentVolume / workingDays) : 0;
-    const effectiveTargetDays = Math.max(Number(targetWorkDays) || 1, workingDays);
+    const effectiveTargetDays = Math.max(25, workingDays);
     const remainingWorkDays = Math.max(0, effectiveTargetDays - workingDays);
     const expectedTotalIncome = dailyAverageIncome * effectiveTargetDays;
     const expectedTotalVolume = dailyAverageVolume * effectiveTargetDays;
@@ -249,6 +249,31 @@ const BluecoinsDailySummaryPreview = ({
         setSelectedDate(toDateKey(date));
     };
 
+    const handleRecent7DaysTouchStart = (event) => {
+        const touch = event.touches?.[0];
+        if (!touch) return;
+        swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
+    };
+
+    const handleRecent7DaysTouchEnd = (event) => {
+        const start = swipeStartRef.current;
+        swipeStartRef.current = null;
+        const touch = event.changedTouches?.[0];
+        if (!start || !touch) return;
+
+        const deltaX = touch.clientX - start.x;
+        const deltaY = touch.clientY - start.y;
+        if (Math.abs(deltaX) < 40 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.2) return;
+
+        const direction = deltaX < 0 ? 'next' : 'previous';
+        setSwipeDirection(direction);
+        suppressChartClickRef.current = true;
+        window.setTimeout(() => {
+            suppressChartClickRef.current = false;
+        }, 350);
+        shiftSelectedDate(direction === 'next' ? 1 : -1);
+    };
+
     const reportTitle = isDayMode
         ? selectedDate + ' 하루 요약'
         : (selectedMonth || '') + ' 장부 기간 전체 요약';
@@ -304,25 +329,25 @@ const BluecoinsDailySummaryPreview = ({
                 </div>
 
                 <div className={'border-t px-3 pt-3 pb-3 ' + dividerClass}>
-                    <div className="flex items-center justify-between gap-1.5">
-                        <div className={'flex items-center gap-1 rounded-xl p-1 ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
+                    <div className="flex min-w-0 items-center gap-1">
+                        <div className={'flex shrink-0 items-center gap-0 rounded-xl p-0.5 ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
                             <button
                                 type="button"
                                 onClick={() => shiftSelectedDate(-1)}
-                                className="rounded-lg p-1 hover:bg-white/70 dark:hover:bg-slate-700"
+                                className="rounded-lg p-0.5 hover:bg-white/70 dark:hover:bg-slate-700"
                                 aria-label="이전 날짜"
-                            ><ChevronLeft size={14} /></button>
-                            <span className="whitespace-nowrap px-1 text-[11px] font-black">
+                            ><ChevronLeft size={13} /></button>
+                            <span className="whitespace-nowrap px-0.5 text-[10px] sm:text-[11px] font-black">
                                 {selectedDate.slice(5).replace('-', '.')} ({WEEKDAYS[parseLocalDate(selectedDate).getDay()]})
                             </span>
                             <button
                                 type="button"
                                 onClick={() => shiftSelectedDate(1)}
-                                className="rounded-lg p-1 hover:bg-white/70 dark:hover:bg-slate-700"
+                                className="rounded-lg p-0.5 hover:bg-white/70 dark:hover:bg-slate-700"
                                 aria-label="다음 날짜"
-                            ><ChevronRight size={14} /></button>
+                            ><ChevronRight size={13} /></button>
                         </div>
-                        <div className={'rounded-xl px-2 py-1 text-[9px] font-black whitespace-nowrap ' + (
+                        <div className={'min-w-0 flex-1 overflow-hidden text-ellipsis rounded-xl px-1 py-1 text-center text-[8px] sm:text-[9px] font-black whitespace-nowrap ' + (
                             (calendarMode === 'money' ? incomeDiff : volumeDiff) >= 0
                                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                                 : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
@@ -331,21 +356,36 @@ const BluecoinsDailySummaryPreview = ({
                                 ? ((incomeDiff >= 0 ? '▲' : '▼') + formatCompactManWon(Math.abs(incomeDiff)) + ' (' + incomeDiffPct + '%)')
                                 : ((volumeDiff >= 0 ? '▲' : '▼') + Math.abs(volumeDiff).toLocaleString() + '건 (' + volumeDiffPct + '%)')}
                         </div>
-                        <div className={'inline-flex rounded-xl p-0.5 text-[10px] font-black ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
+                        <div className={'inline-flex shrink-0 whitespace-nowrap rounded-xl p-0.5 text-[10px] font-black ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
                             <button
                                 type="button"
                                 onClick={() => onToggleCalendarMode?.('money')}
-                                className={'rounded-lg px-2 py-1 ' + (calendarMode === 'money' ? 'bg-blue-600 text-white' : mutedClass)}
+                                className={'rounded-lg px-1.5 sm:px-2 py-1 whitespace-nowrap ' + (calendarMode === 'money' ? 'bg-blue-600 text-white' : mutedClass)}
                             >금액</button>
                             <button
                                 type="button"
                                 onClick={() => onToggleCalendarMode?.('volume')}
-                                className={'rounded-lg px-2 py-1 ' + (calendarMode === 'volume' ? 'bg-emerald-600 text-white' : mutedClass)}
+                                className={'rounded-lg px-1.5 sm:px-2 py-1 whitespace-nowrap ' + (calendarMode === 'volume' ? 'bg-emerald-600 text-white' : mutedClass)}
                             >물량</button>
                         </div>
                     </div>
 
-                    <div className={'mt-2 rounded-2xl border px-2 pt-3 pb-2 ' + (dark ? 'border-slate-800 bg-slate-800/40' : 'border-slate-100 bg-slate-50')}>
+                    <style>{'@keyframes bluecoinsRecentSlideFromRight { from { opacity: 0.72; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } } @keyframes bluecoinsRecentSlideFromLeft { from { opacity: 0.72; transform: translateX(-14px); } to { opacity: 1; transform: translateX(0); } }'}</style>
+                    <div
+                        key={selectedDate}
+                        onTouchStart={handleRecent7DaysTouchStart}
+                        onTouchEnd={handleRecent7DaysTouchEnd}
+                        onTouchCancel={() => { swipeStartRef.current = null; }}
+                        style={{
+                            touchAction: 'pan-y',
+                            animation: swipeDirection === 'next'
+                                ? 'bluecoinsRecentSlideFromRight 220ms ease-out'
+                                : swipeDirection === 'previous'
+                                    ? 'bluecoinsRecentSlideFromLeft 220ms ease-out'
+                                    : 'none'
+                        }}
+                        className={'mt-2 rounded-2xl border px-2 pt-3 pb-2 ' + (dark ? 'border-slate-800 bg-slate-800/40' : 'border-slate-100 bg-slate-50')}
+                    >
                         <div className="grid grid-cols-7 items-end gap-1">
                             {recent7Days.map((day) => {
                                 const value = calendarMode === 'money' ? day.income : day.volume;
@@ -358,7 +398,11 @@ const BluecoinsDailySummaryPreview = ({
                                     <button
                                         key={day.date}
                                         type="button"
-                                        onClick={() => setSelectedDate(day.date)}
+                                        onClick={() => {
+                                            if (suppressChartClickRef.current) return;
+                                            setSwipeDirection(null);
+                                            setSelectedDate(day.date);
+                                        }}
                                         className={'flex min-w-0 flex-col items-center rounded-xl px-0.5 py-1 transition ' + (
                                             isSelected
                                                 ? (calendarMode === 'money' ? 'bg-blue-500/10 ring-1 ring-blue-500/70' : 'bg-emerald-500/10 ring-1 ring-emerald-500/70')
@@ -425,30 +469,6 @@ const BluecoinsDailySummaryPreview = ({
                             isDarkMode={dark}
                             revenueDistribution={monthlyProfit?.revenueDistribution}
                         />
-
-                        <div className="mt-1 flex justify-end px-1">
-                            <button
-                                type="button"
-                                onClick={() => setIsConfigOpen((value) => !value)}
-                                className="flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400"
-                            ><SlidersHorizontal size={11} /> 근무일 기준 설정</button>
-                        </div>
-
-                        {isConfigOpen && (
-                            <div className={'mt-2 grid grid-cols-1 gap-2 border-t pt-2 ' + dividerClass}>
-                                <label className={'text-[9px] font-bold ' + mutedClass}>
-                                    월 목표 근무일수
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max="31"
-                                        value={targetWorkDays}
-                                        onChange={(event) => setTargetWorkDays(Math.max(1, Math.min(31, Number(event.target.value) || 1)))}
-                                        className={'mt-1 w-full rounded-lg border px-2 py-1.5 text-xs font-bold ' + (dark ? 'border-slate-700 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-900')}
-                                    />
-                                </label>
-                            </div>
-                        )}
                     </div>
 
                     <div className="mt-2 flex items-center justify-between gap-2 px-1 text-[10px]">
