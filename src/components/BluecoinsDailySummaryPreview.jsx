@@ -340,7 +340,7 @@ const BluecoinsDailySummaryPreview = ({
 
         return (
             <div className="grid grid-cols-7 items-end gap-1">
-                {days.map((day, index) => {
+                {days.map((day) => {
                     const value = calendarMode === 'money' ? day.income : day.volume;
                     const barHeight = value > 0 ? Math.max(7, Math.round((value / maxValue) * 58)) : 4;
                     const label = calendarMode === 'money'
