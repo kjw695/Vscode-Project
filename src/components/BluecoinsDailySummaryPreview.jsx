@@ -291,101 +291,76 @@ const BluecoinsDailySummaryPreview = ({
     const unitPriceRows = reportData.unitPriceAnalysis || [];
 
     const transactionRows = useMemo(() => {
-        if (!isDayMode) {
-            const groupedByRound = new Map();
-            const monthlyVolumeMetrics = VOLUME_METRICS;
+        const groupedByRound = new Map();
+        const transactionVolumeMetrics = VOLUME_METRICS;
 
-            reportEntries.forEach((entry) => {
-                const data = calculateData([entry], itemLabels);
-                const isExpenseEntry = entry?.type === 'expense' ||
-                    ((Number(data.totalExpenses) || 0) > 0 && (Number(data.totalRevenue) || 0) <= 0);
-                const round = Number(entry?.round) || 0;
-                const key = isExpenseEntry ? 'expense' : (round > 0 ? 'round-' + round : 'other');
-                if (!groupedByRound.has(key)) {
-                    groupedByRound.set(key, {
-                        key,
-                        rowType: isExpenseEntry ? 'expense' : 'round',
-                        round,
-                        recordCount: 0,
-                        dates: new Set(),
-                        income: 0,
-                        expense: 0,
-                        volumeBreakdown: monthlyVolumeMetrics.reduce((result, metric) => {
-                            result[metric.key] = 0;
-                            return result;
-                        }, {})
-                    });
-                }
-
-                const row = groupedByRound.get(key);
-                row.recordCount += 1;
-                if (entry?.date) row.dates.add(entry.date);
-                row.income += Number(data.totalRevenue) || 0;
-                row.expense += Number(data.totalExpenses) || 0;
-
-                if (!isExpenseEntry) monthlyVolumeMetrics.forEach((metric) => {
-                    const customItemLabels = Array.isArray(entry?.customItems)
-                        ? entry.customItems
-                            .filter((item) => item?.key === metric.key)
-                            .map((item) => itemLabels[item.key] || item.name || item.key)
-                        : [];
-                    const labelCandidates = new Set([
-                        itemLabels[metric.key],
-                        metric.label,
-                        metric.key,
-                        ...customItemLabels
-                    ].filter(Boolean));
-                    const count = Object.entries(data.revenueDetails || {}).reduce(
-                        (total, [name, value]) => (
-                            labelCandidates.has(name) ? total + (Number(value?.count) || 0) : total
-                        ),
-                        0
-                    );
-                    row.volumeBreakdown[metric.key] += count;
-                });
-            });
-
-            return Array.from(groupedByRound.values())
-                .map((row) => ({
-                    ...row,
-                    dateCount: row.dates.size,
-                    volume: Object.values(row.volumeBreakdown).reduce((total, count) => total + count, 0),
-                    isMonthAggregate: true
-                }))
-                .sort((a, b) => {
-                    if (a.rowType === 'expense') return 1;
-                    if (b.rowType === 'expense') return -1;
-                    if (a.round === 0) return 1;
-                    if (b.round === 0) return -1;
-                    return a.round - b.round;
-                });
-        }
-
-        return reportEntries.map((entry, index) => {
+        reportEntries.forEach((entry) => {
             const data = calculateData([entry], itemLabels);
-            const names = Array.isArray(entry?.customItems)
-                ? entry.customItems
-                    .filter((item) => item?.type === 'income' || item?.type === 'expense')
-                    .map((item) => itemLabels[item.key] || item.name || item.key)
-                    .filter(Boolean)
-                : [];
-            return {
-                key: entry?.id || entry?.date + '-' + (entry?.round || index),
-                date: entry?.date || '',
-                round: Number(entry?.round) || 0,
-                names,
-                income: Number(data.totalRevenue) || 0,
-                expense: Number(data.totalExpenses) || 0,
-                volume: getDayVolume(data, selectedItemsForAverage),
-                memo: entry?.memo || ''
-            };
-        }).sort((a, b) => {
-            if (a.date !== b.date) return b.date.localeCompare(a.date);
-            return a.round - b.round;
-        });
-    }, [reportEntries, itemLabels, selectedItemsForAverage, isDayMode]);
+            const isExpenseEntry = entry?.type === 'expense' ||
+                ((Number(data.totalExpenses) || 0) > 0 && (Number(data.totalRevenue) || 0) <= 0);
+            const round = Number(entry?.round) || 0;
+            const key = isExpenseEntry ? 'expense' : (round > 0 ? 'round-' + round : 'other');
 
-    const monthlyTransactionTotal = useMemo(() => transactionRows.reduce((total, row) => {
+            if (!groupedByRound.has(key)) {
+                groupedByRound.set(key, {
+                    key,
+                    rowType: isExpenseEntry ? 'expense' : 'round',
+                    round,
+                    recordCount: 0,
+                    dates: new Set(),
+                    income: 0,
+                    expense: 0,
+                    volumeBreakdown: transactionVolumeMetrics.reduce((result, metric) => {
+                        result[metric.key] = 0;
+                        return result;
+                    }, {})
+                });
+            }
+
+            const row = groupedByRound.get(key);
+            row.recordCount += 1;
+            if (entry?.date) row.dates.add(entry.date);
+            row.income += Number(data.totalRevenue) || 0;
+            row.expense += Number(data.totalExpenses) || 0;
+
+            if (!isExpenseEntry) transactionVolumeMetrics.forEach((metric) => {
+                const customItemLabels = Array.isArray(entry?.customItems)
+                    ? entry.customItems
+                        .filter((item) => item?.key === metric.key)
+                        .map((item) => itemLabels[item.key] || item.name || item.key)
+                    : [];
+                const labelCandidates = new Set([
+                    itemLabels[metric.key],
+                    metric.label,
+                    metric.key,
+                    ...customItemLabels
+                ].filter(Boolean));
+                const count = Object.entries(data.revenueDetails || {}).reduce(
+                    (total, [name, value]) => (
+                        labelCandidates.has(name) ? total + (Number(value?.count) || 0) : total
+                    ),
+                    0
+                );
+                row.volumeBreakdown[metric.key] += count;
+            });
+        });
+
+        return Array.from(groupedByRound.values())
+            .map((row) => ({
+                ...row,
+                dateCount: row.dates.size,
+                volume: Object.values(row.volumeBreakdown).reduce((total, count) => total + count, 0)
+            }))
+            .sort((a, b) => {
+                if (a.rowType === 'expense') return 1;
+                if (b.rowType === 'expense') return -1;
+                if (a.round === 0) return 1;
+                if (b.round === 0) return -1;
+                return a.round - b.round;
+            });
+    }, [reportEntries, itemLabels, isDayMode]);
+
+    const transactionTotal = useMemo(() => transactionRows.reduce((total, row) => {
         total.deliveryCount += Number(row.volumeBreakdown?.deliveryCount) || 0;
         total.deliveryInterruptionAmount += Number(row.volumeBreakdown?.deliveryInterruptionAmount) || 0;
         total.returnCount += Number(row.volumeBreakdown?.returnCount) || 0;
@@ -948,7 +923,7 @@ const BluecoinsDailySummaryPreview = ({
                     {activeReportTab === 'transactions' && (
                         transactionRows.length === 0 ? (
                             <p className={'py-8 text-center text-xs ' + mutedClass}>기록된 회전 내역이 없습니다.</p>
-                        ) : !isDayMode ? (
+                        ) : (
                             <div className="-mx-1.5 w-[calc(100%+0.75rem)] overflow-x-auto">
                                 <table className="w-[328px] min-w-[328px] table-fixed border-collapse text-[10px]">
                                     <colgroup>
@@ -1005,45 +980,23 @@ const BluecoinsDailySummaryPreview = ({
                                         }>
                                             <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black">합계</td>
                                             <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black tabular-nums">
-                                                {monthlyTransactionTotal.deliveryCount.toLocaleString()}건
+                                                {transactionTotal.deliveryCount.toLocaleString()}건
                                             </td>
                                             <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black tabular-nums">
-                                                {monthlyTransactionTotal.deliveryInterruptionAmount.toLocaleString()}건
+                                                {transactionTotal.deliveryInterruptionAmount.toLocaleString()}건
                                             </td>
                                             <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black tabular-nums">
-                                                {monthlyTransactionTotal.returnCount.toLocaleString()}건
+                                                {transactionTotal.returnCount.toLocaleString()}건
                                             </td>
                                             <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black tabular-nums">
-                                                {monthlyTransactionTotal.freshBagCount.toLocaleString()}건
+                                                {transactionTotal.freshBagCount.toLocaleString()}건
                                             </td>
                                             <td className={'whitespace-nowrap px-0.5 py-1.5 text-right font-black tabular-nums ' + (dark ? 'text-white' : 'text-neutral-900')}>
-                                                {monthlyTransactionTotal.income.toLocaleString()}원
+                                                {transactionTotal.income.toLocaleString()}원
                                             </td>
                                         </tr>
                                     </tfoot>
                                 </table>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                {transactionRows.map((row) => (
-                                    <div key={row.key} className={'flex items-center justify-between gap-2 rounded-xl border p-2.5 ' + (dark ? 'border-slate-800 bg-slate-800/50' : 'border-slate-200 bg-slate-50')}>
-                                        <div className="min-w-0">
-                                            <div className="flex items-center gap-1.5">
-                                                <span className={'rounded-md px-2 py-0.5 text-[9px] font-black ' + (dark ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-700')}>
-                                                    {row.round === 0 ? '기타' : row.round + '회전'}
-                                                </span>
-                                                <span className="truncate text-[10px] font-black">{row.names.length ? row.names.join(' · ') : '배송/지출 기록'}</span>
-                                            </div>
-                                            <p className={'mt-1 truncate text-[9px] ' + mutedClass}>
-                                                {row.date}{row.memo ? ' · ' + row.memo : ''}{' · 물량 ' + row.volume.toLocaleString() + '건'}
-                                            </p>
-                                        </div>
-                                        <div className="shrink-0 text-right">
-                                            {row.income > 0 && <div className="text-[10px] font-black text-emerald-500">+{row.income.toLocaleString()}원</div>}
-                                            {row.expense > 0 && <div className="text-[10px] font-black text-rose-500">-{row.expense.toLocaleString()}원</div>}
-                                        </div>
-                                    </div>
-                                ))}
                             </div>
                         )
                     )}
