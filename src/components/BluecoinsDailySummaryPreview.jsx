@@ -391,15 +391,13 @@ const BluecoinsDailySummaryPreview = ({
         total.returnCount += Number(row.volumeBreakdown?.returnCount) || 0;
         total.freshBagCount += Number(row.volumeBreakdown?.freshBagCount) || 0;
         total.income += Number(row.income) || 0;
-        total.expense += Number(row.expense) || 0;
         return total;
     }, {
         deliveryCount: 0,
         deliveryInterruptionAmount: 0,
         returnCount: 0,
         freshBagCount: 0,
-        income: 0,
-        expense: 0
+        income: 0
     }), [transactionRows]);
 
     const panelClass = dark
@@ -966,7 +964,7 @@ const BluecoinsDailySummaryPreview = ({
                                                 ? 'border-b border-[#FFD500] bg-[#171717] text-white'
                                                 : 'border-b border-[#FFD500] bg-[#202020] text-white'
                                             }>
-                                            {['회전', '배송', '중단', '반품', '프레시백', '금액'].map((heading) => (
+                                            {['회전', '배송', '중단', '반품', '프레시백', '수익'].map((heading) => (
                                                 <th key={heading} className="whitespace-nowrap px-0.5 py-1.5 text-center font-bold">{heading}</th>
                                             ))}
                                         </tr>
@@ -1019,7 +1017,7 @@ const BluecoinsDailySummaryPreview = ({
                                                 {monthlyTransactionTotal.freshBagCount.toLocaleString()}건
                                             </td>
                                             <td className={'whitespace-nowrap px-0.5 py-1.5 text-right font-black tabular-nums ' + (dark ? 'text-white' : 'text-neutral-900')}>
-                                                {(monthlyTransactionTotal.income - monthlyTransactionTotal.expense).toLocaleString()}원
+                                                {monthlyTransactionTotal.income.toLocaleString()}원
                                             </td>
                                         </tr>
                                     </tfoot>
