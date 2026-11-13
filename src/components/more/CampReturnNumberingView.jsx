@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ExternalLink, ClipboardCheck, Save, History, AlertCircle } from 'lucide-react';
+import { ArrowLeft, ExternalLink, ClipboardCheck, History, AlertCircle } from 'lucide-react';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import {
     addCampReturnRecord,
+    fetchAccountDriverId,
     fetchCampReturnProfile,
     fetchCampReturnRecords,
     saveCampReturnProfile
@@ -46,7 +47,7 @@ function formatDate(value) {
     }).format(new Date(value));
 }
 
-export default function CampReturnNumberingView({ onBack, isDarkMode, user, showMessage }) {
+export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkMode, user, showMessage }) {
     const [driverId, setDriverId] = useState('');
     const [invoiceText, setInvoiceText] = useState('');
     const [quantity, setQuantity] = useState('');
@@ -65,11 +66,12 @@ export default function CampReturnNumberingView({ onBack, isDarkMode, user, show
         setLoading(true);
         setLoadError('');
         try {
-            const [profile, history] = await Promise.all([
+            const [profile, history, accountDriverId] = await Promise.all([
                 fetchCampReturnProfile(userId),
-                fetchCampReturnRecords(userId)
+                fetchCampReturnRecords(userId),
+                fetchAccountDriverId(userId)
             ]);
-            setDriverId(profile?.driver_id || '');
+            setDriverId(accountDriverId);
             setCamp(CAMPS.includes(profile?.default_camp) ? profile.default_camp : CAMPS[0]);
             setRecords(history);
             setStorageNotice(userId
@@ -104,23 +106,6 @@ export default function CampReturnNumberingView({ onBack, isDarkMode, user, show
     const inputClass = `w-full rounded-xl border px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`;
     const mutedClass = isDark ? 'text-gray-400' : 'text-gray-500';
 
-    const handleSaveDriverId = async () => {
-        if (!driverId.trim()) {
-            showMessage?.('기사님 아이디를 입력해주세요.');
-            return;
-        }
-        setSaving(true);
-        try {
-            await saveCampReturnProfile(userId, { driverId, defaultCamp: camp });
-            showMessage?.('기사님 아이디와 기본 캠프를 저장했습니다.');
-        } catch (error) {
-            console.error('[CampReturnNumbering] 프로필 저장 실패:', error);
-            showMessage?.('저장하지 못했습니다. Supabase 채번 테이블 SQL 적용 여부를 확인해주세요.');
-        } finally {
-            setSaving(false);
-        }
-    };
-
     const handleOpenForm = async () => {
         const normalizedInvoice = invoiceText.replace(/[\r\n]+/g, ' ').trim();
         const normalizedDriverId = driverId.trim();
@@ -145,7 +130,7 @@ export default function CampReturnNumberingView({ onBack, isDarkMode, user, show
 
         setSaving(true);
         try {
-            await saveCampReturnProfile(userId, { driverId: normalizedDriverId, defaultCamp: camp });
+            await saveCampReturnProfile(userId, { defaultCamp: camp });
             const request = {
                 invoiceText: normalizedInvoice,
                 driverId: normalizedDriverId,
@@ -234,16 +219,24 @@ export default function CampReturnNumberingView({ onBack, isDarkMode, user, show
                         <p className={`text-xs mt-1 ${mutedClass}`}>복사한 문구를 그대로 사용합니다.</p>
                     </div>
                     <div>
-                        <label className="block text-sm font-semibold mb-1.5">기사님 아이디</label>
-                        <input
-                            type="text"
-                            value={driverId}
-                            onChange={event => setDriverId(event.target.value)}
-                            autoCapitalize="none"
-                            autoCorrect="off"
-                            placeholder="본인의 기사님 아이디"
-                            className={inputClass}
-                        />
+                        <label className="block text-sm font-semibold mb-1.5">기사님 아이디 · 내정보에서 자동 입력</label>
+                        {driverId ? (
+                            <div className={`w-full rounded-xl border px-3 py-3 text-sm font-semibold ${isDark ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-gray-50 border-gray-300 text-gray-900'}`}>
+                                {driverId}
+                            </div>
+                        ) : (
+                            <div className={`rounded-xl border p-3 ${isDark ? 'border-amber-800 bg-amber-950/30' : 'border-amber-200 bg-amber-50'}`}>
+                                <p className="text-sm font-semibold">내정보에 기사님 아이디가 등록되어 있지 않습니다.</p>
+                                <p className={`text-xs mt-1 ${mutedClass}`}>아이디를 등록한 뒤 채번 요청을 진행해주세요.</p>
+                                <button
+                                    type="button"
+                                    onClick={onGoToProfile}
+                                    className="mt-3 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white"
+                                >
+                                    내정보에서 아이디 등록하기
+                                </button>
+                            </div>
+                        )}
                     </div>
                     <div>
                         <label className="block text-sm font-semibold mb-1.5">채번 수량</label>
@@ -264,20 +257,12 @@ export default function CampReturnNumberingView({ onBack, isDarkMode, user, show
                             {CAMPS.map(item => <option key={item} value={item}>{item}</option>)}
                         </select>
                     </div>
-                    <div className="flex flex-wrap gap-2 pt-1">
-                        <button
-                            type="button"
-                            onClick={handleSaveDriverId}
-                            disabled={saving || loading || !driverId.trim()}
-                            className="flex-1 min-w-[120px] rounded-xl border px-3 py-3 text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                            <Save size={16} /> 아이디 저장
-                        </button>
+                    <div className="pt-1">
                         <button
                             type="button"
                             onClick={handleOpenForm}
-                            disabled={saving || loading}
-                            className="flex-[1.4] min-w-[160px] rounded-xl bg-blue-600 text-white px-3 py-3 text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                            disabled={saving || loading || !driverId.trim()}
+                            className="w-full rounded-xl bg-blue-600 text-white px-3 py-3 text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                             <ExternalLink size={16} /> 설문지 자동 입력
                         </button>
