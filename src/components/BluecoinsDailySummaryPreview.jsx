@@ -929,20 +929,19 @@ const BluecoinsDailySummaryPreview = ({
                         transactionRows.length === 0 ? (
                             <p className={'py-8 text-center text-xs ' + mutedClass}>기록된 회차 내역이 없습니다.</p>
                         ) : !isDayMode ? (
-                            <div className="w-full overflow-x-auto">
+                            <div className="-mx-1.5 w-[calc(100%+0.75rem)] overflow-x-auto">
                                 <table className="w-full min-w-[390px] table-fixed border-collapse text-[10px]">
                                     <colgroup>
                                         <col style={{ width: '40px' }} />
-                                        <col style={{ width: '62px' }} />
-                                        <col style={{ width: '48px' }} />
-                                        <col style={{ width: '48px' }} />
-                                        <col style={{ width: '56px' }} />
-                                        <col style={{ width: '62px' }} />
                                         <col style={{ width: '74px' }} />
+                                        <col style={{ width: '58px' }} />
+                                        <col style={{ width: '58px' }} />
+                                        <col style={{ width: '66px' }} />
+                                        <col style={{ width: '94px' }} />
                                     </colgroup>
                                     <thead>
                                         <tr className={dark ? 'border-b border-slate-700 text-slate-400' : 'border-b border-slate-200 text-slate-500'}>
-                                            {['회차', '배송', '중단', '반품', '프레시백', '합계 물량', '수익'].map((heading) => (
+                                            {['회차', '배송', '중단', '반품', '프레시백', '수익'].map((heading) => (
                                                 <th key={heading} className="whitespace-nowrap px-0.5 py-1.5 text-center font-bold">{heading}</th>
                                             ))}
                                         </tr>
@@ -964,9 +963,6 @@ const BluecoinsDailySummaryPreview = ({
                                                 </td>
                                                 <td className="whitespace-nowrap px-0.5 py-1.5 text-center tabular-nums">
                                                     {row.volumeBreakdown.freshBagCount.toLocaleString()}건
-                                                </td>
-                                                <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-bold tabular-nums">
-                                                    {row.volume.toLocaleString()}건
                                                 </td>
                                                 <td className="whitespace-nowrap px-0.5 py-1.5 text-right font-black tabular-nums text-emerald-500">
                                                     {row.income.toLocaleString()}원
