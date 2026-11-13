@@ -375,6 +375,11 @@ const BluecoinsDailySummaryPreview = ({
         income: 0
     }), [transactionRows]);
 
+    const rotationTransactionRows = transactionRows.filter((row) => row.rowType !== 'expense');
+    const expenseTotal = transactionRows.reduce((total, row) => (
+        total + (row.rowType === 'expense' ? (Number(row.expense) || 0) : 0)
+    ), 0);
+
     const panelClass = dark
         ? 'bg-slate-900 border-slate-800 text-slate-100'
         : 'bg-white border-slate-200 text-slate-900';
@@ -945,7 +950,7 @@ const BluecoinsDailySummaryPreview = ({
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {transactionRows.map((row, index) => (
+                                        {rotationTransactionRows.map((row, index) => (
                                             <tr key={row.key} className={dark
                                                 ? (index % 2 === 0 ? 'border-b border-slate-800 bg-slate-900' : 'border-b border-slate-800 bg-slate-800/50')
                                                 : (index % 2 === 0 ? 'border-b border-slate-100 bg-white' : 'border-b border-slate-100 bg-[#F7F7F7]')
@@ -995,6 +1000,18 @@ const BluecoinsDailySummaryPreview = ({
                                                 {transactionTotal.income.toLocaleString()}원
                                             </td>
                                         </tr>
+                                        {expenseTotal > 0 && (
+                                            <tr className={dark
+                                                ? 'border-t border-slate-700 bg-slate-900 text-slate-300'
+                                                : 'border-t border-slate-200 bg-white text-neutral-700'
+                                            }>
+                                                <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black">지출</td>
+                                                <td colSpan={4} />
+                                                <td className="whitespace-nowrap px-0.5 py-1.5 text-right font-black tabular-nums">
+                                                    -{expenseTotal.toLocaleString()}원
+                                                </td>
+                                            </tr>
+                                        )}
                                     </tfoot>
                                 </table>
                             </div>
