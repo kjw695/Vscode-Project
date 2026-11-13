@@ -198,7 +198,7 @@ const BluecoinsDailySummaryPreview = ({
     const remainingWorkDays = Math.max(0, effectiveTargetDays - workingDays);
     const expectedTotalVolume = dailyAverageVolume * effectiveTargetDays;
 
-    // 기본 홈의 예상월급 계산은 예상 총금액 값에만 적용합니다.
+    // 장부 홈의 예상 급여는 예상 총금액 값에만 적용합니다.
     const salaryRemainingCalendarDays = useMemo(() => {
         if (!selectedMonth || !monthlyEndDay) return 1;
         try {
