@@ -297,11 +297,14 @@ const BluecoinsDailySummaryPreview = ({
 
             reportEntries.forEach((entry) => {
                 const data = calculateData([entry], itemLabels);
+                const isExpenseEntry = entry?.type === 'expense' ||
+                    ((Number(data.totalExpenses) || 0) > 0 && (Number(data.totalRevenue) || 0) <= 0);
                 const round = Number(entry?.round) || 0;
-                const key = round > 0 ? 'round-' + round : 'other';
+                const key = isExpenseEntry ? 'expense' : (round > 0 ? 'round-' + round : 'other');
                 if (!groupedByRound.has(key)) {
                     groupedByRound.set(key, {
                         key,
+                        rowType: isExpenseEntry ? 'expense' : 'round',
                         round,
                         recordCount: 0,
                         dates: new Set(),
@@ -320,7 +323,7 @@ const BluecoinsDailySummaryPreview = ({
                 row.income += Number(data.totalRevenue) || 0;
                 row.expense += Number(data.totalExpenses) || 0;
 
-                monthlyVolumeMetrics.forEach((metric) => {
+                if (!isExpenseEntry) monthlyVolumeMetrics.forEach((metric) => {
                     const customItemLabels = Array.isArray(entry?.customItems)
                         ? entry.customItems
                             .filter((item) => item?.key === metric.key)
@@ -350,6 +353,8 @@ const BluecoinsDailySummaryPreview = ({
                     isMonthAggregate: true
                 }))
                 .sort((a, b) => {
+                    if (a.rowType === 'expense') return 1;
+                    if (b.rowType === 'expense') return -1;
                     if (a.round === 0) return 1;
                     if (b.round === 0) return -1;
                     return a.round - b.round;
@@ -386,13 +391,15 @@ const BluecoinsDailySummaryPreview = ({
         total.returnCount += Number(row.volumeBreakdown?.returnCount) || 0;
         total.freshBagCount += Number(row.volumeBreakdown?.freshBagCount) || 0;
         total.income += Number(row.income) || 0;
+        total.expense += Number(row.expense) || 0;
         return total;
     }, {
         deliveryCount: 0,
         deliveryInterruptionAmount: 0,
         returnCount: 0,
         freshBagCount: 0,
-        income: 0
+        income: 0,
+        expense: 0
     }), [transactionRows]);
 
     const panelClass = dark
@@ -959,7 +966,7 @@ const BluecoinsDailySummaryPreview = ({
                                                 ? 'border-b border-[#FFD500] bg-[#171717] text-white'
                                                 : 'border-b border-[#FFD500] bg-[#202020] text-white'
                                             }>
-                                            {['회전', '배송', '중단', '반품', '프레시백', '수익'].map((heading) => (
+                                            {['회전', '배송', '중단', '반품', '프레시백', '금액'].map((heading) => (
                                                 <th key={heading} className="whitespace-nowrap px-0.5 py-1.5 text-center font-bold">{heading}</th>
                                             ))}
                                         </tr>
@@ -971,22 +978,24 @@ const BluecoinsDailySummaryPreview = ({
                                                 : (index % 2 === 0 ? 'border-b border-slate-100 bg-white' : 'border-b border-slate-100 bg-[#F7F7F7]')
                                             }>
                                                 <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black">
-                                                    {row.round === 0 ? '기타' : row.round + '회전'}
+                                                    {row.rowType === 'expense' ? '지출' : (row.round === 0 ? '기타' : row.round + '회전')}
                                                 </td>
                                                 <td className="whitespace-nowrap px-0.5 py-1.5 text-center tabular-nums">
-                                                    {row.volumeBreakdown.deliveryCount.toLocaleString()}건
+                                                    {row.rowType === 'expense' ? '' : row.volumeBreakdown.deliveryCount.toLocaleString() + '건'}
                                                 </td>
                                                 <td className="whitespace-nowrap px-0.5 py-1.5 text-center tabular-nums">
-                                                    {row.volumeBreakdown.deliveryInterruptionAmount.toLocaleString()}건
+                                                    {row.rowType === 'expense' ? '' : row.volumeBreakdown.deliveryInterruptionAmount.toLocaleString() + '건'}
                                                 </td>
                                                 <td className="whitespace-nowrap px-0.5 py-1.5 text-center tabular-nums">
-                                                    {row.volumeBreakdown.returnCount.toLocaleString()}건
+                                                    {row.rowType === 'expense' ? '' : row.volumeBreakdown.returnCount.toLocaleString() + '건'}
                                                 </td>
                                                 <td className="whitespace-nowrap px-0.5 py-1.5 text-center tabular-nums">
-                                                    {row.volumeBreakdown.freshBagCount.toLocaleString()}건
+                                                    {row.rowType === 'expense' ? '' : row.volumeBreakdown.freshBagCount.toLocaleString() + '건'}
                                                 </td>
                                                 <td className={'whitespace-nowrap px-0.5 py-1.5 text-right font-black tabular-nums ' + (dark ? 'text-white' : 'text-neutral-900')}>
-                                                    {row.income.toLocaleString()}원
+                                                    {row.rowType === 'expense'
+                                                        ? '-' + row.expense.toLocaleString() + '원'
+                                                        : row.income.toLocaleString() + '원'}
                                                 </td>
                                             </tr>
                                         ))}
@@ -1010,7 +1019,7 @@ const BluecoinsDailySummaryPreview = ({
                                                 {monthlyTransactionTotal.freshBagCount.toLocaleString()}건
                                             </td>
                                             <td className={'whitespace-nowrap px-0.5 py-1.5 text-right font-black tabular-nums ' + (dark ? 'text-white' : 'text-neutral-900')}>
-                                                {monthlyTransactionTotal.income.toLocaleString()}원
+                                                {(monthlyTransactionTotal.income - monthlyTransactionTotal.expense).toLocaleString()}원
                                             </td>
                                         </tr>
                                     </tfoot>
