@@ -50,9 +50,7 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import BluecoinsDailySummaryPreview from './components/BluecoinsDailySummaryPreview';
 import AverageItemsView from './components/more/AverageItemsView';
-import DashboardSettingsView from './components/more/DashboardSettingsView';
 import VolumeCalendarSettingsView from './components/more/VolumeCalendarSettingsView';
-import useDashboardSettings from './hooks/useDashboardSettings';
 // ✨ 휴무관리 모달 추가
 import { DayOffModal } from './components/dayOff/DayOffModal';
 import { supabase } from './lib/supabaseClient';
@@ -70,7 +68,7 @@ import Main from './admin/Main';
 
 console.log("▶️ DayOffModal의 타입:", typeof DayOffModal);
 console.log("▶️ DayOffModal의 실제 값:", DayOffModal);
-console.log("🚨 용의자 명단 확인:", { SearchView, DashboardSettingsView, AverageItemsView });
+console.log("🚨 용의자 명단 확인:", { SearchView, AverageItemsView });
 const getTodayLocal = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -113,7 +111,6 @@ const DEFAULT_HOME_CALENDAR_VOLUME_ITEMS = {
 function AppContent() {
     const navigate = useNavigate();
     useMigrationOnLogin();
-    const { dashboardConfig, saveDashboardConfig } = useDashboardSettings();
 const { isLoggedIn, user, profile } = useAuth();
 
 // ✨ 추가: 관리자 센터 수동 오픈 상태
@@ -1433,17 +1430,6 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 {moreSubView === 'data' && <DataSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} handleExportCsv={() => exportDataAsCsv(entries, showMessage)} handleImportCsv={(e) => handleLocalCsvImport(e.target.files[0])} handleDeleteAllData={handleDeleteAllDataRequest} handleBackupToDrive={() => backupToDrive(entries)} handleRestoreFromDrive={handleCloudRestore} />}
                             {/* ✨ 더보기 메뉴에서 진입할 때는 무조건 '수익(income)' 탭으로 고정! */}
                                 {moreSubView === 'expenseSettings' && <ExpenseSettingsView initialTab="income" onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} expenseConfig={expenseConfig} setExpenseConfig={setExpenseConfig} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} onNavigate={(view, key) => { setMoreSubView(view); if (key) setTargetItemKey(key); }} />}
-{moreSubView === 'dashboard_settings' && (
-    <DashboardSettingsView
-        isDarkMode={isDarkMode}
-        onBack={() => setMoreSubView('main')}
-        config={dashboardConfig}
-        onSave={(newConfig) => {
-            saveDashboardConfig(newConfig);
-            showMessage("✅ 홈 화면 구성이 저장되었습니다.");
-        }}
-    />
-)}
 {moreSubView === 'calendar_volume_settings' && (
     <VolumeCalendarSettingsView
         isDarkMode={isDarkMode}
