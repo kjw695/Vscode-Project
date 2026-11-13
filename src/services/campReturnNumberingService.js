@@ -20,6 +20,19 @@ function writeLocal(userId, suffix, value) {
     localStorage.setItem(localKey(userId, suffix), JSON.stringify(value));
 }
 
+export async function fetchAccountDriverId(userId) {
+    if (!userId) return '';
+
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (error) throw error;
+    return String(data?.username || '').trim();
+}
+
 export async function fetchCampReturnProfile(userId) {
     if (!userId) {
         return readLocal(null, 'profile', null);
@@ -27,7 +40,7 @@ export async function fetchCampReturnProfile(userId) {
 
     const { data, error } = await supabase
         .from('camp_return_profiles')
-        .select('driver_id, default_camp')
+        .select('default_camp')
         .eq('user_id', userId)
         .maybeSingle();
 
@@ -37,7 +50,6 @@ export async function fetchCampReturnProfile(userId) {
 
 export async function saveCampReturnProfile(userId, { driverId, defaultCamp }) {
     const profile = {
-        driver_id: String(driverId || '').trim(),
         default_camp: defaultCamp
     };
 
@@ -53,7 +65,7 @@ export async function saveCampReturnProfile(userId, { driverId, defaultCamp }) {
             ...profile,
             updated_at: new Date().toISOString()
         }, { onConflict: 'user_id' })
-        .select('driver_id, default_camp')
+        .select('default_camp')
         .single();
 
     if (error) throw error;
