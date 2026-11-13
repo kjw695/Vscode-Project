@@ -15,7 +15,8 @@ import {
     Target,
     ShieldCheck,
     BarChart3,
-    Calendar
+    Calendar,
+    Barcode
 } from 'lucide-react';
 
 const MenuItem = ({ icon, text, onClick, isDarkMode }) => (
@@ -47,6 +48,10 @@ function MoreView({ onNavigate, isDarkMode, toggleDarkMode }) {
                 <MenuItem icon={<User size={24} />} text="계정 관리" onClick={() => onNavigate('account')} isDarkMode={isDarkMode} />
                 <MenuItem icon={<Calendar size={24} />} text="휴무 관리" onClick={() => onNavigate('dayOff')} isDarkMode={isDarkMode} />
                 <MenuItem icon={<Users size={24} />} text="팀 관리" onClick={() => onNavigate('team')} isDarkMode={isDarkMode} />
+            </MenuSection>
+
+            <MenuSection title="업무 도구">
+                <MenuItem icon={<Barcode size={24} />} text="반품 채번 요청" onClick={() => onNavigate('camp_return_numbering')} isDarkMode={isDarkMode} />
             </MenuSection>
 
             <MenuSection title="배송 및 정산">
