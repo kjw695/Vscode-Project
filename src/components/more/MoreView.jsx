@@ -15,7 +15,6 @@ import {
     Target,
     ShieldCheck,
     BarChart3,
-    LayoutDashboard,
     Calendar
 } from 'lucide-react';
 
@@ -58,8 +57,7 @@ function MoreView({ onNavigate, isDarkMode, toggleDarkMode }) {
                 <MenuItem icon={<ShieldCheck size={24} />} text="보험사 설정" onClick={() => onNavigate('insurance')} isDarkMode={isDarkMode} />
             </MenuSection>
 
-            <MenuSection title="홈 화면 설정">
-                <MenuItem icon={<LayoutDashboard size={24} />} text="홈 화면 구성" onClick={() => onNavigate('dashboard_settings')} isDarkMode={isDarkMode} />
+            <MenuSection title="장부 화면 설정">
                 <MenuItem icon={<BarChart3 size={24} />} text="홈 물량 설정" onClick={() => onNavigate('average_settings')} isDarkMode={isDarkMode} />
                 <MenuItem icon={<CalendarDays size={24} />} text="물량 달력 표시" onClick={() => onNavigate('calendar_volume_settings')} isDarkMode={isDarkMode} />
             </MenuSection>
