@@ -380,6 +380,21 @@ const BluecoinsDailySummaryPreview = ({
         });
     }, [reportEntries, itemLabels, selectedItemsForAverage, isDayMode]);
 
+    const monthlyTransactionTotal = useMemo(() => transactionRows.reduce((total, row) => {
+        total.deliveryCount += Number(row.volumeBreakdown?.deliveryCount) || 0;
+        total.deliveryInterruptionAmount += Number(row.volumeBreakdown?.deliveryInterruptionAmount) || 0;
+        total.returnCount += Number(row.volumeBreakdown?.returnCount) || 0;
+        total.freshBagCount += Number(row.volumeBreakdown?.freshBagCount) || 0;
+        total.income += Number(row.income) || 0;
+        return total;
+    }, {
+        deliveryCount: 0,
+        deliveryInterruptionAmount: 0,
+        returnCount: 0,
+        freshBagCount: 0,
+        income: 0
+    }), [transactionRows]);
+
     const panelClass = dark
         ? 'bg-slate-900 border-slate-800 text-slate-100'
         : 'bg-white border-slate-200 text-slate-900';
@@ -829,7 +844,7 @@ const BluecoinsDailySummaryPreview = ({
                         type="button"
                         onClick={() => setActiveReportTab('transactions')}
                         className={'flex items-center justify-center gap-1 rounded-lg py-2 ' + (activeReportTab === 'transactions' ? (dark ? 'bg-slate-700 text-blue-300' : 'bg-white text-blue-600 shadow-sm') : mutedClass)}
-                    ><ListFilter size={13} /> 회차별 내역</button>
+                    ><ListFilter size={13} /> 회전별 내역</button>
                 </div>
 
                 <div className="mt-3 flex items-center justify-between gap-2 px-1">
@@ -927,7 +942,7 @@ const BluecoinsDailySummaryPreview = ({
 
                     {activeReportTab === 'transactions' && (
                         transactionRows.length === 0 ? (
-                            <p className={'py-8 text-center text-xs ' + mutedClass}>기록된 회차 내역이 없습니다.</p>
+                            <p className={'py-8 text-center text-xs ' + mutedClass}>기록된 회전 내역이 없습니다.</p>
                         ) : !isDayMode ? (
                             <div className="-mx-1.5 w-[calc(100%+0.75rem)] overflow-x-auto">
                                 <table className="w-[328px] min-w-[328px] table-fixed border-collapse text-[10px]">
@@ -941,7 +956,7 @@ const BluecoinsDailySummaryPreview = ({
                                     </colgroup>
                                     <thead>
                                         <tr className={dark ? 'border-b border-slate-700 text-slate-400' : 'border-b border-slate-200 text-slate-500'}>
-                                            {['회차', '배송', '중단', '반품', '프레시백', '수익'].map((heading) => (
+                                            {['회전', '배송', '중단', '반품', '프레시백', '수익'].map((heading) => (
                                                 <th key={heading} className="whitespace-nowrap px-0.5 py-1.5 text-center font-bold">{heading}</th>
                                             ))}
                                         </tr>
@@ -950,7 +965,7 @@ const BluecoinsDailySummaryPreview = ({
                                         {transactionRows.map((row) => (
                                             <tr key={row.key} className={dark ? 'border-b border-slate-800' : 'border-b border-slate-100'}>
                                                 <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black">
-                                                    {row.round === 0 ? '기타' : row.round + '회차'}
+                                                    {row.round === 0 ? '기타' : row.round + '회전'}
                                                 </td>
                                                 <td className="whitespace-nowrap px-0.5 py-1.5 text-center tabular-nums">
                                                     {row.volumeBreakdown.deliveryCount.toLocaleString()}건
@@ -970,6 +985,29 @@ const BluecoinsDailySummaryPreview = ({
                                             </tr>
                                         ))}
                                     </tbody>
+                                    <tfoot>
+                                        <tr className={dark
+                                            ? 'border-t-2 border-slate-700 bg-slate-800/60'
+                                            : 'border-t-2 border-slate-200 bg-slate-50'
+                                        }>
+                                            <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black">합계</td>
+                                            <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black tabular-nums">
+                                                {monthlyTransactionTotal.deliveryCount.toLocaleString()}건
+                                            </td>
+                                            <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black tabular-nums">
+                                                {monthlyTransactionTotal.deliveryInterruptionAmount.toLocaleString()}건
+                                            </td>
+                                            <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black tabular-nums">
+                                                {monthlyTransactionTotal.returnCount.toLocaleString()}건
+                                            </td>
+                                            <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black tabular-nums">
+                                                {monthlyTransactionTotal.freshBagCount.toLocaleString()}건
+                                            </td>
+                                            <td className="whitespace-nowrap px-0.5 py-1.5 text-right font-black tabular-nums text-emerald-500">
+                                                {monthlyTransactionTotal.income.toLocaleString()}원
+                                            </td>
+                                        </tr>
+                                    </tfoot>
                                 </table>
                             </div>
                         ) : (
@@ -979,7 +1017,7 @@ const BluecoinsDailySummaryPreview = ({
                                         <div className="min-w-0">
                                             <div className="flex items-center gap-1.5">
                                                 <span className={'rounded-md px-2 py-0.5 text-[9px] font-black ' + (dark ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-700')}>
-                                                    {row.round === 0 ? '기타' : row.round + '회차'}
+                                                    {row.round === 0 ? '기타' : row.round + '회전'}
                                                 </span>
                                                 <span className="truncate text-[10px] font-black">{row.names.length ? row.names.join(' · ') : '배송/지출 기록'}</span>
                                             </div>
