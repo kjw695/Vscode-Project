@@ -3,13 +3,12 @@
 //사장님(App.js): 손님 응대(화면 표시)만 함.
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Home, BarChart2, List, MoreHorizontal, Plus, ArrowRightLeft } from 'lucide-react';
+import { ArrowUp, ArrowDown, Home, BarChart2, List, MoreHorizontal } from 'lucide-react';
 import { backupToDrive, restoreFromDrive } from './utils/googleDrive';
 import { Preferences } from '@capacitor/preferences';
 import MessageModal from './components/common/MessageModal';
 import { formatDate } from './utils';
 import StatsDisplay from './StatsDisplay';
-import GoalProgressBar from './components/GoalProgressBar';
 import RevenueDistributionChart from './components/RevenueDistributionChart';
 import FilterModal from './components/DataScreen/FilterModal';
 import EntriesList from './components/DataScreen/EntriesList';
@@ -50,8 +49,6 @@ import InsuranceView from './components/more/InsuranceView';
 import { AppUpdate } from '@capawesome/capacitor-app-update';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import GoalSummaryCards from './components/GoalSummaryCards';
-import IntegratedDailySummaryView from './components/IntegratedDailySummaryView';
 import BluecoinsDailySummaryPreview from './components/BluecoinsDailySummaryPreview';
 import AverageItemsView from './components/more/AverageItemsView';
 import DashboardSettingsView from './components/more/DashboardSettingsView';
@@ -74,7 +71,7 @@ import Main from './admin/Main';
 
 console.log("▶️ DayOffModal의 타입:", typeof DayOffModal);
 console.log("▶️ DayOffModal의 실제 값:", DayOffModal);
-console.log("🚨 용의자 명단 확인:", { GoalSummaryCards, SearchView, DashboardSettingsView, AverageItemsView });
+console.log("🚨 용의자 명단 확인:", { SearchView, DashboardSettingsView, AverageItemsView });
 const DetailRow = ({ label, value, comparison }) => (
     <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-1">
         <span className="text-base sm:text-lg font-semibold">{label}</span>
@@ -266,7 +263,7 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const mainTouchStartX = useRef(null); // ✨ [추가] 바탕화면 스와이프 전용
     const mainTouchStartY = useRef(null);
     const [selectedMainTab, setSelectedMainTab] = useState('home');
-    const [activeContentTab, setActiveContentTab] = useState('monthlyProfit');
+    const [activeContentTab, setActiveContentTab] = useState('bluecoinsDailySummary');
         const [moreSubView, setMoreSubView] = useState('main');
     const [autoEditAccountProfile, setAutoEditAccountProfile] = useState(false);
 
@@ -1293,280 +1290,6 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
           >
                 {isAuthReady && (
                     <>
-                       {activeContentTab === 'monthlyProfit' && (
-    <>
-        <div className="flex justify-end px-1 pb-1">
-            <button
-                type="button"
-                onClick={() => setActiveContentTab('integratedDailySummary')}
-                className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold transition-colors ${isDarkMode ? 'text-gray-300 bg-gray-800 hover:bg-gray-700' : 'text-slate-600 bg-slate-50 hover:bg-slate-100'}`}
-            >
-                통합형 일일요약 미리보기 <ChevronRight size={14} />
-            </button>
-        </div>
-        <GoalSummaryCards 
-            entries={entries}
-            monthlyProfit={monthlyProfit} 
-            goal={goalAmount}
-            selectedMonth={selectedMonth}
-            monthlyStartDay={monthlyStartDay}
-            monthlyEndDay={monthlyEndDay}
-            isDarkMode={isDarkMode}
-            selectedInsurance={selectedInsurance}
-            selectedItemsForAverage={selectedItemsForAverage}
-            dashboardConfig={dashboardConfig}
-            previousMonthlyProfit={previousMonthlyProfit}
-           onTabChange={(tab) => {
-        if (tab === 'insurance') {
-            setSelectedMainTab('more');             // 하단 메뉴: 더보기
-            setActiveContentTab('adminSettings');   // 메인 화면: 설정
-            setMoreSubView('insurance');            // 세부 화면: 보험
-        }
-    }}
-        />
-                          
-                            
-                            <div className={`p-2 sm:p-4 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-                            <GoalProgressBar 
-        current={monthlyProfit?.totalRevenue || 0}
-        goal={goalAmount} 
-        isDarkMode={isDarkMode} 
-        revenueDistribution={monthlyProfit.revenueDistribution}
-        selectedItemsForAverage={selectedItemsForAverage}
-    incomeConfig={incomeConfig}
-    />
-                          
-                          
-                    <div className="grid grid-cols-[1fr_auto_1fr] items-center mb-4 px-1 gap-1">
-    
-    {/* 1. 왼쪽: 금액/물량 버튼 (규격 맞춤) */}
-    <div className="flex justify-start">
-        <button 
-            onClick={() => setCalendarMode(prev => prev === 'money' ? 'volume' : 'money')}
-            /* py-1, font-black, text-[11px], border-[1.5px] 로 규격 통일 */
-            className={`py-1 px-1.5 rounded-lg font-black text-[11px] border-[1.5px] transition-colors flex items-center gap-1 shadow-sm
-                ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-200' : 'border-gray-200 bg-gray-50 text-gray-700'}
-            `}
-        >
-            <ArrowRightLeft size={13} className={isDarkMode ? 'text-blue-400' : 'text-blue-600'} />
-            <span>{calendarMode === 'money' ? '금액' : '물량'}</span>
-        </button>
-    </div>
-
-    {/* 2. 중앙: 날짜 (주인공이므로 크기 유지) */}
-    <div className="flex items-center space-x-1"> 
-        <button onClick={() => handleMonthChange(-1)} className="p-0.5"><ChevronLeft size={22} /></button>
-        <h3 className={`font-black text-lg sm:text-xl tracking-tighter whitespace-nowrap ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            {currentCalendarDate.getFullYear()}년 {currentCalendarDate.getMonth() + 1}월
-        </h3>
-        <button onClick={() => handleMonthChange(1)} className="p-0.5"><ChevronRight size={22} /></button>
-    </div>
-
-    {/* 3. 오른쪽: 휴무/오늘 (왼쪽과 규격 100% 일치) */}
-    <div className="flex justify-end gap-0.5 flex-nowrap w-full max-w-[90px] ml-auto">
-        <button 
-            onClick={() => setIsDayOffModalOpen(true)} 
-            /* py-1, font-black, text-[11px], border-[1.5px] 로 왼쪽과 완벽히 동일 */
-            className="flex-1 py-1 rounded-lg font-black text-[11px] border-[1.5px] border-gray-400 text-indigo-500 whitespace-nowrap"
-        >
-            휴무
-        </button>
-        <button 
-            onClick={handleTodayClick} 
-            className="flex-1 py-1 rounded-lg font-black text-[11px] border-[1.5px] border-yellow-400 text-yellow-500 whitespace-nowrap"
-        >
-            오늘
-        </button>
-    </div>
-</div>
-                                    <div 
-                                        className="calendar-view touch-pan-y"
-                                        onTouchStart={onCalendarTouchStart}
-                                        onTouchMove={onCalendarTouchMove}
-                                        onTouchEnd={onCalendarTouchEnd}
-                                    >
-                                        <div className={`grid grid-cols-7 mb-0 text-center text-[11px] font-black uppercase w-full py-1.5 border-y ${isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'}`}>
-                                            {['일', '월', '화', '수', '목', '금', '토'].map((day, i) => (
-                                                <div key={day} className={i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : (isDarkMode ? 'text-gray-400' : 'text-gray-500')}>
-                                                    {day}
-                                                </div>
-                                            ))}
-                                        </div>
-
-                                        <div className={homeCalendarDesign === 'current'
-                                            ? `grid grid-cols-7 w-full border-l ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`
-                                            : 'grid grid-cols-7 gap-x-0 gap-y-0'
-                                        }>
-                                            {calendarDaysWithDayOff.map((dayInfo, index) => (
-                                                <div
-                                                    key={dayInfo.date}
-                                                    onClick={() => handleCalendarDateClick(dayInfo.date)}
-                                                    className={homeCalendarDesign === 'current'
-                                                        ? `relative flex flex-col items-center justify-start p-1 h-20 border-b border-r transition-colors cursor-pointer
-                                                            ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}
-                                                            ${dayInfo.isToday
-                                                                ? (isDarkMode ? 'bg-green-900/60' : 'bg-green-100')
-                                                                : dayInfo.isDayOff
-                                                                    ? (isDarkMode ? 'bg-gray-700/60' : 'bg-gray-100')
-                                                                    : (isDarkMode ? 'bg-gray-800' : 'bg-white')}
-                                                        `
-                                                        : `relative flex flex-col items-center justify-start h-[55px] rounded-md transition-colors cursor-pointer
-                                                            ${dayInfo.isDayOff
-                                                                ? (isDarkMode ? 'bg-gray-700/60' : 'bg-gray-200')
-                                                                : (isDarkMode ? 'bg-gray-800' : 'bg-white')}
-                                                        `
-                                                    }
-                                                >
-                                                    <div className={homeCalendarDesign === 'current'
-                                                        ? 'relative flex w-full items-center justify-between px-1'
-                                                        : 'relative flex h-[30px] w-full items-center justify-center'
-                                                    }>
-                                                        <span className={homeCalendarDesign === 'current'
-                                                            ? `text-[clamp(9px,3.6vw,13px)] font-bold
-                                                                ${!dayInfo.isCurrentMonth ? (isDarkMode ? 'text-gray-600' : 'text-gray-400') : ''}
-                                                                ${dayInfo.isCurrentMonth && index % 7 === 0 ? 'text-red-500' : ''}
-                                                                ${dayInfo.isCurrentMonth && index % 7 === 6 ? 'text-blue-500' : ''}
-                                                                ${dayInfo.isToday ? (isDarkMode ? 'text-green-200' : 'text-green-800') : ''}
-                                                            `
-                                                            : `flex items-center justify-center w-8 h-8 rounded-full text-[clamp(10px,3.8vw,14px)] font-semibold
-                                                                ${!dayInfo.isCurrentMonth ? (isDarkMode ? 'text-gray-600' : 'text-gray-300') : ''}
-                                                                ${dayInfo.isCurrentMonth && index % 7 === 0 ? 'text-red-500' : ''}
-                                                                ${dayInfo.isCurrentMonth && index % 7 === 6 ? 'text-blue-500' : ''}
-                                                                ${dayInfo.isToday ? 'border-4 border-yellow-400 shadow-sm' : ''}
-                                                            `
-                                                        }>
-                                                            {dayInfo.day}
-                                                        </span>
-
-                                                        {dayInfo.isCurrentMonth && dayInfo.extraDayOffRequestStatus === 'pending' && (
-                                                            <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-orange-500" title="휴무 신청 대기" aria-label="휴무 신청 대기" />
-                                                        )}
-                                                        {dayInfo.isCurrentMonth && dayInfo.extraDayOffRequestStatus === 'approved' && (
-                                                            <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-blue-500" title="휴무 신청 승인" aria-label="휴무 신청 승인" />
-                                                        )}
-                                                        {dayInfo.isCurrentMonth && dayInfo.extraDayOffRequestStatus === 'declined' && (
-                                                            <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-red-500" title="휴무 신청 거절" aria-label="휴무 신청 거절" />
-                                                        )}
-                                                    </div>
-
-                                                    <div className={homeCalendarDesign === 'current'
-                                                        ? 'flex flex-col items-center justify-start mt-1 w-full space-y-0.5'
-                                                        : 'flex flex-col items-center justify-start w-full px-0.5 -mt-0.5 space-y-0'
-                                                    }>
-                                                        {dayInfo.isCurrentMonth && dayInfo.isDayOff && (
-                                                            <span className={homeCalendarDesign === 'current'
-                                                                ? 'whitespace-nowrap text-[clamp(6px,2.4vw,10px)] font-bold leading-[10px] text-gray-500 dark:text-gray-400'
-                                                                : 'whitespace-nowrap text-[clamp(5px,1.9vw,7px)] font-bold leading-[8px] text-indigo-500 dark:text-indigo-400'
-                                                            }>
-                                                                ○ 휴무
-                                                            </span>
-                                                        )}
-
-                                                        {calendarMode === 'money' ? (
-                                                            <>
-                                                                {dayInfo.isCurrentMonth && dayInfo.volumeDisplayTotal > 0 && (
-                                                                    <span className={homeCalendarDesign === 'current'
-                                                                        ? 'whitespace-nowrap text-[clamp(6px,2.2vw,9px)] font-bold leading-tight text-gray-600 dark:text-gray-300'
-                                                                        : 'whitespace-nowrap text-[clamp(5px,1.8vw,8px)] font-bold leading-[9px] text-gray-600 dark:text-gray-300'
-                                                                    }>
-                                                                        {dayInfo.volumeDisplayTotal.toLocaleString()}건
-                                                                    </span>
-                                                                )}
-                                                                {dayInfo.isCurrentMonth && dayInfo.revenue > 0 && (
-                                                                    <span className={homeCalendarDesign === 'current'
-                                                                        ? 'whitespace-nowrap text-red-500 text-[clamp(6px,2.2vw,9px)] font-semibold leading-tight'
-                                                                        : 'whitespace-nowrap text-red-500 text-[clamp(5px,1.8vw,8px)] font-semibold leading-[9px]'
-                                                                    }>
-                                                                        {dayInfo.revenue.toLocaleString()}원
-                                                                    </span>
-                                                                )}
-                                                                {dayInfo.isCurrentMonth && dayInfo.expenses > 0 && (
-                                                                    <span className={homeCalendarDesign === 'current'
-                                                                        ? 'whitespace-nowrap text-blue-500 text-[clamp(6px,2.2vw,9px)] font-medium leading-tight'
-                                                                        : 'whitespace-nowrap text-blue-500 text-[clamp(5px,1.8vw,8px)] font-medium leading-[9px]'
-                                                                    }>
-                                                                        {dayInfo.expenses.toLocaleString()}원
-                                                                    </span>
-                                                                )}
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <div className={homeCalendarDesign === 'current'
-                                                                    ? 'flex flex-col items-center gap-y-0 w-full'
-                                                                    : 'grid grid-cols-2 gap-x-0.5 gap-y-0 w-full'
-                                                                }>
-                                                                    {dayInfo.isCurrentMonth && HOME_CALENDAR_VOLUME_METRICS.map((metric) => {
-                                                                        if (!homeCalendarVolumeItems[metric.key]) return null;
-                                                                        const amount = Number(dayInfo.volumeBreakdown?.[metric.key] || 0);
-                                                                        if (amount <= 0) return null;
-                                                                        const label = incomeConfig.find((item) => item.key === metric.key)?.label || metric.label;
-                                                                        return (
-                                                                            <span
-                                                                                key={metric.key}
-                                                                                className={homeCalendarDesign === 'current'
-                                                                                    ? 'min-w-0 whitespace-nowrap text-[clamp(5px,1.55vw,8px)] font-semibold leading-[9px] text-gray-700 dark:text-gray-300'
-                                                                                    : 'min-w-0 whitespace-nowrap text-[clamp(5px,1.35vw,7px)] font-semibold leading-[8px] text-gray-700 dark:text-gray-300'
-                                                                                }
-                                                                                title={`${label} ${amount}건`}
-                                                                            >
-                                                                                {homeCalendarDesign === 'classic' ? metric.shortLabel : label} {amount}
-                                                                            </span>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-
-                                        <div className={`mt-1 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-1 text-[9px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                            <span><span className="text-gray-400">○</span> 휴무</span>
-                                            <span><span className="text-orange-500">●</span> 대기</span>
-                                            <span><span className="text-blue-500">●</span> 승인</span>
-                                            <span><span className="text-red-500">●</span> 거절</span>
-                                        </div>
-    </div>
-    </div>
-    </>
-)}
-
-                        {activeContentTab === 'integratedDailySummary' && (
-                            <IntegratedDailySummaryView
-                                entries={entries}
-                                monthlyProfit={monthlyProfit}
-                                previousMonthlyProfit={previousMonthlyProfit}
-                                selectedMonth={selectedMonth}
-                                monthlyStartDay={monthlyStartDay}
-                                monthlyEndDay={monthlyEndDay}
-                                goal={goalAmount}
-                                selectedInsurance={selectedInsurance}
-                                selectedItemsForAverage={selectedItemsForAverage}
-                                itemLabels={itemLabels}
-                                isDarkMode={isDarkMode}
-                                onBack={() => setActiveContentTab('monthlyProfit')}
-                                onSwitchPreview={() => setActiveContentTab('bluecoinsDailySummary')}
-                                onOpenInsurance={() => {
-                                    setSelectedMainTab('more');
-                                    setActiveContentTab('adminSettings');
-                                    setMoreSubView('insurance');
-                                }}
-                                currentCalendarDate={currentCalendarDate}
-                                calendarDays={calendarDaysWithDayOff}
-                                calendarMode={calendarMode}
-                                onToggleCalendarMode={(mode) => setCalendarMode(mode)}
-                                onMonthChange={handleMonthChange}
-                                onToday={handleTodayClick}
-                                onDateClick={handleCalendarDateClick}
-                                onOpenDayOff={() => setIsDayOffModalOpen(true)}
-                                homeCalendarDesign={homeCalendarDesign}
-                                homeCalendarVolumeItems={homeCalendarVolumeItems}
-                                incomeConfig={incomeConfig}
-                            />
-                        )}
-
-
                         {activeContentTab === 'bluecoinsDailySummary' && (
                             <BluecoinsDailySummaryPreview
                                 entries={entries}
@@ -1579,8 +1302,6 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 selectedItemsForAverage={selectedItemsForAverage}
                                 itemLabels={itemLabels}
                                 isDarkMode={isDarkMode}
-                                onBack={() => setActiveContentTab('monthlyProfit')}
-                                onSwitchPreview={() => setActiveContentTab('integratedDailySummary')}
                                 onOpenInsurance={() => {
                                     setSelectedMainTab('more');
                                     setActiveContentTab('adminSettings');
@@ -1796,7 +1517,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
             </div>
 
       {/* 👇 홈 화면이거나, 달력에서 특정 날짜를 콕 짚어서 들어온 경우(custom)에만 [입력] 버튼 표시 */}
-      {(activeContentTab === 'monthlyProfit' || activeContentTab === 'bluecoinsDailySummary' || (activeContentTab === 'dataEntry' && activeDataTab === 'list' && filters.period === 'custom')) && (
+      {(activeContentTab === 'bluecoinsDailySummary' || (activeContentTab === 'dataEntry' && activeDataTab === 'list' && filters.period === 'custom')) && (
                 <button 
                     onClick={(e) => {
                         e.stopPropagation();
@@ -1882,7 +1603,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                     </button>
 
                     {/* ✨ 홈 버튼 클릭 시 handleResetToCurrentMonth() 추가 */}
-                    <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'home' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} onClick={() => { setSelectedMainTab('home'); setActiveContentTab('monthlyProfit'); handleResetToCurrentMonth(); }}>
+                    <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'home' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} onClick={() => { setSelectedMainTab('home'); setActiveContentTab('bluecoinsDailySummary'); handleResetToCurrentMonth(); }}>
                         <Home size={24} /> <span>홈</span>
                     </button>
                     <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'search' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} 
