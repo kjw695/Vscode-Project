@@ -255,6 +255,7 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const [activeContentTab, setActiveContentTab] = useState('bluecoinsDailySummary');
         const [moreSubView, setMoreSubView] = useState('main');
     const [autoEditAccountProfile, setAutoEditAccountProfile] = useState(false);
+    const [returnToCampNumbering, setReturnToCampNumbering] = useState(false);
 
 
 // 초대 링크를 열면 팀 관리 화면으로 이동하고 코드를 전달합니다.
@@ -1391,7 +1392,12 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                             } catch (error) {
                                                 console.warn('[Invite] 가입 재개 상태 확인 실패:', error);
                                             }
-                                            setMoreSubView(returnToTeam ? 'team' : 'main');
+                                            if (returnToCampNumbering) {
+                                                setReturnToCampNumbering(false);
+                                                setMoreSubView('camp_return_numbering');
+                                            } else {
+                                                setMoreSubView(returnToTeam ? 'team' : 'main');
+                                            }
                                         }}
                                         isDarkMode={isDarkMode}
                                         handleLogout={handleLogout}
@@ -1457,6 +1463,11 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 {moreSubView === 'camp_return_numbering' && (
                                     <CampReturnNumberingView
                                         onBack={() => setMoreSubView('main')}
+                                        onGoToProfile={() => {
+                                            setReturnToCampNumbering(true);
+                                            setAutoEditAccountProfile(true);
+                                            setMoreSubView('account');
+                                        }}
                                         isDarkMode={isDarkMode}
                                         user={user}
                                         showMessage={showMessage}
