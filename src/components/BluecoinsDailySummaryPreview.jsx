@@ -932,42 +932,42 @@ const BluecoinsDailySummaryPreview = ({
                             <p className={'py-8 text-center text-xs ' + mutedClass}>기록된 회차 내역이 없습니다.</p>
                         ) : !isDayMode ? (
                             <div className="w-full overflow-x-auto">
-                                <table className="w-full min-w-[620px] table-fixed border-collapse text-[10px]">
+                                <table className="w-full min-w-[360px] table-fixed border-collapse text-[9px]">
                                     <colgroup>
-                                        <col style={{ width: '76px' }} />
-                                        <col style={{ width: '78px' }} />
-                                        <col style={{ width: '78px' }} />
-                                        <col style={{ width: '78px' }} />
-                                        <col style={{ width: '96px' }} />
-                                        <col style={{ width: '150px' }} />
+                                        <col style={{ width: '48px' }} />
+                                        <col style={{ width: '52px' }} />
+                                        <col style={{ width: '52px' }} />
+                                        <col style={{ width: '52px' }} />
+                                        <col style={{ width: '66px' }} />
+                                        <col style={{ width: '90px' }} />
                                     </colgroup>
                                     <thead>
                                         <tr className={dark ? 'border-b border-slate-700 text-slate-400' : 'border-b border-slate-200 text-slate-500'}>
                                             {['회차', '배송', '중단', '반품', '합계 물량', '수익'].map((heading) => (
-                                                <th key={heading} className="whitespace-nowrap px-2 py-2 text-center font-bold">{heading}</th>
+                                                <th key={heading} className="whitespace-nowrap px-0.5 py-1.5 text-center font-bold">{heading}</th>
                                             ))}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {transactionRows.map((row) => (
                                             <tr key={row.key} className={dark ? 'border-b border-slate-800' : 'border-b border-slate-100'}>
-                                                <td className="whitespace-nowrap px-2 py-3 text-center font-black">
+                                                <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black">
                                                     {row.round === 0 ? '기타' : row.round + '회차'}
                                                 </td>
-                                                <td className="whitespace-nowrap px-2 py-3 text-center tabular-nums">
+                                                <td className="whitespace-nowrap px-0.5 py-1.5 text-center tabular-nums">
                                                     {row.volumeBreakdown.deliveryCount.toLocaleString()}건
                                                 </td>
-                                                <td className="whitespace-nowrap px-2 py-3 text-center tabular-nums">
+                                                <td className="whitespace-nowrap px-0.5 py-1.5 text-center tabular-nums">
                                                     {row.volumeBreakdown.deliveryInterruptionAmount.toLocaleString()}건
                                                 </td>
-                                                <td className="whitespace-nowrap px-2 py-3 text-center tabular-nums">
+                                                <td className="whitespace-nowrap px-0.5 py-1.5 text-center tabular-nums">
                                                     {row.volumeBreakdown.returnCount.toLocaleString()}건
                                                 </td>
-                                                <td className="whitespace-nowrap px-2 py-3 text-center font-bold tabular-nums">
+                                                <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-bold tabular-nums">
                                                     {row.volume.toLocaleString()}건
                                                 </td>
-                                                <td className="whitespace-nowrap px-2 py-3 text-right font-black tabular-nums text-emerald-500">
-                                                    +{row.income.toLocaleString()}원
+                                                <td className="whitespace-nowrap px-0.5 py-1.5 text-right font-black tabular-nums text-emerald-500">
+                                                    {row.income.toLocaleString()}원
                                                 </td>
                                             </tr>
                                         ))}
