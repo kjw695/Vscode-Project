@@ -51,6 +51,7 @@ import { Capacitor } from '@capacitor/core';
 import BluecoinsDailySummaryPreview from './components/BluecoinsDailySummaryPreview';
 import AverageItemsView from './components/more/AverageItemsView';
 import VolumeCalendarSettingsView from './components/more/VolumeCalendarSettingsView';
+import CampReturnNumberingView from './components/more/CampReturnNumberingView';
 // ✨ 휴무관리 모달 추가
 import { DayOffModal } from './components/dayOff/DayOffModal';
 import { supabase } from './lib/supabaseClient';
@@ -1453,6 +1454,14 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 {moreSubView === 'contact' && <ContactView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} />}
                                 {moreSubView === 'goal' && <GoalSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} goalAmount={goalAmount} onSaveGoal={(amount) => { setGoalAmount(amount); saveSettingsToLocal({ goalAmount: amount }); showMessage("목표 금액이 성공적으로 변경되었습니다!"); }} />}
                                 {moreSubView === 'insurance' && <InsuranceView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} selectedInsurance={selectedInsurance} onSelect={(ins) => { setSelectedInsurance(ins); saveSettingsToLocal({ selectedInsurance: ins }); showMessage("✅ 보험사가 홈 화면에 설정되었습니다."); }} />}
+                                {moreSubView === 'camp_return_numbering' && (
+                                    <CampReturnNumberingView
+                                        onBack={() => setMoreSubView('main')}
+                                        isDarkMode={isDarkMode}
+                                        user={user}
+                                        showMessage={showMessage}
+                                    />
+                                )}
                                 {moreSubView === 'average_settings' && (
   <AverageItemsView 
     isDarkMode={isDarkMode}
