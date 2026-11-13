@@ -930,6 +930,50 @@ const BluecoinsDailySummaryPreview = ({
                     {activeReportTab === 'transactions' && (
                         transactionRows.length === 0 ? (
                             <p className={'py-8 text-center text-xs ' + mutedClass}>기록된 회차 내역이 없습니다.</p>
+                        ) : !isDayMode ? (
+                            <div className="w-full overflow-x-auto">
+                                <table className="w-full min-w-[620px] table-fixed border-collapse text-[10px]">
+                                    <colgroup>
+                                        <col style={{ width: '76px' }} />
+                                        <col style={{ width: '78px' }} />
+                                        <col style={{ width: '78px' }} />
+                                        <col style={{ width: '78px' }} />
+                                        <col style={{ width: '96px' }} />
+                                        <col style={{ width: '150px' }} />
+                                    </colgroup>
+                                    <thead>
+                                        <tr className={dark ? 'border-b border-slate-700 text-slate-400' : 'border-b border-slate-200 text-slate-500'}>
+                                            {['회차', '배송', '중단', '반품', '합계 물량', '수익'].map((heading) => (
+                                                <th key={heading} className="whitespace-nowrap px-2 py-2 text-center font-bold">{heading}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {transactionRows.map((row) => (
+                                            <tr key={row.key} className={dark ? 'border-b border-slate-800' : 'border-b border-slate-100'}>
+                                                <td className="whitespace-nowrap px-2 py-3 text-center font-black">
+                                                    {row.round === 0 ? '기타' : row.round + '회차'}
+                                                </td>
+                                                <td className="whitespace-nowrap px-2 py-3 text-center tabular-nums">
+                                                    {row.volumeBreakdown.deliveryCount.toLocaleString()}건
+                                                </td>
+                                                <td className="whitespace-nowrap px-2 py-3 text-center tabular-nums">
+                                                    {row.volumeBreakdown.deliveryInterruptionAmount.toLocaleString()}건
+                                                </td>
+                                                <td className="whitespace-nowrap px-2 py-3 text-center tabular-nums">
+                                                    {row.volumeBreakdown.returnCount.toLocaleString()}건
+                                                </td>
+                                                <td className="whitespace-nowrap px-2 py-3 text-center font-bold tabular-nums">
+                                                    {row.volume.toLocaleString()}건
+                                                </td>
+                                                <td className="whitespace-nowrap px-2 py-3 text-right font-black tabular-nums text-emerald-500">
+                                                    +{row.income.toLocaleString()}원
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         ) : (
                             <div className="space-y-2">
                                 {transactionRows.map((row) => (
@@ -939,26 +983,11 @@ const BluecoinsDailySummaryPreview = ({
                                                 <span className={'rounded-md px-2 py-0.5 text-[9px] font-black ' + (dark ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-700')}>
                                                     {row.round === 0 ? '기타' : row.round + '회차'}
                                                 </span>
-                                                {!row.isMonthAggregate && (
-                                                    <span className="truncate text-[10px] font-black">{row.names.length ? row.names.join(' · ') : '배송/지출 기록'}</span>
-                                                )}
+                                                <span className="truncate text-[10px] font-black">{row.names.length ? row.names.join(' · ') : '배송/지출 기록'}</span>
                                             </div>
-                                            {row.isMonthAggregate ? (
-                                                <>
-                                                    <p className={'mt-1 text-[10px] font-semibold ' + mutedClass}>
-                                                        배송 {row.volumeBreakdown.deliveryCount.toLocaleString()}건
-                                                        {' · '}중단 {row.volumeBreakdown.deliveryInterruptionAmount.toLocaleString()}건
-                                                        {' · '}반품 {row.volumeBreakdown.returnCount.toLocaleString()}건
-                                                    </p>
-                                                    <p className={'mt-0.5 text-[9px] ' + mutedClass}>
-                                                        {row.dateCount}일 기록 · {row.recordCount}개 입력 합산
-                                                    </p>
-                                                </>
-                                            ) : (
-                                                <p className={'mt-1 truncate text-[9px] ' + mutedClass}>
-                                                    {row.date}{row.memo ? ' · ' + row.memo : ''}{' · 물량 ' + row.volume.toLocaleString() + '건'}
-                                                </p>
-                                            )}
+                                            <p className={'mt-1 truncate text-[9px] ' + mutedClass}>
+                                                {row.date}{row.memo ? ' · ' + row.memo : ''}{' · 물량 ' + row.volume.toLocaleString() + '건'}
+                                            </p>
                                         </div>
                                         <div className="shrink-0 text-right">
                                             {row.income > 0 && <div className="text-[10px] font-black text-emerald-500">+{row.income.toLocaleString()}원</div>}
