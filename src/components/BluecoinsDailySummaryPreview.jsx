@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ArrowLeft,
     ArrowUpRight,
     ArrowRightLeft,
     BarChart3,
@@ -113,8 +112,6 @@ const BluecoinsDailySummaryPreview = ({
     selectedItemsForAverage = ['배송', '반품'],
     itemLabels = {},
     isDarkMode,
-    onBack,
-    onSwitchPreview,
     onOpenInsurance,
     currentCalendarDate,
     calendarDays = [],
@@ -514,25 +511,8 @@ const BluecoinsDailySummaryPreview = ({
 
     return (
         <div className="w-full px-2 pb-4">
-            <div className="flex items-center justify-between gap-2 mb-2">
-                <button
-                    type="button"
-                    onClick={onBack}
-                    className={'inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-semibold ' + (dark ? 'text-gray-200 hover:bg-gray-800' : 'text-slate-600 hover:bg-slate-100')}
-                >
-                    <ArrowLeft size={17} /> 기본 홈
-                </button>
-                <div className={'inline-flex rounded-xl p-0.5 text-[11px] font-bold ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
-                    <button
-                        type="button"
-                        onClick={() => onSwitchPreview?.('integrated')}
-                        className={'rounded-lg px-2.5 py-1.5 ' + (dark ? 'text-slate-400' : 'text-slate-500')}
-                    >통합형</button>
-                    <button
-                        type="button"
-                        className={'rounded-lg px-2.5 py-1.5 ' + (dark ? 'bg-slate-700 text-white' : 'bg-white text-slate-900 shadow-sm')}
-                    >장부형</button>
-                </div>
+            <div className="mb-2 flex items-center justify-between gap-2 px-1">
+                <h2 className={'text-sm font-black ' + (dark ? 'text-white' : 'text-slate-900')}>장부</h2>
                 <span className={'text-[11px] font-semibold whitespace-nowrap ' + mutedClass}>
                     {selectedMonth ? selectedMonth.replace('-', '년 ') + '월' : ''}
                 </span>
