@@ -9,7 +9,6 @@ import { Preferences } from '@capacitor/preferences';
 import MessageModal from './components/common/MessageModal';
 import { formatDate } from './utils';
 import StatsDisplay from './StatsDisplay';
-import RevenueDistributionChart from './components/RevenueDistributionChart';
 import FilterModal from './components/DataScreen/FilterModal';
 import EntriesList from './components/DataScreen/EntriesList';
 import DataEntryForm from './DataEntryForm';
@@ -72,14 +71,6 @@ import Main from './admin/Main';
 console.log("▶️ DayOffModal의 타입:", typeof DayOffModal);
 console.log("▶️ DayOffModal의 실제 값:", DayOffModal);
 console.log("🚨 용의자 명단 확인:", { SearchView, DashboardSettingsView, AverageItemsView });
-const DetailRow = ({ label, value, comparison }) => (
-    <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-1">
-        <span className="text-base sm:text-lg font-semibold">{label}</span>
-        <span className="text-base sm:text-lg font-bold">{value}</span>
-        <div className="w-16 flex justify-center">{comparison}</div>
-    </div>
-);
-
 const getTodayLocal = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -752,27 +743,6 @@ const handleCloudRestore = async () => {
         setCurrentCalendarDate(new Date(year, month - 1, 1));
     };
     
-    // --- 달력 스와이프 기능 ---
-
-    const onCalendarTouchStart = (e) => {
-        touchStartX.current = e.targetTouches[0].clientX;
-        touchEndX.current = null;
-    };
-    const onCalendarTouchMove = (e) => {
-        touchEndX.current = e.targetTouches[0].clientX;
-    };
-    const onCalendarTouchEnd = () => {
-        if (!touchStartX.current || !touchEndX.current) return;
-        const distance = touchStartX.current - touchEndX.current;
-        const isLeftSwipe = distance > 50; 
-        const isRightSwipe = distance < -50; 
-
-        if (isLeftSwipe) {
-            handleMonthChange(1);
-        } else if (isRightSwipe) {
-            handleMonthChange(-1);
-        }
-    };
 const handleTodayClick = () => { 
         const now = new Date(); // 💡 무조건 폰(기기)의 로컬 시간 기준!
         
