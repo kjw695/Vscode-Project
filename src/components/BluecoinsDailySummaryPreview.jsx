@@ -930,14 +930,14 @@ const BluecoinsDailySummaryPreview = ({
                             <p className={'py-8 text-center text-xs ' + mutedClass}>기록된 회차 내역이 없습니다.</p>
                         ) : !isDayMode ? (
                             <div className="-mx-1.5 w-[calc(100%+0.75rem)] overflow-x-auto">
-                                <table className="w-full min-w-[390px] table-fixed border-collapse text-[10px]">
+                                <table className="w-[328px] min-w-[328px] table-fixed border-collapse text-[10px]">
                                     <colgroup>
                                         <col style={{ width: '40px' }} />
+                                        <col style={{ width: '62px' }} />
+                                        <col style={{ width: '48px' }} />
+                                        <col style={{ width: '48px' }} />
+                                        <col style={{ width: '56px' }} />
                                         <col style={{ width: '74px' }} />
-                                        <col style={{ width: '58px' }} />
-                                        <col style={{ width: '58px' }} />
-                                        <col style={{ width: '66px' }} />
-                                        <col style={{ width: '94px' }} />
                                     </colgroup>
                                     <thead>
                                         <tr className={dark ? 'border-b border-slate-700 text-slate-400' : 'border-b border-slate-200 text-slate-500'}>
