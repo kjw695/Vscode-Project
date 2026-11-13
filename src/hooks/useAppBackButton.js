@@ -60,12 +60,6 @@ const useAppBackButton = ({
                     return;
                 }
 
-                // 두 종류의 일일요약 미리보기는 기존 홈으로 복귀합니다.
-                if (activeContentTab === 'integratedDailySummary' || activeContentTab === 'bluecoinsDailySummary') {
-                    setActiveContentTab('monthlyProfit');
-                    return;
-                }
-
                 // 5. '더보기' 안의 하위 화면이면 -> 더보기 메인으로
                 if (selectedMainTab === 'more' && moreSubView !== 'main') {
                     setMoreSubView('main');
@@ -75,7 +69,7 @@ const useAppBackButton = ({
                 // 6. 다른 메인 탭이면 -> 홈으로 이동
                 if (selectedMainTab !== 'home') {
                     setSelectedMainTab('home');
-                    setActiveContentTab('monthlyProfit');
+                    setActiveContentTab('bluecoinsDailySummary');
                     return;
                 }
 
