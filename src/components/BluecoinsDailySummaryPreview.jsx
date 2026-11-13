@@ -955,15 +955,21 @@ const BluecoinsDailySummaryPreview = ({
                                         <col style={{ width: '74px' }} />
                                     </colgroup>
                                     <thead>
-                                        <tr className={dark ? 'border-b border-slate-700 text-slate-400' : 'border-b border-slate-200 text-slate-500'}>
+                                        <tr className={dark
+                                                ? 'border-b border-[#FFD500] bg-[#171717] text-white'
+                                                : 'border-b border-[#FFD500] bg-[#202020] text-white'
+                                            }>
                                             {['회전', '배송', '중단', '반품', '프레시백', '수익'].map((heading) => (
                                                 <th key={heading} className="whitespace-nowrap px-0.5 py-1.5 text-center font-bold">{heading}</th>
                                             ))}
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {transactionRows.map((row) => (
-                                            <tr key={row.key} className={dark ? 'border-b border-slate-800' : 'border-b border-slate-100'}>
+                                        {transactionRows.map((row, index) => (
+                                            <tr key={row.key} className={dark
+                                                ? (index % 2 === 0 ? 'border-b border-slate-800 bg-slate-900' : 'border-b border-slate-800 bg-slate-800/50')
+                                                : (index % 2 === 0 ? 'border-b border-slate-100 bg-white' : 'border-b border-slate-100 bg-[#F7F7F7]')
+                                            }>
                                                 <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black">
                                                     {row.round === 0 ? '기타' : row.round + '회전'}
                                                 </td>
@@ -979,7 +985,7 @@ const BluecoinsDailySummaryPreview = ({
                                                 <td className="whitespace-nowrap px-0.5 py-1.5 text-center tabular-nums">
                                                     {row.volumeBreakdown.freshBagCount.toLocaleString()}건
                                                 </td>
-                                                <td className="whitespace-nowrap px-0.5 py-1.5 text-right font-black tabular-nums text-emerald-500">
+                                                <td className={'whitespace-nowrap px-0.5 py-1.5 text-right font-black tabular-nums ' + (dark ? 'text-white' : 'text-neutral-900')}>
                                                     {row.income.toLocaleString()}원
                                                 </td>
                                             </tr>
@@ -987,8 +993,8 @@ const BluecoinsDailySummaryPreview = ({
                                     </tbody>
                                     <tfoot>
                                         <tr className={dark
-                                            ? 'border-t-2 border-slate-700 bg-slate-800/60'
-                                            : 'border-t-2 border-slate-200 bg-slate-50'
+                                            ? 'border-t-2 border-[#FFD500] bg-[#2B271B] text-slate-100'
+                                            : 'border-t-2 border-[#F2C94C] bg-[#FFF9E8] text-neutral-900'
                                         }>
                                             <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black">합계</td>
                                             <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black tabular-nums">
@@ -1003,7 +1009,7 @@ const BluecoinsDailySummaryPreview = ({
                                             <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black tabular-nums">
                                                 {monthlyTransactionTotal.freshBagCount.toLocaleString()}건
                                             </td>
-                                            <td className="whitespace-nowrap px-0.5 py-1.5 text-right font-black tabular-nums text-emerald-500">
+                                            <td className={'whitespace-nowrap px-0.5 py-1.5 text-right font-black tabular-nums ' + (dark ? 'text-white' : 'text-neutral-900')}>
                                                 {monthlyTransactionTotal.income.toLocaleString()}원
                                             </td>
                                         </tr>
