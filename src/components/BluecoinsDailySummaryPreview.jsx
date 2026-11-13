@@ -511,13 +511,6 @@ const BluecoinsDailySummaryPreview = ({
 
     return (
         <div className="w-full px-2 pb-4">
-            <div className="mb-2 flex items-center justify-between gap-2 px-1">
-                <h2 className={'text-sm font-black ' + (dark ? 'text-white' : 'text-slate-900')}>장부</h2>
-                <span className={'text-[11px] font-semibold whitespace-nowrap ' + mutedClass}>
-                    {selectedMonth ? selectedMonth.replace('-', '년 ') + '월' : ''}
-                </span>
-            </div>
-
             <section className={'overflow-hidden rounded-2xl border shadow-sm ' + panelClass}>
                 <div className={'grid grid-cols-4 divide-x ' + dividerClass}>
                     <div className="min-w-0 px-1 py-2 text-center">
