@@ -20,6 +20,19 @@ function writeLocal(userId, suffix, value) {
     localStorage.setItem(localKey(userId, suffix), JSON.stringify(value));
 }
 
+export function fetchGuestDriverId() {
+    return String(readLocal(null, 'driverId', '') || '').trim();
+}
+
+export function saveGuestDriverId(driverId) {
+    const value = String(driverId ?? '');
+    if (value) {
+        writeLocal(null, 'driverId', value);
+    } else {
+        localStorage.removeItem(localKey(null, 'driverId'));
+    }
+}
+
 export async function fetchAccountDriverId(userId) {
     if (!userId) return '';
 
