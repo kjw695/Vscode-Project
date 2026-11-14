@@ -294,22 +294,6 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                 </div>
             </div>
 
-            <div className={`rounded-xl border p-3 mb-4 ${panelClass}`}>
-                <div className="flex items-start gap-2">
-                    <AlertCircle size={17} className="mt-0.5 flex-shrink-0 text-blue-500" />
-                    <div className="text-xs leading-5">
-                        최초 배송 박스 수를 초과해 반품 송장이 발급될 수 없습니다. 회수 박스 수량을 확인한 뒤 요청해주세요.
-                    </div>
-                </div>
-            </div>
-
-            {loadError && (
-                <div className={`rounded-xl border p-3 mb-4 text-sm ${isDark ? 'border-red-900 bg-red-950/30 text-red-200' : 'border-red-200 bg-red-50 text-red-700'}`}>
-                    <p>{loadError}</p>
-                    <button type="button" onClick={loadData} className="mt-2 underline font-semibold">다시 불러오기</button>
-                </div>
-            )}
-
             <section className={`rounded-2xl border p-4 mb-4 ${panelClass}`}>
                 <div className="flex items-center gap-2 mb-2">
                     <Link2 size={18} className="text-blue-500" />
@@ -327,6 +311,22 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                     <Link2 size={16} /> 양식 등록 / 관리
                 </button>
             </section>
+
+            <div className={`rounded-xl border p-3 mb-4 ${panelClass}`}>
+                <div className="flex items-start gap-2">
+                    <AlertCircle size={17} className="mt-0.5 flex-shrink-0 text-blue-500" />
+                    <div className="text-xs leading-5">
+                        최초 배송 박스 수를 초과해 반품 송장이 발급될 수 없습니다. 회수 박스 수량을 확인한 뒤 요청해주세요.
+                    </div>
+                </div>
+            </div>
+
+            {loadError && (
+                <div className={`rounded-xl border p-3 mb-4 text-sm ${isDark ? 'border-red-900 bg-red-950/30 text-red-200' : 'border-red-200 bg-red-50 text-red-700'}`}>
+                    <p>{loadError}</p>
+                    <button type="button" onClick={loadData} className="mt-2 underline font-semibold">다시 불러오기</button>
+                </div>
+            )}
 
             <section className={`rounded-2xl border p-4 mb-4 ${panelClass}`}>
                 <h3 className="font-bold mb-3">채번 요청 정보</h3>
