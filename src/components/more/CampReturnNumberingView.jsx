@@ -250,7 +250,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                                 placeholder="수량 입력"
                                 className={inputClass}
                             />
-                            <div className="grid grid-cols-3 grid-rows-2 gap-1.5" role="group" aria-label="채번 수량 빠른 선택">
+                            <div className="grid grid-cols-2 grid-rows-2 gap-1.5" role="group" aria-label="채번 수량 빠른 선택">
                                 {[1, 2, 3, 4].map(value => (
                                     <button
                                         key={value}
