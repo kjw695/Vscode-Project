@@ -103,9 +103,12 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
     const selectedCampQuestion = questions.find(
         question => String(question.entry_id) === String(mapping.camp_entry_id)
     );
-    const campChoiceOptions = Array.isArray(selectedCampQuestion?.choices)
-        ? selectedCampQuestion.choices.filter(Boolean)
-        : [];
+    const campChoiceOptions = useMemo(
+        () => Array.isArray(selectedCampQuestion?.choices)
+            ? selectedCampQuestion.choices.filter(Boolean)
+            : [],
+        [selectedCampQuestion]
+    );
 
     useEffect(() => {
         if (!mapping.camp_entry_id || campChoiceOptions.length === 0) return;
@@ -355,10 +358,12 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                                     <select
                                         value={mapping[key] || ''}
                                         onChange={event => {
-                                            updateMapping(key, event.target.value);
-                                            if (key === 'camp_entry_id') {
-                                                updateMapping('camp_choice_value', '');
-                                            }
+                                            const value = event.target.value;
+                                            setMapping(current => ({
+                                                ...current,
+                                                [key]: value,
+                                                ...(key === 'camp_entry_id' ? { camp_choice_value: '' } : {})
+                                            }));
                                         }}
                                         className={inputClass}
                                     >
