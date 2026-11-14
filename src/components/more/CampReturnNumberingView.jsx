@@ -5,6 +5,8 @@ import { Capacitor } from '@capacitor/core';
 import {
     addCampReturnRecord,
     fetchAccountDriverId,
+    fetchGuestDriverId,
+    saveGuestDriverId,
     fetchCampReturnProfile,
     fetchCampReturnRecords,
     saveCampReturnProfile
@@ -71,7 +73,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                 fetchCampReturnRecords(userId),
                 fetchAccountDriverId(userId)
             ]);
-            setDriverId(accountDriverId);
+            setDriverId(userId ? accountDriverId : fetchGuestDriverId());
             setCamp(CAMPS.includes(profile?.default_camp) ? profile.default_camp : CAMPS[0]);
             setRecords(history);
             setStorageNotice(userId
@@ -218,22 +220,49 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                         <p className={`text-xs mt-1 ${mutedClass}`}>복사한 문구를 그대로 사용합니다.</p>
                     </div>
                     <div>
-                        <label className="block text-sm font-semibold mb-1.5">기사님 아이디 · 내정보에서 자동 입력</label>
-                        {driverId ? (
-                            <div className={`w-full rounded-xl border px-3 py-3 text-sm font-semibold ${isDark ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-gray-50 border-gray-300 text-gray-900'}`}>
-                                {driverId}
-                            </div>
+                        <label className="block text-sm font-semibold mb-1.5">
+                            {userId ? '기사님 아이디 · 내정보에서 자동 입력' : '기사님 아이디 · 직접 입력'}
+                        </label>
+                        {userId ? (
+                            driverId ? (
+                                <div className={`w-full rounded-xl border px-3 py-3 text-sm font-semibold ${isDark ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-gray-50 border-gray-300 text-gray-900'}`}>
+                                    {driverId}
+                                </div>
+                            ) : (
+                                <div className={`rounded-xl border p-3 ${isDark ? 'border-amber-800 bg-amber-950/30' : 'border-amber-200 bg-amber-50'}`}>
+                                    <p className="text-xs font-semibold whitespace-nowrap">기사님 아이디가 내정보에 없습니다.</p>
+                                    <p className={`text-xs mt-1 whitespace-nowrap ${mutedClass}`}>내정보에 아이디 등록 후 채번 요청해주세요.</p>
+                                    <button
+                                        type="button"
+                                        onClick={onGoToProfile}
+                                        className="mt-3 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white"
+                                    >
+                                        내정보에서 아이디 등록하기
+                                    </button>
+                                </div>
+                            )
                         ) : (
-                            <div className={`rounded-xl border p-3 ${isDark ? 'border-amber-800 bg-amber-950/30' : 'border-amber-200 bg-amber-50'}`}>
-                                <p className="whitespace-nowrap font-semibold leading-tight tracking-tight" style={{ fontSize: "clamp(10px, 3.2vw, 14px)" }}>내정보에 기사님 아이디가 등록되어 있지 않습니다.</p>
-                                <p className={`text-xs mt-1 ${mutedClass}`}>아이디를 등록한 뒤 채번 요청을 진행해주세요.</p>
-                                <button
-                                    type="button"
-                                    onClick={onGoToProfile}
-                                    className="mt-3 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white"
-                                >
-                                    내정보에서 아이디 등록하기
-                                </button>
+                            <div>
+                                <input
+                                    type="text"
+                                    inputMode="text"
+                                    autoCapitalize="none"
+                                    autoCorrect="off"
+                                    spellCheck={false}
+                                    value={driverId}
+                                    onChange={event => {
+                                        const value = event.target.value;
+                                        setDriverId(value);
+                                        try {
+                                            saveGuestDriverId(value);
+                                        } catch (error) {
+                                            console.warn('[CampReturnNumbering] 기사님 아이디 로컬 저장 실패:', error);
+                                        }
+                                    }}
+                                    placeholder="기사님 아이디를 입력하세요."
+                                    className={inputClass}
+                                />
+                                <p className={`text-xs mt-1 ${mutedClass}`}>입력한 아이디는 이 기기에 자동 저장됩니다.</p>
                             </div>
                         )}
                     </div>
