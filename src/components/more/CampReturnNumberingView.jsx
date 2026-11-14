@@ -152,7 +152,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                         : preferredCampChoices.length === 1
                             ? preferredCampChoices[0]
                             : preferredCampChoices.length === 0
-                                ? preferredRegionalForm.camp_name
+                                ? (preferredRegionalForm.field_map?.camp_choice_value || preferredRegionalForm.camp_name)
                                 : '')
                     : '';
 
@@ -458,7 +458,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                                             : nextChoices.length === 1
                                                 ? nextChoices[0]
                                                 : nextChoices.length === 0
-                                                    ? nextForm.camp_name
+                                                    ? (nextForm.field_map?.camp_choice_value || nextForm.camp_name)
                                                     : '')
                                         : ''
                                 );
@@ -499,7 +499,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                                 </select>
                             ) : (
                                 <div className={`w-full rounded-xl border px-3 py-3 text-sm font-semibold ${isDark ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-gray-50 border-gray-300 text-gray-900'}`}>
-                                    {mobileCampOptions[0] || selectedRegionalForm?.camp_name || camp}
+                                    {mobileCampOptions[0] || selectedMobileCamp || selectedRegionalForm?.camp_name || camp}
                                 </div>
                             )}
                             {selectedRegionalForm?.form_title && (
