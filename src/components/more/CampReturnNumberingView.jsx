@@ -289,7 +289,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                 >
                     <ArrowLeft size={21} />
                 </button>
-                <h2 className="text-xl font-bold min-w-0 flex-1">반품 채번 요청</h2>
+                <h2 className="text-lg font-bold min-w-0 flex-1 whitespace-nowrap">반품 채번 요청</h2>
                 <button
                     type="button"
                     onClick={() => setShowFormManager(true)}
