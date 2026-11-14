@@ -247,10 +247,6 @@ function parseQuestions(html: string): FormQuestion[] {
       : existing.label.length >= question.label.length
         ? existing.label
         : question.label;
-    const preferredChoices = question.choices.length > existing.choices.length
-      ? question.choices
-      : existing.choices;
-
     merged.set(question.entry_id, {
       ...existing,
       label: preferredLabel,
@@ -258,15 +254,6 @@ function parseQuestions(html: string): FormQuestion[] {
       question_type: existing.question_type ?? question.question_type,
       choices: Array.from(new Set([...existing.choices, ...question.choices])),
     });
-
-    // Keep the fuller choice set while preserving stable source ordering.
-    if (preferredChoices.length > 0) {
-      const current = merged.get(question.entry_id)!;
-      merged.set(question.entry_id, {
-        ...current,
-        choices: Array.from(new Set(preferredChoices)),
-      });
-    }
   }
 
   return Array.from(merged.values());
@@ -277,7 +264,7 @@ function normalizeQuestionLabel(label: string): string {
     .normalize("NFKC")
     .toLocaleLowerCase()
     .replace(/^\s*\d+\s*[.)、:：-]?\s*/, "")
-    .replace(/[\\s\\u200B-\\u200D\\uFEFF*＊]/g, "")
+    .replace(/[\s\u200B-\u200D\uFEFF*＊]/g, "")
     .replace(/[()[\\]{}:：.,，!?！？]/g, "");
 }
 
