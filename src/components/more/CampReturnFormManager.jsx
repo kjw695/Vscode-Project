@@ -188,7 +188,9 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
     const questionOptions = useMemo(
         () => questions.map((question, index) => ({
             value: String(question.entry_id),
-            label: question.label || `문항 ${index + 1}`
+            label: question.label && question.label !== '질문명 없음'
+                ? question.label
+                : `질문명 없음 · entry.${question.entry_id}`
         })),
         [questions]
     );
