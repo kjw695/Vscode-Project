@@ -54,11 +54,11 @@ function normalizeGoogleFormsUrl(input: string): { formId: string; url: string }
   }
 
   const match = parsed.pathname.match(
-    /^\/forms\/(?:u\/\d+\/)?d\/e\/([^/]+)\/viewform\/?$/,
+    /^\/forms\/(?:u\/\d+\/)?d\/e\/([^/]+)\/(?:viewform|formResponse)\/?$/,
   );
 
   if (!match?.[1]) {
-    throw new Error("Google Forms의 /forms/d/e/.../viewform 링크를 입력해주세요.");
+    throw new Error("Google Forms의 공유 링크(/viewform) 또는 응답 링크(/formResponse)를 입력해주세요.");
   }
 
   const formId = match[1];
