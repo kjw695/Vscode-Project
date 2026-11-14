@@ -144,17 +144,25 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
             const defaultCamp = CAMPS.includes(profile?.default_camp) ? profile.default_camp : CAMPS[0];
             const preferredRegionalForm = availableForms.find(form => form.id === preferredFormSelection) || null;
             const preferredCampChoices = getRegionalCampChoices(preferredRegionalForm);
-            const preferredMobileCamp = preferredFormSelection === CHUNGJU_FORM_OPTION
-                ? defaultCamp
-                : preferredRegionalForm
-                    ? (preferredCampChoices.includes(preferredRegionalForm.field_map?.camp_choice_value)
-                        ? preferredRegionalForm.field_map.camp_choice_value
-                        : preferredCampChoices.length === 1
-                            ? preferredCampChoices[0]
-                            : preferredCampChoices.length === 0
-                                ? (preferredRegionalForm.field_map?.camp_choice_value || preferredRegionalForm.camp_name)
-                                : '')
-                    : '';
+            const savedMobileCamp = String(profile?.default_mobile_camp || '').trim();
+            const configuredMobileCamp = String(preferredRegionalForm?.field_map?.camp_choice_value || '').trim();
+            let preferredMobileCamp = '';
+
+            if (preferredFormSelection === CHUNGJU_FORM_OPTION) {
+                preferredMobileCamp = defaultCamp;
+            } else if (preferredRegionalForm) {
+                if (preferredCampChoices.length === 1) {
+                    preferredMobileCamp = preferredCampChoices[0];
+                } else if (preferredCampChoices.length > 1) {
+                    preferredMobileCamp = preferredCampChoices.includes(savedMobileCamp)
+                        ? savedMobileCamp
+                        : preferredCampChoices.includes(configuredMobileCamp)
+                            ? configuredMobileCamp
+                            : '';
+                } else {
+                    preferredMobileCamp = savedMobileCamp || configuredMobileCamp || preferredRegionalForm.camp_name;
+                }
+            }
 
             setCamp(defaultCamp);
             setSelectedMobileCamp(preferredMobileCamp);
@@ -253,7 +261,10 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
         try {
             await saveCampReturnProfile(userId, {
                 defaultCamp: camp,
-                defaultFormId: selectedRegionalForm?.id || null
+                defaultFormId: selectedRegionalForm?.id || null,
+                defaultMobileCamp: selectedRegionalForm
+                    ? (selectedMobileCamp || selectedRegionalForm.field_map?.camp_choice_value || selectedRegionalForm.camp_name)
+                    : null
             });
             const request = {
                 invoiceText: normalizedInvoice,
@@ -450,16 +461,14 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                                 }
                                 const nextForm = regionalForms.find(form => form.id === nextFormId);
                                 const nextChoices = getRegionalCampChoices(nextForm);
-                                const savedChoice = nextForm?.field_map?.camp_choice_value || '';
+                                const configuredChoice = String(nextForm?.field_map?.camp_choice_value || '').trim();
                                 setSelectedMobileCamp(
                                     nextForm
-                                        ? (nextChoices.includes(savedChoice)
-                                            ? savedChoice
-                                            : nextChoices.length === 1
-                                                ? nextChoices[0]
-                                                : nextChoices.length === 0
-                                                    ? (nextForm.field_map?.camp_choice_value || nextForm.camp_name)
-                                                    : '')
+                                        ? (nextChoices.length === 1
+                                            ? nextChoices[0]
+                                            : nextChoices.length > 1
+                                                ? (nextChoices.includes(configuredChoice) ? configuredChoice : '')
+                                                : (configuredChoice || nextForm.camp_name))
                                         : ''
                                 );
                             }}
