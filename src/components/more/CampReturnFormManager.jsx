@@ -85,19 +85,8 @@ function getAutoRegistrationBlockers(result, campName, fieldMap) {
     const campQuestion = questions.find(
         question => /(요청\s*캠프|캠프|거점)/i.test(question.label)
     );
-    if (campQuestion) {
-        if (!fieldMap.camp_entry_id) {
-            blockers.push('요청 캠프 문항');
-        } else {
-            const selectedCampQuestion = questions.find(
-                question => String(question.entry_id) === String(fieldMap.camp_entry_id)
-            );
-            if (campQuestion.required && !fieldMap.camp_choice_value) {
-                blockers.push('요청 캠프 선택값');
-            } else if (selectedCampQuestion?.required && selectedCampQuestion.choices?.length > 0 && !fieldMap.camp_choice_value) {
-                blockers.push('요청 캠프 선택값');
-            }
-        }
+    if (campQuestion && campQuestion.required && !fieldMap.camp_entry_id) {
+        blockers.push('요청 캠프 문항');
     }
 
     const mappedIds = new Set([
@@ -523,7 +512,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                             {mapping.camp_entry_id && selectedCampQuestion && (
                                 <div className="mb-3">
                                     <label className="block text-sm font-semibold mb-1">
-                                        Google Forms에서 선택할 캠프{campChoiceOptions.length > 0 ? ' *' : ''}
+                                        기본 요청 캠프 (선택)
                                     </label>
                                     {campChoiceOptions.length > 0 ? (
                                         <select
@@ -531,7 +520,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                                             onChange={event => updateMapping('camp_choice_value', event.target.value)}
                                             className={inputClass}
                                         >
-                                            <option value="">캠프 선택값을 선택해주세요</option>
+                                            <option value="">요청 화면에서 선택</option>
                                             {campChoiceOptions.map((choice, index) => (
                                                 <option key={`${choice}-${index}`} value={choice}>{choice}</option>
                                             ))}
@@ -540,12 +529,12 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                                         <input
                                             value={mapping.camp_choice_value || ''}
                                             onChange={event => updateMapping('camp_choice_value', event.target.value)}
-                                            placeholder={campName || 'Google Forms의 선택값 입력'}
+                                            placeholder={campName || '요청할 캠프 입력'}
                                             className={inputClass}
                                         />
                                     )}
                                     <p className={`text-xs mt-1 leading-5 ${mutedClass}`}>
-                                        문항 번호와 실제 선택값은 별도입니다. 이 값이 Google Forms의 요청 캠프에 미리 입력됩니다.
+                                        기본값을 정할 수 있습니다. 선택하지 않으면 채번 요청 화면에서 캠프를 고릅니다.
                                     </p>
                                 </div>
                             )}
@@ -553,7 +542,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                             <button
                                 type="button"
                                 onClick={handleSave}
-                                disabled={saving || !mapping.invoice_entry_id || !mapping.driver_id_entry_id || !mapping.quantity_entry_id || (needsCampMapping && (!mapping.camp_entry_id || (campChoiceOptions.length > 0 && !mapping.camp_choice_value)))}
+                                disabled={saving || !mapping.invoice_entry_id || !mapping.driver_id_entry_id || !mapping.quantity_entry_id || (needsCampMapping && !mapping.camp_entry_id)}
                                 className="w-full rounded-xl bg-emerald-600 text-white px-3 py-3 text-sm font-semibold disabled:opacity-50 mt-4"
                             >
                                 {saving ? '저장 중...' : '이 캠프 양식 등록'}
