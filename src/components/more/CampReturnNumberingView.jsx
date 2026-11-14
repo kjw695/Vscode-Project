@@ -230,8 +230,8 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                                 </div>
                             ) : (
                                 <div className={`rounded-xl border p-3 ${isDark ? 'border-amber-800 bg-amber-950/30' : 'border-amber-200 bg-amber-50'}`}>
-                                    <p className="text-xs font-semibold whitespace-nowrap">기사님 아이디가 내정보에 없습니다.</p>
-                                    <p className={`text-xs mt-1 whitespace-nowrap ${mutedClass}`}>내정보에 아이디 등록 후 채번 요청해주세요.</p>
+                                    <p className="whitespace-nowrap font-semibold leading-tight tracking-tight" style={{ fontSize: "clamp(11px, 3.6vw, 14px)" }}>기사님 아이디가 내정보에 없습니다.</p>
+                                    <p className={`mt-1 whitespace-nowrap ${mutedClass}`} style={{ fontSize: "clamp(11px, 3.6vw, 14px)" }}>아이디 등록 후 채번 요청해주세요.</p>
                                     <button
                                         type="button"
                                         onClick={onGoToProfile}
