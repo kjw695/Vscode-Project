@@ -295,16 +295,6 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                         </div>
                         <div className="space-y-3">
                             <div>
-                                <label className="block text-sm font-semibold mb-1.5">캠프명</label>
-                                <input
-                                    value={campName}
-                                    onChange={event => setCampName(event.target.value)}
-                                    placeholder="예: M진천1캠프"
-                                    maxLength={80}
-                                    className={inputClass}
-                                />
-                            </div>
-                            <div>
                                 <label className="block text-sm font-semibold mb-1.5">Google Forms 링크</label>
                                 <input
                                     type="url"
