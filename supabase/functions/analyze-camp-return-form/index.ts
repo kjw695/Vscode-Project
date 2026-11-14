@@ -224,34 +224,99 @@ function parseDataParamsQuestions(html: string): FormQuestion[] {
 }
 
 function parseQuestions(html: string): FormQuestion[] {
-  // Google Forms' public response page normally embeds its schema as FB_PUBLIC_LOAD_DATA_.
-  // Retain data-params parsing as a fallback for alternate page versions.
-  const embeddedQuestions = parseFbPublicLoadDataQuestions(html);
-  if (embeddedQuestions.length > 0) return embeddedQuestions;
-  return parseDataParamsQuestions(html);
+  // Google Forms may expose overlapping but incomplete question metadata through
+  // FB_PUBLIC_LOAD_DATA_ and data-params. Merge both by entry ID so one partial
+  // parser result does not hide fields found by the other format.
+  const parsedSets = [
+    parseFbPublicLoadDataQuestions(html),
+    parseDataParamsQuestions(html),
+  ];
+  const merged = new Map<string, FormQuestion>();
+
+  for (const question of parsedSets.flat()) {
+    const existing = merged.get(question.entry_id);
+    if (!existing) {
+      merged.set(question.entry_id, question);
+      continue;
+    }
+
+    const existingHasLabel = existing.label !== "질문명 없음";
+    const incomingHasLabel = question.label !== "질문명 없음";
+    const preferredLabel = !existingHasLabel && incomingHasLabel
+      ? question.label
+      : existing.label.length >= question.label.length
+        ? existing.label
+        : question.label;
+    const preferredChoices = question.choices.length > existing.choices.length
+      ? question.choices
+      : existing.choices;
+
+    merged.set(question.entry_id, {
+      ...existing,
+      label: preferredLabel,
+      required: existing.required || question.required,
+      question_type: existing.question_type ?? question.question_type,
+      choices: Array.from(new Set([...existing.choices, ...question.choices])),
+    });
+
+    // Keep the fuller choice set while preserving stable source ordering.
+    if (preferredChoices.length > 0) {
+      const current = merged.get(question.entry_id)!;
+      merged.set(question.entry_id, {
+        ...current,
+        choices: Array.from(new Set(preferredChoices)),
+      });
+    }
+  }
+
+  return Array.from(merged.values());
 }
 
-function chooseUnique(
+function normalizeQuestionLabel(label: string): string {
+  return String(label || "")
+    .normalize("NFKC")
+    .toLocaleLowerCase()
+    .replace(/^\s*\d+\s*[.)、:：-]?\s*/, "")
+    .replace(/[\\s\\u200B-\\u200D\\uFEFF*＊]/g, "")
+    .replace(/[()[\\]{}:：.,，!?！？]/g, "");
+}
+
+function chooseByPriority(
   questions: FormQuestion[],
-  predicate: (question: FormQuestion) => boolean,
+  predicates: Array<(question: FormQuestion) => boolean>,
 ): string | null {
-  const matches = questions.filter(predicate);
-  return matches.length === 1 ? matches[0].entry_id : null;
+  for (const predicate of predicates) {
+    const matches = questions.filter(predicate);
+    if (matches.length === 1) return matches[0].entry_id;
+    if (matches.length > 1) return null;
+  }
+  return null;
 }
 
 function suggestMapping(questions: FormQuestion[]) {
-  const invoice = chooseUnique(questions, (question) =>
-    /(운송장번호|송장번호|택배번호|주문번호)/i.test(question.label)
-  );
-  const driver = chooseUnique(questions, (question) =>
-    /(기사님\s*아이디|기사\s*아이디|아이디)/i.test(question.label)
-  );
-  const quantity = chooseUnique(questions, (question) =>
-    /(채번\s*수량|수량)/i.test(question.label)
-  );
-  const camp = chooseUnique(questions, (question) =>
-    /(요청\s*캠프|캠프|거점)/i.test(question.label)
-  );
+  const invoice = chooseByPriority(questions, [
+    (question) => /운송장번호/.test(normalizeQuestionLabel(question.label)),
+    (question) => /송장번호|택배번호/.test(normalizeQuestionLabel(question.label)),
+    (question) => /주문번호/.test(normalizeQuestionLabel(question.label)),
+  ]);
+  const driver = chooseByPriority(questions, [
+    (question) => /^(기사님|기사)아이디$/.test(normalizeQuestionLabel(question.label)),
+    (question) => /^(기사님|기사)아이디/.test(normalizeQuestionLabel(question.label)),
+    (question) => /(기사님|기사).*아이디/.test(normalizeQuestionLabel(question.label)),
+    (question) => /아이디/.test(normalizeQuestionLabel(question.label)),
+  ]);
+  const quantity = chooseByPriority(questions, [
+    (question) => /채번수량/.test(normalizeQuestionLabel(question.label)),
+    (question) => /수량/.test(normalizeQuestionLabel(question.label)),
+  ]);
+  const camp = chooseByPriority(questions, [
+    (question) => /^요청캠프/.test(normalizeQuestionLabel(question.label)),
+    (question) => /요청캠프/.test(normalizeQuestionLabel(question.label)),
+    (question) => /^캠프명/.test(normalizeQuestionLabel(question.label)),
+    (question) => /^캠프/.test(normalizeQuestionLabel(question.label)) && question.choices.length > 0,
+    (question) => /^거점/.test(normalizeQuestionLabel(question.label)) && question.choices.length > 0,
+    (question) => /(캠프|거점)/.test(normalizeQuestionLabel(question.label)) && question.choices.length > 0,
+  ]);
 
   const mappedIds = new Set([invoice, driver, quantity, camp].filter(Boolean));
   const staticFields = questions
