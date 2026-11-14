@@ -53,7 +53,7 @@ export async function fetchCampReturnProfile(userId) {
 
     const { data, error } = await supabase
         .from('camp_return_profiles')
-        .select('default_camp, default_form_id, updated_at')
+        .select('default_camp, default_form_id, default_mobile_camp, updated_at')
         .eq('user_id', userId)
         .maybeSingle();
 
@@ -61,10 +61,16 @@ export async function fetchCampReturnProfile(userId) {
     return data;
 }
 
-export async function saveCampReturnProfile(userId, { driverId, defaultCamp, defaultFormId = null }) {
+export async function saveCampReturnProfile(userId, {
+    driverId,
+    defaultCamp,
+    defaultFormId = null,
+    defaultMobileCamp = null
+}) {
     const profile = {
         default_camp: defaultCamp,
-        default_form_id: defaultFormId || null
+        default_form_id: defaultFormId || null,
+        default_mobile_camp: defaultMobileCamp ? String(defaultMobileCamp).trim() : null
     };
 
     if (!userId) {
@@ -79,7 +85,7 @@ export async function saveCampReturnProfile(userId, { driverId, defaultCamp, def
             ...profile,
             updated_at: new Date().toISOString()
         }, { onConflict: 'user_id' })
-        .select('default_camp, default_form_id')
+        .select('default_camp, default_form_id, default_mobile_camp')
         .single();
 
     if (error) throw error;
