@@ -14,6 +14,7 @@ import {
     analyzeCampReturnForm,
     fetchCampReturnForms,
     saveCampReturnForm,
+    saveCampReturnProfile,
     deleteCampReturnForm,
     checkCampReturnFormAdmin,
     fetchCampReturnFormReports
@@ -123,7 +124,7 @@ function getMappedQuestionLabel(form, entryId) {
     return question?.label || '연결된 문항';
 }
 
-export default function CampReturnFormManager({ onBack, isDarkMode, user, showMessage }) {
+export default function CampReturnFormManager({ onBack, isDarkMode, user, showMessage, defaultCamp = '학천MB' }) {
     const userId = user?.id || null;
     const isDark = !!isDarkMode;
     const [campName, setCampName] = useState('');
@@ -244,6 +245,19 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
         setMapping(current => ({ ...current, [key]: value || '' }));
     };
 
+    const persistAsDefaultForm = async savedForm => {
+        try {
+            await saveCampReturnProfile(userId, {
+                defaultCamp,
+                defaultFormId: savedForm?.id || null
+            });
+            return true;
+        } catch (error) {
+            console.error('[CampReturnFormManager] 기본 양식 선택 저장 실패:', error);
+            return false;
+        }
+    };
+
     const handleAnalyze = async () => {
         if (!userId) {
             showMessage?.('타지역 양식 등록은 로그인 후 이용할 수 있습니다.');
@@ -270,7 +284,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
             setMapping(suggestedMapping);
 
             if (blockers.length === 0 && result.status === 'ready') {
-                await saveCampReturnForm(userId, {
+                const savedForm = await saveCampReturnForm(userId, {
                     campName: detectedCampName,
                     formUrl: result.form_url || formUrl.trim(),
                     formId: result.form_id,
@@ -279,6 +293,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                     questions: result.questions,
                     analysisStatus: 'ready'
                 });
+                const defaultSaved = await persistAsDefaultForm(savedForm);
 
                 setAnalysis(null);
                 setCampName('');
@@ -286,7 +301,9 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                 setMapping(EMPTY_MAPPING);
                 setExpandedFormId('');
                 await loadData();
-                showMessage?.(`${detectedCampName} 양식이 자동으로 등록되었습니다. 등록된 캠프를 누르면 상세 정보를 볼 수 있습니다.`);
+                showMessage?.(defaultSaved
+                    ? `${detectedCampName} 양식이 등록되고 기본 선택 양식으로 설정되었습니다.`
+                    : `${detectedCampName} 양식은 등록됐지만 기본 선택 저장은 실패했습니다. 채번 화면에서 다시 선택해주세요.`);
             } else {
                 await loadData();
                 showMessage?.(`자동 등록 전 확인이 필요한 항목이 있습니다: ${blockers.join(', ') || '문항 연결 확인'}`);
@@ -318,7 +335,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
 
         setSaving(true);
         try {
-            await saveCampReturnForm(userId, {
+            const savedForm = await saveCampReturnForm(userId, {
                 campName: campName.trim(),
                 formUrl: analysis.form_url || formUrl.trim(),
                 formId: analysis.form_id,
@@ -327,8 +344,11 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                 questions,
                 analysisStatus: 'ready'
             });
+            const defaultSaved = await persistAsDefaultForm(savedForm);
             await loadData();
-            showMessage?.('타지역 캠프 양식을 저장했습니다. 채번 화면에서 선택해 사용할 수 있습니다.');
+            showMessage?.(defaultSaved
+                ? '타지역 캠프 양식을 저장하고 기본 선택 양식으로 설정했습니다.'
+                : '양식은 저장됐지만 기본 선택 저장은 실패했습니다. 채번 화면에서 다시 선택해주세요.');
             setAnalysis(null);
             setCampName('');
             setFormUrl('');
