@@ -134,6 +134,11 @@ GRANT SELECT
     ON TABLE public.camp_return_form_reports
     TO authenticated;
 
+-- 분석 Edge Function은 service_role로만 접수 리포트를 기록합니다.
+GRANT INSERT
+    ON TABLE public.camp_return_form_reports
+    TO service_role;
+
 -- 초기 운영자: 현재 제공된 Google Forms HTML 상단에 로그인 계정으로 표시된 주소.
 -- 앱의 Supabase 로그인 계정도 이 주소와 같을 때 운영자 접수 내역을 볼 수 있습니다.
 INSERT INTO public.camp_return_form_admins (user_id)
