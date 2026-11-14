@@ -328,7 +328,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                                 <div className="min-w-0">
                                     <h3 className="font-bold">분석 결과</h3>
                                     <p className={`text-sm mt-1 break-words ${mutedClass}`}>{analysis.title || 'Google Forms 양식'}</p>
-                                    {campName ? (
+                                    {analysis.camp_name_source !== 'none' && campName ? (
                                         <div className={`mt-2 rounded-lg px-3 py-2 ${isDark ? 'bg-gray-900' : 'bg-blue-50'}`}>
                                             <p className={`text-xs ${mutedClass}`}>링크에서 자동 추출한 캠프명</p>
                                             <p className="text-sm font-bold mt-0.5">{campName}</p>
