@@ -263,10 +263,16 @@ Deno.serve(async (request) => {
 
     const title = getFormTitle(html);
     const mapping = suggestMapping(questions);
+    const requiredCampQuestion = questions.some(
+      (question) =>
+        question.required &&
+        /(요청\\s*캠프|캠프|거점)/i.test(question.label),
+    );
     const ready = Boolean(
       mapping.invoice_entry_id &&
       mapping.driver_id_entry_id &&
-      mapping.quantity_entry_id
+      mapping.quantity_entry_id &&
+      (!requiredCampQuestion || mapping.camp_entry_id)
     );
 
     await writeReport({
