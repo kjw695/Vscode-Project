@@ -117,19 +117,13 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                 !Number.isFinite(preferenceUpdatedAt) ||
                 (Number.isFinite(newestFormUpdatedAt) && newestFormUpdatedAt > preferenceUpdatedAt)
             );
-            const latestRecord = Array.isArray(history) ? history[0] : null;
-            const latestFormKey = String(latestRecord?.form_key || '');
-            const lastUsedRegionalForm = latestFormKey.startsWith('regional:')
-                ? availableForms.find(form => form.id === latestFormKey.slice('regional:'.length)) || null
-                : null;
             const shouldUseNewestForm = Boolean(newestForm) && (
                 Boolean(profile?.default_form_id) && !savedDefaultForm
                     ? true
                     : !profile?.default_form_id && newestFormAddedAfterPreference
             );
             const preferredRegionalForm = savedDefaultForm
-                || (shouldUseNewestForm ? newestForm : null)
-                || lastUsedRegionalForm;
+                || (shouldUseNewestForm ? newestForm : null);
 
             setCamp(CAMPS.includes(profile?.default_camp) ? profile.default_camp : CAMPS[0]);
             setRegionalForms(availableForms);
