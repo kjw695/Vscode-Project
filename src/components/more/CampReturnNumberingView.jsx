@@ -511,7 +511,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                         <button
                             type="button"
                             onClick={handleOpenForm}
-                            disabled={saving || loading || !driverId.trim() || !hasSelectedForm}
+                            disabled={saving || loading || !driverId.trim() || !hasSelectedForm || (selectedRegionalForm && regionalCampChoices.length > 1 && !regionalCampChoices.includes(selectedMobileCamp))}
                             className="w-full rounded-xl bg-blue-600 text-white px-3 py-3 text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                             <ExternalLink size={16} /> 설문지 자동 입력
