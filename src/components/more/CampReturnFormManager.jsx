@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ArrowLeft,
+    ChevronDown,
+    ChevronUp,
     ExternalLink,
     Link2,
     RefreshCw,
@@ -32,6 +34,95 @@ function statusLabel(status) {
     return '분석 오류';
 }
 
+function normalizeCampText(value) {
+    return String(value || '')
+        .toLocaleLowerCase()
+        .replace(/\\s+/g, '')
+        .replace(/[()（）]/g, '');
+}
+
+function createSuggestedMapping(result, campName) {
+    const suggested = {
+        ...EMPTY_MAPPING,
+        ...(result?.suggested_mapping || {})
+    };
+    const questions = Array.isArray(result?.questions) ? result.questions : [];
+    const campQuestion = questions.find(
+        question => String(question.entry_id) === String(suggested.camp_entry_id)
+    );
+    const choices = Array.isArray(campQuestion?.choices) ? campQuestion.choices.filter(Boolean) : [];
+    const normalizedCamp = normalizeCampText(campName);
+    const exactMatches = choices.filter(choice => normalizeCampText(choice) === normalizedCamp);
+    const partialMatches = choices.filter(choice => {
+        const choiceValue = normalizeCampText(choice);
+        return normalizedCamp && (
+            choiceValue.includes(normalizedCamp) ||
+            normalizedCamp.includes(choiceValue)
+        );
+    });
+
+    suggested.camp_choice_value = exactMatches.length === 1
+        ? exactMatches[0]
+        : partialMatches.length === 1
+            ? partialMatches[0]
+            : choices.length === 1
+                ? choices[0]
+                : suggested.camp_choice_value || '';
+
+    return suggested;
+}
+
+function getAutoRegistrationBlockers(result, campName, fieldMap) {
+    const blockers = [];
+    const questions = Array.isArray(result?.questions) ? result.questions : [];
+
+    if (!String(campName || '').trim()) blockers.push('캠프명 확인');
+    if (!fieldMap.invoice_entry_id) blockers.push('운송장번호 문항');
+    if (!fieldMap.driver_id_entry_id) blockers.push('기사님 아이디 문항');
+    if (!fieldMap.quantity_entry_id) blockers.push('채번 수량 문항');
+
+    const campQuestion = questions.find(
+        question => /(요청\\s*캠프|캠프|거점)/i.test(question.label)
+    );
+    if (campQuestion) {
+        if (!fieldMap.camp_entry_id) {
+            blockers.push('요청 캠프 문항');
+        } else {
+            const selectedCampQuestion = questions.find(
+                question => String(question.entry_id) === String(fieldMap.camp_entry_id)
+            );
+            if (campQuestion.required && !fieldMap.camp_choice_value) {
+                blockers.push('요청 캠프 선택값');
+            } else if (selectedCampQuestion?.required && selectedCampQuestion.choices?.length > 0 && !fieldMap.camp_choice_value) {
+                blockers.push('요청 캠프 선택값');
+            }
+        }
+    }
+
+    const mappedIds = new Set([
+        fieldMap.invoice_entry_id,
+        fieldMap.driver_id_entry_id,
+        fieldMap.quantity_entry_id,
+        fieldMap.camp_entry_id,
+        ...(Array.isArray(fieldMap.static_fields) ? fieldMap.static_fields.map(field => String(field.entry_id)) : [])
+    ].filter(Boolean).map(String));
+
+    const unresolvedRequired = questions.filter(
+        question => question.required && !mappedIds.has(String(question.entry_id))
+    );
+    if (unresolvedRequired.length > 0) blockers.push('추가 필수 문항 확인');
+
+    return Array.from(new Set(blockers));
+}
+
+function getMappedQuestionLabel(form, entryId) {
+    if (!entryId) return '';
+    const question = (Array.isArray(form.questions) ? form.questions : []).find(
+        item => String(item.entry_id) === String(entryId)
+    );
+    return question?.label || '연결된 문항';
+}
+
 export default function CampReturnFormManager({ onBack, isDarkMode, user, showMessage }) {
     const userId = user?.id || null;
     const isDark = !!isDarkMode;
@@ -46,6 +137,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
     const [analyzing, setAnalyzing] = useState(false);
     const [saving, setSaving] = useState(false);
     const [deletingId, setDeletingId] = useState('');
+    const [expandedFormId, setExpandedFormId] = useState('');
     const [loadError, setLoadError] = useState('');
 
     const panelClass = isDark
@@ -166,22 +258,40 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
         setMapping(EMPTY_MAPPING);
         try {
             const result = await analyzeCampReturnForm(formUrl.trim());
+            const detectedCampName = result.suggested_camp_name || '';
+            const suggestedMapping = createSuggestedMapping(result, detectedCampName);
+            const blockers = getAutoRegistrationBlockers(result, detectedCampName, suggestedMapping);
+
             setAnalysis(result);
-            setCampName(result.suggested_camp_name || '');
+            setCampName(detectedCampName);
             setFormUrl(result.form_url || formUrl.trim());
-            setMapping({
-                ...EMPTY_MAPPING,
-                ...(result.suggested_mapping || {})
-            });
-            showMessage?.(
-                result.status === 'ready'
-                    ? '양식 분석을 마쳤습니다. 연결 항목을 확인하고 등록해주세요.'
-                    : '링크는 수집했습니다. 자동으로 찾지 못한 입력 항목을 직접 지정해주세요.'
-            );
-            await loadData();
+            setMapping(suggestedMapping);
+
+            if (blockers.length === 0 && result.status === 'ready') {
+                await saveCampReturnForm(userId, {
+                    campName: detectedCampName,
+                    formUrl: result.form_url || formUrl.trim(),
+                    formId: result.form_id,
+                    formTitle: result.title || '',
+                    fieldMap: suggestedMapping,
+                    questions: result.questions,
+                    analysisStatus: 'ready'
+                });
+
+                setAnalysis(null);
+                setCampName('');
+                setFormUrl('');
+                setMapping(EMPTY_MAPPING);
+                setExpandedFormId('');
+                await loadData();
+                showMessage?.(`${detectedCampName} 양식이 자동으로 등록되었습니다. 등록된 캠프를 누르면 상세 정보를 볼 수 있습니다.`);
+            } else {
+                await loadData();
+                showMessage?.(`자동 등록 전 확인이 필요한 항목이 있습니다: ${blockers.join(', ') || '문항 연결 확인'}`);
+            }
         } catch (error) {
-            console.error('[CampReturnFormManager] 양식 분석 실패:', error);
-            showMessage?.(error?.message || '양식을 분석하지 못했습니다. 오류 내역은 관리자 접수 목록에 기록됩니다.');
+            console.error('[CampReturnFormManager] 양식 분석/등록 실패:', error);
+            showMessage?.(error?.message || '양식 분석 또는 자동 등록에 실패했습니다. 오류 내역은 운영자 접수 목록에 기록됩니다.');
             await loadData();
         } finally {
             setAnalyzing(false);
@@ -444,47 +554,86 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                     )}
 
                     <section className={`rounded-2xl border p-4 mb-4 ${panelClass}`}>
-                        <h3 className="font-bold mb-3">내가 등록한 캠프 양식 ({forms.length})</h3>
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                            <h3 className="font-bold">등록된 캠프 ({forms.length})</h3>
+                            <span className={`text-xs ${mutedClass}`}>캠프를 누르면 상세 정보가 열립니다.</span>
+                        </div>
                         {loading ? (
-                            <p className={`text-sm ${mutedClass}`}>양식을 불러오는 중입니다.</p>
+                            <p className={`text-sm ${mutedClass}`}>등록된 캠프를 불러오는 중입니다.</p>
                         ) : forms.length === 0 ? (
-                            <p className={`text-sm ${mutedClass}`}>아직 등록한 타지역 양식이 없습니다.</p>
+                            <p className={`text-sm ${mutedClass}`}>아직 등록한 캠프가 없습니다. Google Forms 링크를 입력하면 자동 등록됩니다.</p>
                         ) : (
                             <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                                {forms.map(form => (
-                                    <div key={form.id} className="py-3 flex items-start gap-3">
-                                        <div className="min-w-0 flex-1">
-                                            <p className="font-semibold text-sm">{form.camp_name}</p>
-                                            <p className={`text-xs mt-1 break-words ${mutedClass}`}>{form.form_title || form.form_url}</p>
-                                            <a
-                                                href={form.form_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-xs text-blue-500 inline-flex items-center gap-1 mt-1"
-                                            >
-                                                등록된 양식 열기 <ExternalLink size={12} />
-                                            </a>
+                                {forms.map(form => {
+                                    const isExpanded = expandedFormId === form.id;
+                                    const mappedItems = [
+                                        ['운송장번호', form.field_map?.invoice_entry_id],
+                                        ['기사님 아이디', form.field_map?.driver_id_entry_id],
+                                        ['채번 수량', form.field_map?.quantity_entry_id],
+                                        ['요청 캠프', form.field_map?.camp_entry_id]
+                                    ].filter(([, entryId]) => Boolean(entryId));
+
+                                    return (
+                                        <div key={form.id} className="py-2">
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setExpandedFormId(isExpanded ? '' : form.id)}
+                                                    className="min-w-0 flex-1 flex items-center justify-between gap-3 rounded-lg py-2 text-left"
+                                                    aria-expanded={isExpanded}
+                                                >
+                                                    <span className="min-w-0">
+                                                        <span className="block text-sm font-semibold">{form.camp_name}</span>
+                                                        <span className={`block text-xs mt-0.5 truncate ${mutedClass}`}>
+                                                            {form.form_title || '등록된 Google Forms 양식'}
+                                                        </span>
+                                                    </span>
+                                                    {isExpanded ? <ChevronUp size={17} className={mutedClass} /> : <ChevronDown size={17} className={mutedClass} />}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDelete(form)}
+                                                    disabled={deletingId === form.id}
+                                                    className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50"
+                                                    aria-label={form.camp_name + ' 양식 삭제'}
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+
+                                            {isExpanded && (
+                                                <div className={`mt-2 rounded-xl p-3 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+                                                    <p className={`text-xs font-semibold mb-2 ${mutedClass}`}>자동 입력 연결 정보</p>
+                                                    <div className="space-y-1.5">
+                                                        {mappedItems.map(([label, entryId]) => (
+                                                            <div key={label} className="flex justify-between gap-3 text-xs">
+                                                                <span className={mutedClass}>{label}</span>
+                                                                <span className="font-medium text-right">{getMappedQuestionLabel(form, entryId)}</span>
+                                                            </div>
+                                                        ))}
+                                                        {form.field_map?.camp_choice_value && (
+                                                            <div className="flex justify-between gap-3 text-xs">
+                                                                <span className={mutedClass}>전달할 캠프 선택값</span>
+                                                                <span className="font-medium text-right">{form.field_map.camp_choice_value}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <a
+                                                        href={form.form_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="mt-3 text-xs text-blue-500 inline-flex items-center gap-1"
+                                                    >
+                                                        원본 Google Forms 열기 <ExternalLink size={12} />
+                                                    </a>
+                                                </div>
+                                            )}
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleDelete(form)}
-                                            disabled={deletingId === form.id}
-                                            className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50"
-                                            aria-label={form.camp_name + ' 양식 삭제'}
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </section>
-
-                    {loadError && (
-                        <div className={`rounded-xl border p-3 mb-4 text-sm ${isDark ? 'border-red-900 bg-red-950/30 text-red-200' : 'border-red-200 bg-red-50 text-red-700'}`}>
-                            {loadError}
-                        </div>
-                    )}
 
                     {isAdmin && (
                         <section className={`rounded-2xl border p-4 ${panelClass}`}>
