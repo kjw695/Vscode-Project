@@ -62,10 +62,15 @@ function buildRegionalPrefilledFormUrl(form, request) {
     const requiredCampQuestions = (Array.isArray(form.questions) ? form.questions : []).filter(
         question => question.required && /(요청\s*캠프|캠프|거점)/i.test(question.label)
     );
+    const selectedCampQuestion = (Array.isArray(form.questions) ? form.questions : []).find(
+        question =>
+            String(question.entry_id) === String(mapping.camp_entry_id) &&
+            /(요청\s*캠프|캠프|거점)/i.test(question.label)
+    );
+    // A required branch selector may be a static field; camp_entry_id can
+    // point to the child dropdown that contains the actual destination choices.
     const campMappingIsValid = requiredCampQuestions.length === 0 ||
-        requiredCampQuestions.some(
-            question => String(question.entry_id) === String(mapping.camp_entry_id)
-        );
+        Boolean(selectedCampQuestion);
 
     const mappedIds = new Set([
         mapping.invoice_entry_id,
