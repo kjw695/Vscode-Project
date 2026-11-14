@@ -150,9 +150,9 @@ export async function fetchCampReturnForms(userId) {
     return Array.isArray(data) ? data : [];
 }
 
-export async function analyzeCampReturnForm(formUrl, campName) {
+export async function analyzeCampReturnForm(formUrl, campName = '') {
     const { data, error } = await supabase.functions.invoke('analyze-camp-return-form', {
-        body: { formUrl, campName }
+        body: { formUrl, ...(campName ? { campName } : {}) }
     });
 
     if (error) {
