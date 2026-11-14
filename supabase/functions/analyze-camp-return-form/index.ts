@@ -138,7 +138,8 @@ function parseFbPublicLoadDataQuestions(html: string): FormQuestion[] {
   for (const item of formItems) {
     if (!Array.isArray(item)) continue;
 
-    const label = stripHtml(String(item[1] ?? ""));
+    const extractedLabel = stripHtml(String(item[1] ?? ""));
+    const label = extractedLabel || "질문명 없음";
     const rawQuestionType = item[3];
     const questionType = rawQuestionType === null || rawQuestionType === undefined
       ? null
@@ -194,8 +195,9 @@ function parseDataParamsQuestions(html: string): FormQuestion[] {
 
       const config = Array.isArray(parsed[4]) ? parsed[4][0] : null;
       const rawEntryId = config?.[0];
-      const label = stripHtml(String(parsed[1] ?? ""));
-      if (rawEntryId === undefined || rawEntryId === null || !label) continue;
+      const extractedLabel = stripHtml(String(parsed[1] ?? ""));
+      const label = extractedLabel || "질문명 없음";
+      if (rawEntryId === undefined || rawEntryId === null) continue;
 
       const entryId = String(rawEntryId);
       if (!/^\d+$/.test(entryId) || seen.has(entryId)) continue;
