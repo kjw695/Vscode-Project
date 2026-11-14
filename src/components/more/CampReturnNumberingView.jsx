@@ -477,7 +477,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                             </p>
                         ) : null}
                     </div>
-                    {hasSelectedForm && (
+                    {hasSelectedForm && (isChungjuDefault || selectedRegionalForm?.field_map?.camp_entry_id) && (
                         <div>
                             <label className="block text-sm font-semibold mb-1.5">요청 모바일 캠프</label>
                             {mobileCampOptions.length > 1 ? (
