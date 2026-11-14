@@ -78,8 +78,8 @@ Supabase SQL Editor에서 해당 운영자의 `auth.users.id`를
 
 ## 현재 분석 대상 및 제한
 
-- 현재는 공개된 Google Forms의 `https://docs.google.com/forms/d/e/<form-id>/viewform`
-  또는 `/forms/u/<n>/d/e/<form-id>/viewform` 형태를 지원합니다.
+- 현재는 공개된 Google Forms의 `/viewform` 공유 링크와 `/formResponse` 응답 링크를 모두 입력받습니다. `/formResponse`는 같은 양식 ID의 `/viewform` 주소로 자동 변환한 뒤 분석합니다.
+- 앱에 내장된 청주 기본 양식의 ID를 다시 등록하려고 하면 중복 등록을 막고, 채번 화면에서 기존 `청주 기본 양식`을 선택하도록 안내합니다.
 - `forms.gle` 단축 링크, 로그인/권한이 필요한 비공개 양식, Google Forms 이외의 폼은 지원하지 않습니다.
 - 문항명이 모호하거나 같은 역할의 항목이 여러 개면 자동 연결하지 않고 직접 확인하도록 합니다.
 - 양식 선택 후 '요청 모바일 캠프'는 해당 Google Forms 문항의 선택지가 2개 이상이면 드롭다운으로 표시하고, 1개이면 하나의 고정값으로 표시합니다. 여러 선택지 중 사용자가 선택한 값이 해당 entry ID로 미리 입력됩니다. 청주 기본 양식도 동일한 규칙을 사용합니다.
