@@ -238,40 +238,42 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                         )}
                     </div>
                     <div>
-                        <div className="flex items-center justify-between gap-2 mb-1.5">
-                            <label className="block text-sm font-semibold">채번 수량</label>
-                            <div
-                                className={`grid grid-cols-2 gap-1 rounded-lg p-1 border ${isDark ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-gray-50'}`}
-                                role="group"
-                                aria-label="요청 모바일 캠프 선택"
-                            >
-                                {CAMPS.map(item => (
+                        <label className="block text-sm font-semibold mb-1.5">채번 수량</label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <input
+                                type="number"
+                                inputMode="numeric"
+                                min="1"
+                                step="1"
+                                value={quantity}
+                                onChange={event => setQuantity(event.target.value.replace(/[^0-9]/g, ''))}
+                                placeholder="수량 입력"
+                                className={inputClass}
+                            />
+                            <div className="grid grid-cols-3 grid-rows-2 gap-1.5" role="group" aria-label="채번 수량 빠른 선택">
+                                {[1, 2, 3, 4, 5, 10].map(value => (
                                     <button
-                                        key={item}
+                                        key={value}
                                         type="button"
-                                        onClick={() => setCamp(item)}
-                                        aria-pressed={camp === item}
-                                        className={`min-w-[76px] rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${camp === item
-                                            ? 'bg-blue-600 text-white shadow-sm'
+                                        onClick={() => setQuantity(String(value))}
+                                        aria-pressed={quantity === String(value)}
+                                        className={`rounded-lg border text-sm font-semibold transition-colors ${quantity === String(value)
+                                            ? 'border-blue-600 bg-blue-600 text-white'
                                             : isDark
-                                                ? 'text-gray-300 hover:bg-gray-800'
-                                                : 'text-gray-600 hover:bg-white'}`}
+                                                ? 'border-gray-700 bg-gray-900 text-gray-200 hover:bg-gray-800'
+                                                : 'border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100'}`}
                                     >
-                                        {item}
+                                        {value}
                                     </button>
                                 ))}
                             </div>
                         </div>
-                        <input
-                            type="number"
-                            inputMode="numeric"
-                            min="1"
-                            step="1"
-                            value={quantity}
-                            onChange={event => setQuantity(event.target.value.replace(/[^0-9]/g, ''))}
-                            placeholder="숫자만 입력"
-                            className={inputClass}
-                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold mb-1.5">요청 모바일 캠프</label>
+                        <select value={camp} onChange={event => setCamp(event.target.value)} className={inputClass}>
+                            {CAMPS.map(item => <option key={item} value={item}>{item}</option>)}
+                        </select>
                     </div>
                     <div className="pt-1">
                         <button
