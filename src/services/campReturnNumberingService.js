@@ -53,7 +53,7 @@ export async function fetchCampReturnProfile(userId) {
 
     const { data, error } = await supabase
         .from('camp_return_profiles')
-        .select('default_camp, default_form_id')
+        .select('default_camp, default_form_id, updated_at')
         .eq('user_id', userId)
         .maybeSingle();
 
