@@ -234,6 +234,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                 }}
                 isDarkMode={isDarkMode}
                 user={user}
+                defaultCamp={camp}
                 showMessage={showMessage}
             />
         );
