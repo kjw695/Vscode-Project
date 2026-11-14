@@ -97,6 +97,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
     const [pendingRequest, setPendingRequest] = useState(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [savingPreference, setSavingPreference] = useState(false);
     const [loadError, setLoadError] = useState('');
     const [storageNotice, setStorageNotice] = useState('');
     const [regionalForms, setRegionalForms] = useState([]);
@@ -233,6 +234,78 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
         : 'bg-white border-gray-200 text-gray-900';
     const inputClass = `w-full rounded-xl border px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`;
     const mutedClass = isDark ? 'text-gray-400' : 'text-gray-500';
+
+    const persistFormPreference = async ({
+        formId = null,
+        mobileCamp = null,
+        defaultCamp = camp
+    } = {}) => {
+        setSavingPreference(true);
+        try {
+            await saveCampReturnProfile(userId, {
+                defaultCamp,
+                defaultFormId: formId,
+                defaultMobileCamp: mobileCamp
+            });
+        } catch (error) {
+            console.error('[CampReturnNumbering] 양식/요청 캠프 선택 저장 실패:', error);
+            showMessage?.('선택한 양식 또는 요청 캠프를 저장하지 못했습니다. 다시 선택해주세요.');
+        } finally {
+            setSavingPreference(false);
+        }
+    };
+
+    const handleFormSelectionChange = async nextFormId => {
+        setSelectedRegionalFormId(nextFormId);
+
+        if (nextFormId === CHUNGJU_FORM_OPTION) {
+            setSelectedMobileCamp(camp);
+            await persistFormPreference({
+                formId: null,
+                mobileCamp: null,
+                defaultCamp: camp
+            });
+            return;
+        }
+
+        const nextForm = regionalForms.find(form => form.id === nextFormId);
+        const nextChoices = getRegionalCampChoices(nextForm);
+        const configuredChoice = String(nextForm?.field_map?.camp_choice_value || '').trim();
+        const nextMobileCamp = nextForm
+            ? (nextChoices.length === 1
+                ? nextChoices[0]
+                : nextChoices.length > 1
+                    ? (nextChoices.includes(configuredChoice) ? configuredChoice : '')
+                    : (configuredChoice || nextForm.camp_name))
+            : '';
+
+        setSelectedMobileCamp(nextMobileCamp);
+        if (nextForm) {
+            await persistFormPreference({
+                formId: nextForm.id,
+                mobileCamp: nextMobileCamp || null
+            });
+        }
+    };
+
+    const handleMobileCampChange = async value => {
+        if (isChungjuDefault) {
+            setCamp(value);
+            await persistFormPreference({
+                formId: null,
+                mobileCamp: null,
+                defaultCamp: value
+            });
+            return;
+        }
+
+        if (!selectedRegionalForm) return;
+        setSelectedMobileCamp(value);
+        await persistFormPreference({
+            formId: selectedRegionalForm.id,
+            mobileCamp: value
+        });
+    };
 
     const handleOpenForm = async () => {
         const normalizedInvoice = invoiceText.replace(/[\r\n]+/g, ' ').trim();
@@ -459,26 +532,8 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                         <label className="block text-sm font-semibold mb-1.5">사용할 채번 양식</label>
                         <select
                             value={selectedRegionalFormId}
-                            onChange={event => {
-                                const nextFormId = event.target.value;
-                                setSelectedRegionalFormId(nextFormId);
-                                if (nextFormId === CHUNGJU_FORM_OPTION) {
-                                    setSelectedMobileCamp(camp);
-                                    return;
-                                }
-                                const nextForm = regionalForms.find(form => form.id === nextFormId);
-                                const nextChoices = getRegionalCampChoices(nextForm);
-                                const configuredChoice = String(nextForm?.field_map?.camp_choice_value || '').trim();
-                                setSelectedMobileCamp(
-                                    nextForm
-                                        ? (nextChoices.length === 1
-                                            ? nextChoices[0]
-                                            : nextChoices.length > 1
-                                                ? (nextChoices.includes(configuredChoice) ? configuredChoice : '')
-                                                : (configuredChoice || nextForm.camp_name))
-                                        : ''
-                                );
-                            }}
+                            onChange={event => handleFormSelectionChange(event.target.value)}
+                            disabled={savingPreference}
                             className={inputClass}
                         >
                             <option value="">양식을 선택해주세요</option>
@@ -499,13 +554,8 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                             {mobileCampOptions.length > 1 ? (
                                 <select
                                     value={isChungjuDefault ? camp : selectedMobileCamp}
-                                    onChange={event => {
-                                        if (isChungjuDefault) {
-                                            setCamp(event.target.value);
-                                        } else {
-                                            setSelectedMobileCamp(event.target.value);
-                                        }
-                                    }}
+                                    onChange={event => handleMobileCampChange(event.target.value)}
+                                    disabled={savingPreference}
                                     className={inputClass}
                                 >
                                     <option value="">캠프를 선택해주세요</option>
@@ -534,7 +584,9 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                         </button>
                     </div>
                 </div>
-                <p className={`text-xs mt-3 leading-5 ${mutedClass}`}>{storageNotice}</p>
+                <p className={`text-xs mt-3 leading-5 ${mutedClass}`}>
+                    {savingPreference ? '선택한 양식과 캠프를 저장하는 중입니다.' : storageNotice}
+                </p>
             </section>
 
             {pendingRequest && (
