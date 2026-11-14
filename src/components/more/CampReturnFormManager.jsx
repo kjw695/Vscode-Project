@@ -5,7 +5,6 @@ import {
     Link2,
     RefreshCw,
     Trash2,
-    CheckCircle2,
     AlertCircle,
     ClipboardList
 } from 'lucide-react';
@@ -91,6 +90,8 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
     }, [loadData]);
 
     const questions = analysis?.questions || [];
+    const detectedCampQuestion = questions.find(question => /(요청\\s*캠프|캠프|거점)/i.test(question.label));
+    const needsCampMapping = Boolean(detectedCampQuestion?.required);
     const questionOptions = useMemo(
         () => questions.map(question => ({
             value: String(question.entry_id),
@@ -145,8 +146,13 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
 
     const handleSave = async () => {
         if (!userId || !analysis) return;
-        if (!mapping.invoice_entry_id || !mapping.driver_id_entry_id || !mapping.quantity_entry_id) {
-            showMessage?.('운송장번호, 기사님 아이디, 채번 수량 항목을 모두 연결해주세요.');
+        if (
+            !mapping.invoice_entry_id ||
+            !mapping.driver_id_entry_id ||
+            !mapping.quantity_entry_id ||
+            (needsCampMapping && !mapping.camp_entry_id)
+        ) {
+            showMessage?.('운송장번호, 기사님 아이디, 채번 수량' + (needsCampMapping ? ', 요청 캠프' : '') + ' 항목을 모두 연결해주세요.');
             return;
         }
 
@@ -297,7 +303,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                                 ['invoice_entry_id', '운송장번호', true],
                                 ['driver_id_entry_id', '기사님 아이디', true],
                                 ['quantity_entry_id', '채번 수량', true],
-                                ['camp_entry_id', '요청 캠프', false]
+                                ['camp_entry_id', '요청 캠프', needsCampMapping]
                             ].map(([key, label, required]) => (
                                 <div key={key} className="mb-3">
                                     <label className="block text-sm font-semibold mb-1">
@@ -333,7 +339,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                             <button
                                 type="button"
                                 onClick={handleSave}
-                                disabled={saving || !mapping.invoice_entry_id || !mapping.driver_id_entry_id || !mapping.quantity_entry_id}
+                                disabled={saving || !mapping.invoice_entry_id || !mapping.driver_id_entry_id || !mapping.quantity_entry_id || (needsCampMapping && !mapping.camp_entry_id)}
                                 className="w-full rounded-xl bg-emerald-600 text-white px-3 py-3 text-sm font-semibold disabled:opacity-50 mt-4"
                             >
                                 {saving ? '저장 중...' : '이 캠프 양식 등록'}
@@ -426,7 +432,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                                                     <div className="mt-2 space-y-1">
                                                         {report.questions.map(question => (
                                                             <p key={question.entry_id} className={mutedClass}>
-                                                                {question.label} · entry.{question.entry_id}{question.required ? ' · 필수' : ''}
+                                                                {question.label} · entry.{question.entry_id}{question.required ? ' · 필수' : ''}{question.choices?.length ? ` · 선택값: ${question.choices.join(', ')}` : ''}
                                                             </p>
                                                         ))}
                                                     </div>
