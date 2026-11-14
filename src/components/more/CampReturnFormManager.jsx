@@ -155,10 +155,6 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
             showMessage?.('타지역 양식 등록은 로그인 후 이용할 수 있습니다.');
             return;
         }
-        if (!campName.trim()) {
-            showMessage?.('캠프명을 입력해주세요.');
-            return;
-        }
         if (!formUrl.trim()) {
             showMessage?.('Google Forms 링크를 입력해주세요.');
             return;
@@ -166,10 +162,12 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
 
         setAnalyzing(true);
         setAnalysis(null);
+        setCampName('');
         setMapping(EMPTY_MAPPING);
         try {
-            const result = await analyzeCampReturnForm(formUrl.trim(), campName.trim());
+            const result = await analyzeCampReturnForm(formUrl.trim());
             setAnalysis(result);
+            setCampName(result.suggested_camp_name || '');
             setFormUrl(result.form_url || formUrl.trim());
             setMapping({
                 ...EMPTY_MAPPING,
@@ -192,6 +190,10 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
 
     const handleSave = async () => {
         if (!userId || !analysis) return;
+        if (!campName.trim()) {
+            showMessage?.('양식에서 캠프명을 자동으로 찾지 못했습니다. 캠프명을 입력해주세요.');
+            return;
+        }
         if (
             !mapping.invoice_entry_id ||
             !mapping.driver_id_entry_id ||
@@ -321,7 +323,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                             <button
                                 type="button"
                                 onClick={handleAnalyze}
-                                disabled={analyzing || loading || !formUrl.trim() || !campName.trim()}
+                                disabled={analyzing || loading || !formUrl.trim()}
                                 className="w-full rounded-xl bg-blue-600 text-white px-3 py-3 text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
                             >
                                 <ClipboardList size={16} />
@@ -336,6 +338,27 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                                 <div className="min-w-0">
                                     <h3 className="font-bold">분석 결과</h3>
                                     <p className={`text-sm mt-1 break-words ${mutedClass}`}>{analysis.title || 'Google Forms 양식'}</p>
+                                    {campName ? (
+                                        <div className={`mt-2 rounded-lg px-3 py-2 ${isDark ? 'bg-gray-900' : 'bg-blue-50'}`}>
+                                            <p className={`text-xs ${mutedClass}`}>링크에서 자동 추출한 캠프명</p>
+                                            <p className="text-sm font-bold mt-0.5">{campName}</p>
+                                            <p className={`text-[11px] mt-0.5 ${mutedClass}`}>
+                                                {analysis.camp_name_source === 'choice' ? '요청 캠프 선택지에서 확인' : 'Google Forms 제목에서 확인'}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="mt-3">
+                                            <label className="block text-sm font-semibold mb-1.5">캠프명 확인이 필요합니다</label>
+                                            <input
+                                                value={campName}
+                                                onChange={event => setCampName(event.target.value)}
+                                                placeholder="예: M진천1캠프"
+                                                maxLength={80}
+                                                className={inputClass}
+                                            />
+                                            <p className={`text-xs mt-1 ${mutedClass}`}>양식 제목이나 선택지에서 캠프명을 찾지 못해 한 번만 직접 입력해야 합니다.</p>
+                                        </div>
+                                    )}
                                 </div>
                                 <span className={`text-xs px-2 py-1 rounded-full flex-shrink-0 ${analysis.status === 'ready' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
                                     {statusLabel(analysis.status)}
