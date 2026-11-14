@@ -273,10 +273,71 @@ function suggestMapping(questions: FormQuestion[]) {
 }
 
 function getFormTitle(html: string): string {
-  const match = html.match(
+  const headingMatch = html.match(
     /role="heading"[^>]*aria-level="1"[^>]*>([\s\S]*?)<\/div>/i,
   );
-  return match ? stripHtml(match[1]) : "";
+  if (headingMatch) {
+    const heading = stripHtml(headingMatch[1]);
+    if (heading) return heading;
+  }
+
+  const ogTitleMatch = html.match(
+    /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i,
+  );
+  if (ogTitleMatch) {
+    const title = stripHtml(ogTitleMatch[1]);
+    if (title) return title;
+  }
+
+  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  return titleMatch ? stripHtml(titleMatch[1]) : "";
+}
+
+function normalizeCampText(value: string): string {
+  return value.toLocaleLowerCase().replace(/\s+/g, "").replace(/[()（）]/g, "");
+}
+
+function inferCampName(
+  title: string,
+  questions: FormQuestion[],
+): { campName: string; source: "title" | "choice" | "none" } {
+  const titleCandidates = Array.from(new Set(
+    (title.match(/[A-Za-z가-힣0-9_-]{2,30}캠프/g) || [])
+      .map(value => value.trim())
+      .filter(Boolean),
+  ));
+
+  const campChoiceCandidates = Array.from(new Set(
+    questions
+      .filter(question => /(요청\s*캠프|캠프명|캠프|거점)/i.test(question.label))
+      .flatMap(question => question.choices)
+      .map(value => value.trim())
+      .filter(value => /캠프/i.test(value)),
+  ));
+
+  if (titleCandidates.length === 1) {
+    const titleCandidate = titleCandidates[0];
+    const matchingChoice = campChoiceCandidates.find(
+      choice => normalizeCampText(choice) === normalizeCampText(titleCandidate),
+    );
+
+    if (matchingChoice) {
+      return { campName: matchingChoice, source: "choice" };
+    }
+
+    // If the form exposes camp choices but none agrees with its title, avoid guessing.
+    if (campChoiceCandidates.length > 0) {
+      return { campName: "", source: "none" };
+    }
+
+    return { campName: titleCandidate, source: "title" };
+  }
+
+  if (titleCandidates.length === 0 && campChoiceCandidates.length === 1) {
+    return { campName: campChoiceCandidates[0], source: "choice" };
+  }
+
+  return { campName: "", source: "none" };
 }
 
 Deno.serve(async (request) => {
@@ -340,8 +401,8 @@ Deno.serve(async (request) => {
     formUrl = String(body?.formUrl ?? "").trim();
     campName = String(body?.campName ?? "").trim();
 
-    if (!campName || campName.length > 80) {
-      throw new Error("캠프명을 1~80자로 입력해주세요.");
+    if (campName.length > 80) {
+      throw new Error("캠프명은 80자 이내로 입력해주세요.");
     }
 
     const normalized = normalizeGoogleFormsUrl(formUrl);
@@ -377,10 +438,13 @@ Deno.serve(async (request) => {
 
     const title = getFormTitle(html);
     const mapping = suggestMapping(questions);
+    const inferredCamp = inferCampName(title, questions);
+    if (!campName) campName = inferredCamp.campName;
+
     const requiredCampQuestion = questions.some(
       (question) =>
         question.required &&
-        /(요청\\s*캠프|캠프|거점)/i.test(question.label),
+        /(요청\s*캠프|캠프|거점)/i.test(question.label),
     );
     const ready = Boolean(
       mapping.invoice_entry_id &&
@@ -401,6 +465,8 @@ Deno.serve(async (request) => {
       form_id: formId,
       form_url: normalized.url,
       title,
+      suggested_camp_name: campName || inferredCamp.campName,
+      camp_name_source: inferredCamp.source,
       questions,
       suggested_mapping: mapping,
       status: ready ? "ready" : "needs_mapping",
