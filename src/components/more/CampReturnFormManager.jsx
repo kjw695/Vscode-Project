@@ -238,7 +238,8 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
         try {
             await saveCampReturnProfile(userId, {
                 defaultCamp,
-                defaultFormId: savedForm?.id || null
+                defaultFormId: savedForm?.id || null,
+                defaultMobileCamp: savedForm?.field_map?.camp_choice_value || null
             });
             return true;
         } catch (error) {
