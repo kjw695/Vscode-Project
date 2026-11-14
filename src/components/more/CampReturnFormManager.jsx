@@ -108,10 +108,15 @@ function getAutoRegistrationBlockers(result, campName, fieldMap = EMPTY_MAPPING)
     const requiredCampQuestions = questions.filter(
         question => question.required && isCampQuestion(question)
     );
+    const selectedCampQuestion = questions.find(
+        question =>
+            String(question.entry_id) === String(fieldMap.camp_entry_id) &&
+            isCampQuestion(question)
+    );
+    // A required branch selector can be statically prefilled while the
+    // request camp mapping targets its optional child dropdown.
     const campMappingIsValid = requiredCampQuestions.length === 0 ||
-        requiredCampQuestions.some(
-            question => String(question.entry_id) === String(fieldMap.camp_entry_id)
-        );
+        Boolean(selectedCampQuestion);
     if (!campMappingIsValid) blockers.push('필수 요청 캠프 문항');
 
     const roleIds = [
