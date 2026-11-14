@@ -9,8 +9,10 @@ import {
     saveGuestDriverId,
     fetchCampReturnProfile,
     fetchCampReturnRecords,
-    saveCampReturnProfile
+    saveCampReturnProfile,
+    fetchCampReturnForms
 } from '../../services/campReturnNumberingService';
+import CampReturnFormManager from './CampReturnFormManager';
 
 const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSd8kBLT6B5iGSTLuG5yyMCbuCJ5l1e5qYpEqbUdtbtCSwUZqg/viewform';
 const CAMPS = ['학천MB', '농소MB'];
@@ -23,6 +25,31 @@ function buildPrefilledFormUrl({ invoiceText, driverId, quantity, camp }) {
     url.searchParams.set('entry.1315166815', driverId);
     url.searchParams.set('entry.1437474928', String(quantity));
     url.searchParams.set('entry.362346485', camp);
+    return url.toString();
+}
+
+function buildRegionalPrefilledFormUrl(form, request) {
+    const url = new URL(form.form_url);
+    url.searchParams.set('usp', 'pp_url');
+    const mapping = form.field_map || {};
+    const setEntry = (entryId, value) => {
+        if (entryId && value !== undefined && value !== null && String(value) !== '') {
+            url.searchParams.set(`entry.${entryId}`, String(value));
+        }
+    };
+
+    setEntry(mapping.invoice_entry_id, request.invoiceText);
+    setEntry(mapping.driver_id_entry_id, request.driverId);
+    setEntry(mapping.quantity_entry_id, String(request.quantity));
+    setEntry(mapping.camp_entry_id, request.camp);
+
+    (Array.isArray(mapping.static_fields) ? mapping.static_fields : []).forEach(field => {
+        setEntry(field?.entry_id, field?.value);
+    });
+
+    if (!mapping.invoice_entry_id || !mapping.driver_id_entry_id || !mapping.quantity_entry_id) {
+        throw new Error('캠프 양식의 필수 입력 항목 연결이 완료되지 않았습니다. 양식 설정을 확인해주세요.');
+    }
     return url.toString();
 }
 
@@ -60,6 +87,9 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
     const [saving, setSaving] = useState(false);
     const [loadError, setLoadError] = useState('');
     const [storageNotice, setStorageNotice] = useState('');
+    const [regionalForms, setRegionalForms] = useState([]);
+    const [selectedRegionalFormId, setSelectedRegionalFormId] = useState('');
+    const [showFormManager, setShowFormManager] = useState(false);
 
     const userId = user?.id || null;
     const isDark = !!isDarkMode;
@@ -68,13 +98,20 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
         setLoading(true);
         setLoadError('');
         try {
-            const [profile, history, accountDriverId] = await Promise.all([
+            const [profile, history, accountDriverId, forms] = await Promise.all([
                 fetchCampReturnProfile(userId),
                 fetchCampReturnRecords(userId),
-                fetchAccountDriverId(userId)
+                fetchAccountDriverId(userId),
+                fetchCampReturnForms(userId)
             ]);
             setDriverId(userId ? accountDriverId : fetchGuestDriverId());
             setCamp(CAMPS.includes(profile?.default_camp) ? profile.default_camp : CAMPS[0]);
+            setRegionalForms(forms);
+            setSelectedRegionalFormId(
+                Array.isArray(forms) && forms.some(form => form.id === profile?.default_form_id)
+                    ? profile.default_form_id
+                    : ''
+            );
             setRecords(history);
             setStorageNotice(userId
                 ? '로그인 계정에 저장됩니다. 다른 기기에서도 본인 기록을 조회할 수 있습니다.'
@@ -97,10 +134,19 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
         [records, todayKey]
     );
     const todayQuantity = todayRecords.reduce((sum, record) => sum + (Number(record.quantity) || 0), 0);
-    const campTotals = useMemo(() => ({
-        '학천MB': todayRecords.filter(record => record.camp === '학천MB').reduce((sum, record) => sum + Number(record.quantity || 0), 0),
-        '농소MB': todayRecords.filter(record => record.camp === '농소MB').reduce((sum, record) => sum + Number(record.quantity || 0), 0)
-    }), [todayRecords]);
+    const campTotals = useMemo(() => {
+        const totals = {};
+        todayRecords.forEach(record => {
+            const key = String(record.camp || '기타');
+            totals[key] = (totals[key] || 0) + Number(record.quantity || 0);
+        });
+        return totals;
+    }, [todayRecords]);
+    const campSummaryNames = [...new Set([
+        ...CAMPS,
+        ...regionalForms.map(form => form.camp_name)
+    ])];
+    const selectedRegionalForm = regionalForms.find(form => form.id === selectedRegionalFormId) || null;
 
     const panelClass = isDark
         ? 'bg-gray-800 border-gray-700 text-gray-100'
@@ -125,21 +171,27 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
             showMessage?.('채번 수량은 1 이상의 숫자로 입력해주세요.');
             return;
         }
-        if (!CAMPS.includes(camp)) {
+        if (!selectedRegionalForm && !CAMPS.includes(camp)) {
             showMessage?.('요청 캠프를 선택해주세요.');
             return;
         }
 
         setSaving(true);
         try {
-            await saveCampReturnProfile(userId, { defaultCamp: camp });
+            await saveCampReturnProfile(userId, {
+                defaultCamp: camp,
+                defaultFormId: selectedRegionalForm?.id || null
+            });
             const request = {
                 invoiceText: normalizedInvoice,
                 driverId: normalizedDriverId,
                 quantity: numericQuantity,
-                camp
+                camp: selectedRegionalForm?.camp_name || camp,
+                formKey: selectedRegionalForm ? `regional:${selectedRegionalForm.id}` : 'chungju1_return_numbering_v1'
             };
-            const url = buildPrefilledFormUrl(request);
+            const url = selectedRegionalForm
+                ? buildRegionalPrefilledFormUrl(selectedRegionalForm, request)
+                : buildPrefilledFormUrl(request);
             setPendingRequest(request);
 
             if (Capacitor.getPlatform() === 'web') {
@@ -172,6 +224,20 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
             setSaving(false);
         }
     };
+
+    if (showFormManager) {
+        return (
+            <CampReturnFormManager
+                onBack={async () => {
+                    setShowFormManager(false);
+                    await loadData();
+                }}
+                isDarkMode={isDarkMode}
+                user={user}
+                showMessage={showMessage}
+            />
+        );
+    }
 
     return (
         <div className="w-full max-w-3xl mx-auto pb-8">
@@ -299,11 +365,38 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-semibold mb-1.5">요청 모바일 캠프</label>
-                        <select value={camp} onChange={event => setCamp(event.target.value)} className={inputClass}>
-                            {CAMPS.map(item => <option key={item} value={item}>{item}</option>)}
+                        <label className="block text-sm font-semibold mb-1.5">사용할 채번 양식</label>
+                        <select
+                            value={selectedRegionalFormId}
+                            onChange={event => setSelectedRegionalFormId(event.target.value)}
+                            className={inputClass}
+                        >
+                            <option value="">청주 기본 양식</option>
+                            {regionalForms.map(form => (
+                                <option key={form.id} value={form.id}>{form.camp_name}</option>
+                            ))}
                         </select>
                     </div>
+                    {!selectedRegionalForm ? (
+                        <div>
+                            <label className="block text-sm font-semibold mb-1.5">요청 모바일 캠프</label>
+                            <select value={camp} onChange={event => setCamp(event.target.value)} className={inputClass}>
+                                {CAMPS.map(item => <option key={item} value={item}>{item}</option>)}
+                            </select>
+                        </div>
+                    ) : (
+                        <div className={`rounded-xl border p-3 ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                            <p className="text-sm font-semibold">{selectedRegionalForm.camp_name}</p>
+                            <p className={`text-xs mt-1 ${mutedClass}`}>{selectedRegionalForm.form_title || '등록된 지역 Google Forms 양식'}</p>
+                        </div>
+                    )}
+                    <button
+                        type="button"
+                        onClick={() => setShowFormManager(true)}
+                        className={`w-full rounded-xl border px-3 py-2.5 text-sm font-semibold ${isDark ? 'border-gray-700 text-gray-200 hover:bg-gray-900' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                    >
+                        타지역 캠프 양식 등록 / 관리
+                    </button>
                     <div className="pt-1">
                         <button
                             type="button"
@@ -361,7 +454,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                     </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                    {CAMPS.map(item => (
+                    {campSummaryNames.map(item => (
                         <div key={item} className={`rounded-xl border p-3 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
                             <p className={`text-xs ${mutedClass}`}>{item}</p>
                             <p className="text-lg font-bold mt-1">{(campTotals[item] || 0).toLocaleString()}건</p>
