@@ -3,14 +3,12 @@
 //사장님(App.js): 손님 응대(화면 표시)만 함.
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Home, BarChart2, List, MoreHorizontal, Plus, ArrowRightLeft } from 'lucide-react';
+import { ArrowUp, ArrowDown, Home, BarChart2, List, MoreHorizontal } from 'lucide-react';
 import { backupToDrive, restoreFromDrive } from './utils/googleDrive';
 import { Preferences } from '@capacitor/preferences';
 import MessageModal from './components/common/MessageModal';
 import { formatDate } from './utils';
 import StatsDisplay from './StatsDisplay';
-import GoalProgressBar from './components/GoalProgressBar';
-import RevenueDistributionChart from './components/RevenueDistributionChart';
 import FilterModal from './components/DataScreen/FilterModal';
 import EntriesList from './components/DataScreen/EntriesList';
 import DataEntryForm from './DataEntryForm';
@@ -50,32 +48,28 @@ import InsuranceView from './components/more/InsuranceView';
 import { AppUpdate } from '@capawesome/capacitor-app-update';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import GoalSummaryCards from './components/GoalSummaryCards';
+import BluecoinsDailySummaryPreview from './components/BluecoinsDailySummaryPreview';
 import AverageItemsView from './components/more/AverageItemsView';
-import DashboardSettingsView from './components/more/DashboardSettingsView';
-import useDashboardSettings from './hooks/useDashboardSettings';
+import VolumeCalendarSettingsView from './components/more/VolumeCalendarSettingsView';
+import CampReturnNumberingView from './components/more/CampReturnNumberingView';
 // ✨ 휴무관리 모달 추가
 import { DayOffModal } from './components/dayOff/DayOffModal';
+import { supabase } from './lib/supabaseClient';
+import {
+    fetchMyOrganizationWeeklySchedules,
+    fetchMyOrganizationScheduleSyncFrom
+} from './services/organizationScheduleService';
 //로그인
 import LoginPage from './components/auth/LoginPage';
 import { useAuth } from './contexts/AuthContext';
 //팀관리
 import TeamManagementView from './components/team/TeamManagementView';
-import { joinTeamByCode } from './services/teamService';
 //관리자페이지
 import Main from './admin/Main';
 
 console.log("▶️ DayOffModal의 타입:", typeof DayOffModal);
 console.log("▶️ DayOffModal의 실제 값:", DayOffModal);
-console.log("🚨 용의자 명단 확인:", { GoalSummaryCards, SearchView, DashboardSettingsView, AverageItemsView });
-const DetailRow = ({ label, value, comparison }) => (
-    <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-1">
-        <span className="text-base sm:text-lg font-semibold">{label}</span>
-        <span className="text-base sm:text-lg font-bold">{value}</span>
-        <div className="w-16 flex justify-center">{comparison}</div>
-    </div>
-);
-
+console.log("🚨 용의자 명단 확인:", { SearchView, AverageItemsView });
 const getTodayLocal = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -101,34 +95,27 @@ const getSmartCurrentMonth = (startDay = 26) => {
     return `${year}-${String(month).padStart(2, '0')}`;
 };
 
+const HOME_CALENDAR_VOLUME_METRICS = [
+    { key: 'deliveryCount', label: '배송', shortLabel: '배' },
+    { key: 'deliveryInterruptionAmount', label: '중단', shortLabel: '중' },
+    { key: 'returnCount', label: '반품', shortLabel: '반' },
+    { key: 'freshBagCount', label: '프레시백', shortLabel: '프' }
+];
+
+const DEFAULT_HOME_CALENDAR_VOLUME_ITEMS = {
+    deliveryCount: true,
+    deliveryInterruptionAmount: true,
+    returnCount: true,
+    freshBagCount: true
+};
+
 function AppContent() {
     const navigate = useNavigate();
     useMigrationOnLogin();
-    const { dashboardConfig, saveDashboardConfig } = useDashboardSettings();
 const { isLoggedIn, user, profile } = useAuth();
 
 // ✨ 추가: 관리자 센터 수동 오픈 상태
     const [showAdminCenter, setShowAdminCenter] = useState(false);
-
-// ✨ 초대 링크(?code=xxxx)로 접속 시 자동 팀 가입 처리
-    useEffect(() => {
-        const handleAutoJoin = async () => {
-            const params = new URLSearchParams(window.location.search);
-            const inviteCode = params.get('code');
-
-            if (inviteCode && user) {
-                try {
-                    const res = await joinTeamByCode(inviteCode, user.id);
-                    if (showMessage) showMessage(res.message);
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                } catch (e) {
-                    console.error("자동 팀 가입 실패:", e.message);
-                }
-            }
-        };
-
-        handleAutoJoin();
-    }, [user]);
 
     // ✨ [추가] 현재 폰이 아이폰(iOS)인지 안드로이드인지 확인하는 마법!
     const isIOS = Capacitor.getPlatform() === 'ios';
@@ -153,11 +140,11 @@ const { isLoggedIn, user, profile } = useAuth();
         return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     });
     const [isFabVisible, setIsFabVisible] = useState(false);
-    const [selectedMainTab, setSelectedMainTab] = useState('home');
-    const [activeContentTab, setActiveContentTab] = useState('monthlyProfit');
+
     const [activeDataTab, setActiveDataTab] = useState('entry');
-    const [moreSubView, setMoreSubView] = useState('main');
+
     const [initialExpenseTab, setInitialExpenseTab] = useState('income');
+    const [bluecoinsSelectedDate, setBluecoinsSelectedDate] = useState('');
     const [isExpenseSettingsModalOpen, setIsExpenseSettingsModalOpen] = useState(false); // ✨ 항목 관리 팝업 상태
 
     // --- 데이터 입력 폼 상태 ---
@@ -179,6 +166,27 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
     const [calendarMode, setCalendarMode] = useState('money');
+    const [homeCalendarDesign] = useState(() => {
+        try {
+            const settings = JSON.parse(localStorage.getItem('appSettings') || '{}');
+            return settings.homeCalendarDesign === 'classic' ? 'classic' : 'current';
+        } catch (error) {
+            console.warn('홈 달력 디자인 설정을 읽지 못했습니다:', error);
+            return 'current';
+        }
+    });
+    const [homeCalendarVolumeItems, setHomeCalendarVolumeItems] = useState(() => {
+        try {
+            const settings = JSON.parse(localStorage.getItem('appSettings') || '{}');
+            return {
+                ...DEFAULT_HOME_CALENDAR_VOLUME_ITEMS,
+                ...(settings.homeCalendarVolumeItems || {})
+            };
+        } catch (error) {
+            console.warn('홈 달력 물량 항목 설정을 읽지 못했습니다:', error);
+            return DEFAULT_HOME_CALENDAR_VOLUME_ITEMS;
+        }
+    });
 
     const [statisticsView, setStatisticsView] = useState('monthly');
     const [monthlyStatsSubTab, setMonthlyStatsSubTab] = useState('overview');
@@ -225,6 +233,10 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [isDayOffModalOpen, setIsDayOffModalOpen] = useState(false); // ✨ 휴무 모달 상태 추가
+    // 홈 달력은 기존 배송 실적을 유지하면서 휴무 페이지와 같은 회사 일정/신청 상태를 읽습니다.
+    const [homePublishedSchedules, setHomePublishedSchedules] = useState([]);
+    const [homeScheduleSyncFrom, setHomeScheduleSyncFrom] = useState(null);
+    const [homeExtraDayOffRequests, setHomeExtraDayOffRequests] = useState([]);
     const [filters, setFilters] = useState({ period: 'all', startDate: '', endDate: '', type: 'all' });
 
     // --- 팝업 및 로딩 ---
@@ -239,6 +251,77 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const touchEndY = useRef(null);
     const mainTouchStartX = useRef(null); // ✨ [추가] 바탕화면 스와이프 전용
     const mainTouchStartY = useRef(null);
+    const [selectedMainTab, setSelectedMainTab] = useState('home');
+    const [activeContentTab, setActiveContentTab] = useState('bluecoinsDailySummary');
+        const [moreSubView, setMoreSubView] = useState('main');
+    const [autoEditAccountProfile, setAutoEditAccountProfile] = useState(false);
+    const [returnToCampNumbering, setReturnToCampNumbering] = useState(false);
+
+
+// 초대 링크를 열면 팀 관리 화면으로 이동하고 코드를 전달합니다.
+// 실제 가입은 사용자가 '팀 가입하기'를 눌렀을 때 실행합니다.
+useEffect(() => {
+    const openInviteScreen = (rawCode) => {
+        const code = String(rawCode || '').trim();
+
+        if (!code) return;
+
+        try {
+            localStorage.setItem('pendingInviteCode', code);
+        } catch (error) {
+            console.error('[Invite] 초대코드 저장 실패:', error);
+            return;
+        }
+
+        if (user) {
+            setSelectedMainTab('more');
+            setActiveContentTab('adminSettings');
+            setMoreSubView('team');
+        }
+    };
+
+    const handleInviteEvent = (event) => {
+        const code =
+            event.detail?.code ||
+            localStorage.getItem('pendingInviteCode');
+
+        openInviteScreen(code);
+    };
+
+    window.addEventListener(
+        'deliverytracker:invite-link',
+        handleInviteEvent
+    );
+
+    // 기존 ?code= 형식의 링크도 지원합니다.
+    const params = new URLSearchParams(window.location.search);
+    const queryCode = params.get('code');
+
+    if (queryCode) {
+        openInviteScreen(queryCode);
+
+        window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname
+        );
+    } else if (user) {
+        // 로그인 전에 받은 초대코드가 있으면 로그인 후 처리합니다.
+        const pendingCode = localStorage.getItem('pendingInviteCode');
+
+        if (pendingCode) {
+            openInviteScreen(pendingCode);
+        }
+    }
+
+    return () => {
+        window.removeEventListener(
+            'deliverytracker:invite-link',
+            handleInviteEvent
+        );
+    };
+}, [user]);
+
 
    useEffect(() => {
         if (localStorage.getItem('returnToAccount') === 'true') {
@@ -659,27 +742,6 @@ const handleCloudRestore = async () => {
         setCurrentCalendarDate(new Date(year, month - 1, 1));
     };
     
-    // --- 달력 스와이프 기능 ---
-
-    const onCalendarTouchStart = (e) => {
-        touchStartX.current = e.targetTouches[0].clientX;
-        touchEndX.current = null;
-    };
-    const onCalendarTouchMove = (e) => {
-        touchEndX.current = e.targetTouches[0].clientX;
-    };
-    const onCalendarTouchEnd = () => {
-        if (!touchStartX.current || !touchEndX.current) return;
-        const distance = touchStartX.current - touchEndX.current;
-        const isLeftSwipe = distance > 50; 
-        const isRightSwipe = distance < -50; 
-
-        if (isLeftSwipe) {
-            handleMonthChange(1);
-        } else if (isRightSwipe) {
-            handleMonthChange(-1);
-        }
-    };
 const handleTodayClick = () => { 
         const now = new Date(); // 💡 무조건 폰(기기)의 로컬 시간 기준!
         
@@ -754,7 +816,7 @@ const handleTodayClick = () => {
         
      
 
-    const generateCalendarDays = useCallback(() => {
+    const generateCalendarDays = () => {
         const year = currentCalendarDate.getFullYear();
         const month = currentCalendarDate.getMonth();
         let periodStartDate, periodEndDate;
@@ -791,25 +853,31 @@ const handleTodayClick = () => {
         while (dayIterator <= calendarEndDate) {
             const formattedDate = toDateStr(dayIterator);
             
-            //✨ [추가] 이 날짜에 '휴무' 이름표가 붙은 데이터가 있는지 확인
-            const isDayOff = entries.some(e => e.date === formattedDate && e.memo === '[휴무]');
-
             const isWithinPeriod = formattedDate >= pStartStr && formattedDate <= pEndStr;
             const isToday = formattedDate === todayStr;
             
             const dailyData = breakdown[formattedDate] || { revenue: 0, expenses: 0 };
             
 
-            // ✨ [새로 추가된 로직] 그날의 총 물량 계산하기
+            // 기존 평균 물량 계산은 유지하고, 달력 표시용 항목별 건수만 별도로 집계합니다.
             let dailyVolume = 0;
+            const dailyVolumeBreakdown = HOME_CALENDAR_VOLUME_METRICS.reduce((result, item) => {
+                result[item.key] = 0;
+                return result;
+            }, {});
+
             if (isWithinPeriod) {
                 const dailyEntries = entries.filter(e => e.date === formattedDate && e.type === 'income');
                 dailyEntries.forEach(entry => {
                     if (entry.customItems && entry.customItems.length > 0) {
                         entry.customItems.forEach(item => {
+                            const count = Number(item.count || 0);
                             const label = itemLabels[item.key] || item.key;
                             if (selectedItemsForAverage.includes(label)) {
-                                dailyVolume += Number(item.count || 0);
+                                dailyVolume += count;
+                            }
+                            if (Object.prototype.hasOwnProperty.call(dailyVolumeBreakdown, item.key)) {
+                                dailyVolumeBreakdown[item.key] += count;
                             }
                         });
                     } else {
@@ -818,6 +886,9 @@ const handleTodayClick = () => {
                             if (selectedItemsForAverage.includes(label)) {
                                 dailyVolume += Number(entry[config.key] || 0);
                             }
+                        });
+                        HOME_CALENDAR_VOLUME_METRICS.forEach((item) => {
+                            dailyVolumeBreakdown[item.key] += Number(entry[item.key] || 0);
                         });
                     }
                 });
@@ -831,15 +902,203 @@ const handleTodayClick = () => {
                 revenue: isWithinPeriod ? dailyData.revenue : 0, 
                 expenses: isWithinPeriod ? dailyData.expenses : 0 ,
                 volume: dailyVolume,
-                isDayOff: isDayOff
+                volumeBreakdown: dailyVolumeBreakdown
             });
 
             dayIterator.setDate(dayIterator.getDate() + 1);
         }
         return days;
-    }, [currentCalendarDate, monthlyStartDay, monthlyEndDay, monthlyProfit.dailyBreakdown, entries, itemLabels, selectedItemsForAverage, incomeConfig]);
+    };
+
+
+    // 휴무 데이터 조회 기간은 실적 달력 생성 전에 독립적으로 계산합니다.
+    const homeCalendarQueryRange = (() => {
+        const year = currentCalendarDate.getFullYear();
+        const month = currentCalendarDate.getMonth();
+        const startDay = Number(monthlyStartDay) || 26;
+        const endDay = Number(monthlyEndDay) || 25;
+        const periodStart = startDay > endDay
+            ? new Date(year, month - 1, startDay)
+            : new Date(year, month, startDay);
+        const periodEnd = new Date(year, month, endDay);
+        const calendarStart = new Date(periodStart);
+        calendarStart.setDate(calendarStart.getDate() - calendarStart.getDay());
+        const calendarEnd = new Date(periodEnd);
+        if (calendarEnd.getDay() !== 6) {
+            calendarEnd.setDate(calendarEnd.getDate() + (6 - calendarEnd.getDay()));
+        }
+        const toDateString = (date) =>
+            `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        return { startDate: toDateString(calendarStart), endDate: toDateString(calendarEnd) };
+    })();
+    const homeCalendarStartDate = homeCalendarQueryRange.startDate;
+    const homeCalendarEndDate = homeCalendarQueryRange.endDate;
+
+    useEffect(() => {
+        const organizationId = profile?.organization_id;
+        if (!organizationId || !user?.id || !homeCalendarStartDate || !homeCalendarEndDate) {
+            setHomePublishedSchedules([]);
+            setHomeScheduleSyncFrom(null);
+            setHomeExtraDayOffRequests([]);
+            return undefined;
+        }
+
+        let isActive = true;
+        const loadHomeDayOffData = async () => {
+            try {
+                const [rows, syncFrom] = await Promise.all([
+                    fetchMyOrganizationWeeklySchedules(homeCalendarStartDate, homeCalendarEndDate),
+                    fetchMyOrganizationScheduleSyncFrom()
+                ]);
+                if (isActive) {
+                    setHomePublishedSchedules(Array.isArray(rows) ? rows : []);
+                    setHomeScheduleSyncFrom(syncFrom || null);
+                }
+            } catch (error) {
+                console.error('홈 달력의 관리자 확정 근무표 조회 실패:', error);
+                if (isActive) {
+                    setHomePublishedSchedules([]);
+                    setHomeScheduleSyncFrom(null);
+                }
+            }
+
+            // 추가휴무 신청 상태는 근무표 조회와 분리해 읽어, 한쪽 오류가 다른 쪽 표시를 막지 않게 합니다.
+            try {
+                const { data, error } = await supabase.rpc('list_my_extra_day_off_requests');
+                if (error) throw error;
+                if (isActive) {
+                    setHomeExtraDayOffRequests(Array.isArray(data) ? data : []);
+                }
+            } catch (error) {
+                console.error('홈 달력의 추가휴무 신청 상태 조회 실패:', error);
+            }
+        };
+
+        loadHomeDayOffData();
+        const timer = window.setInterval(loadHomeDayOffData, 15000);
+        return () => {
+            isActive = false;
+            window.clearInterval(timer);
+        };
+    }, [
+        profile?.organization_id,
+        user?.id,
+        homeCalendarStartDate,
+        homeCalendarEndDate
+    ]);
+
+    // 직원 본인에게 해당하는 관리자 확정 근무표 상태를 날짜별로 정리합니다.
+    const homeMyPublishedScheduleByDate = useMemo(() => {
+        const result = {};
+        const userId = String(user?.id || '');
+        if (!profile?.organization_id || !userId) return result;
+
+        homePublishedSchedules.forEach((published) => {
+            const ownDetails = published.employee_details?.[userId];
+            if (!ownDetails) return;
+
+            if (published.status !== 'confirmed') {
+                const weekStart = new Date(`${published.week_start}T12:00:00`);
+                for (let offset = 0; offset < 7; offset += 1) {
+                    const date = new Date(weekStart);
+                    date.setDate(weekStart.getDate() + offset);
+                    const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                    if (homeScheduleSyncFrom && dateKey < homeScheduleSyncFrom) continue;
+                    result[dateKey] = { status: 'pending' };
+                }
+                return;
+            }
+
+            Object.entries(published.schedule || {}).forEach(([dateKey, dayRecord]) => {
+                if (homeScheduleSyncFrom && dateKey < homeScheduleSyncFrom) return;
+
+                let status = ['off', 'backup', 'work', 'pending'].includes(dayRecord?.status)
+                    ? dayRecord.status
+                    : null;
+
+                if (!status) {
+                    const offIds = Array.isArray(dayRecord?.offEmployeeIds)
+                        ? dayRecord.offEmployeeIds
+                        : [];
+                    const isOff = offIds.some((item) => {
+                        const id = item && typeof item === 'object'
+                            ? (item.employeeId || item.employee_id || item.id)
+                            : item;
+                        return String(id) === userId;
+                    });
+                    const assignment = dayRecord?.assignment ||
+                        (Array.isArray(dayRecord?.subs)
+                            ? dayRecord.subs.find((item) => String(item.subId) === userId) || null
+                            : null);
+                    status = isOff ? 'off' : assignment ? 'backup' : 'work';
+                }
+
+                result[dateKey] = { status };
+            });
+        });
+
+        return result;
+    }, [
+        homePublishedSchedules,
+        user?.id,
+        profile?.organization_id,
+        homeScheduleSyncFrom
+    ]);
+
+    // 날짜별로 가장 최근 추가휴무 신청 상태 하나만 표시합니다.
+    const homeExtraDayOffRequestStatusByDate = useMemo(() => {
+        const statusByDate = {};
+        [...homeExtraDayOffRequests]
+            .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+            .forEach((request) => {
+                if (!request.requested_date) return;
+                const dateKey = String(request.requested_date).slice(0, 10);
+                if (!Object.prototype.hasOwnProperty.call(statusByDate, dateKey)) {
+                    statusByDate[dateKey] = request.status;
+                }
+            });
+        return statusByDate;
+    }, [homeExtraDayOffRequests]);
 
     const calendarDays = generateCalendarDays();
+
+    // 서버의 휴무/신청 상태는 기본 배송 실적 달력이 만들어진 다음 별도로 합칩니다.
+    // 초기 렌더링에서 아직 로딩되지 않은 상태 맵을 참조하지 않도록 순서를 분리합니다.
+    const calendarDaysWithDayOff = calendarDays.map((dayInfo) => {
+        const dateKey = dayInfo.date;
+        const personalIsDayOff = entries.some((entry) => {
+            if (entry.date !== dateKey) return false;
+            return Boolean(entry.memo && entry.memo.includes('휴무')) ||
+                (Array.isArray(entry.customItems) &&
+                    entry.customItems.some((item) => item?.key === 'dayOff'));
+        });
+        const hasOrganization = Boolean(profile?.organization_id);
+        const isBeforeScheduleSync = Boolean(
+            hasOrganization &&
+            homeScheduleSyncFrom &&
+            dateKey < homeScheduleSyncFrom
+        );
+        const managerDayStatus = homeMyPublishedScheduleByDate[dateKey]?.status || null;
+        const isDayOff = hasOrganization
+            ? (isBeforeScheduleSync ? personalIsDayOff : managerDayStatus === 'off')
+            : personalIsDayOff;
+        const extraDayOffRequestStatus = hasOrganization
+            ? homeExtraDayOffRequestStatusByDate[dateKey] || null
+            : null;
+        const volumeDisplayTotal = HOME_CALENDAR_VOLUME_METRICS.reduce((total, metric) => {
+            return total + (homeCalendarVolumeItems[metric.key]
+                ? Number(dayInfo.volumeBreakdown?.[metric.key] || 0)
+                : 0);
+        }, 0);
+
+        return {
+            ...dayInfo,
+            isDayOff,
+            extraDayOffRequestStatus,
+            volumeDisplayTotal
+        };
+    });
+
     const yearlyPeriod = useMemo(() => {
         const year = parseInt(selectedYear); let startDate, endDate;
         if (monthlyStartDay > monthlyEndDay) { startDate = new Date(year - 1, 11, monthlyStartDay); endDate = new Date(year, 11, monthlyEndDay); }
@@ -872,7 +1131,25 @@ const handleTodayClick = () => {
     }, [monthlyEndDay]);
 
 
+    // 휴무 달력에서 현재 진행 중인 작업을 Android 뒤로가기로 취소할 수 있게 연결합니다.
+    const dayOffBackHandlerRef = useRef(null);
+    const registerDayOffBackHandler = useCallback((handler) => {
+        dayOffBackHandlerRef.current = handler;
+        return () => {
+            if (dayOffBackHandlerRef.current === handler) {
+                dayOffBackHandlerRef.current = null;
+            }
+        };
+    }, []);
+    const handleDayOffBack = useCallback(() => {
+        const handler = dayOffBackHandlerRef.current;
+        return typeof handler === 'function' ? handler() : false;
+    }, []);
+
     useAppBackButton({
+        handleDayOffBack,
+        isDayOffModalOpen,
+        setIsDayOffModalOpen,
         modalState, closeModal, showConfirmation, isFilterModalOpen, setIsFilterModalOpen,
         isExpenseSettingsModalOpen, setIsExpenseSettingsModalOpen,
         moreSubView, setMoreSubView, selectedMainTab, setSelectedMainTab, activeContentTab, setActiveContentTab,
@@ -982,167 +1259,37 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
           >
                 {isAuthReady && (
                     <>
-                       {activeContentTab === 'monthlyProfit' && (
-    <>
-        <GoalSummaryCards 
-            entries={entries}
-            monthlyProfit={monthlyProfit} 
-            goal={goalAmount}
-            selectedMonth={selectedMonth}
-            monthlyStartDay={monthlyStartDay}
-            monthlyEndDay={monthlyEndDay}
-            isDarkMode={isDarkMode}
-            selectedInsurance={selectedInsurance}
-            selectedItemsForAverage={selectedItemsForAverage}
-            dashboardConfig={dashboardConfig}
-            previousMonthlyProfit={previousMonthlyProfit}
-           onTabChange={(tab) => {
-        if (tab === 'insurance') {
-            setSelectedMainTab('more');             // 하단 메뉴: 더보기
-            setActiveContentTab('adminSettings');   // 메인 화면: 설정
-            setMoreSubView('insurance');            // 세부 화면: 보험
-        }
-    }}
-        />
-                          
-                            
-                            <div className={`p-2 sm:p-4 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-                            <GoalProgressBar 
-        current={monthlyProfit?.totalRevenue || 0}
-        goal={goalAmount} 
-        isDarkMode={isDarkMode} 
-        revenueDistribution={monthlyProfit.revenueDistribution}
-        selectedItemsForAverage={selectedItemsForAverage}
-    incomeConfig={incomeConfig}
-    />
-                          
-                          
-                    <div className="grid grid-cols-[1fr_auto_1fr] items-center mb-4 px-1 gap-1">
-    
-    {/* 1. 왼쪽: 금액/물량 버튼 (규격 맞춤) */}
-    <div className="flex justify-start">
-        <button 
-            onClick={() => setCalendarMode(prev => prev === 'money' ? 'volume' : 'money')}
-            /* py-1, font-black, text-[11px], border-[1.5px] 로 규격 통일 */
-            className={`py-1 px-1.5 rounded-lg font-black text-[11px] border-[1.5px] transition-colors flex items-center gap-1 shadow-sm
-                ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-200' : 'border-gray-200 bg-gray-50 text-gray-700'}
-            `}
-        >
-            <ArrowRightLeft size={13} className={isDarkMode ? 'text-blue-400' : 'text-blue-600'} />
-            <span>{calendarMode === 'money' ? '금액' : '물량'}</span>
-        </button>
-    </div>
-
-    {/* 2. 중앙: 날짜 (주인공이므로 크기 유지) */}
-    <div className="flex items-center space-x-1"> 
-        <button onClick={() => handleMonthChange(-1)} className="p-0.5"><ChevronLeft size={22} /></button>
-        <h3 className={`font-black text-lg sm:text-xl tracking-tighter whitespace-nowrap ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            {currentCalendarDate.getFullYear()}년 {currentCalendarDate.getMonth() + 1}월
-        </h3>
-        <button onClick={() => handleMonthChange(1)} className="p-0.5"><ChevronRight size={22} /></button>
-    </div>
-
-    {/* 3. 오른쪽: 휴무/오늘 (왼쪽과 규격 100% 일치) */}
-    <div className="flex justify-end gap-0.5 flex-nowrap w-full max-w-[90px] ml-auto">
-        <button 
-            onClick={() => setIsDayOffModalOpen(true)} 
-            /* py-1, font-black, text-[11px], border-[1.5px] 로 왼쪽과 완벽히 동일 */
-            className="flex-1 py-1 rounded-lg font-black text-[11px] border-[1.5px] border-gray-400 text-indigo-500 whitespace-nowrap"
-        >
-            휴무
-        </button>
-        <button 
-            onClick={handleTodayClick} 
-            className="flex-1 py-1 rounded-lg font-black text-[11px] border-[1.5px] border-yellow-400 text-yellow-500 whitespace-nowrap"
-        >
-            오늘
-        </button>
-    </div>
-</div>
-                                    <div 
-                                        className="calendar-view touch-pan-y"
-                                        onTouchStart={onCalendarTouchStart}
-                                        onTouchMove={onCalendarTouchMove}
-                                        onTouchEnd={onCalendarTouchEnd}
-                                    >
-                                        <div className="grid grid-cols-7 text-center mb-1"> 
-                                            {['일', '월', '화', '수', '목', '금', '토'].map((day, i) => (
-                                                <div key={day} className={`text-xs sm:text-sm font-bold ${
-                                                    i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : (isDarkMode ? 'text-gray-400' : 'text-gray-500')
-                                                }`}>
-                                                    {day}
-                                                </div>
-                                            ))}
-                                        </div>
-
-                                        <div className="grid grid-cols-7 gap-x-0 gap-y-0"> 
-                                            {calendarDays.map((dayInfo, index) => (
-                                                <div 
-                                                    key={index} 
-                                                    onClick={() => handleCalendarDateClick(dayInfo.date)} 
-                                                    className={`
-                                                        cursor-pointer h-[55px] flex flex-col rounded-md transition-colors
-                                                        ${dayInfo.isDayOff 
-                                                            ? (isDarkMode ? 'bg-gray-700/60' : 'bg-gray-200') // ✨ 휴무일이면 회색 배경!
-                                                            : (isDarkMode ? 'bg-gray-800' : 'bg-white')       // 평상시 배경
-                                                        }
-                                                    `}
-                                                >
-                                                    <div className="h-[35px] w-full flex items-center justify-center pb-0.5"> 
-                                                       <span className={`
-    flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold
-    ${!dayInfo.isCurrentMonth ? (isDarkMode ? 'text-gray-600' : 'text-gray-300') : ''} 
-    ${dayInfo.isCurrentMonth && index % 7 === 0 ? 'text-red-500' : ''} 
-    ${dayInfo.isCurrentMonth && index % 7 === 6 ? 'text-blue-500' : ''} 
-    ${dayInfo.isToday ? 'border-4 border-yellow-400 shadow-sm' : ''} 
-`}>
-    {dayInfo.day}
-</span>
-                                                    </div>
-
-                                                   <div className="flex-1 w-full flex flex-col items-center justify-start -mt-0.5">
-  {/* ✨ 휴무일 경우 글자 표시 (금액/물량 상관없이 무조건 띄워라!) */}
-{dayInfo.isDayOff && (
-    <span className="text-indigo-500 dark:text-indigo-400 text-[9px] font-black leading-none mt-0.5">휴무</span>
-)}
-
-{calendarMode === 'money' ? (
-    <>
-        {dayInfo.isCurrentMonth && dayInfo.revenue > 0 && (
-            <span className="text-red-500 text-[8px] font-medium leading-none mb-0.5">
-                {dayInfo.revenue.toLocaleString()}
-            </span>
-        )}
-        {dayInfo.isCurrentMonth && dayInfo.expenses > 0 && (
-            <span className="text-blue-500 text-[8px] font-medium leading-none">
-                {dayInfo.expenses.toLocaleString()}
-            </span>
-        )}
-    </>
-) : (
-    <>
-        {dayInfo.isCurrentMonth && dayInfo.volume > 0 && (
-            <span className={`text-[9px] font-black leading-none mt-1 tracking-tighter ${
-                dayInfo.volume > (monthlyProfit.dailyAverageVolume * 1.1) ? 'text-red-500' :       /* 평균보다 10% 이상 많으면 빨강 */
-                dayInfo.volume < (monthlyProfit.dailyAverageVolume * 0.9) ? 'text-blue-500' :      /* 평균보다 10% 이상 적으면 파랑 */
-                'text-orange-500'                                                                  /* 그 중간은 보통(주황) */
-            }`}>
-                {dayInfo.volume.toLocaleString()}개
-            </span>
-        )}
-    </>
-)}
-                
-    
-</div>
-
-                                                </div>
-                                            ))}
-                                      </div>
-    </div>
-    </div>
-    </>
-)}
+                        {activeContentTab === 'bluecoinsDailySummary' && (
+                            <BluecoinsDailySummaryPreview
+                                entries={entries}
+                                monthlyProfit={monthlyProfit}
+                                previousMonthlyProfit={previousMonthlyProfit}
+                                selectedMonth={selectedMonth}
+                                monthlyEndDay={monthlyEndDay}
+                                goal={goalAmount}
+                                selectedInsurance={selectedInsurance}
+                                selectedItemsForAverage={selectedItemsForAverage}
+                                itemLabels={itemLabels}
+                                isDarkMode={isDarkMode}
+                                onOpenInsurance={() => {
+                                    setSelectedMainTab('more');
+                                    setActiveContentTab('adminSettings');
+                                    setMoreSubView('insurance');
+                                }}
+                                currentCalendarDate={currentCalendarDate}
+                                calendarDays={calendarDaysWithDayOff}
+                                calendarMode={calendarMode}
+                                onToggleCalendarMode={(mode) => setCalendarMode(mode)}
+                                onMonthChange={handleMonthChange}
+                                onToday={handleTodayClick}
+                                onDateClick={handleCalendarDateClick}
+                                onOpenDayOff={() => setIsDayOffModalOpen(true)}
+                                onSelectedDateChange={setBluecoinsSelectedDate}
+                                homeCalendarDesign={homeCalendarDesign}
+                                homeCalendarVolumeItems={homeCalendarVolumeItems}
+                                incomeConfig={incomeConfig}
+                            />
+                        )}
 
                         {activeContentTab === 'dataEntry' && (
                             <div className="w-full h-full flex flex-col pt-2" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
@@ -1232,13 +1379,43 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                         {activeContentTab === 'adminSettings' && (
                             <div className={`p-4 sm:p-6 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
                                 {moreSubView === 'main' && <MoreView onNavigate={setMoreSubView} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />}
-                                {moreSubView === 'account' && <AccountView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} handleLogout={handleLogout} />}
+                                {moreSubView === 'account' && (
+                                    <AccountView
+                                        onBack={() => {
+                                            setAutoEditAccountProfile(false);
+                                            let returnToTeam = false;
+                                            try {
+                                                returnToTeam = localStorage.getItem('returnToTeamAfterProfile') === 'true';
+                                                if (returnToTeam) {
+                                                    localStorage.removeItem('returnToTeamAfterProfile');
+                                                }
+                                            } catch (error) {
+                                                console.warn('[Invite] 가입 재개 상태 확인 실패:', error);
+                                            }
+                                            if (returnToCampNumbering) {
+                                                setReturnToCampNumbering(false);
+                                                setMoreSubView('camp_return_numbering');
+                                            } else {
+                                                setMoreSubView(returnToTeam ? 'team' : 'main');
+                                            }
+                                        }}
+                                        isDarkMode={isDarkMode}
+                                        handleLogout={handleLogout}
+                                        autoEdit={autoEditAccountProfile}
+                                    />
+                                )}
                                 {moreSubView === 'team' && (
         <TeamManagementView 
             onBack={() => setMoreSubView('main')} 
             isDarkMode={isDarkMode} 
             showMessage={showMessage} 
-            onGoToAdmin={() => setShowAdminCenter(true)} 
+            onGoToAdmin={() => setShowAdminCenter(true)}
+            onGoToAccount={() => {
+                setSelectedMainTab('more');
+                setActiveContentTab('adminSettings');
+                setAutoEditAccountProfile(true);
+                setMoreSubView('account');
+            }}
         />
     )}
                                     {moreSubView === 'dayOff' && (
@@ -1252,6 +1429,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
         selectedMonth={selectedMonth} 
         currentUser={user} 
             teamId={profile?.organization_id}
+            registerBackHandler={registerDayOffBackHandler}
     />
 )}
                                 {moreSubView === 'unitPrice' && <UnitPriceView onBack={() => { setMoreSubView('main'); setTargetItemKey(null); }} isDarkMode={isDarkMode} adminFavoritePricesInput={adminFavoritePricesInput} setAdminFavoritePricesInput={setAdminFavoritePricesInput} handleSaveFavoritePrices={handleSaveFavoritePrices} favoriteUnitPrices={favoriteUnitPrices} targetItemKey={targetItemKey} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} />}
@@ -1259,14 +1437,19 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 {moreSubView === 'data' && <DataSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} handleExportCsv={() => exportDataAsCsv(entries, showMessage)} handleImportCsv={(e) => handleLocalCsvImport(e.target.files[0])} handleDeleteAllData={handleDeleteAllDataRequest} handleBackupToDrive={() => backupToDrive(entries)} handleRestoreFromDrive={handleCloudRestore} />}
                             {/* ✨ 더보기 메뉴에서 진입할 때는 무조건 '수익(income)' 탭으로 고정! */}
                                 {moreSubView === 'expenseSettings' && <ExpenseSettingsView initialTab="income" onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} expenseConfig={expenseConfig} setExpenseConfig={setExpenseConfig} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} onNavigate={(view, key) => { setMoreSubView(view); if (key) setTargetItemKey(key); }} />}
-{moreSubView === 'dashboard_settings' && (
-    <DashboardSettingsView 
+{moreSubView === 'calendar_volume_settings' && (
+    <VolumeCalendarSettingsView
         isDarkMode={isDarkMode}
         onBack={() => setMoreSubView('main')}
-        config={dashboardConfig}
-        onSave={(newConfig) => {
-            saveDashboardConfig(newConfig); // 훅의 저장 함수 사용
-            showMessage("✅ 홈 화면 설정이 저장되었습니다.");
+        volumeDisplayItems={homeCalendarVolumeItems}
+        onSave={(newVolumeDisplayItems) => {
+            const nextVolumeItems = {
+                ...DEFAULT_HOME_CALENDAR_VOLUME_ITEMS,
+                ...(newVolumeDisplayItems || {})
+            };
+            setHomeCalendarVolumeItems(nextVolumeItems);
+            saveSettingsToLocal({ homeCalendarVolumeItems: nextVolumeItems });
+            showMessage("✅ 물량 달력 표시 설정이 저장되었습니다.");
         }}
     />
 )}
@@ -1277,6 +1460,19 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 {moreSubView === 'contact' && <ContactView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} />}
                                 {moreSubView === 'goal' && <GoalSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} goalAmount={goalAmount} onSaveGoal={(amount) => { setGoalAmount(amount); saveSettingsToLocal({ goalAmount: amount }); showMessage("목표 금액이 성공적으로 변경되었습니다!"); }} />}
                                 {moreSubView === 'insurance' && <InsuranceView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} selectedInsurance={selectedInsurance} onSelect={(ins) => { setSelectedInsurance(ins); saveSettingsToLocal({ selectedInsurance: ins }); showMessage("✅ 보험사가 홈 화면에 설정되었습니다."); }} />}
+                                {moreSubView === 'camp_return_numbering' && (
+                                    <CampReturnNumberingView
+                                        onBack={() => setMoreSubView('main')}
+                                        onGoToProfile={() => {
+                                            setReturnToCampNumbering(true);
+                                            setAutoEditAccountProfile(true);
+                                            setMoreSubView('account');
+                                        }}
+                                        isDarkMode={isDarkMode}
+                                        user={user}
+                                        showMessage={showMessage}
+                                    />
+                                )}
                                 {moreSubView === 'average_settings' && (
   <AverageItemsView 
     isDarkMode={isDarkMode}
@@ -1297,7 +1493,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
             </div>
 
       {/* 👇 홈 화면이거나, 달력에서 특정 날짜를 콕 짚어서 들어온 경우(custom)에만 [입력] 버튼 표시 */}
-      {(activeContentTab === 'monthlyProfit' || (activeContentTab === 'dataEntry' && activeDataTab === 'list' && filters.period === 'custom')) && (
+      {(activeContentTab === 'bluecoinsDailySummary' || (activeContentTab === 'dataEntry' && activeDataTab === 'list' && filters.period === 'custom')) && (
                 <button 
                     onClick={(e) => {
                         e.stopPropagation();
@@ -1313,6 +1509,20 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 setDate(filters.startDate);
                             } else {
                                 setDate(getTodayLocal());
+                            }
+                        } else if (activeContentTab === 'bluecoinsDailySummary') {
+                            // 장부형에서 누른 경우: 현재 선택한 날짜로 새 입력창을 엽니다.
+                            if (isFabVisible) {
+                                setSelectedMainTab('data');
+                                setActiveContentTab('dataEntry');
+                                setActiveDataTab('entry');
+                                setEntryToEdit(null);
+                                setDate(bluecoinsSelectedDate || getTodayLocal());
+                                setUnitPrice('');
+                                setFormData({});
+                                setFormType('income');
+                            } else {
+                                setIsFabVisible(true);
                             }
                         } else {
                             // 홈 화면에서 누른 경우 (기존과 동일)
@@ -1369,7 +1579,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                     </button>
 
                     {/* ✨ 홈 버튼 클릭 시 handleResetToCurrentMonth() 추가 */}
-                    <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'home' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} onClick={() => { setSelectedMainTab('home'); setActiveContentTab('monthlyProfit'); handleResetToCurrentMonth(); }}>
+                    <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'home' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} onClick={() => { setSelectedMainTab('home'); setActiveContentTab('bluecoinsDailySummary'); handleResetToCurrentMonth(); }}>
                         <Home size={24} /> <span>홈</span>
                     </button>
                     <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'search' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} 
@@ -1441,6 +1651,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                 handleDelete={handleDelete}
                 currentUser={user}
                 teamId={profile?.organization_id}
+                registerBackHandler={registerDayOffBackHandler}
             /> 
         </div>
     );

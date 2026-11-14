@@ -1,17 +1,24 @@
-//src/
-//└── components/
-//    └── more/
-//        ├── MoreView.jsx         (새 파일 - 더보기 메인 메뉴)
-//        ├── AccountView.jsx      (새 파일 - 계정 관리)
-//        ├── DataSettingsView.jsx (새 파일 - 데이터 관리)
-//        ├── PeriodView.jsx       (새 파일 - 월별 집계 기간)
-//        └── UnitPriceView.jsx    (새 파일 - 즐겨찾는 단가)
-//        └── ExpenseSettingsView.js (새 파일 -지출 항목 관리 파일)
-// src/components/more/MoreView.js
-// src/components/more/MoreView.js
 import React from 'react';
-// ✨ Target 아이콘 추가
-import { ChevronRight, User, Users ,CircleDollarSign, CalendarDays, Database, HelpCircle, FileText, Sun, Moon, Bell, BookOpen, MessageSquare, CreditCard, Target, ShieldCheck, BarChart3 , LayoutDashboard, Calendar } from 'lucide-react';
+import {
+    ChevronRight,
+    User,
+    Users,
+    CircleDollarSign,
+    CalendarDays,
+    Database,
+    FileText,
+    Sun,
+    Moon,
+    BookOpen,
+    MessageSquare,
+    CreditCard,
+    Target,
+    ShieldCheck,
+    BarChart3,
+    Calendar,
+    Barcode
+} from 'lucide-react';
+
 const MenuItem = ({ icon, text, onClick, isDarkMode }) => (
     <button
         onClick={onClick}
@@ -25,59 +32,61 @@ const MenuItem = ({ icon, text, onClick, isDarkMode }) => (
     </button>
 );
 
+const MenuSection = ({ title, children }) => (
+    <section className="mb-3">
+        <h3 className="px-4 mb-1 text-xs font-bold text-gray-500 uppercase">{title}</h3>
+        <div className="space-y-1">{children}</div>
+    </section>
+);
+
 function MoreView({ onNavigate, isDarkMode, toggleDarkMode }) {
     return (
-        <div className="w-full max-w-4xl mx-auto">
+        <div className="w-full max-w-4xl mx-auto pb-4">
             <h2 className={`text-2xl font-bold mb-4 px-4 ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>더보기</h2>
-            
-            <div className="space-y-1">
+
+            <MenuSection title="계정 및 회사">
                 <MenuItem icon={<User size={24} />} text="계정 관리" onClick={() => onNavigate('account')} isDarkMode={isDarkMode} />
                 <MenuItem icon={<Calendar size={24} />} text="휴무 관리" onClick={() => onNavigate('dayOff')} isDarkMode={isDarkMode} />
                 <MenuItem icon={<Users size={24} />} text="팀 관리" onClick={() => onNavigate('team')} isDarkMode={isDarkMode} />
-                <MenuItem icon={<CircleDollarSign size={24} />} text="단가 설정" onClick={() => onNavigate('unitPrice')} isDarkMode={isDarkMode} />
-                <MenuItem icon={<CreditCard size={24} />} text="항목 관리" onClick={() => onNavigate('expenseSettings')} isDarkMode={isDarkMode} />
-                <MenuItem icon={<CalendarDays size={24} />} text="월별 집계 기간 설정" onClick={() => onNavigate('period')} isDarkMode={isDarkMode} />
-                 {/* 👇 목표 금액 설정 메뉴 추가 */}
-                <MenuItem icon={<Target size={24} />} text="목표 금액 설정" onClick={() => onNavigate('goal')} isDarkMode={isDarkMode} />
-                <MenuItem icon={<Database size={24} />} text="데이터 관리" onClick={() => onNavigate('data')} isDarkMode={isDarkMode} />
-            </div>
+            </MenuSection>
 
-            <hr className="my-4 border-gray-200 dark:border-gray-700" />
-            <p className="px-4 mb-1 text-sm text-gray-500 font-semibold">알림</p>
-            <div className="space-y-1">
-                <MenuItem icon={<LayoutDashboard size={24} />} text="홈 화면 설정" onClick={() => onNavigate('dashboard_settings')} isDarkMode={isDarkMode} />
+            <MenuSection title="업무 도구">
+                <MenuItem icon={<Barcode size={24} />} text="반품 채번 요청" onClick={() => onNavigate('camp_return_numbering')} isDarkMode={isDarkMode} />
+            </MenuSection>
+
+            <MenuSection title="배송 및 정산">
+                <MenuItem icon={<CircleDollarSign size={24} />} text="단가 설정" onClick={() => onNavigate('unitPrice')} isDarkMode={isDarkMode} />
+                <MenuItem icon={<CreditCard size={24} />} text="수익·지출 항목 관리" onClick={() => onNavigate('expenseSettings')} isDarkMode={isDarkMode} />
+                <MenuItem icon={<CalendarDays size={24} />} text="월별 집계 기간 설정" onClick={() => onNavigate('period')} isDarkMode={isDarkMode} />
+                <MenuItem icon={<Target size={24} />} text="목표 금액 설정" onClick={() => onNavigate('goal')} isDarkMode={isDarkMode} />
+                <MenuItem icon={<ShieldCheck size={24} />} text="보험사 설정" onClick={() => onNavigate('insurance')} isDarkMode={isDarkMode} />
+            </MenuSection>
+
+            <MenuSection title="장부 화면 설정">
+                <MenuItem icon={<BarChart3 size={24} />} text="홈 물량 설정" onClick={() => onNavigate('average_settings')} isDarkMode={isDarkMode} />
+                <MenuItem icon={<CalendarDays size={24} />} text="물량 달력 표시" onClick={() => onNavigate('calendar_volume_settings')} isDarkMode={isDarkMode} />
+            </MenuSection>
+
+            <MenuSection title="데이터 관리">
+                <MenuItem icon={<Database size={24} />} text="데이터 관리" onClick={() => onNavigate('data')} isDarkMode={isDarkMode} />
+            </MenuSection>
+
+            <MenuSection title="도움말 및 고객지원">
                 <MenuItem icon={<BookOpen size={24} />} text="배송 가이드" onClick={() => onNavigate('userGuide')} isDarkMode={isDarkMode} />
-            </div>
-<MenuItem icon={<ShieldCheck size={24} />} text="보험사 설정" onClick={() => onNavigate('insurance')} isDarkMode={isDarkMode} />
-<MenuItem icon={<BarChart3 size={24} />} text="홈 물량 설정" onClick={() => onNavigate('average_settings')} isDarkMode={isDarkMode} />
-            <hr className="my-4 border-gray-200 dark:border-gray-700" />
-            <p className="px-4 mb-1 text-sm text-gray-500 font-semibold">이용정보</p>
-            <div className="space-y-1">
                 <MenuItem icon={<FileText size={24} />} text="이용약관 및 법적고지" onClick={() => onNavigate('legalInfo')} isDarkMode={isDarkMode} />
-            </div>
-            
-            <hr className="my-4 border-gray-200 dark:border-gray-700" />
-            <p className="px-4 mb-1 text-sm text-gray-500 font-semibold">문의</p>
-            <div className="space-y-1">
                 <MenuItem icon={<MessageSquare size={24} />} text="의견 보내기" onClick={() => onNavigate('contact')} isDarkMode={isDarkMode} />
-           {/* ✨ 신규 추가: 카카오톡 1:1 문의 버튼 (기존 MenuItem과 디자인 100% 동일) */}
-                <a 
-                    href="http://pf.kakao.com/_SnnTX" 
-                    target="_blank" 
+                <a
+                    href="http://pf.kakao.com/_SnnTX"
+                    target="_blank"
                     rel="noopener noreferrer"
                     className={`w-full flex items-center justify-between p-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}
                 >
                     <div className="flex items-center flex-shrink-0 overflow-hidden">
-                        {/* 카카오톡 노란색 아이콘 */}
-                        <img 
-                            // 👇 중요! 프로젝트 내에 저장된 카카오톡 이미지 경로를 정확히 입력하세요.
-                            // 예: src/assets/kakao_icon.png 에 저장했다면 아래처럼 입력
-                            src={require('../../assets/kakao_icon.png')} 
+                        <img
+                            src={require('../../assets/kakao_icon.png')}
                             alt="카카오톡 문의"
-                            // 크기와 모양은 기존 메뉴들과 똑같이 핏을 맞춥니다.
                             className="w-6 h-6 rounded-lg object-contain flex-shrink-0 shadow-sm"
                         />
-                        {/* 텍스트 영역 */}
                         <div className="flex flex-col text-left ml-4">
                             <span className="font-medium whitespace-nowrap">카카오톡 1:1 문의</span>
                             <span className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5 break-keep">
@@ -85,11 +94,9 @@ function MoreView({ onNavigate, isDarkMode, toggleDarkMode }) {
                             </span>
                         </div>
                     </div>
-                    {/* 우측 화살표 아이콘 */}
                     <ChevronRight size={20} className="text-gray-400 flex-shrink-0" />
                 </a>
-         
-            </div>
+            </MenuSection>
 
             <div className="mt-6 p-4 flex items-center justify-between">
                 <div className={`flex items-center ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>
@@ -98,6 +105,7 @@ function MoreView({ onNavigate, isDarkMode, toggleDarkMode }) {
                 </div>
                 <button
                     onClick={toggleDarkMode}
+                    aria-label="다크 모드 전환"
                     className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${isDarkMode ? 'bg-blue-600' : 'bg-gray-300'}`}
                 >
                     <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${isDarkMode ? 'translate-x-6' : 'translate-x-1'}`} />

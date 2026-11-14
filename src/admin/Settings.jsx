@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdminData } from './contexts/DataContext';
+import { fetchMyVendorInfo } from '../services/teamService';
 
 const DEFAULT_REGION = '기본 지역';
 const getTeamRegion = (team) => team?.region || DEFAULT_REGION;
@@ -28,7 +29,7 @@ const getShiftLabel = (shift) => shift === 'night' ? '야간' : '주간';
 const normalizeName = (value) => String(value || '').trim().toLocaleLowerCase();
 
 export default function Settings({ onBack }) {
-    const { profile } = useAuth();
+const { user: currentUser, profile } = useAuth();
     const {
         teams = [],
         setTeams,
@@ -54,6 +55,44 @@ export default function Settings({ onBack }) {
     const [editing, setEditing] = useState(null);
     const [notice, setNotice] = useState('');
     const [addedTeamId, setAddedTeamId] = useState(null);
+
+    // 실제 업체 정보는 profile과 별도로 관리합니다.
+const [vendorInfo, setVendorInfo] = useState(null);
+
+// 서버에서 현재 사용자의 업체 정보를 조회합니다.
+useEffect(() => {
+    let isActive = true;
+
+    const loadVendorInfo = async () => {
+        if (!currentUser?.id) {
+            setVendorInfo(null);
+            return;
+        }
+
+        try {
+            const info = await fetchMyVendorInfo(currentUser.id);
+
+            if (isActive) {
+                setVendorInfo(info?.vendor ?? null);
+            }
+        } catch (error) {
+            console.error(
+                '[Settings] 업체 정보 조회 실패:',
+                error
+            );
+
+            if (isActive) {
+                setVendorInfo(null);
+            }
+        }
+    };
+
+    loadVendorInfo();
+
+    return () => {
+        isActive = false;
+    };
+}, [currentUser?.id]);
 
     const regionCardRefs = useRef({});
     const teamFormRefs = useRef({});
@@ -616,7 +655,9 @@ export default function Settings({ onBack }) {
                     <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
                         <div className="min-w-0">
                             <p className="text-sm font-bold text-slate-700">팀 초대 코드</p>
-                            <p className="mt-0.5 break-all text-lg font-black tracking-widest text-slate-800">{profile?.invite_code || '초대코드 없음'}</p>
+                     <p className="mt-0.5 break-all text-lg font-black tracking-widest text-slate-800">
+    {vendorInfo?.invite_code || '초대코드 없음'}
+</p>
                         </div>
                         <button type="button" onClick={() => window.alert('초대 코드 재발급은 서버 업데이트 로직 연결 후 사용할 수 있습니다.')} className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-50">
                             <RefreshCw size={14} /> 재발급

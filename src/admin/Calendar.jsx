@@ -25,7 +25,14 @@ import {
 } from 'lucide-react';
 import { generateWeeklySchedule } from './utils/schedulingEngine';
 import { useAdminData } from './contexts/DataContext';
+import { useAuth } from '../contexts/AuthContext';
+import {
+    fetchMyOrganizationWeeklySchedules,
+    saveMyOrganizationWeeklySchedule
+} from '../services/organizationScheduleService';
+import { fetchMyVendorInfo } from '../services/teamService';
 import RegionTeamDropdown from './RegionTeamDropdown';
+import ExtraDayOffRequestsPanel from './ExtraDayOffRequestsPanel';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const MONTH_WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'];
@@ -169,6 +176,39 @@ export default function Calendar({ onBack }) {
         fixedDaysOff = [],
         substituteWorkHistory = []
     } = useAdminData();
+    const { user, profile } = useAuth();
+    const [organizationId, setOrganizationId] = useState(profile?.organization_id || null);
+    const [organizationLookupStatus, setOrganizationLookupStatus] = useState(user?.id ? 'loading' : 'ready');
+
+    useEffect(function () {
+        if (!user?.id) {
+            setOrganizationId(null);
+            setOrganizationLookupStatus('ready');
+            return undefined;
+        }
+        if (profile?.organization_id) {
+            setOrganizationId(profile.organization_id);
+            setOrganizationLookupStatus('ready');
+            return undefined;
+        }
+
+        let isActive = true;
+        setOrganizationLookupStatus('loading');
+        fetchMyVendorInfo(user.id)
+            .then(function (info) {
+                if (!isActive) return;
+                setOrganizationId(info?.vendor?.id || null);
+                setOrganizationLookupStatus('ready');
+            })
+            .catch(function (error) {
+                console.error('회사 소속 정보를 확인하지 못했습니다.', error);
+                if (isActive) setOrganizationLookupStatus('error');
+            });
+
+        return function () {
+            isActive = false;
+        };
+    }, [user?.id, profile?.organization_id]);
 
     const [currentDate, setCurrentDate] = useState(function () { return new Date(); });
     const [selectedDay, setSelectedDay] = useState(function () { return new Date().getDate(); });
@@ -222,56 +262,186 @@ export default function Calendar({ onBack }) {
     }, [teams, selectedShift, selectedTeam]);
 
     useEffect(function () {
-        try {
-            const raw = localStorage.getItem(scheduleKey);
-            if (raw) {
-                const record = JSON.parse(raw);
-                setSavedRecord(record);
-                setGeneratedSchedule(record.schedule || {});
-                setWarnings(record.warnings || []);
-                setScheduleStatus(record.status === 'confirmed' ? 'confirmed' : 'saved');
-                return;
+        let isActive = true;
+
+        const applyRecord = function (record, status) {
+            if (!isActive) return;
+            setSavedRecord(record || null);
+            setGeneratedSchedule(record?.schedule || {});
+            setWarnings(record?.warnings || []);
+            setScheduleStatus(status);
+            setWarningsAcknowledged(false);
+        };
+
+        const loadSchedule = async function () {
+            let localRecord = null;
+            let legacyDraft = null;
+
+            try {
+                const raw = localStorage.getItem(scheduleKey);
+                if (raw) {
+                    localRecord = JSON.parse(raw);
+                } else {
+                    // 이전 버전의 월간 저장 자료가 있다면 현재 선택한 주만 가져옵니다.
+                    const legacyKey = 'my_schedule_' + String(selectedTeam) + '_' + monthKey;
+                    const legacyRaw = localStorage.getItem(legacyKey);
+                    if (legacyRaw) {
+                        const legacyRecord = JSON.parse(legacyRaw);
+                        const migratedWeek = {};
+                        weekDates.forEach(function (date) {
+                            if (date.getFullYear() !== year || date.getMonth() + 1 !== month) return;
+                            const oldDayRecord = legacyRecord.schedule && legacyRecord.schedule[date.getDate()];
+                            if (oldDayRecord && oldDayRecord.date === formatDate(date)) {
+                                migratedWeek[formatDate(date)] = oldDayRecord;
+                            }
+                        });
+                        if (Object.keys(migratedWeek).length > 0) {
+                            const migratedWarnings = (legacyRecord.warnings || []).filter(function (warning) {
+                                return weekDates.some(function (date) {
+                                    return String(warning).indexOf(formatDate(date)) >= 0;
+                                });
+                            });
+                            legacyDraft = {
+                                teamId: selectedTeam,
+                                weekStart: weekStartKey,
+                                schedule: migratedWeek,
+                                warnings: migratedWarnings,
+                                updatedAt: legacyRecord.updatedAt || null
+                            };
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('기기에 저장된 근무표를 불러오지 못했습니다.', error);
             }
 
-            // 이전 버전의 월간 저장 자료가 있다면 현재 선택한 주에 해당하는 날짜만 가져옵니다.
-            const legacyKey = 'my_schedule_' + String(selectedTeam) + '_' + monthKey;
-            const legacyRaw = localStorage.getItem(legacyKey);
-            if (legacyRaw) {
-                const legacyRecord = JSON.parse(legacyRaw);
-                const migratedWeek = {};
-                weekDates.forEach(function (date) {
-                    if (date.getFullYear() !== year || date.getMonth() + 1 !== month) return;
-                    const oldDayRecord = legacyRecord.schedule && legacyRecord.schedule[date.getDate()];
-                    if (oldDayRecord && oldDayRecord.date === formatDate(date)) {
-                        migratedWeek[formatDate(date)] = oldDayRecord;
-                    }
-                });
-                if (Object.keys(migratedWeek).length > 0) {
-                    setGeneratedSchedule(migratedWeek);
-                    const migratedWarnings = (legacyRecord.warnings || []).filter(function (warning) {
-                        return weekDates.some(function (date) {
-                            return String(warning).indexOf(formatDate(date)) >= 0;
-                        });
+            let sharedRecord = null;
+            if (user?.id && organizationId) {
+                try {
+                    const rows = await fetchMyOrganizationWeeklySchedules(
+                        formatDate(weekDates[0]),
+                        formatDate(weekDates[6])
+                    );
+                    const remote = rows.find(function (item) {
+                        return String(item.team_id) === String(selectedTeam) &&
+                            String(item.week_start) === weekStartKey;
                     });
-                    setWarnings(migratedWarnings);
-                    setSavedRecord(null);
-                    setScheduleStatus('generated');
-                    return;
+                    if (remote) {
+                        sharedRecord = {
+                            teamId: remote.team_id,
+                            teamLabel: remote.team_label,
+                            year: Number(String(remote.week_start).slice(0, 4)),
+                            month: Number(String(remote.week_start).slice(5, 7)),
+                            weekStart: remote.week_start,
+                            weekEnd: remote.week_end,
+                            status: remote.status,
+                            version: remote.version,
+                            updatedAt: remote.updated_at,
+                            confirmedAt: remote.confirmed_at,
+                            schedule: remote.schedule || {},
+                            employeeDetails: remote.employee_details || {},
+                            warnings: remote.warnings || [],
+                            sharedScheduleId: remote.id
+                        };
+                    }
+                } catch (error) {
+                    // 기존 로컬 근무표는 사용할 수 있게 두고, 공유 저장소 연결 오류만 기록합니다.
+                    console.warn('공유 근무표를 불러오지 못했습니다. Supabase 마이그레이션 적용 여부를 확인해주세요.', error);
                 }
             }
 
-            setGeneratedSchedule({});
-            setWarnings([]);
-            setSavedRecord(null);
-            setScheduleStatus('ready');
-        } catch (error) {
-            console.error('저장된 근무표를 불러오지 못했습니다.', error);
-            setGeneratedSchedule({});
-            setWarnings([]);
-            setSavedRecord(null);
-            setScheduleStatus('ready');
+            if (!isActive) return;
+
+            const localCandidate = localRecord || legacyDraft;
+            const localTime = localCandidate?.updatedAt ? Date.parse(localCandidate.updatedAt) : 0;
+            const remoteTime = sharedRecord?.updatedAt ? Date.parse(sharedRecord.updatedAt) : 0;
+            const useSharedRecord = Boolean(sharedRecord) &&
+                (!localCandidate || !Number.isFinite(localTime) || remoteTime >= localTime);
+
+            if (useSharedRecord) {
+                applyRecord(sharedRecord, sharedRecord.status === 'confirmed' ? 'confirmed' : 'saved');
+            } else if (localRecord) {
+                applyRecord(localRecord, localRecord.status === 'confirmed' ? 'confirmed' : 'saved');
+            } else if (legacyDraft) {
+                applyRecord(legacyDraft, 'generated');
+            } else {
+                applyRecord(null, 'ready');
+            }
+        };
+
+        loadSchedule();
+
+        return function () {
+            isActive = false;
+        };
+    }, [scheduleKey, monthKey, weekDates, year, month, selectedTeam, weekStartKey, user?.id, organizationId]);
+
+    // 직원 휴무 교환/추가휴무 승인으로 서버 근무표가 바뀌면 관리자 화면도 자동 동기화합니다.
+    useEffect(function () {
+        if (!organizationId || !user?.id || scheduleStatus !== 'confirmed' || !selectedTeam) {
+            return undefined;
         }
-    }, [scheduleKey, monthKey, weekDates, year, month, selectedTeam]);
+
+        let isActive = true;
+        const refreshConfirmedSchedule = async function () {
+            try {
+                const rows = await fetchMyOrganizationWeeklySchedules(
+                    formatDate(weekDates[0]),
+                    formatDate(weekDates[6])
+                );
+                const remote = rows.find(function (item) {
+                    return String(item.team_id) === String(selectedTeam) &&
+                        String(item.week_start) === weekStartKey &&
+                        item.status === 'confirmed';
+                });
+                if (!isActive || !remote ||
+                    Number(remote.version || 0) <= Number(savedRecord?.version || 0)) return;
+
+                const updatedRecord = {
+                    ...(savedRecord || {}),
+                    teamId: remote.team_id,
+                    teamLabel: remote.team_label,
+                    weekStart: remote.week_start,
+                    weekEnd: remote.week_end,
+                    status: 'confirmed',
+                    version: Number(remote.version || 1),
+                    updatedAt: remote.updated_at,
+                    confirmedAt: remote.confirmed_at,
+                    schedule: remote.schedule || {},
+                    employeeDetails: remote.employee_details || {},
+                    warnings: remote.warnings || [],
+                    sharedScheduleId: remote.id
+                };
+
+                try {
+                    localStorage.setItem(scheduleKey, JSON.stringify(updatedRecord));
+                } catch (storageError) {
+                    console.warn('변경된 근무표 사본을 저장하지 못했습니다.', storageError);
+                }
+                setSavedRecord(updatedRecord);
+                setGeneratedSchedule(updatedRecord.schedule);
+                setWarnings(updatedRecord.warnings);
+                setWarningsAcknowledged(true);
+            } catch (error) {
+                console.warn('서버 확정 근무표 새로고침 실패:', error);
+            }
+        };
+
+        refreshConfirmedSchedule();
+        const timer = window.setInterval(refreshConfirmedSchedule, 15000);
+        return function () {
+            isActive = false;
+            window.clearInterval(timer);
+        };
+    }, [
+        organizationId,
+        user?.id,
+        scheduleStatus,
+        selectedTeam,
+        weekStartKey,
+        scheduleKey,
+        savedRecord?.version
+    ]);
 
     const activeTeamEmployees = useMemo(function () {
         return employees.filter(function (employee) {
@@ -475,7 +645,56 @@ export default function Calendar({ onBack }) {
         }
     };
 
-    const handleConfirmSchedule = function () {
+    const buildEmployeeDetails = function () {
+        const details = {};
+        activeTeamEmployees.forEach(function (employee) {
+            const isBackup = getEmployeeType(employee) === 'sub';
+            const explicitRules = isBackup
+                ? substitutePermissions.filter(function (permission) {
+                    return String(permission.substitute_employee_id) === String(employee.id);
+                })
+                : [];
+            const target = String(employee.target || '').trim().toLowerCase();
+            const broadScopeWords = ['전지역', '전체', '모든', '백업', '대체', '팀 전체', 'all'];
+            const targetRestrictsRoutes = isBackup &&
+                explicitRules.length === 0 &&
+                Boolean(target) &&
+                !broadScopeWords.some(function (word) { return target.indexOf(word) >= 0; });
+
+            const allowedBaseIds = isBackup
+                ? explicitRules.length > 0
+                    ? explicitRules.map(function (permission) {
+                        return String(permission.base_employee_id);
+                    })
+                    : targetRestrictsRoutes
+                        ? activeTeamEmployees
+                            .filter(function (baseEmployee) {
+                                if (getEmployeeType(baseEmployee) !== 'base') return false;
+                                const routeName = getEmployeeRoute(baseEmployee, routes).toLowerCase();
+                                const baseName = String(baseEmployee.name || '').toLowerCase();
+                                return target.indexOf(baseName) >= 0 ||
+                                    (routeName && routeName !== '미지정' && target.indexOf(routeName) >= 0);
+                            })
+                            .map(function (baseEmployee) { return String(baseEmployee.id); })
+                        : []
+                : [];
+
+            details[String(employee.id)] = {
+                name: employee.name || '이름 미등록',
+                type: getEmployeeType(employee),
+                route: getEmployeeRoute(employee, routes),
+                target: employee.target || '',
+                shift: getShiftLabel(getTeamShift(selectedTeamRecord)),
+                teamId: String(selectedTeam),
+                teamLabel: getTeamDisplayName(selectedTeamRecord),
+                allowedBaseIds: allowedBaseIds,
+                restrictBaseIds: Boolean(explicitRules.length > 0 || targetRestrictsRoutes)
+            };
+        });
+        return details;
+    };
+
+    const handleConfirmSchedule = async function () {
         if (!selectedTeam) {
             window.alert('먼저 근무조에 속한 팀을 선택해주세요.');
             return;
@@ -490,6 +709,13 @@ export default function Calendar({ onBack }) {
         }
         if (!window.confirm('선택한 팀의 ' + formatDate(weekDates[0]) + ' ~ ' + formatDate(weekDates[6]) + ' 주간 근무표를 확정할까요?')) return;
 
+        if (user?.id && organizationLookupStatus !== 'ready') {
+            window.alert('회사 소속 정보를 확인하고 있습니다. 잠시 후 다시 확정해주세요.');
+            return;
+        }
+
+        const now = new Date().toISOString();
+        const employeeDetails = buildEmployeeDetails();
         const record = {
             teamId: selectedTeam,
             year: year,
@@ -498,29 +724,63 @@ export default function Calendar({ onBack }) {
             weekEnd: formatDate(weekDates[6]),
             status: 'confirmed',
             version: (savedRecord && savedRecord.version ? savedRecord.version : 0) + 1,
-            updatedAt: new Date().toISOString(),
-            confirmedAt: new Date().toISOString(),
+            updatedAt: now,
+            confirmedAt: now,
             schedule: generatedSchedule,
+            employeeDetails: employeeDetails,
             warnings: warnings
         };
 
+        if (organizationId) {
+            try {
+                const shared = await saveMyOrganizationWeeklySchedule({
+                    teamId: selectedTeam,
+                    teamLabel: getTeamDisplayName(selectedTeamRecord),
+                    weekStart: record.weekStart,
+                    weekEnd: record.weekEnd,
+                    status: 'confirmed',
+                    schedule: generatedSchedule,
+                    employeeDetails: employeeDetails,
+                    warnings: warnings
+                });
+                record.version = Number(shared?.version || record.version);
+                record.sharedScheduleId = shared?.id || null;
+                record.updatedAt = shared?.updated_at || now;
+                record.confirmedAt = shared?.confirmed_at || now;
+            } catch (error) {
+                console.error('공유 근무표 확정에 실패했습니다.', error);
+                window.alert(error?.message || '공유 근무표를 저장하지 못했습니다. 회사 관리자 권한과 Supabase 마이그레이션을 확인해주세요.');
+                return;
+            }
+        }
+
         try {
             localStorage.setItem(scheduleKey, JSON.stringify(record));
-            setSavedRecord(record);
-            setScheduleStatus('confirmed');
-            window.alert('근무표를 확정했습니다. 현재 버전은 이 기기의 브라우저에 저장되어 있습니다.');
         } catch (error) {
-            console.error('확정에 실패했습니다.', error);
-            window.alert('근무표 확정 내용을 저장하지 못했습니다.');
+            // 서버 확정이 완료된 경우 기기 저장 실패가 공유 근무표를 취소하지는 않습니다.
+            console.warn('기기 저장소에 근무표 사본을 저장하지 못했습니다.', error);
         }
+
+        setSavedRecord(record);
+        setScheduleStatus('confirmed');
+        window.alert(organizationId
+            ? '근무표를 확정했고 회사 직원용 앱에 공유했습니다.'
+            : '근무표를 확정했습니다. 회사에 소속되지 않은 계정이므로 이 기기에만 저장됩니다.');
     };
 
-    const handleReopenDraft = function () {
+    const handleReopenDraft = async function () {
         if (!selectedTeam) {
             window.alert('먼저 근무조에 속한 팀을 선택해주세요.');
             return;
         }
         if (!window.confirm('확정 상태를 해제하고 다시 초안으로 편집할 수 있도록 변경할까요?')) return;
+        if (user?.id && organizationLookupStatus !== 'ready') {
+            window.alert('회사 소속 정보를 확인하고 있습니다. 잠시 후 다시 시도해주세요.');
+            return;
+        }
+
+        const now = new Date().toISOString();
+        const employeeDetails = buildEmployeeDetails();
         const record = {
             teamId: selectedTeam,
             year: year,
@@ -529,19 +789,45 @@ export default function Calendar({ onBack }) {
             weekEnd: formatDate(weekDates[6]),
             status: 'draft',
             version: (savedRecord && savedRecord.version ? savedRecord.version : 0) + 1,
-            updatedAt: new Date().toISOString(),
+            updatedAt: now,
             confirmedAt: null,
             schedule: generatedSchedule,
+            employeeDetails: employeeDetails,
             warnings: warnings
         };
+
+        if (organizationId) {
+            try {
+                const shared = await saveMyOrganizationWeeklySchedule({
+                    teamId: selectedTeam,
+                    teamLabel: getTeamDisplayName(selectedTeamRecord),
+                    weekStart: record.weekStart,
+                    weekEnd: record.weekEnd,
+                    status: 'draft',
+                    schedule: generatedSchedule,
+                    employeeDetails: employeeDetails,
+                    warnings: warnings
+                });
+                record.version = Number(shared?.version || record.version);
+                record.sharedScheduleId = shared?.id || null;
+                record.updatedAt = shared?.updated_at || now;
+            } catch (error) {
+                console.error('공유 근무표 확정 해제에 실패했습니다.', error);
+                window.alert(error?.message || '공유 근무표 상태를 변경하지 못했습니다.');
+                return;
+            }
+        }
+
         try {
             localStorage.setItem(scheduleKey, JSON.stringify(record));
-            setSavedRecord(record);
-            setScheduleStatus('saved');
         } catch (error) {
-            console.error('근무표 상태 변경에 실패했습니다.', error);
-            window.alert('확정 상태를 변경하지 못했습니다.');
+            console.warn('기기 저장소에 근무표 사본을 저장하지 못했습니다.', error);
         }
+        setSavedRecord(record);
+        setScheduleStatus('saved');
+        window.alert(profile?.organization_id
+            ? '확정을 해제했습니다. 직원 앱에는 확정되지 않은 일정으로 표시됩니다.'
+            : '확정을 해제했습니다.');
     };
 
     const handleToggleOff = function (employee, date) {
@@ -895,9 +1181,44 @@ export default function Calendar({ onBack }) {
                     </div>
                     <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2 py-1.5 text-[10px] leading-4 text-amber-800">
                         <AlertCircle size={13} className="shrink-0" />
-                        <p>이 기기에 저장 · 직원 기기 간 서버 동기화는 미연결</p>
+                        <p>{organizationId
+                            ? '회사 서버에 저장 · 직원 앱에 자동 공유'
+                            : '이 기기에만 저장 · 회사 서버 공유는 사용하지 않음'}</p>
                     </div>
                 </section>
+
+                {organizationId && selectedTeam && (
+                    <ExtraDayOffRequestsPanel
+                        teamId={selectedTeam}
+                        onScheduleUpdated={function (result) {
+                            if (!result ||
+                                String(result.team_id) !== String(selectedTeam) ||
+                                String(result.week_start) !== weekStartKey) return;
+
+                            const updatedRecord = {
+                                ...(savedRecord || {}),
+                                teamId: result.team_id,
+                                weekStart: result.week_start,
+                                weekEnd: formatDate(weekDates[6]),
+                                status: 'confirmed',
+                                version: Number(result.version || 1),
+                                updatedAt: new Date().toISOString(),
+                                schedule: result.schedule || {},
+                                warnings: result.warnings || warnings
+                            };
+                            try {
+                                localStorage.setItem(scheduleKey, JSON.stringify(updatedRecord));
+                            } catch (error) {
+                                console.warn('변경된 근무표 사본을 저장하지 못했습니다.', error);
+                            }
+                            setSavedRecord(updatedRecord);
+                            setGeneratedSchedule(updatedRecord.schedule);
+                            setWarnings(updatedRecord.warnings);
+                            setScheduleStatus('confirmed');
+                            setWarningsAcknowledged(true);
+                        }}
+                    />
+                )}
 
                 {!isSelectedTeamCollapsed && (
                 <section className="mx-auto grid w-full max-w-4xl grid-cols-3 gap-2 sm:gap-3">

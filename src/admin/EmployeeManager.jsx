@@ -1,5 +1,6 @@
 // src/admin/EmployeeManager.jsx
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { fetchMyVendorInfo } from '../services/teamService';
 import { Users, Truck, ArrowLeft, UserPlus, X, Copy, CheckCircle2, Plus, Search, ChevronDown } from 'lucide-react';
 import BiweeklyPairManager from './BiweeklyPairManager';
 import RegionTeamDropdown from './RegionTeamDropdown';
@@ -15,12 +16,51 @@ const getTeamShift = (team) => {
 };
 const getTeamLabel = (team) => team ? [getTeamRegion(team), getTeamShift(team), team.name].join(' · ') : '미배정';
 
+
 export default function EmployeeManager({ onBack }) {
-    const { profile } = useAuth();
+    const { user: currentUser, profile } = useAuth();
+
+    const [vendorInfo, setVendorInfo] = useState(null);
+
+    useEffect(() => {
+        let isActive = true;
+
+        const loadVendorInfo = async () => {
+            if (!currentUser?.id) {
+                setVendorInfo(null);
+                return;
+            }
+
+            try {
+                const info = await fetchMyVendorInfo(currentUser.id);
+
+                if (isActive) {
+                    setVendorInfo(info?.vendor ?? null);
+                }
+            } catch (error) {
+                console.error(
+                    '[EmployeeManager] 업체 정보 조회 실패:',
+                    error
+                );
+
+                if (isActive) {
+                    setVendorInfo(null);
+                }
+            }
+        };
+
+        loadVendorInfo();
+
+        return () => {
+            isActive = false;
+        };
+    }, [currentUser?.id]);
+
     const {
         employees = [],
         teams = [],
         routes = [],
+        memberSyncStatus = 'idle',
         setEmployees,
         setRoutes,
         updateEmployee
@@ -122,7 +162,7 @@ export default function EmployeeManager({ onBack }) {
         const match = String(safeEmployee.pattern).match(/[1-6]/);
         setWorkDays(match ? Number(match[0]) : 5);
         setEditType(safeEmployee.type);
-        setEditTeamId(safeEmployee.team_id || teams[0]?.id || '');
+        setEditTeamId(safeEmployee.accountMember ? (safeEmployee.team_id ?? '') : (safeEmployee.team_id || teams[0]?.id || ''));
         const assignedRouteIds = routes
             .filter((route) =>
                 String(route.assigned_emp_id) === String(safeEmployee.id) &&
@@ -211,6 +251,9 @@ export default function EmployeeManager({ onBack }) {
             ...selectedEmployee,
             id: employeeId,
             name,
+            nameManuallyEdited: selectedEmployee.accountMember
+                ? name !== String(selectedEmployee.accountDisplayName || selectedEmployee.name || '').trim()
+                : selectedEmployee.nameManuallyEdited,
             team_id: newTeamId,
             type: newType,
             pattern: finalPattern,
@@ -292,7 +335,7 @@ export default function EmployeeManager({ onBack }) {
     };
 
     const copyInviteCode = () => {
-        const code = profile?.invite_code;
+        const code = vendorInfo?.invite_code;
         if (!code) {
             window.alert('등록된 초대 코드가 없습니다.');
             return;
@@ -329,7 +372,17 @@ export default function EmployeeManager({ onBack }) {
                     <div className="flex items-start justify-between gap-3">
                         <div>
                             <h2 className="text-sm font-black text-slate-800">직원 현황</h2>
-                            <p className="mt-0.5 text-xs text-slate-500">팀·직군·노선 배정 상태를 함께 확인하세요.</p>
+                            <p className="mt-0.5 text-xs text-slate-500">
+                                팀 가입 계정은 자동으로 표시됩니다. 근무팀과 노선은 직원별로 설정하세요.
+                            </p>
+                            {memberSyncStatus === 'loading' && (
+                                <p className="mt-1 text-xs text-indigo-600">팀 가입 계정을 불러오는 중...</p>
+                            )}
+                            {memberSyncStatus === 'error' && (
+                                <p className="mt-1 text-xs font-semibold text-red-600">
+                                    팀 가입 계정을 불러오지 못했습니다. 네트워크 또는 서버 권한을 확인하세요.
+                                </p>
+                            )}
                         </div>
                         <span className="shrink-0 rounded-lg bg-indigo-50 px-2 py-1 text-xs font-black text-indigo-700">{employees.length}명</span>
                     </div>
@@ -397,6 +450,11 @@ export default function EmployeeManager({ onBack }) {
                                 <span className="min-w-0">
                                     <span className="flex flex-wrap items-center gap-1 font-bold text-slate-800">
                                         {employee.name}
+                                        {employee.accountMember && (
+                                            <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-black text-sky-700">
+                                                {employee.organizationMember === false ? '팀 탈퇴 계정' : '앱 계정'}
+                                            </span>
+                                        )}
                                         <span className="text-xs font-medium text-slate-400">· {teamName}</span>
                                         {String(employee.id) === String(profile?.id) && <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-black text-green-700">나</span>}
                                     </span>
@@ -406,7 +464,7 @@ export default function EmployeeManager({ onBack }) {
                                 </span>
                             </span>
                             <span className="flex shrink-0 flex-col items-end gap-1">
-                                <span className={'rounded-lg px-2 py-1 text-[10px] font-black ' + (isInactive ? 'bg-slate-100 text-slate-500' : isUnassignedBase ? 'bg-rose-50 text-rose-700' : type === 'sub' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700')}>{isInactive ? '비활성' : isUnassignedBase ? '배정 필요' : type === 'sub' ? '백업' : '배정 완료'}</span>
+                                <span className={'rounded-lg px-2 py-1 text-[10px] font-black ' + (isInactive ? 'bg-slate-100 text-slate-500' : isUnassignedBase ? 'bg-rose-50 text-rose-700' : type === 'sub' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700')}>{isInactive ? (employee.accountMember && employee.organizationMember === false ? '팀 탈퇴' : '비활성') : isUnassignedBase ? '배정 필요' : type === 'sub' ? '백업' : '배정 완료'}</span>
                                 <span className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">{employee.pattern || employee.work_pattern || DEFAULT_PATTERN}</span>
                             </span>
                         </button>
@@ -441,7 +499,7 @@ export default function EmployeeManager({ onBack }) {
                         <div className="space-y-4 p-4">
                             <p className="text-sm text-gray-500">앱에 가입할 팀원에게 아래 코드를 전달하세요.</p>
                             <div className="flex items-center justify-between gap-2 rounded-xl bg-gray-100 p-3">
-                                <span className="break-all text-lg font-black tracking-widest">{profile?.invite_code || '초대코드 없음'}</span>
+                                <span className="break-all text-lg font-black tracking-widest">{vendorInfo?.invite_code || '초대코드 없음'}</span>
                                 <button onClick={copyInviteCode} className="shrink-0 rounded-lg bg-indigo-50 p-2 text-indigo-600"><Copy size={18} /></button>
                             </div>
                         </div>
