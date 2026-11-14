@@ -312,11 +312,16 @@ function suggestMapping(questions: FormQuestion[]) {
     .filter((question) =>
       question.required &&
       !mappedIds.has(question.entry_id) &&
-      question.choices.some((choice) => /채번\s*요청/.test(choice))
+      (
+        question.choices.some((choice) => /채번\s*요청/.test(choice)) ||
+        question.choices.length === 1
+      )
     )
     .map((question) => ({
       entry_id: question.entry_id,
-      value: question.choices.find((choice) => /채번\s*요청/.test(choice)) ?? "채번 요청",
+      value: question.choices.find((choice) => /채번\s*요청/.test(choice)) ??
+        question.choices[0] ??
+        "채번 요청",
     }));
 
   return {
@@ -374,12 +379,15 @@ function inferCampName(
       .filter(Boolean),
   ));
 
+  // Use the options of a camp-related question as a fallback only when they
+  // resolve to one distinct value. Mobile-camp options often look like
+  // "학천MB" or "농소MB" and do not necessarily contain the word "캠프".
   const campChoiceCandidates = Array.from(new Set(
     questions
       .filter(question => /(요청\s*캠프|캠프명|캠프|거점)/i.test(question.label))
       .flatMap(question => question.choices)
       .map(value => value.trim())
-      .filter(value => /캠프/i.test(value)),
+      .filter(Boolean),
   ));
 
   // A single explicit camp name in the form title takes precedence over the
@@ -494,18 +502,38 @@ Deno.serve(async (request) => {
     const title = getFormTitle(html);
     const mapping = suggestMapping(questions);
     const inferredCamp = inferCampName(title, questions);
-    if (!campName) campName = inferredCamp.campName;
+    // A clear camp name immediately before "반품" in the form title is the
+    // source of truth. A caller-supplied value must not override that title.
+    if (inferredCamp.source === "title" || !campName) {
+      campName = inferredCamp.campName;
+    }
 
-    const requiredCampQuestion = questions.some(
-      (question) =>
-        question.required &&
-        /(요청\s*캠프|캠프|거점)/i.test(question.label),
+    const isCampQuestion = (question: FormQuestion) =>
+      /(요청\s*캠프|캠프|거점)/i.test(question.label);
+    const requiredCampQuestions = questions.filter(
+      (question) => question.required && isCampQuestion(question),
+    );
+    const mappedIds = new Set([
+      mapping.invoice_entry_id,
+      mapping.driver_id_entry_id,
+      mapping.quantity_entry_id,
+      mapping.camp_entry_id,
+      ...mapping.static_fields.map((field) => field.entry_id),
+    ].filter(Boolean));
+    const campMappingIsValid = requiredCampQuestions.length === 0 ||
+      requiredCampQuestions.some(
+        (question) => question.entry_id === mapping.camp_entry_id,
+      );
+    const unresolvedRequiredQuestions = questions.filter(
+      (question) => question.required && !mappedIds.has(question.entry_id),
     );
     const ready = Boolean(
+      campName &&
       mapping.invoice_entry_id &&
       mapping.driver_id_entry_id &&
       mapping.quantity_entry_id &&
-      (!requiredCampQuestion || mapping.camp_entry_id)
+      campMappingIsValid &&
+      unresolvedRequiredQuestions.length === 0
     );
 
     await writeReport({
