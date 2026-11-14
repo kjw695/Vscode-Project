@@ -144,7 +144,13 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
             const defaultCamp = CAMPS.includes(profile?.default_camp) ? profile.default_camp : CAMPS[0];
             const preferredRegionalForm = availableForms.find(form => form.id === preferredFormSelection) || null;
             const preferredCampChoices = getRegionalCampChoices(preferredRegionalForm);
-            const savedMobileCamp = String(profile?.default_mobile_camp || '').trim();
+            const latestRecordFormId = latestFormKey.startsWith('regional:')
+                ? latestFormKey.slice('regional:'.length)
+                : '';
+            const lastRecordedMobileCamp = latestRecordFormId === preferredRegionalForm?.id
+                ? String(latestRecord?.camp || '').trim()
+                : '';
+            const savedMobileCamp = String(profile?.default_mobile_camp || lastRecordedMobileCamp).trim();
             const configuredMobileCamp = String(preferredRegionalForm?.field_map?.camp_choice_value || '').trim();
             let preferredMobileCamp = '';
 
@@ -174,7 +180,8 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
             if (!profile && preferredFormSelection) {
                 saveCampReturnProfile(userId, {
                     defaultCamp,
-                    defaultFormId: preferredFormSelection === CHUNGJU_FORM_OPTION ? null : preferredFormSelection
+                    defaultFormId: preferredFormSelection === CHUNGJU_FORM_OPTION ? null : preferredFormSelection,
+                    defaultMobileCamp: preferredFormSelection === CHUNGJU_FORM_OPTION ? null : preferredMobileCamp
                 }).catch(error => {
                     console.warn('[CampReturnNumbering] 기존 양식 선택 복원 실패:', error);
                 });
