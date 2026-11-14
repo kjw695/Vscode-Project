@@ -664,7 +664,13 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                                         ['운송장번호', form.field_map?.invoice_entry_id],
                                         ['기사님 아이디', form.field_map?.driver_id_entry_id],
                                         ['채번 수량', form.field_map?.quantity_entry_id],
-                                        ['요청 캠프', form.field_map?.camp_entry_id]
+                                        ['요청 캠프', form.field_map?.camp_entry_id],
+                                        ...(Array.isArray(form.field_map?.static_fields)
+                                            ? form.field_map.static_fields.map(field => [
+                                                getMappedQuestionLabel(form, field.entry_id),
+                                                field.entry_id
+                                            ])
+                                            : [])
                                     ].filter(([, entryId]) => Boolean(entryId));
 
                                     return (
