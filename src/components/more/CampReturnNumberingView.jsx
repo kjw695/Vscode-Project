@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ExternalLink, ClipboardCheck, History, AlertCircle } from 'lucide-react';
+import { ArrowLeft, ExternalLink, ClipboardCheck, History, AlertCircle, Link2 } from 'lucide-react';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import {
@@ -16,6 +16,7 @@ import CampReturnFormManager from './CampReturnFormManager';
 
 const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSd8kBLT6B5iGSTLuG5yyMCbuCJ5l1e5qYpEqbUdtbtCSwUZqg/viewform';
 const CAMPS = ['학천MB', '농소MB'];
+const CHUNGJU_FORM_OPTION = 'chungju_default';
 
 function buildPrefilledFormUrl({ invoiceText, driverId, quantity, camp }) {
     const url = new URL(FORM_URL);
@@ -107,36 +108,41 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
             setDriverId(userId ? accountDriverId : fetchGuestDriverId());
             const availableForms = Array.isArray(forms) ? forms : [];
             const savedDefaultForm = availableForms.find(form => form.id === profile?.default_form_id) || null;
-            const newestForm = availableForms[0] || null;
-            const preferenceUpdatedAt = profile?.updated_at ? Date.parse(profile.updated_at) : 0;
-            const newestFormUpdatedAt = newestForm
-                ? Date.parse(newestForm.updated_at || newestForm.created_at || '')
-                : 0;
-            const newestFormAddedAfterPreference = Boolean(newestForm) && (
-                !profile?.updated_at ||
-                !Number.isFinite(preferenceUpdatedAt) ||
-                (Number.isFinite(newestFormUpdatedAt) && newestFormUpdatedAt > preferenceUpdatedAt)
-            );
-            const shouldUseNewestForm = Boolean(newestForm) && (
-                Boolean(profile?.default_form_id) && !savedDefaultForm
-                    ? true
-                    : !profile?.default_form_id && newestFormAddedAfterPreference
-            );
-            const preferredRegionalForm = savedDefaultForm
-                || (shouldUseNewestForm ? newestForm : null);
+            const latestRecord = Array.isArray(history) ? history[0] : null;
+            const latestFormKey = String(latestRecord?.form_key || '');
+            const lastUsedRegionalForm = latestFormKey.startsWith('regional:')
+                ? availableForms.find(form => form.id === latestFormKey.slice('regional:'.length)) || null
+                : null;
 
-            setCamp(CAMPS.includes(profile?.default_camp) ? profile.default_camp : CAMPS[0]);
+            // Existing users keep their saved selection. A new user with no profile/history starts unselected.
+            let preferredFormSelection = '';
+            if (profile) {
+                if (profile.default_form_id) {
+                    preferredFormSelection = savedDefaultForm?.id || '';
+                } else {
+                    // A profile with no regional form was created by the previous Chungju flow.
+                    preferredFormSelection = CHUNGJU_FORM_OPTION;
+                }
+            } else if (lastUsedRegionalForm) {
+                preferredFormSelection = lastUsedRegionalForm.id;
+            } else if (latestRecord && !latestFormKey.startsWith('regional:')) {
+                // Restore the former built-in form for users whose profile row is missing.
+                preferredFormSelection = CHUNGJU_FORM_OPTION;
+            }
+
+            const defaultCamp = CAMPS.includes(profile?.default_camp) ? profile.default_camp : CAMPS[0];
+            setCamp(defaultCamp);
             setRegionalForms(availableForms);
-            setSelectedRegionalFormId(preferredRegionalForm?.id || '');
+            setSelectedRegionalFormId(preferredFormSelection);
             setRecords(history);
 
-            // Migrate older accounts: remember an already-registered or previously used regional form.
-            if (userId && preferredRegionalForm && preferredRegionalForm.id !== profile?.default_form_id) {
+            // Restore the selection inferred from an older request history when no profile exists.
+            if (!profile && preferredFormSelection) {
                 saveCampReturnProfile(userId, {
-                    defaultCamp: CAMPS.includes(profile?.default_camp) ? profile.default_camp : CAMPS[0],
-                    defaultFormId: preferredRegionalForm.id
+                    defaultCamp,
+                    defaultFormId: preferredFormSelection === CHUNGJU_FORM_OPTION ? null : preferredFormSelection
                 }).catch(error => {
-                    console.warn('[CampReturnNumbering] 기본 양식 선택 자동 저장 실패:', error);
+                    console.warn('[CampReturnNumbering] 기존 양식 선택 복원 실패:', error);
                 });
             }
             setStorageNotice(userId
@@ -173,6 +179,8 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
         ...regionalForms.map(form => form.camp_name)
     ])];
     const selectedRegionalForm = regionalForms.find(form => form.id === selectedRegionalFormId) || null;
+    const isChungjuDefault = selectedRegionalFormId === CHUNGJU_FORM_OPTION;
+    const hasSelectedForm = Boolean(selectedRegionalForm || isChungjuDefault);
 
     const panelClass = isDark
         ? 'bg-gray-800 border-gray-700 text-gray-100'
@@ -197,7 +205,11 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
             showMessage?.('채번 수량은 1 이상의 숫자로 입력해주세요.');
             return;
         }
-        if (!selectedRegionalForm && !CAMPS.includes(camp)) {
+        if (!hasSelectedForm) {
+            showMessage?.('먼저 사용할 채번 양식을 선택해주세요. 소속 캠프 양식을 등록하거나 청주 기본 양식을 선택할 수 있습니다.');
+            return;
+        }
+        if (isChungjuDefault && !CAMPS.includes(camp)) {
             showMessage?.('요청 캠프를 선택해주세요.');
             return;
         }
@@ -299,6 +311,24 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
             )}
 
             <section className={`rounded-2xl border p-4 mb-4 ${panelClass}`}>
+                <div className="flex items-center gap-2 mb-2">
+                    <Link2 size={18} className="text-blue-500" />
+                    <h3 className="font-bold">캠프 양식 등록 / 관리</h3>
+                </div>
+                <p className={`text-sm leading-5 mb-3 ${mutedClass}`}>
+                    소속 캠프에서 사용하는 Google Forms 링크를 등록하세요. 등록한 양식은 다음부터 자동으로 선택됩니다.
+                    {regionalForms.length > 0 ? ` 현재 등록된 캠프 양식 ${regionalForms.length}개.` : ' 아직 등록된 캠프 양식이 없습니다.'}
+                </p>
+                <button
+                    type="button"
+                    onClick={() => setShowFormManager(true)}
+                    className="w-full rounded-xl bg-blue-600 text-white px-3 py-3 text-sm font-semibold flex items-center justify-center gap-2"
+                >
+                    <Link2 size={16} /> 양식 등록 / 관리
+                </button>
+            </section>
+
+            <section className={`rounded-2xl border p-4 mb-4 ${panelClass}`}>
                 <h3 className="font-bold mb-3">채번 요청 정보</h3>
                 <div className="space-y-3">
                     <div>
@@ -398,37 +428,36 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                             onChange={event => setSelectedRegionalFormId(event.target.value)}
                             className={inputClass}
                         >
-                            <option value="">청주 기본 양식</option>
+                            <option value="">양식을 선택해주세요</option>
+                            <option value={CHUNGJU_FORM_OPTION}>청주 기본 양식</option>
                             {regionalForms.map(form => (
                                 <option key={form.id} value={form.id}>{form.camp_name}</option>
                             ))}
                         </select>
+                        {!hasSelectedForm ? (
+                            <p className={`text-xs mt-2 leading-5 ${mutedClass}`}>
+                                아직 양식이 선택되지 않았습니다. 위에서 소속 캠프 양식을 등록하거나, 기존 청주 기본 양식을 직접 선택해주세요.
+                            </p>
+                        ) : null}
                     </div>
-                    {!selectedRegionalForm ? (
+                    {isChungjuDefault ? (
                         <div>
                             <label className="block text-sm font-semibold mb-1.5">요청 모바일 캠프</label>
                             <select value={camp} onChange={event => setCamp(event.target.value)} className={inputClass}>
                                 {CAMPS.map(item => <option key={item} value={item}>{item}</option>)}
                             </select>
                         </div>
-                    ) : (
+                    ) : selectedRegionalForm ? (
                         <div className={`rounded-xl border p-3 ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
                             <p className="text-sm font-semibold">{selectedRegionalForm.camp_name}</p>
                             <p className={`text-xs mt-1 ${mutedClass}`}>{selectedRegionalForm.form_title || '등록된 지역 Google Forms 양식'}</p>
                         </div>
-                    )}
-                    <button
-                        type="button"
-                        onClick={() => setShowFormManager(true)}
-                        className={`w-full rounded-xl border px-3 py-2.5 text-sm font-semibold ${isDark ? 'border-gray-700 text-gray-200 hover:bg-gray-900' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}
-                    >
-                        타지역 캠프 양식 등록 / 관리
-                    </button>
+                    ) : null}
                     <div className="pt-1">
                         <button
                             type="button"
                             onClick={handleOpenForm}
-                            disabled={saving || loading || !driverId.trim()}
+                            disabled={saving || loading || !driverId.trim() || !hasSelectedForm}
                             className="w-full rounded-xl bg-blue-600 text-white px-3 py-3 text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                             <ExternalLink size={16} /> 설문지 자동 입력
