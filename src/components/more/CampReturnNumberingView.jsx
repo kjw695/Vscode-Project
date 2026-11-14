@@ -41,7 +41,7 @@ function buildRegionalPrefilledFormUrl(form, request) {
     setEntry(mapping.invoice_entry_id, request.invoiceText);
     setEntry(mapping.driver_id_entry_id, request.driverId);
     setEntry(mapping.quantity_entry_id, String(request.quantity));
-    setEntry(mapping.camp_entry_id, request.camp);
+    setEntry(mapping.camp_entry_id, mapping.camp_choice_value || request.camp);
 
     (Array.isArray(mapping.static_fields) ? mapping.static_fields : []).forEach(field => {
         setEntry(field?.entry_id, field?.value);
