@@ -1,0 +1,90 @@
+# 타지역 반품 채번 Google Forms 등록
+
+## 이번 변경 범위
+
+- 기존 청주 기본 양식 URL과 entry 번호는 변경하지 않습니다.
+- 로그인 사용자는 본인 캠프의 공개 Google Forms 링크를 등록할 수 있습니다.
+- 서버 함수가 Google Forms 공개 페이지에서 문항명, entry 번호, 필수 여부, 선택값을 추출합니다.
+- 운송장번호, 기사님 아이디, 채번 수량을 자동으로 연결하고, 캠프 문항이 필수이면 캠프 항목도 반드시 연결하도록 합니다.
+- 자동 분석이 모호하거나 실패하면 사용자가 문항을 직접 연결할 수 있습니다.
+- 링크 분석 성공, 수동 연결 필요, 분석 실패 내역을 운영자 접수함에 저장합니다.
+- 운영자는 기존 채번 화면의 '타지역 캠프 양식 등록 / 관리'에서 '전체 캠프 링크 접수 내역'을 확인합니다.
+
+## 배포 순서
+
+1. 코드 브랜치를 체크아웃합니다.
+
+   ```bash
+   git fetch origin
+   git switch feature/regional-camp-return-forms
+   ```
+
+2. Supabase 프로젝트가 올바른 프로젝트인지 확인한 뒤 마이그레이션을 적용합니다.
+
+   ```bash
+   supabase link --project-ref <YOUR_PROJECT_REF>
+   supabase db push
+   ```
+
+   또는 Supabase Dashboard > SQL Editor에서
+   `supabase/migrations/20261114_regional_camp_return_forms.sql` 전체를 실행합니다.
+
+3. Edge Function을 배포합니다.
+
+   ```bash
+   supabase functions deploy analyze-camp-return-form
+   ```
+
+   Supabase의 기본 환경변수 `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+   `SUPABASE_SERVICE_ROLE_KEY`를 사용합니다. 이 키를 앱의 프론트엔드 코드에 넣으면 안 됩니다.
+
+4. 빌드와 앱 테스트를 진행합니다.
+
+   ```bash
+   npm run build
+   npx cap sync android
+   ```
+
+## 운영자 계정
+
+마이그레이션은 제공된 Google Forms HTML에 표시된 계정
+`kjw891224@gmail.com`을 최초 운영자로 등록합니다. 실제 앱의 Supabase 로그인 이메일이
+다르면 마이그레이션의 이메일을 앱 운영자 계정으로 변경한 다음 적용하거나,
+Supabase SQL Editor에서 해당 운영자의 `auth.users.id`를
+`public.camp_return_form_admins`에 등록해야 합니다.
+
+운영자 목록 테이블은 앱에서 직접 조회할 수 없으며,
+`is_camp_return_form_admin()` RPC를 통해서만 운영자 여부를 확인합니다.
+
+## 앱 사용 방법
+
+1. 앱에 로그인합니다.
+2. 더보기 > 반품 채번 요청으로 이동합니다.
+3. '타지역 캠프 양식 등록 / 관리'를 누릅니다.
+4. 캠프명과 공개 Google Forms 보기 링크를 입력하고 '링크 분석 및 입력 항목 찾기'를 누릅니다.
+5. 분석 결과의 entry 연결을 확인합니다. 자동 연결이 잘못되었거나 누락된 문항은 직접 선택합니다.
+6. '이 캠프 양식 등록'을 누릅니다.
+7. 기존 반품 채번 화면으로 돌아와 '사용할 채번 양식'에서 등록한 캠프를 선택합니다.
+
+## 현재 분석 대상 및 제한
+
+- 현재는 공개된 Google Forms의 `https://docs.google.com/forms/d/e/<form-id>/viewform`
+  또는 `/forms/u/<n>/d/e/<form-id>/viewform` 형태를 지원합니다.
+- `forms.gle` 단축 링크, 로그인/권한이 필요한 비공개 양식, Google Forms 이외의 폼은 지원하지 않습니다.
+- 문항명이 모호하거나 같은 역할의 항목이 여러 개면 자동 연결하지 않고 직접 확인하도록 합니다.
+- HTML 문항 구조가 바뀌면 자동 분석이 실패할 수 있습니다. 이 경우 운영자 접수함에 링크와 오류 메시지가 저장됩니다.
+- 양식 제출은 기존 동작과 동일하게 Google Forms가 열린 뒤 사용자가 내용을 확인하고 직접 제출합니다. 앱이 Google Forms의 최종 제출 성공이나 송장 발급 결과를 확인하지는 않습니다.
+- 운영자 접수함은 최근 100건을 표시합니다. 접수 기록에는 링크, 캠프명, 등록자 이메일, 양식 제목, 분석된 문항/entry 번호, 분석 상태와 오류가 저장되며 Google Forms 원본 HTML은 저장하지 않습니다.
+
+## 예시: M진천1캠프
+
+사용자가 제공한 양식 구조라면 예상되는 연결은 다음과 같습니다.
+
+| 항목 | entry 번호 |
+|---|---:|
+| 운송장번호 | 697011792 |
+| 기사님 아이디 | 1887682621 |
+| 채번 수량 | 778812706 |
+| 요청 캠프 | 744523999 |
+
+요청 캠프 문항이 필수이므로 저장할 때 반드시 연결해야 합니다.
