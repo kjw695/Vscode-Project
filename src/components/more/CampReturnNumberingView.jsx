@@ -293,19 +293,10 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                 <button
                     type="button"
                     onClick={() => setShowFormManager(true)}
-                    className={`flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold whitespace-nowrap ${isDark ? 'border-gray-600 text-gray-200 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                    className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-black px-2.5 py-2 text-xs font-semibold whitespace-nowrap text-yellow-300 hover:bg-gray-900"
                 >
                     <Link2 size={14} /> 양식 등록/관리
                 </button>
-            </div>
-
-            <div className={`rounded-xl border p-3 mb-4 ${panelClass}`}>
-                <div className="flex items-start gap-2">
-                    <AlertCircle size={17} className="mt-0.5 flex-shrink-0 text-blue-500" />
-                    <div className="text-xs leading-5">
-                        최초 배송 박스 수를 초과해 반품 송장이 발급될 수 없습니다. 회수 박스 수량을 확인한 뒤 요청해주세요.
-                    </div>
-                </div>
             </div>
 
             {loadError && (
@@ -378,6 +369,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                     </div>
                     <div>
                         <label className="block text-sm font-semibold mb-1.5">채번 수량</label>
+                        <p className={`text-[11px] mb-1.5 ${mutedClass}`}>최초 배송 박스 수량 범위 내에서 요청해주세요.</p>
                         <div className="grid grid-cols-2 gap-2">
                             <input
                                 type="number"
