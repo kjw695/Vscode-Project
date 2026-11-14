@@ -284,33 +284,20 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                 <button
                     type="button"
                     onClick={onBack}
-                    className={`p-2 rounded-full ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                    className={`p-2 rounded-full flex-shrink-0 ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
                     aria-label="뒤로가기"
                 >
                     <ArrowLeft size={21} />
                 </button>
-                <div className="min-w-0">
-                    <h2 className="text-xl font-bold">반품 채번 요청</h2>
-                </div>
-            </div>
-
-            <section className={`rounded-2xl border p-4 mb-4 ${panelClass}`}>
-                <div className="flex items-center gap-2 mb-2">
-                    <Link2 size={18} className="text-blue-500" />
-                    <h3 className="font-bold">캠프 양식 등록 / 관리</h3>
-                </div>
-                <p className={`text-sm leading-5 mb-3 ${mutedClass}`}>
-                    소속 캠프에서 사용하는 Google Forms 링크를 등록하세요. 등록한 양식은 다음부터 자동으로 선택됩니다.
-                    {regionalForms.length > 0 ? ` 현재 등록된 캠프 양식 ${regionalForms.length}개.` : ' 아직 등록된 캠프 양식이 없습니다.'}
-                </p>
+                <h2 className="text-xl font-bold min-w-0 flex-1">반품 채번 요청</h2>
                 <button
                     type="button"
                     onClick={() => setShowFormManager(true)}
-                    className="w-full rounded-xl bg-blue-600 text-white px-3 py-3 text-sm font-semibold flex items-center justify-center gap-2"
+                    className={`flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold whitespace-nowrap ${isDark ? 'border-gray-600 text-gray-200 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}
                 >
-                    <Link2 size={16} /> 양식 등록 / 관리
+                    <Link2 size={14} /> 양식 등록/관리
                 </button>
-            </section>
+            </div>
 
             <div className={`rounded-xl border p-3 mb-4 ${panelClass}`}>
                 <div className="flex items-start gap-2">
@@ -435,8 +422,8 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                             ))}
                         </select>
                         {!hasSelectedForm ? (
-                            <p className={`text-xs mt-2 leading-5 ${mutedClass}`}>
-                                아직 양식이 선택되지 않았습니다. 위에서 소속 캠프 양식을 등록하거나, 기존 청주 기본 양식을 직접 선택해주세요.
+                            <p className={`text-xs mt-1.5 ${mutedClass}`}>
+                                사용할 양식을 먼저 선택해주세요.
                             </p>
                         ) : null}
                     </div>
