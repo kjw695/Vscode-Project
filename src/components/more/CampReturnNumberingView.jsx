@@ -54,12 +54,49 @@ function buildRegionalPrefilledFormUrl(form, request) {
     setEntry(mapping.quantity_entry_id, String(request.quantity));
     setEntry(mapping.camp_entry_id, request.camp || mapping.camp_choice_value || form.camp_name);
 
-    (Array.isArray(mapping.static_fields) ? mapping.static_fields : []).forEach(field => {
+    const staticFields = Array.isArray(mapping.static_fields) ? mapping.static_fields : [];
+    staticFields.forEach(field => {
         setEntry(field?.entry_id, field?.value);
     });
 
+    const requiredCampQuestions = (Array.isArray(form.questions) ? form.questions : []).filter(
+        question => question.required && /(요청\s*캠프|캠프|거점)/i.test(question.label)
+    );
+    const campMappingIsValid = requiredCampQuestions.length === 0 ||
+        requiredCampQuestions.some(
+            question => String(question.entry_id) === String(mapping.camp_entry_id)
+        );
+
+    const mappedIds = new Set([
+        mapping.invoice_entry_id,
+        mapping.driver_id_entry_id,
+        mapping.quantity_entry_id,
+        mapping.camp_entry_id,
+        ...staticFields
+            .filter(field => String(field?.value ?? '').trim())
+            .map(field => String(field.entry_id))
+    ].filter(Boolean).map(String));
+    const unresolvedRequired = (Array.isArray(form.questions) ? form.questions : []).filter(
+        question => question.required && !mappedIds.has(String(question.entry_id))
+    );
+    const roleIds = [
+        mapping.invoice_entry_id,
+        mapping.driver_id_entry_id,
+        mapping.quantity_entry_id,
+        mapping.camp_entry_id
+    ].filter(Boolean).map(String);
+
     if (!mapping.invoice_entry_id || !mapping.driver_id_entry_id || !mapping.quantity_entry_id) {
-        throw new Error('캠프 양식의 필수 입력 항목 연결이 완료되지 않았습니다. 양식 설정을 확인해주세요.');
+        throw new Error('운송장번호, 기사님 아이디, 채번 수량 문항 연결을 확인해주세요.');
+    }
+    if (new Set(roleIds).size !== roleIds.length) {
+        throw new Error('운송장번호, 기사님 아이디, 수량, 캠프는 서로 다른 문항에 연결해야 합니다.');
+    }
+    if (!campMappingIsValid) {
+        throw new Error('필수 요청 캠프 문항이 연결되지 않았습니다. 양식 관리를 확인해주세요.');
+    }
+    if (unresolvedRequired.length > 0) {
+        throw new Error('연결되지 않은 필수 문항이 ' + unresolvedRequired.length + '개 있습니다. 양식 관리를 확인해주세요.');
     }
     return url.toString();
 }
@@ -257,6 +294,15 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
 
     const handleFormSelectionChange = async nextFormId => {
         setSelectedRegionalFormId(nextFormId);
+
+        if (!nextFormId) {
+            setSelectedMobileCamp('');
+            await persistFormPreference({
+                formId: null,
+                mobileCamp: null
+            });
+            return;
+        }
 
         if (nextFormId === CHUNGJU_FORM_OPTION) {
             setSelectedMobileCamp(camp);
