@@ -225,7 +225,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                             </div>
                         ) : (
                             <div className={`rounded-xl border p-3 ${isDark ? 'border-amber-800 bg-amber-950/30' : 'border-amber-200 bg-amber-50'}`}>
-                                <p className="text-sm font-semibold">내정보에 기사님 아이디가 등록되어 있지 않습니다.</p>
+                                <p className="whitespace-nowrap font-semibold leading-tight tracking-tight" style={{ fontSize: "clamp(10px, 3.2vw, 14px)" }}>내정보에 기사님 아이디가 등록되어 있지 않습니다.</p>
                                 <p className={`text-xs mt-1 ${mutedClass}`}>아이디를 등록한 뒤 채번 요청을 진행해주세요.</p>
                                 <button
                                     type="button"
