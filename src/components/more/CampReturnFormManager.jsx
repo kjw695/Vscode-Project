@@ -91,7 +91,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
     }, [loadData]);
 
     const questions = useMemo(() => analysis?.questions || [], [analysis]);
-    const detectedCampQuestion = questions.find(question => /(요청\\s*캠프|캠프|거점)/i.test(question.label));
+    const detectedCampQuestion = questions.find(question => /(요청\s*캠프|캠프|거점)/i.test(question.label));
     const needsCampMapping = Boolean(detectedCampQuestion?.required);
     const questionOptions = useMemo(
         () => questions.map(question => ({
@@ -118,7 +118,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
 
             const normalize = value => String(value || '')
                 .toLocaleLowerCase()
-                .replace(/\\s+/g, '')
+                .replace(/\s+/g, '')
                 .replace(/[()（）]/g, '');
             const campValue = normalize(campName);
             const exactMatches = campChoiceOptions.filter(
