@@ -117,9 +117,22 @@ CREATE POLICY camp_return_form_reports_admin_read
     ON public.camp_return_form_reports FOR SELECT TO authenticated
     USING (public.is_camp_return_form_admin());
 
-REVOKE ALL ON TABLE public.camp_return_form_admins FROM anon, authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.camp_return_forms TO authenticated;
-GRANT SELECT ON TABLE public.camp_return_form_reports TO authenticated;
+-- 새 테이블의 기본 권한을 먼저 제거하고 필요한 권한만 다시 부여합니다.
+REVOKE ALL PRIVILEGES
+    ON TABLE public.camp_return_forms, public.camp_return_form_reports
+    FROM PUBLIC, anon, authenticated;
+
+REVOKE ALL PRIVILEGES
+    ON TABLE public.camp_return_form_admins
+    FROM PUBLIC, anon, authenticated;
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+    ON TABLE public.camp_return_forms
+    TO authenticated;
+
+GRANT SELECT
+    ON TABLE public.camp_return_form_reports
+    TO authenticated;
 
 -- 초기 운영자: 현재 제공된 Google Forms HTML 상단에 로그인 계정으로 표시된 주소.
 -- 앱의 Supabase 로그인 계정도 이 주소와 같을 때 운영자 접수 내역을 볼 수 있습니다.
