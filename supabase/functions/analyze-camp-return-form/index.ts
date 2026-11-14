@@ -299,6 +299,14 @@ function suggestMapping(questions: FormQuestion[]) {
     (question) => /수량/.test(normalizeQuestionLabel(question.label)),
   ]);
   const camp = chooseByPriority(questions, [
+    // A conditional form can use a required "요청 모바일 캠프" gate to reveal
+    // a second question containing the actual camp choices. Map the child
+    // destination question first so the request screen receives those choices.
+    (question) => /^기본요청캠프/.test(normalizeQuestionLabel(question.label)) && question.choices.length > 0,
+    (question) => /^요청캠프/.test(normalizeQuestionLabel(question.label)) &&
+      !/^요청모바일캠프/.test(normalizeQuestionLabel(question.label)) &&
+      question.choices.length > 0,
+    (question) => /^요청모바일캠프/.test(normalizeQuestionLabel(question.label)) && question.choices.length > 1,
     (question) => /^요청(?:모바일)?캠프/.test(normalizeQuestionLabel(question.label)),
     (question) => /요청(?:모바일)?캠프/.test(normalizeQuestionLabel(question.label)),
     (question) => /^캠프명/.test(normalizeQuestionLabel(question.label)),
@@ -313,13 +321,17 @@ function suggestMapping(questions: FormQuestion[]) {
       question.required &&
       !mappedIds.has(question.entry_id) &&
       (
-        question.choices.some((choice) => /채번\s*요청/.test(choice)) ||
+        question.choices.some((choice) =>
+          /채번\s*요청/.test(choice) ||
+          /(?:요청\s*)?모바일\s*캠프/i.test(choice)
+        ) ||
         question.choices.length === 1
       )
     )
     .map((question) => ({
       entry_id: question.entry_id,
       value: question.choices.find((choice) => /채번\s*요청/.test(choice)) ??
+        question.choices.find((choice) => /(?:요청\s*)?모바일\s*캠프/i.test(choice)) ??
         question.choices[0] ??
         "채번 요청",
     }));
@@ -520,10 +532,15 @@ Deno.serve(async (request) => {
       mapping.camp_entry_id,
       ...mapping.static_fields.map((field) => field.entry_id),
     ].filter(Boolean));
+    const selectedCampQuestion = questions.find(
+      (question) =>
+        question.entry_id === mapping.camp_entry_id &&
+        isCampQuestion(question),
+    );
+    // A required branch-selector may be prefilled as a static field while
+    // camp_entry_id points to its optional child dropdown with actual camps.
     const campMappingIsValid = requiredCampQuestions.length === 0 ||
-      requiredCampQuestions.some(
-        (question) => question.entry_id === mapping.camp_entry_id,
-      );
+      Boolean(selectedCampQuestion);
     const unresolvedRequiredQuestions = questions.filter(
       (question) => question.required && !mappedIds.has(question.entry_id),
     );
