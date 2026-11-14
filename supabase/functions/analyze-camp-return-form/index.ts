@@ -68,7 +68,116 @@ function normalizeGoogleFormsUrl(input: string): { formId: string; url: string }
   };
 }
 
-function parseQuestions(html: string): FormQuestion[] {
+function extractAssignedJsonArray(html: string, variableName: string): unknown[] | null {
+  const assignment = new RegExp(variableName + "\\s*=\\s*", "g");
+  let match: RegExpExecArray | null;
+
+  while ((match = assignment.exec(html)) !== null) {
+    const start = html.indexOf("[", assignment.lastIndex);
+    if (start < 0) continue;
+
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let index = start; index < html.length; index += 1) {
+      const char = html[index];
+
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (char === "\\") {
+          escaped = true;
+        } else if (char === '"') {
+          inString = false;
+        }
+        continue;
+      }
+
+      if (char === '"') {
+        inString = true;
+      } else if (char === "[") {
+        depth += 1;
+      } else if (char === "]") {
+        depth -= 1;
+        if (depth === 0) {
+          try {
+            const parsed: unknown = JSON.parse(html.slice(start, index + 1));
+            if (Array.isArray(parsed)) return parsed;
+          } catch {
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+function firstTextValue(value: unknown): string {
+  if (typeof value === "string") return stripHtml(value);
+  if (!Array.isArray(value)) return "";
+
+  for (const item of value) {
+    const result = firstTextValue(item);
+    if (result) return result;
+  }
+  return "";
+}
+
+function parseFbPublicLoadDataQuestions(html: string): FormQuestion[] {
+  const data = extractAssignedJsonArray(html, "FB_PUBLIC_LOAD_DATA_");
+  const formItems = Array.isArray(data?.[1]) && Array.isArray(data[1][1])
+    ? data[1][1]
+    : [];
+
+  const questions: FormQuestion[] = [];
+  const seen = new Set<string>();
+
+  for (const item of formItems) {
+    if (!Array.isArray(item)) continue;
+
+    const label = stripHtml(String(item[1] ?? ""));
+    const rawQuestionType = item[3];
+    const questionType = rawQuestionType === null || rawQuestionType === undefined
+      ? null
+      : Number.isFinite(Number(rawQuestionType))
+        ? Number(rawQuestionType)
+        : null;
+    const configs = Array.isArray(item[4]) ? item[4] : [];
+
+    if (!label) continue;
+
+    for (const config of configs) {
+      if (!Array.isArray(config)) continue;
+
+      const rawEntryId = config[0];
+      if (rawEntryId === null || rawEntryId === undefined) continue;
+
+      const entryId = String(rawEntryId);
+      if (!/^\d+$/.test(entryId) || seen.has(entryId)) continue;
+      seen.add(entryId);
+
+      const rawChoices = Array.isArray(config[1]) ? config[1] : [];
+      const choices = rawChoices
+        .map((choice: unknown) => firstTextValue(choice))
+        .filter(Boolean);
+
+      questions.push({
+        entry_id: entryId,
+        label,
+        required: Boolean(config[2]),
+        question_type: questionType,
+        choices,
+      });
+    }
+  }
+
+  return questions;
+}
+
+function parseDataParamsQuestions(html: string): FormQuestion[] {
   const questions: FormQuestion[] = [];
   const seen = new Set<string>();
   const regex = /data-params="([^"]+)"/g;
@@ -94,10 +203,7 @@ function parseQuestions(html: string): FormQuestion[] {
 
       const rawChoices = Array.isArray(config?.[1]) ? config[1] : [];
       const choices = rawChoices
-        .map((choice: unknown) => {
-          if (Array.isArray(choice)) return stripHtml(String(choice[0] ?? ""));
-          return stripHtml(String(choice ?? ""));
-        })
+        .map((choice: unknown) => firstTextValue(choice))
         .filter(Boolean);
 
       questions.push({
@@ -113,6 +219,14 @@ function parseQuestions(html: string): FormQuestion[] {
   }
 
   return questions;
+}
+
+function parseQuestions(html: string): FormQuestion[] {
+  // Google Forms' public response page normally embeds its schema as FB_PUBLIC_LOAD_DATA_.
+  // Retain data-params parsing as a fallback for alternate page versions.
+  const embeddedQuestions = parseFbPublicLoadDataQuestions(html);
+  if (embeddedQuestions.length > 0) return embeddedQuestions;
+  return parseDataParamsQuestions(html);
 }
 
 function chooseUnique(
