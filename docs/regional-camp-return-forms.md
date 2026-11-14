@@ -13,33 +13,28 @@
 
 ## 배포 순서
 
-1. 코드 브랜치를 체크아웃합니다.
+1. 작업 브랜치의 최신 코드를 받습니다.
 
    ```bash
-   git fetch origin
-   git switch feature/regional-camp-return-forms
+   git pull --ff-only origin feature/regional-camp-return-forms
    ```
 
-2. Supabase 프로젝트가 올바른 프로젝트인지 확인한 뒤 마이그레이션을 적용합니다.
+2. 기존 운영 Supabase 프로젝트에는 이 문서 작성 시점에
+   `20261113`과 `20261114`가 이미 적용되어 있습니다.
+   운영 DB에서 `supabase db push`를 실행하지 마세요.
+   다른 환경에 적용할 때는 해당 환경의 기존 스키마와 마이그레이션 이력을 먼저 확인하고,
+   필요한 SQL만 검토 후 별도로 적용합니다.
+
+3. 분석 Edge Function을 대상 프로젝트에 배포합니다.
 
    ```bash
-   supabase link --project-ref <YOUR_PROJECT_REF>
-   supabase db push
-   ```
-
-   또는 Supabase Dashboard > SQL Editor에서
-   `supabase/migrations/20261114_regional_camp_return_forms.sql` 전체를 실행합니다.
-
-3. Edge Function을 배포합니다.
-
-   ```bash
-   supabase functions deploy analyze-camp-return-form
+   supabase functions deploy analyze-camp-return-form --remote=<PROJECT_REF>
    ```
 
    Supabase의 기본 환경변수 `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
    `SUPABASE_SERVICE_ROLE_KEY`를 사용합니다. 이 키를 앱의 프론트엔드 코드에 넣으면 안 됩니다.
 
-4. 빌드와 앱 테스트를 진행합니다.
+4. 앱을 빌드하고 Android 프로젝트에 반영합니다.
 
    ```bash
    npm run build
