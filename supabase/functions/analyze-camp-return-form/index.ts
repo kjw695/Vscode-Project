@@ -303,8 +303,19 @@ function inferCampName(
   title: string,
   questions: FormQuestion[],
 ): { campName: string; source: "title" | "choice" | "none" } {
+  const normalizedTitle = String(title || "").trim();
+
+  // The camp before "반품" identifies the owner/camp of this form.
+  // It is separate from the destination choices in the "요청 캠프" question.
+  const titlePrefixMatch = normalizedTitle.match(
+    /^\s*([A-Za-z가-힣0-9_-]{2,30}캠프)\s*반품/i,
+  );
+  if (titlePrefixMatch?.[1]) {
+    return { campName: titlePrefixMatch[1].trim(), source: "title" };
+  }
+
   const titleCandidates = Array.from(new Set(
-    (title.match(/[A-Za-z가-힣0-9_-]{2,30}캠프/g) || [])
+    (normalizedTitle.match(/[A-Za-z가-힣0-9_-]{2,30}캠프/g) || [])
       .map(value => value.trim())
       .filter(Boolean),
   ));
@@ -317,22 +328,10 @@ function inferCampName(
       .filter(value => /캠프/i.test(value)),
   ));
 
+  // A single explicit camp name in the form title takes precedence over the
+  // selectable destinations. Those values are handled separately by the app.
   if (titleCandidates.length === 1) {
-    const titleCandidate = titleCandidates[0];
-    const matchingChoice = campChoiceCandidates.find(
-      choice => normalizeCampText(choice) === normalizeCampText(titleCandidate),
-    );
-
-    if (matchingChoice) {
-      return { campName: matchingChoice, source: "choice" };
-    }
-
-    // If the form exposes camp choices but none agrees with its title, avoid guessing.
-    if (campChoiceCandidates.length > 0) {
-      return { campName: "", source: "none" };
-    }
-
-    return { campName: titleCandidate, source: "title" };
+    return { campName: titleCandidates[0], source: "title" };
   }
 
   if (titleCandidates.length === 0 && campChoiceCandidates.length === 1) {
