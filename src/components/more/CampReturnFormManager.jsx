@@ -37,7 +37,7 @@ function statusLabel(status) {
 function normalizeCampText(value) {
     return String(value || '')
         .toLocaleLowerCase()
-        .replace(/\\s+/g, '')
+        .replace(/\s+/g, '')
         .replace(/[()（）]/g, '');
 }
 
@@ -82,7 +82,7 @@ function getAutoRegistrationBlockers(result, campName, fieldMap) {
     if (!fieldMap.quantity_entry_id) blockers.push('채번 수량 문항');
 
     const campQuestion = questions.find(
-        question => /(요청\\s*캠프|캠프|거점)/i.test(question.label)
+        question => /(요청\s*캠프|캠프|거점)/i.test(question.label)
     );
     if (campQuestion) {
         if (!fieldMap.camp_entry_id) {
