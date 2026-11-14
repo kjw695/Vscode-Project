@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ExternalLink, ClipboardCheck, History, AlertCircle, Link2 } from 'lucide-react';
+import { ArrowLeft, ExternalLink, ClipboardCheck, History, Link2 } from 'lucide-react';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import {
