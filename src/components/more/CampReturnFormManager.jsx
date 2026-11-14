@@ -89,7 +89,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
         loadData();
     }, [loadData]);
 
-    const questions = analysis?.questions || [];
+    const questions = useMemo(() => analysis?.questions || [], [analysis]);
     const detectedCampQuestion = questions.find(question => /(요청\\s*캠프|캠프|거점)/i.test(question.label));
     const needsCampMapping = Boolean(detectedCampQuestion?.required);
     const questionOptions = useMemo(
