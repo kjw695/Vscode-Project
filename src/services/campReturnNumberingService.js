@@ -155,7 +155,27 @@ export async function analyzeCampReturnForm(formUrl, campName) {
         body: { formUrl, campName }
     });
 
-    if (error) throw new Error(error.message || 'Google Forms 분석 요청에 실패했습니다.');
+    if (error) {
+        // FunctionsHttpError.context is the actual HTTP Response returned by the Edge Function.
+        // Read its JSON body so users see the analyzer's real validation / parsing error.
+        let serverMessage = '';
+        try {
+            const response = error.context;
+            if (response && typeof response.json === 'function') {
+                const errorBody = await response.json();
+                serverMessage = String(errorBody?.error || errorBody?.message || '').trim();
+            }
+        } catch (readError) {
+            console.warn('[CampReturnNumbering] Edge Function 오류 응답 읽기 실패:', readError);
+        }
+
+        throw new Error(
+            serverMessage ||
+            error.message ||
+            'Google Forms 분석 요청에 실패했습니다. Supabase Edge Function 로그를 확인해주세요.'
+        );
+    }
+
     if (!data?.success) {
         throw new Error(data?.error || '양식 분석에 실패했습니다.');
     }
