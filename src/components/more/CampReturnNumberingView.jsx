@@ -18,6 +18,16 @@ const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSd8kBLT6B5iGSTLuG5yyM
 const CAMPS = ['학천MB', '농소MB'];
 const CHUNGJU_FORM_OPTION = 'chungju_default';
 
+function getRegionalCampChoices(form) {
+    const mapping = form?.field_map || {};
+    const campQuestion = (Array.isArray(form?.questions) ? form.questions : []).find(
+        question => String(question.entry_id) === String(mapping.camp_entry_id)
+    );
+    return Array.isArray(campQuestion?.choices)
+        ? campQuestion.choices.map(choice => String(choice || '').trim()).filter(Boolean)
+        : [];
+}
+
 function buildPrefilledFormUrl({ invoiceText, driverId, quantity, camp }) {
     const url = new URL(FORM_URL);
     url.searchParams.set('usp', 'pp_url');
@@ -42,7 +52,7 @@ function buildRegionalPrefilledFormUrl(form, request) {
     setEntry(mapping.invoice_entry_id, request.invoiceText);
     setEntry(mapping.driver_id_entry_id, request.driverId);
     setEntry(mapping.quantity_entry_id, String(request.quantity));
-    setEntry(mapping.camp_entry_id, mapping.camp_choice_value || request.camp);
+    setEntry(mapping.camp_entry_id, request.camp || mapping.camp_choice_value || form.camp_name);
 
     (Array.isArray(mapping.static_fields) ? mapping.static_fields : []).forEach(field => {
         setEntry(field?.entry_id, field?.value);
@@ -82,6 +92,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
     const [invoiceText, setInvoiceText] = useState('');
     const [quantity, setQuantity] = useState('');
     const [camp, setCamp] = useState(CAMPS[0]);
+    const [selectedMobileCamp, setSelectedMobileCamp] = useState('');
     const [records, setRecords] = useState([]);
     const [pendingRequest, setPendingRequest] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -131,7 +142,22 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
             }
 
             const defaultCamp = CAMPS.includes(profile?.default_camp) ? profile.default_camp : CAMPS[0];
+            const preferredRegionalForm = availableForms.find(form => form.id === preferredFormSelection) || null;
+            const preferredCampChoices = getRegionalCampChoices(preferredRegionalForm);
+            const preferredMobileCamp = preferredFormSelection === CHUNGJU_FORM_OPTION
+                ? defaultCamp
+                : preferredRegionalForm
+                    ? (preferredCampChoices.includes(preferredRegionalForm.field_map?.camp_choice_value)
+                        ? preferredRegionalForm.field_map.camp_choice_value
+                        : preferredCampChoices.length === 1
+                            ? preferredCampChoices[0]
+                            : preferredCampChoices.length === 0
+                                ? preferredRegionalForm.camp_name
+                                : '')
+                    : '';
+
             setCamp(defaultCamp);
+            setSelectedMobileCamp(preferredMobileCamp);
             setRegionalForms(availableForms);
             setSelectedRegionalFormId(preferredFormSelection);
             setRecords(history);
@@ -181,6 +207,11 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
     const selectedRegionalForm = regionalForms.find(form => form.id === selectedRegionalFormId) || null;
     const isChungjuDefault = selectedRegionalFormId === CHUNGJU_FORM_OPTION;
     const hasSelectedForm = Boolean(selectedRegionalForm || isChungjuDefault);
+    const regionalCampChoices = useMemo(
+        () => getRegionalCampChoices(selectedRegionalForm),
+        [selectedRegionalForm]
+    );
+    const mobileCampOptions = isChungjuDefault ? CAMPS : regionalCampChoices;
 
     const panelClass = isDark
         ? 'bg-gray-800 border-gray-700 text-gray-100'
@@ -213,6 +244,10 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
             showMessage?.('요청 캠프를 선택해주세요.');
             return;
         }
+        if (selectedRegionalForm && regionalCampChoices.length > 1 && !regionalCampChoices.includes(selectedMobileCamp)) {
+            showMessage?.('요청 모바일 캠프를 선택해주세요.');
+            return;
+        }
 
         setSaving(true);
         try {
@@ -224,7 +259,9 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                 invoiceText: normalizedInvoice,
                 driverId: normalizedDriverId,
                 quantity: numericQuantity,
-                camp: selectedRegionalForm?.camp_name || camp,
+                camp: selectedRegionalForm
+                    ? (selectedMobileCamp || selectedRegionalForm.camp_name)
+                    : camp,
                 formKey: selectedRegionalForm ? `regional:${selectedRegionalForm.id}` : 'chungju1_return_numbering_v1'
             };
             const url = selectedRegionalForm
@@ -404,7 +441,28 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                         <label className="block text-sm font-semibold mb-1.5">사용할 채번 양식</label>
                         <select
                             value={selectedRegionalFormId}
-                            onChange={event => setSelectedRegionalFormId(event.target.value)}
+                            onChange={event => {
+                                const nextFormId = event.target.value;
+                                setSelectedRegionalFormId(nextFormId);
+                                if (nextFormId === CHUNGJU_FORM_OPTION) {
+                                    setSelectedMobileCamp(camp);
+                                    return;
+                                }
+                                const nextForm = regionalForms.find(form => form.id === nextFormId);
+                                const nextChoices = getRegionalCampChoices(nextForm);
+                                const savedChoice = nextForm?.field_map?.camp_choice_value || '';
+                                setSelectedMobileCamp(
+                                    nextForm
+                                        ? (nextChoices.includes(savedChoice)
+                                            ? savedChoice
+                                            : nextChoices.length === 1
+                                                ? nextChoices[0]
+                                                : nextChoices.length === 0
+                                                    ? nextForm.camp_name
+                                                    : '')
+                                        : ''
+                                );
+                            }}
                             className={inputClass}
                         >
                             <option value="">양식을 선택해주세요</option>
@@ -419,19 +477,36 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                             </p>
                         ) : null}
                     </div>
-                    {isChungjuDefault ? (
+                    {hasSelectedForm && (
                         <div>
                             <label className="block text-sm font-semibold mb-1.5">요청 모바일 캠프</label>
-                            <select value={camp} onChange={event => setCamp(event.target.value)} className={inputClass}>
-                                {CAMPS.map(item => <option key={item} value={item}>{item}</option>)}
-                            </select>
+                            {mobileCampOptions.length > 1 ? (
+                                <select
+                                    value={isChungjuDefault ? camp : selectedMobileCamp}
+                                    onChange={event => {
+                                        if (isChungjuDefault) {
+                                            setCamp(event.target.value);
+                                        } else {
+                                            setSelectedMobileCamp(event.target.value);
+                                        }
+                                    }}
+                                    className={inputClass}
+                                >
+                                    <option value="">캠프를 선택해주세요</option>
+                                    {mobileCampOptions.map((item, index) => (
+                                        <option key={`${item}-${index}`} value={item}>{item}</option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <div className={`w-full rounded-xl border px-3 py-3 text-sm font-semibold ${isDark ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-gray-50 border-gray-300 text-gray-900'}`}>
+                                    {mobileCampOptions[0] || selectedRegionalForm?.camp_name || camp}
+                                </div>
+                            )}
+                            {selectedRegionalForm?.form_title && (
+                                <p className={`text-xs mt-1.5 ${mutedClass}`}>{selectedRegionalForm.form_title}</p>
+                            )}
                         </div>
-                    ) : selectedRegionalForm ? (
-                        <div className={`rounded-xl border p-3 ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
-                            <p className="text-sm font-semibold">{selectedRegionalForm.camp_name}</p>
-                            <p className={`text-xs mt-1 ${mutedClass}`}>{selectedRegionalForm.form_title || '등록된 지역 Google Forms 양식'}</p>
-                        </div>
-                    ) : null}
+                    )}
                     <div className="pt-1">
                         <button
                             type="button"
