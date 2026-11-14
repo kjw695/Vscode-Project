@@ -186,9 +186,9 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
     const detectedCampQuestion = questions.find(question => /(요청\s*캠프|캠프|거점)/i.test(question.label));
     const needsCampMapping = Boolean(detectedCampQuestion?.required);
     const questionOptions = useMemo(
-        () => questions.map(question => ({
+        () => questions.map((question, index) => ({
             value: String(question.entry_id),
-            label: `${question.label} · entry.${question.entry_id}`
+            label: question.label || `문항 ${index + 1}`
         })),
         [questions]
     );
@@ -401,7 +401,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                     <section className={`rounded-2xl border p-4 mb-4 ${panelClass}`}>
                         <div className="flex items-center gap-2 mb-3">
                             <Link2 size={18} className="text-blue-500" />
-                            <h3 className="font-bold">새 캠프 양식 등록</h3>
+                            <h3 className="font-bold">Google Forms 링크 등록</h3>
                         </div>
                         <div className="space-y-3">
                             <div>
@@ -417,7 +417,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                                     className={inputClass}
                                 />
                                 <p className={`text-xs mt-1 leading-5 ${mutedClass}`}>
-                                    공개된 Google Forms의 보기 링크를 입력해주세요. 링크와 분석 결과는 오류 확인을 위해 운영자 접수 목록에도 저장됩니다.
+                                    링크를 입력하면 캠프명과 자동 입력 항목을 찾아 등록합니다.
                                 </p>
                             </div>
                             <button
@@ -427,7 +427,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                                 className="w-full rounded-xl bg-blue-600 text-white px-3 py-3 text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
                             >
                                 <ClipboardList size={16} />
-                                {analyzing ? '양식 분석 중...' : '링크 분석 및 입력 항목 찾기'}
+                                {analyzing ? '양식 확인 및 등록 중...' : '캠프 양식 자동 등록'}
                             </button>
                         </div>
                     </section>
@@ -436,7 +436,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                         <section className={`rounded-2xl border p-4 mb-4 ${panelClass}`}>
                             <div className="flex items-start justify-between gap-3 mb-3">
                                 <div className="min-w-0">
-                                    <h3 className="font-bold">분석 결과</h3>
+                                    <h3 className="font-bold">자동 등록 전 확인</h3>
                                     <p className={`text-sm mt-1 break-words ${mutedClass}`}>{analysis.title || 'Google Forms 양식'}</p>
                                     {analysis.camp_name_source !== 'none' && campName ? (
                                         <div className={`mt-2 rounded-lg px-3 py-2 ${isDark ? 'bg-gray-900' : 'bg-blue-50'}`}>
@@ -465,7 +465,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                                 </span>
                             </div>
                             <p className={`text-xs mb-3 leading-5 ${mutedClass}`}>
-                                자동으로 찾은 입력 항목을 확인해주세요. 비슷한 질문이 여러 개 있으면 올바른 항목을 직접 선택해야 합니다.
+                                자동으로 확인하지 못한 항목만 표시됩니다. 아래 항목을 확인하면 등록할 수 있습니다.
                             </p>
 
                             {[
@@ -525,20 +525,6 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                                     <p className={`text-xs mt-1 leading-5 ${mutedClass}`}>
                                         문항 번호와 실제 선택값은 별도입니다. 이 값이 Google Forms의 요청 캠프에 미리 입력됩니다.
                                     </p>
-                                </div>
-                            )}
-
-                            {questions.length > 0 && (
-                                <div className={`rounded-xl p-3 mt-3 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
-                                    <p className="text-xs font-bold mb-2">발견한 전체 입력 항목 ({questions.length})</p>
-                                    <div className="space-y-2">
-                                        {questions.map(question => (
-                                            <div key={question.entry_id} className="flex items-start justify-between gap-3 text-xs">
-                                                <span className="min-w-0 break-words">{question.label}</span>
-                                                <span className={`flex-shrink-0 ${mutedClass}`}>entry.{question.entry_id}{question.required ? ' · 필수' : ''}</span>
-                                            </div>
-                                        ))}
-                                    </div>
                                 </div>
                             )}
 
