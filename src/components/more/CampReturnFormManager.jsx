@@ -74,7 +74,28 @@ function createSuggestedMapping(result, campName) {
     return suggested;
 }
 
-function getAutoRegistrationBlockers(result, campName, fieldMap) {
+function getMappedEntryIds(fieldMap = {}) {
+    const staticIds = (Array.isArray(fieldMap.static_fields) ? fieldMap.static_fields : [])
+        .filter(field => String(field?.value ?? '').trim())
+        .map(field => String(field.entry_id));
+
+    return new Set([
+        fieldMap.invoice_entry_id,
+        fieldMap.driver_id_entry_id,
+        fieldMap.quantity_entry_id,
+        fieldMap.camp_entry_id,
+        ...staticIds
+    ].filter(Boolean).map(String));
+}
+
+function getUnmappedRequiredQuestions(questions, fieldMap) {
+    const mappedIds = getMappedEntryIds(fieldMap);
+    return (Array.isArray(questions) ? questions : []).filter(
+        question => question.required && !mappedIds.has(String(question.entry_id))
+    );
+}
+
+function getAutoRegistrationBlockers(result, campName, fieldMap = EMPTY_MAPPING) {
     const blockers = [];
     const questions = Array.isArray(result?.questions) ? result.questions : [];
 
@@ -83,25 +104,30 @@ function getAutoRegistrationBlockers(result, campName, fieldMap) {
     if (!fieldMap.driver_id_entry_id) blockers.push('기사님 아이디 문항');
     if (!fieldMap.quantity_entry_id) blockers.push('채번 수량 문항');
 
-    const campQuestion = questions.find(
-        question => /(요청\s*캠프|캠프|거점)/i.test(question.label)
+    const isCampQuestion = question => /(요청\s*캠프|캠프|거점)/i.test(question.label);
+    const requiredCampQuestions = questions.filter(
+        question => question.required && isCampQuestion(question)
     );
-    if (campQuestion && campQuestion.required && !fieldMap.camp_entry_id) {
-        blockers.push('요청 캠프 문항');
-    }
+    const campMappingIsValid = requiredCampQuestions.length === 0 ||
+        requiredCampQuestions.some(
+            question => String(question.entry_id) === String(fieldMap.camp_entry_id)
+        );
+    if (!campMappingIsValid) blockers.push('필수 요청 캠프 문항');
 
-    const mappedIds = new Set([
+    const roleIds = [
         fieldMap.invoice_entry_id,
         fieldMap.driver_id_entry_id,
         fieldMap.quantity_entry_id,
-        fieldMap.camp_entry_id,
-        ...(Array.isArray(fieldMap.static_fields) ? fieldMap.static_fields.map(field => String(field.entry_id)) : [])
-    ].filter(Boolean).map(String));
+        fieldMap.camp_entry_id
+    ].filter(Boolean).map(String);
+    if (new Set(roleIds).size !== roleIds.length) {
+        blockers.push('서로 다른 문항으로 연결');
+    }
 
-    const unresolvedRequired = questions.filter(
-        question => question.required && !mappedIds.has(String(question.entry_id))
-    );
-    if (unresolvedRequired.length > 0) blockers.push('추가 필수 문항 확인');
+    const unresolvedRequired = getUnmappedRequiredQuestions(questions, fieldMap);
+    if (unresolvedRequired.length > 0) {
+        blockers.push('추가 필수 문항 ' + unresolvedRequired.length + '개');
+    }
 
     return Array.from(new Set(blockers));
 }
@@ -174,8 +200,13 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
     }, [loadData]);
 
     const questions = useMemo(() => analysis?.questions || [], [analysis]);
-    const detectedCampQuestion = questions.find(question => /(요청\s*캠프|캠프|거점)/i.test(question.label));
-    const needsCampMapping = Boolean(detectedCampQuestion?.required);
+    const needsCampMapping = questions.some(
+        question => question.required && /(요청\s*캠프|캠프|거점)/i.test(question.label)
+    );
+    const unmappedRequiredQuestions = getUnmappedRequiredQuestions(questions, mapping);
+    const registrationBlockers = analysis
+        ? getAutoRegistrationBlockers(analysis, campName, mapping)
+        : [];
     const questionOptions = useMemo(
         () => questions.map((question, index) => ({
             value: String(question.entry_id),
@@ -232,7 +263,31 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
     }, [mapping.camp_entry_id, campChoiceOptions, campName]);
 
     const updateMapping = (key, value) => {
-        setMapping(current => ({ ...current, [key]: value || '' }));
+        setMapping(current => {
+            const next = { ...current, [key]: value || '' };
+            if (key === 'camp_entry_id') next.camp_choice_value = '';
+
+            const reservedIds = new Set([
+                next.invoice_entry_id,
+                next.driver_id_entry_id,
+                next.quantity_entry_id,
+                next.camp_entry_id
+            ].filter(Boolean).map(String));
+            next.static_fields = (Array.isArray(current.static_fields) ? current.static_fields : [])
+                .filter(field => !reservedIds.has(String(field.entry_id)));
+            return next;
+        });
+    };
+
+    const updateStaticField = (entryId, value) => {
+        setMapping(current => {
+            const fields = Array.isArray(current.static_fields) ? [...current.static_fields] : [];
+            const index = fields.findIndex(field => String(field.entry_id) === String(entryId));
+            const nextField = { entry_id: String(entryId), value: String(value ?? '') };
+            if (index >= 0) fields[index] = nextField;
+            else fields.push(nextField);
+            return { ...current, static_fields: fields };
+        });
     };
 
     const persistAsDefaultForm = async savedForm => {
@@ -314,13 +369,9 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
             showMessage?.('양식에서 캠프명을 자동으로 찾지 못했습니다. 캠프명을 입력해주세요.');
             return;
         }
-        if (
-            !mapping.invoice_entry_id ||
-            !mapping.driver_id_entry_id ||
-            !mapping.quantity_entry_id ||
-            (needsCampMapping && !mapping.camp_entry_id)
-        ) {
-            showMessage?.('운송장번호, 기사님 아이디, 채번 수량' + (needsCampMapping ? ', 요청 캠프' : '') + ' 항목을 모두 연결해주세요.');
+        const blockers = getAutoRegistrationBlockers(analysis, campName, mapping);
+        if (blockers.length > 0) {
+            showMessage?.('필수 항목 연결을 확인해주세요: ' + blockers.join(', '));
             return;
         }
 
@@ -495,11 +546,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                                         value={mapping[key] || ''}
                                         onChange={event => {
                                             const value = event.target.value;
-                                            setMapping(current => ({
-                                                ...current,
-                                                [key]: value,
-                                                ...(key === 'camp_entry_id' ? { camp_choice_value: '' } : {})
-                                            }));
+                                            updateMapping(key, value);
                                         }}
                                         className={inputClass}
                                     >
@@ -541,10 +588,58 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                                 </div>
                             )}
 
+                            {unmappedRequiredQuestions.length > 0 && (
+                                <div className={isDark
+                                    ? 'mb-3 rounded-xl border p-3 border-amber-800 bg-amber-950/20'
+                                    : 'mb-3 rounded-xl border p-3 border-amber-200 bg-amber-50'}>
+                                    <p className="text-sm font-semibold">추가 필수 문항 연결</p>
+                                    <p className={'text-xs mt-1 mb-3 leading-5 ' + mutedClass}>
+                                        Google Forms에서 필수로 지정된 나머지 문항입니다. 각 문항에 전달할 값을 지정해야 등록할 수 있습니다.
+                                    </p>
+                                    <div className="space-y-3">
+                                        {unmappedRequiredQuestions.map(question => {
+                                            const savedField = (Array.isArray(mapping.static_fields) ? mapping.static_fields : [])
+                                                .find(field => String(field.entry_id) === String(question.entry_id));
+                                            const value = String(savedField?.value || '');
+                                            const choices = Array.isArray(question.choices) ? question.choices.filter(Boolean) : [];
+                                            return (
+                                                <div key={question.entry_id}>
+                                                    <label className="block text-sm font-semibold mb-1">{question.label}</label>
+                                                    {choices.length > 0 ? (
+                                                        <select
+                                                            value={value}
+                                                            onChange={event => updateStaticField(question.entry_id, event.target.value)}
+                                                            className={inputClass}
+                                                        >
+                                                            <option value="">전달할 선택값 지정</option>
+                                                            {choices.map((choice, index) => (
+                                                                <option key={String(question.entry_id) + '-' + index} value={choice}>{choice}</option>
+                                                            ))}
+                                                        </select>
+                                                    ) : (
+                                                        <input
+                                                            value={value}
+                                                            onChange={event => updateStaticField(question.entry_id, event.target.value)}
+                                                            placeholder="이 문항에 입력할 값"
+                                                            className={inputClass}
+                                                        />
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {registrationBlockers.length > 0 && (
+                                <p className={'text-xs leading-5 ' + mutedClass}>
+                                    등록 전 확인: {registrationBlockers.join(' · ')}
+                                </p>
+                            )}
                             <button
                                 type="button"
                                 onClick={handleSave}
-                                disabled={saving || !mapping.invoice_entry_id || !mapping.driver_id_entry_id || !mapping.quantity_entry_id || (needsCampMapping && !mapping.camp_entry_id)}
+                                disabled={saving || registrationBlockers.length > 0}
                                 className="w-full rounded-xl bg-emerald-600 text-white px-3 py-3 text-sm font-semibold disabled:opacity-50 mt-4"
                             >
                                 {saving ? '저장 중...' : '이 캠프 양식 등록'}
