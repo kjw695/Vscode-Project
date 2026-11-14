@@ -29,8 +29,6 @@ const EMPTY_MAPPING = {
     static_fields: []
 };
 
-// This form is already bundled as the built-in Chungju option in the request screen.
-const BUILTIN_CHUNGJU_FORM_ID = '1FAIpQLSd8kBLT6B5iGSTLuG5yyMCbuCJ5l1e5qYpEqbUdtbtCSwUZqg';
 
 function statusLabel(status) {
     if (status === 'ready') return '자동 연결 가능';
@@ -258,14 +256,6 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
         }
         if (!formUrl.trim()) {
             showMessage?.('Google Forms 링크를 입력해주세요.');
-            return;
-        }
-
-        const submittedFormId = formUrl.trim().match(
-            /\/forms\/(?:u\/\d+\/)?d\/e\/([^/]+)\/(?:viewform|formResponse)\/?/
-        )?.[1];
-        if (submittedFormId === BUILTIN_CHUNGJU_FORM_ID) {
-            showMessage?.('이 링크는 이미 앱에 등록된 청주 기본 양식입니다. 별도 등록하지 말고 채번 화면에서 "청주 기본 양식"을 선택해주세요.');
             return;
         }
 
