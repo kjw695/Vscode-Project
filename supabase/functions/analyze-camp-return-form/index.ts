@@ -265,7 +265,9 @@ function normalizeQuestionLabel(label: string): string {
     .toLocaleLowerCase()
     .replace(/^\s*\d+\s*[.)、:：-]?\s*/, "")
     .replace(/[\s\u200B-\u200D\uFEFF*＊]/g, "")
-    .replace(/[\\u005B\\u005D(){}:：.,，!?！？]/g, "");
+    .replace(/[(){}:：.,，!?！？]/g, "")
+    .replaceAll("[", "")
+    .replaceAll("]", "");
 }
 
 function chooseByPriority(
