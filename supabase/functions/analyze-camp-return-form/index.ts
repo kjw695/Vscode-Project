@@ -265,7 +265,7 @@ function normalizeQuestionLabel(label: string): string {
     .toLocaleLowerCase()
     .replace(/^\s*\d+\s*[.)、:：-]?\s*/, "")
     .replace(/[\s\u200B-\u200D\uFEFF*＊]/g, "")
-    .replace(/[()[\\]{}:：.,，!?！？]/g, "");
+    .replace(/[\\u005B\\u005D(){}:：.,，!?！？]/g, "");
 }
 
 function chooseByPriority(
@@ -297,8 +297,8 @@ function suggestMapping(questions: FormQuestion[]) {
     (question) => /수량/.test(normalizeQuestionLabel(question.label)),
   ]);
   const camp = chooseByPriority(questions, [
-    (question) => /^요청캠프/.test(normalizeQuestionLabel(question.label)),
-    (question) => /요청캠프/.test(normalizeQuestionLabel(question.label)),
+    (question) => /^요청(?:모바일)?캠프/.test(normalizeQuestionLabel(question.label)),
+    (question) => /요청(?:모바일)?캠프/.test(normalizeQuestionLabel(question.label)),
     (question) => /^캠프명/.test(normalizeQuestionLabel(question.label)),
     (question) => /^캠프/.test(normalizeQuestionLabel(question.label)) && question.choices.length > 0,
     (question) => /^거점/.test(normalizeQuestionLabel(question.label)) && question.choices.length > 0,
