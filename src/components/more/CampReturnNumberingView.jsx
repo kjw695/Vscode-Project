@@ -105,14 +105,46 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                 fetchCampReturnForms(userId)
             ]);
             setDriverId(userId ? accountDriverId : fetchGuestDriverId());
-            setCamp(CAMPS.includes(profile?.default_camp) ? profile.default_camp : CAMPS[0]);
-            setRegionalForms(forms);
-            setSelectedRegionalFormId(
-                Array.isArray(forms) && forms.some(form => form.id === profile?.default_form_id)
-                    ? profile.default_form_id
-                    : ''
+            const availableForms = Array.isArray(forms) ? forms : [];
+            const savedDefaultForm = availableForms.find(form => form.id === profile?.default_form_id) || null;
+            const newestForm = availableForms[0] || null;
+            const preferenceUpdatedAt = profile?.updated_at ? Date.parse(profile.updated_at) : 0;
+            const newestFormUpdatedAt = newestForm
+                ? Date.parse(newestForm.updated_at || newestForm.created_at || '')
+                : 0;
+            const newestFormAddedAfterPreference = Boolean(newestForm) && (
+                !profile?.updated_at ||
+                !Number.isFinite(preferenceUpdatedAt) ||
+                (Number.isFinite(newestFormUpdatedAt) && newestFormUpdatedAt > preferenceUpdatedAt)
             );
+            const latestRecord = Array.isArray(history) ? history[0] : null;
+            const latestFormKey = String(latestRecord?.form_key || '');
+            const lastUsedRegionalForm = latestFormKey.startsWith('regional:')
+                ? availableForms.find(form => form.id === latestFormKey.slice('regional:'.length)) || null
+                : null;
+            const shouldUseNewestForm = Boolean(newestForm) && (
+                Boolean(profile?.default_form_id) && !savedDefaultForm
+                    ? true
+                    : !profile?.default_form_id && newestFormAddedAfterPreference
+            );
+            const preferredRegionalForm = savedDefaultForm
+                || (shouldUseNewestForm ? newestForm : null)
+                || lastUsedRegionalForm;
+
+            setCamp(CAMPS.includes(profile?.default_camp) ? profile.default_camp : CAMPS[0]);
+            setRegionalForms(availableForms);
+            setSelectedRegionalFormId(preferredRegionalForm?.id || '');
             setRecords(history);
+
+            // Migrate older accounts: remember an already-registered or previously used regional form.
+            if (userId && preferredRegionalForm && preferredRegionalForm.id !== profile?.default_form_id) {
+                saveCampReturnProfile(userId, {
+                    defaultCamp: CAMPS.includes(profile?.default_camp) ? profile.default_camp : CAMPS[0],
+                    defaultFormId: preferredRegionalForm.id
+                }).catch(error => {
+                    console.warn('[CampReturnNumbering] 기본 양식 선택 자동 저장 실패:', error);
+                });
+            }
             setStorageNotice(userId
                 ? '로그인 계정에 저장됩니다. 다른 기기에서도 본인 기록을 조회할 수 있습니다.'
                 : '현재는 이 기기에만 저장됩니다. 로그인하면 계정별 동기화를 사용할 수 있습니다.');
