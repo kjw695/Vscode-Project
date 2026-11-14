@@ -184,7 +184,6 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                 </button>
                 <div className="min-w-0">
                     <h2 className="text-xl font-bold">반품 채번 요청</h2>
-                    <p className={`text-xs mt-0.5 ${mutedClass}`}>청주1캠프 · 학천MB / 농소MB</p>
                 </div>
             </div>
 
@@ -239,7 +238,30 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                         )}
                     </div>
                     <div>
-                        <label className="block text-sm font-semibold mb-1.5">채번 수량</label>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <label className="block text-sm font-semibold">채번 수량</label>
+                            <div
+                                className={`grid grid-cols-2 gap-1 rounded-lg p-1 border ${isDark ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-gray-50'}`}
+                                role="group"
+                                aria-label="요청 모바일 캠프 선택"
+                            >
+                                {CAMPS.map(item => (
+                                    <button
+                                        key={item}
+                                        type="button"
+                                        onClick={() => setCamp(item)}
+                                        aria-pressed={camp === item}
+                                        className={`min-w-[76px] rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${camp === item
+                                            ? 'bg-blue-600 text-white shadow-sm'
+                                            : isDark
+                                                ? 'text-gray-300 hover:bg-gray-800'
+                                                : 'text-gray-600 hover:bg-white'}`}
+                                    >
+                                        {item}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                         <input
                             type="number"
                             inputMode="numeric"
@@ -250,12 +272,6 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                             placeholder="숫자만 입력"
                             className={inputClass}
                         />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-semibold mb-1.5">요청 모바일 캠프</label>
-                        <select value={camp} onChange={event => setCamp(event.target.value)} className={inputClass}>
-                            {CAMPS.map(item => <option key={item} value={item}>{item}</option>)}
-                        </select>
                     </div>
                     <div className="pt-1">
                         <button
