@@ -281,11 +281,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
         });
         return totals;
     }, [todayRecords]);
-    const campSummaryNames = [...new Set([
-        ...CAMPS,
-        ...regionalForms.map(form => form.camp_name)
-    ])];
-    const visibleCampSummaryNames = campSummaryNames.filter(
+    const visibleCampSummaryNames = Object.keys(campTotals).filter(
         item => (Number(campTotals[item]) || 0) > 0
     );
     const selectedRegionalForm = regionalForms.find(form => form.id === selectedRegionalFormId) || null;
