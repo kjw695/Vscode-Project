@@ -567,8 +567,8 @@ Deno.serve(async (request) => {
 
     const isCampQuestion = (question: FormQuestion) =>
       /(캠프|거점)/i.test(question.label) && !isMobileCampBranchQuestion(question);
-    const requiredCampQuestions = questions.filter(
-      (question) => question.required && isCampQuestion(question),
+    const hasCampRelatedQuestion = questions.some(
+      (question) => /(캠프|거점)/i.test(question.label),
     );
     const mappedIds = new Set([
       mapping.invoice_entry_id,
@@ -584,7 +584,7 @@ Deno.serve(async (request) => {
     );
     // A required branch-selector may be prefilled as a static field while
     // camp_entry_id points to its optional child dropdown with actual camps.
-    const campMappingIsValid = requiredCampQuestions.length === 0 ||
+    const campMappingIsValid = !hasCampRelatedQuestion ||
       Boolean(selectedCampQuestion);
     const unresolvedRequiredQuestions = questions.filter(
       (question) => question.required && !mappedIds.has(question.entry_id),
