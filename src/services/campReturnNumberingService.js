@@ -108,6 +108,52 @@ export async function fetchCampReturnRecords(userId) {
     return Array.isArray(data) ? data : [];
 }
 
+function extractInvoiceIdentifiers(value) {
+    const text = String(value || '').replace(/\\s+/g, ' ').trim();
+    const trackingNumber = text.match(/운송장\\s*번호\\s*[:：]?\\s*([0-9]+)/i)?.[1] || '';
+    const orderNumber = text.match(/주문\\s*번호\\s*[:：]?\\s*([0-9]+)/i)?.[1] || '';
+    return { trackingNumber, orderNumber };
+}
+
+function invoiceIdentifiersMatch(candidate, target) {
+    const existing = extractInvoiceIdentifiers(candidate);
+    const hasTracking = Boolean(target?.trackingNumber);
+    const hasOrder = Boolean(target?.orderNumber);
+    if (!hasTracking && !hasOrder) return false;
+    return (!hasTracking || existing.trackingNumber === target.trackingNumber) &&
+        (!hasOrder || existing.orderNumber === target.orderNumber);
+}
+
+export async function findCampReturnDuplicateRecord(userId, invoiceIdentifiers) {
+    if (!invoiceIdentifiers?.trackingNumber && !invoiceIdentifiers?.orderNumber) return null;
+
+    if (!userId) {
+        const records = readLocal(null, 'records', []);
+        return records.find(record => invoiceIdentifiersMatch(record.invoice_text, invoiceIdentifiers)) || null;
+    }
+
+    let query = supabase
+        .from('camp_return_records')
+        .select('id, invoice_text, driver_id, quantity, camp, user_confirmed_at')
+        .eq('user_id', userId);
+
+    if (invoiceIdentifiers.trackingNumber) {
+        query = query.ilike('invoice_text', `%${invoiceIdentifiers.trackingNumber}%`);
+    }
+    if (invoiceIdentifiers.orderNumber) {
+        query = query.ilike('invoice_text', `%${invoiceIdentifiers.orderNumber}%`);
+    }
+
+    const { data, error } = await query
+        .order('user_confirmed_at', { ascending: false })
+        .limit(100);
+
+    if (error) throw error;
+    return (Array.isArray(data) ? data : []).find(
+        record => invoiceIdentifiersMatch(record.invoice_text, invoiceIdentifiers)
+    ) || null;
+}
+
 export async function addCampReturnRecord(userId, request) {
     const record = {
         invoice_text: String(request.invoiceText || '').trim(),
