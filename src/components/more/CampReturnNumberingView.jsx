@@ -143,6 +143,15 @@ function formatDate(value) {
     }).format(new Date(value));
 }
 
+function parseInvoiceDetails(value) {
+    const text = String(value || '').replace(/\s+/g, ' ').trim();
+    const trackingNumber = text.match(/운송장\s*번호\s*[:：]?\s*([0-9]+)/i)?.[1] || '';
+    const orderNumber = text.match(/주문\s*번호\s*[:：]?\s*([0-9]+)/i)?.[1] || '';
+
+    if (!trackingNumber && !orderNumber) return null;
+    return { trackingNumber, orderNumber };
+}
+
 export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkMode, user, showMessage }) {
     const [driverId, setDriverId] = useState('');
     const [invoiceText, setInvoiceText] = useState('');
@@ -276,6 +285,9 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
         ...CAMPS,
         ...regionalForms.map(form => form.camp_name)
     ])];
+    const visibleCampSummaryNames = campSummaryNames.filter(
+        item => (Number(campTotals[item]) || 0) > 0
+    );
     const selectedRegionalForm = regionalForms.find(form => form.id === selectedRegionalFormId) || null;
     const isChungjuDefault = selectedRegionalFormId === CHUNGJU_FORM_OPTION;
     const hasSelectedForm = Boolean(selectedRegionalForm || isChungjuDefault);
@@ -696,14 +708,16 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                         <p className="text-2xl font-bold mt-1">{todayRecords.length}회</p>
                     </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                    {campSummaryNames.map(item => (
-                        <div key={item} className={`rounded-xl border p-3 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-                            <p className={`text-xs ${mutedClass}`}>{item}</p>
-                            <p className="text-lg font-bold mt-1">{(campTotals[item] || 0).toLocaleString()}건</p>
-                        </div>
-                    ))}
-                </div>
+                {visibleCampSummaryNames.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2">
+                        {visibleCampSummaryNames.map(item => (
+                            <div key={item} className={`rounded-xl border p-3 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                                <p className={`text-xs ${mutedClass}`}>{item}</p>
+                                <p className="text-lg font-bold mt-1">{(campTotals[item] || 0).toLocaleString()}건</p>
+                            </div>
+                        ))}
+                    </div>
+                )}
                 <p className={`text-[11px] mt-3 leading-4 ${mutedClass}`}>
                     제출 완료로 직접 표시한 기록만 합산합니다. 업체의 실제 접수·발급 결과를 조회한 수치는 아닙니다.
                 </p>
@@ -717,18 +731,38 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                     <p className={`text-sm ${mutedClass}`}>아직 기록이 없습니다.</p>
                 ) : (
                     <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                        {records.slice(0, 30).map(record => (
-                            <div key={record.id} className="py-3 flex items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                    <div className="text-sm font-semibold">{record.camp} · {formatDate(record.user_confirmed_at)} {formatTime(record.user_confirmed_at)}</div>
-                                    <div className={`text-xs truncate mt-1 ${mutedClass}`}>{record.invoice_text}</div>
+                        {records.slice(0, 30).map(record => {
+                            const invoiceDetails = parseInvoiceDetails(record.invoice_text);
+                            return (
+                                <div key={record.id} className="py-3 flex items-center justify-between gap-3">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="text-sm font-semibold">{record.camp} · {formatDate(record.user_confirmed_at)} {formatTime(record.user_confirmed_at)}</div>
+                                        {invoiceDetails ? (
+                                            <div className={\`grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 text-xs mt-1 \${mutedClass}\`}>
+                                                {invoiceDetails.trackingNumber && (
+                                                    <>
+                                                        <span>운송장번호</span>
+                                                        <span className="break-all">{invoiceDetails.trackingNumber}</span>
+                                                    </>
+                                                )}
+                                                {invoiceDetails.orderNumber && (
+                                                    <>
+                                                        <span>주문번호</span>
+                                                        <span className="break-all">{invoiceDetails.orderNumber}</span>
+                                                    </>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className={\`text-xs whitespace-pre-wrap break-all mt-1 \${mutedClass}\`}>{record.invoice_text}</div>
+                                        )}
+                                    </div>
+                                    <div className="text-right flex-shrink-0">
+                                        <div className="font-bold">{Number(record.quantity || 0).toLocaleString()}건</div>
+                                        <div className={\`text-[11px] \${mutedClass}\`}>{record.driver_id}</div>
+                                    </div>
                                 </div>
-                                <div className="text-right flex-shrink-0">
-                                    <div className="font-bold">{Number(record.quantity || 0).toLocaleString()}건</div>
-                                    <div className={`text-[11px] ${mutedClass}`}>{record.driver_id}</div>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </section>
