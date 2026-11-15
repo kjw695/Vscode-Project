@@ -121,6 +121,7 @@ const BluecoinsDailySummaryPreview = ({
     onToday,
     onDateClick,
     onCalendarDateSelect,
+    onRequestEditDate,
     onOpenDayOff,
     onSelectedDateChange,
     resetToTodayKey = 0,
@@ -390,6 +391,78 @@ const BluecoinsDailySummaryPreview = ({
         selectDateAndAlignChart(getShiftedDateKey(selectedDate, delta), 'smooth');
     };
 
+    // 날짜를 짧게 누르면 선택 및 입력/채번 버튼 표시를 토글하고,
+    // 길게 누르면 수정 확인 팝업을 요청합니다.
+    const dateLongPressTimerRef = useRef(null);
+    const dateLongPressStartRef = useRef(null);
+    const suppressDateClickRef = useRef(false);
+    const suppressDateClickResetRef = useRef(null);
+
+    const clearDateLongPress = () => {
+        if (dateLongPressTimerRef.current) {
+            clearTimeout(dateLongPressTimerRef.current);
+            dateLongPressTimerRef.current = null;
+        }
+        dateLongPressStartRef.current = null;
+    };
+
+    const handleDatePointerDown = (dateKey, event) => {
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+        clearDateLongPress();
+        if (suppressDateClickResetRef.current) {
+            clearTimeout(suppressDateClickResetRef.current);
+            suppressDateClickResetRef.current = null;
+        }
+        suppressDateClickRef.current = false;
+        dateLongPressStartRef.current = {
+            dateKey,
+            x: event.clientX,
+            y: event.clientY
+        };
+        dateLongPressTimerRef.current = setTimeout(() => {
+            dateLongPressTimerRef.current = null;
+            dateLongPressStartRef.current = null;
+            suppressDateClickRef.current = true;
+            onRequestEditDate?.(dateKey);
+            suppressDateClickResetRef.current = setTimeout(() => {
+                suppressDateClickRef.current = false;
+                suppressDateClickResetRef.current = null;
+            }, 1200);
+        }, 550);
+    };
+
+    const handleDatePointerMove = (event) => {
+        const start = dateLongPressStartRef.current;
+        if (!start) return;
+        if (Math.abs(event.clientX - start.x) > 12 || Math.abs(event.clientY - start.y) > 12) {
+            clearDateLongPress();
+        }
+    };
+
+    const handleDatePointerEnd = () => {
+        clearDateLongPress();
+    };
+
+    const handleDateClick = (dateKey) => {
+        if (suppressDateClickRef.current) {
+            suppressDateClickRef.current = false;
+            if (suppressDateClickResetRef.current) {
+                clearTimeout(suppressDateClickResetRef.current);
+                suppressDateClickResetRef.current = null;
+            }
+            return;
+        }
+
+        const isSameDate = dateKey === selectedDate;
+        selectDateAndAlignChart(dateKey);
+        onCalendarDateSelect?.(dateKey, isSameDate);
+    };
+
+    useEffect(() => () => {
+        if (dateLongPressTimerRef.current) clearTimeout(dateLongPressTimerRef.current);
+        if (suppressDateClickResetRef.current) clearTimeout(suppressDateClickResetRef.current);
+    }, []);
+
     // 홈 화면에 새로 진입할 때마다 주간 차트의 마지막 날짜를 오늘로 되돌립니다.
     useEffect(() => {
         const todayKey = toDateKey(new Date());
@@ -502,7 +575,13 @@ const BluecoinsDailySummaryPreview = ({
                             key={day.date}
                             data-chart-date={day.date}
                             type="button"
-                            onClick={() => setSelectedDate(day.date)}
+                            onPointerDown={(event) => handleDatePointerDown(day.date, event)}
+                            onPointerMove={handleDatePointerMove}
+                            onPointerUp={handleDatePointerEnd}
+                            onPointerLeave={handleDatePointerEnd}
+                            onPointerCancel={handleDatePointerEnd}
+                            onContextMenu={(event) => event.preventDefault()}
+                            onClick={() => handleDateClick(day.date)}
                             className={'flex min-w-0 flex-col items-center rounded-xl px-0.5 py-1 ' + (
                                 isSelected
                                     ? (calendarMode === 'money' ? 'bg-blue-500/10 ring-1 ring-blue-500/70' : 'bg-emerald-500/10 ring-1 ring-emerald-500/70')
@@ -742,11 +821,13 @@ const BluecoinsDailySummaryPreview = ({
                                 type="button"
                                 key={dayInfo?.date || 'empty-' + index}
                                 disabled={!dayInfo?.date}
-                                onClick={() => {
-                                    if (!dayInfo?.date) return;
-                                    selectDateAndAlignChart(dayInfo.date);
-                                    onCalendarDateSelect?.(dayInfo.date);
-                                }}
+                                onPointerDown={(event) => dayInfo?.date && handleDatePointerDown(dayInfo.date, event)}
+                                onPointerMove={handleDatePointerMove}
+                                onPointerUp={handleDatePointerEnd}
+                                onPointerLeave={handleDatePointerEnd}
+                                onPointerCancel={handleDatePointerEnd}
+                                onContextMenu={(event) => event.preventDefault()}
+                                onClick={() => dayInfo?.date && handleDateClick(dayInfo.date)}
                                 className={(homeCalendarDesign === 'current'
                                     ? 'relative flex h-20 min-w-0 flex-col items-center justify-start border-b border-r p-1 text-left transition-colors ' + dividerClass
                                     : 'relative flex h-[62px] min-w-0 flex-col items-center justify-start rounded-md transition-colors') + ' ' + (
