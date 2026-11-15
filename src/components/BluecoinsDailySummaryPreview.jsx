@@ -232,12 +232,17 @@ const BluecoinsDailySummaryPreview = ({
     const previousIncome = Number(previousMonthlyProfit?.totalRevenue) || 0;
     const incomeDiff = currentRevenue - previousIncome;
     const volumeDiff = currentVolume - previousVolume;
-    const averageIncomeDiff = dailyAverageIncome - (Number(previousMonthlyProfit?.totalWorkingDays) > 0
-        ? Math.round(previousIncome / Number(previousMonthlyProfit.totalWorkingDays))
+    const previousWorkingDays = Number(previousMonthlyProfit?.totalWorkingDays) || 0;
+    const previousAverageVolume = previousWorkingDays > 0
+        ? Math.round(previousVolume / previousWorkingDays)
+        : 0;
+    const averageIncomeDiff = dailyAverageIncome - (previousWorkingDays > 0
+        ? Math.round(previousIncome / previousWorkingDays)
         : 0);
-    const averageVolumeDiff = dailyAverageVolume - (Number(previousMonthlyProfit?.totalWorkingDays) > 0
-        ? Math.round(previousVolume / Number(previousMonthlyProfit.totalWorkingDays))
-        : 0);
+    const averageVolumeDiff = dailyAverageVolume - previousAverageVolume;
+    const averageVolumeDiffPct = previousAverageVolume > 0
+        ? (averageVolumeDiff / previousAverageVolume) * 100
+        : null;
     const selectedDayData = dailyMap[selectedDate] || {};
     const selectedDayIncome = Number(selectedDayData.totalRevenue) || 0;
     const selectedDayExpense = Number(selectedDayData.totalExpenses) || 0;
@@ -584,8 +589,24 @@ const BluecoinsDailySummaryPreview = ({
                                 aria-label="다음 날짜"
                             ><ChevronRight size={13} /></button>
                         </div>
-                        <div className={'min-w-0 flex-1 overflow-hidden text-ellipsis rounded-xl px-1 py-1 text-center text-[10px] sm:text-[11px] font-black whitespace-nowrap bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'}>
+                        <div
+                            className={'min-w-0 flex-1 overflow-hidden text-ellipsis rounded-xl px-1 py-1 text-center text-[9px] sm:text-[10px] font-black whitespace-nowrap ' + (
+                                previousWorkingDays <= 0
+                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                    : averageVolumeDiff > 0
+                                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                        : averageVolumeDiff < 0
+                                            ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                            : 'bg-slate-500/10 text-slate-600 dark:text-slate-300'
+                            )}
+                            title={previousWorkingDays > 0
+                                ? `전월 하루 평균 대비 ${averageVolumeDiff > 0 ? '+' : ''}${averageVolumeDiff.toLocaleString()}건 (${averageVolumeDiffPct > 0 ? '+' : ''}${averageVolumeDiffPct.toFixed(1)}%)`
+                                : '전월 비교 데이터 없음'}
+                        >
                             평균물량 {dailyAverageVolume.toLocaleString()}건
+                            {previousWorkingDays > 0
+                                ? ` · 전월 ${averageVolumeDiff > 0 ? '▲' : averageVolumeDiff < 0 ? '▼' : '－'}${Math.abs(averageVolumeDiff).toLocaleString()}건 (${averageVolumeDiffPct > 0 ? '+' : ''}${averageVolumeDiffPct.toFixed(1)}%)`
+                                : ' · 전월 비교 없음'}
                         </div>
                         <div className={'inline-flex shrink-0 whitespace-nowrap rounded-xl p-0.5 text-[10px] font-black ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
                             <button
