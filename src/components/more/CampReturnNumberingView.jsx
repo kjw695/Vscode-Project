@@ -59,18 +59,32 @@ function buildRegionalPrefilledFormUrl(form, request) {
         setEntry(field?.entry_id, field?.value);
     });
 
-    const requiredCampQuestions = (Array.isArray(form.questions) ? form.questions : []).filter(
-        question => question.required && /(요청\s*캠프|캠프|거점)/i.test(question.label)
+    // Fill conditional follow-up questions from the same app inputs:
+    // second ID field <- profile driver ID; detailed camp <- selected mobile camp.
+    const linkedFields = Array.isArray(mapping.linked_fields) ? mapping.linked_fields : [];
+    linkedFields.forEach(field => {
+        if (field?.source === 'driver_id') {
+            setEntry(field.entry_id, request.driverId);
+        } else if (field?.source === 'camp_choice') {
+            const valueMap = field.value_map && typeof field.value_map === 'object'
+                ? field.value_map
+                : {};
+            setEntry(field.entry_id, valueMap[String(request.camp || '')]);
+        }
+    });
+
+    const questions = Array.isArray(form.questions) ? form.questions : [];
+    const hasCampRelatedQuestion = questions.some(
+        question => /(캠프|거점)/i.test(question.label)
     );
-    const selectedCampQuestion = (Array.isArray(form.questions) ? form.questions : []).find(
+    const selectedCampQuestion = questions.find(
         question =>
             String(question.entry_id) === String(mapping.camp_entry_id) &&
-            /(요청\s*캠프|캠프|거점)/i.test(question.label)
+            /(캠프|거점)/i.test(question.label) &&
+            Array.isArray(question.choices) &&
+            question.choices.length > 0
     );
-    // A required branch selector may be a static field; camp_entry_id can
-    // point to the child dropdown that contains the actual destination choices.
-    const campMappingIsValid = requiredCampQuestions.length === 0 ||
-        Boolean(selectedCampQuestion);
+    const campMappingIsValid = !hasCampRelatedQuestion || Boolean(selectedCampQuestion);
 
     const mappedIds = new Set([
         mapping.invoice_entry_id,
@@ -79,9 +93,10 @@ function buildRegionalPrefilledFormUrl(form, request) {
         mapping.camp_entry_id,
         ...staticFields
             .filter(field => String(field?.value ?? '').trim())
-            .map(field => String(field.entry_id))
+            .map(field => String(field.entry_id)),
+        ...linkedFields.map(field => String(field.entry_id))
     ].filter(Boolean).map(String));
-    const unresolvedRequired = (Array.isArray(form.questions) ? form.questions : []).filter(
+    const unresolvedRequired = questions.filter(
         question => question.required && !mappedIds.has(String(question.entry_id))
     );
     const roleIds = [
@@ -105,7 +120,6 @@ function buildRegionalPrefilledFormUrl(form, request) {
     }
     return url.toString();
 }
-
 function localDateKey(value) {
     const date = new Date(value);
     return [
