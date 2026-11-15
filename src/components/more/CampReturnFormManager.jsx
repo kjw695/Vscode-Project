@@ -161,15 +161,15 @@ function getAutoRegistrationBlockers(result, campName, fieldMap = EMPTY_MAPPING)
     if (!fieldMap.driver_id_entry_id) blockers.push('기사님 아이디 문항');
     if (!fieldMap.quantity_entry_id) blockers.push('채번 수량 문항');
 
-    const requiredCampQuestions = questions.filter(
-        question => question.required && isCampDestinationQuestion(question)
+    const hasCampRelatedQuestion = questions.some(
+        question => /(캠프|거점)/i.test(question.label)
     );
     const selectedCampQuestion = questions.find(
         question =>
             String(question.entry_id) === String(fieldMap.camp_entry_id) &&
             isCampDestinationQuestion(question)
     );
-    const campMappingIsValid = requiredCampQuestions.length === 0 ||
+    const campMappingIsValid = !hasCampRelatedQuestion ||
         Boolean(selectedCampQuestion);
     if (!campMappingIsValid) blockers.push('필수 요청 캠프 문항');
 
@@ -259,7 +259,9 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
     }, [loadData]);
 
     const questions = useMemo(() => analysis?.questions || [], [analysis]);
-    const needsCampMapping = questions.some(isCampDestinationQuestion);
+    const needsCampMapping = questions.some(
+        question => /(캠프|거점)/i.test(question.label)
+    );
     const unmappedRequiredQuestions = getUnmappedRequiredQuestions(questions, mapping);
     const registrationBlockers = analysis
         ? getAutoRegistrationBlockers(analysis, campName, mapping)
