@@ -231,9 +231,7 @@ const BluecoinsDailySummaryPreview = ({
     const totalOffDays = holidayCount;
     const previousIncome = Number(previousMonthlyProfit?.totalRevenue) || 0;
     const incomeDiff = currentRevenue - previousIncome;
-    const incomeDiffPct = previousIncome > 0 ? ((incomeDiff / previousIncome) * 100).toFixed(1) : '0.0';
     const volumeDiff = currentVolume - previousVolume;
-    const volumeDiffPct = previousVolume > 0 ? ((volumeDiff / previousVolume) * 100).toFixed(1) : '0.0';
     const averageIncomeDiff = dailyAverageIncome - (Number(previousMonthlyProfit?.totalWorkingDays) > 0
         ? Math.round(previousIncome / Number(previousMonthlyProfit.totalWorkingDays))
         : 0);
@@ -586,14 +584,8 @@ const BluecoinsDailySummaryPreview = ({
                                 aria-label="다음 날짜"
                             ><ChevronRight size={13} /></button>
                         </div>
-                        <div className={'min-w-0 flex-1 overflow-hidden text-ellipsis rounded-xl px-1 py-1 text-center text-[10px] sm:text-[11px] font-black whitespace-nowrap ' + (
-                            (calendarMode === 'money' ? incomeDiff : volumeDiff) >= 0
-                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                        )}>
-                            전월 대비 {calendarMode === 'money'
-                                ? ((incomeDiff >= 0 ? '▲' : '▼') + formatCompactManWon(Math.abs(incomeDiff)) + ' (' + incomeDiffPct + '%)')
-                                : ((volumeDiff >= 0 ? '▲' : '▼') + Math.abs(volumeDiff).toLocaleString() + '건 (' + volumeDiffPct + '%)')}
+                        <div className={'min-w-0 flex-1 overflow-hidden text-ellipsis rounded-xl px-1 py-1 text-center text-[10px] sm:text-[11px] font-black whitespace-nowrap bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'}>
+                            평균물량 {dailyAverageVolume.toLocaleString()}건
                         </div>
                         <div className={'inline-flex shrink-0 whitespace-nowrap rounded-xl p-0.5 text-[10px] font-black ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
                             <button
