@@ -738,7 +738,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                                     <div className="min-w-0 flex-1">
                                         <div className="text-sm font-semibold">{record.camp} · {formatDate(record.user_confirmed_at)} {formatTime(record.user_confirmed_at)}</div>
                                         {invoiceDetails ? (
-                                            <div className={\`grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 text-xs mt-1 \${mutedClass}\`}>
+                                            <div className={"grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 text-xs mt-1 " + mutedClass}>
                                                 {invoiceDetails.trackingNumber && (
                                                     <>
                                                         <span>운송장번호</span>
@@ -753,7 +753,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                                                 )}
                                             </div>
                                         ) : (
-                                            <div className={\`text-xs whitespace-pre-wrap break-all mt-1 \${mutedClass}\`}>{record.invoice_text}</div>
+                                            <div className={"text-xs whitespace-pre-wrap break-all mt-1 " + mutedClass}>{record.invoice_text}</div>
                                         )}
                                     </div>
                                     <div className="text-right flex-shrink-0">
