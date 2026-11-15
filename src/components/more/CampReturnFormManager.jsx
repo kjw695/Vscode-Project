@@ -394,11 +394,21 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
             const next = { ...current, [key]: value || '' };
             if (key === 'camp_entry_id') next.camp_choice_value = '';
 
+            const selectedCampQuestion = questions.find(
+                question => String(question.entry_id) === String(next.camp_entry_id)
+            );
+            next.linked_fields = buildLinkedFields(
+                questions,
+                next.driver_id_entry_id,
+                selectedCampQuestion
+            );
+
             const reservedIds = new Set([
                 next.invoice_entry_id,
                 next.driver_id_entry_id,
                 next.quantity_entry_id,
-                next.camp_entry_id
+                next.camp_entry_id,
+                ...(next.linked_fields || []).map(field => String(field.entry_id))
             ].filter(Boolean).map(String));
             next.static_fields = (Array.isArray(current.static_fields) ? current.static_fields : [])
                 .filter(field => !reservedIds.has(String(field.entry_id)));
@@ -794,6 +804,12 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                                         ['요청 캠프', form.field_map?.camp_entry_id],
                                         ...(Array.isArray(form.field_map?.static_fields)
                                             ? form.field_map.static_fields.map(field => [
+                                                getMappedQuestionLabel(form, field.entry_id),
+                                                field.entry_id
+                                            ])
+                                            : []),
+                                        ...(Array.isArray(form.field_map?.linked_fields)
+                                            ? form.field_map.linked_fields.map(field => [
                                                 getMappedQuestionLabel(form, field.entry_id),
                                                 field.entry_id
                                             ])
