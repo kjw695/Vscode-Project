@@ -758,7 +758,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                                     </div>
                                     <div className="text-right flex-shrink-0">
                                         <div className="font-bold">{Number(record.quantity || 0).toLocaleString()}건</div>
-                                        <div className={\`text-[11px] \${mutedClass}\`}>{record.driver_id}</div>
+                                        <div className={"text-[11px] " + mutedClass}>{record.driver_id}</div>
                                     </div>
                                 </div>
                             );
