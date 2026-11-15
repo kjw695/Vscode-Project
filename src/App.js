@@ -1287,9 +1287,16 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 onOpenDayOff={() => setIsDayOffModalOpen(true)}
                                 onSelectedDateChange={setBluecoinsSelectedDate}
                                 resetToTodayKey={homeVisitKey}
-                                onCalendarDateSelect={(dateKey) => {
+                                onCalendarDateSelect={(dateKey, isSameDate) => {
                                     setBluecoinsSelectedDate(dateKey);
-                                    setIsFabVisible(true);
+                                    setIsFabVisible((visible) => (isSameDate ? !visible : true));
+                                }}
+                                onRequestEditDate={(dateKey) => {
+                                    const [, month, day] = dateKey.split('-');
+                                    showConfirmation(`${Number(month)}월 ${Number(day)}일 수정하시겠습니까?`, () => {
+                                        setIsFabVisible(false);
+                                        handleCalendarDateClick(dateKey);
+                                    });
                                 }}
                                 homeCalendarDesign={homeCalendarDesign}
                                 homeCalendarVolumeItems={homeCalendarVolumeItems}
