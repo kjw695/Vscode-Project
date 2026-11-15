@@ -784,14 +784,14 @@ const BluecoinsDailySummaryPreview = ({
                         onClick={() => onToggleCalendarMode?.(calendarMode === 'money' ? 'volume' : 'money')}
                         className={'justify-self-start rounded-lg border px-2 py-1 text-[10px] font-bold ' + (dark ? 'border-slate-700 bg-slate-800 text-slate-200' : 'border-slate-200 bg-slate-50 text-slate-700')}
                     >
-                        <span className="inline-flex items-center gap-1"><ArrowRightLeft size={11} />{calendarMode === 'money' ? '금액' : '물량'}</span>
+                        <span className="inline-flex items-center gap-1"><ArrowRightLeft size={11} className="text-blue-500" /><span className="font-extrabold">{calendarMode === 'money' ? '금액' : '물량'}</span></span>
                     </button>
                     <div className="flex items-center justify-self-center gap-1">
                         <button type="button" onClick={() => onMonthChange?.(-1)} className="rounded-md p-0.5" aria-label="이전 달"><ChevronLeft size={19} /></button>
                         <div className="whitespace-nowrap text-sm font-black">{currentCalendarDate?.getFullYear()}년 {Number(currentCalendarDate?.getMonth()) + 1}월</div>
                         <button type="button" onClick={() => onMonthChange?.(1)} className="rounded-md p-0.5" aria-label="다음 달"><ChevronRight size={19} /></button>
                     </div>
-                    <div className="flex w-full max-w-[90px] items-center justify-self-end gap-0.5">
+                    <div className="flex w-full max-w-[90px] items-center justify-self-end justify-end gap-0.5">
                         <button type="button" onClick={onOpenDayOff} className="rounded-lg border border-indigo-300 px-2 py-1 text-[10px] font-bold text-indigo-500">휴무</button>
                         <button type="button" onClick={onToday} className="rounded-lg border border-amber-300 px-2 py-1 text-[10px] font-bold text-amber-500">오늘</button>
                     </div>
