@@ -1550,6 +1550,27 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                 >
                     <span>입력</span>
                 </button>
+                <button
+                    type="button"
+                    aria-label="채번 화면 열기"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedMainTab('more');
+                        setActiveContentTab('adminSettings');
+                        setMoreSubView('camp_return_numbering');
+                        setIsFabVisible(false);
+                    }}
+                    className={`fixed z-40 right-2 px-6 py-2.5 rounded-full shadow-lg transition-all duration-300 flex justify-center items-center font-bold tracking-widest border-2 ${
+                        isDarkMode ? 'bg-gray-900 border-yellow-500 text-yellow-400' : 'bg-gray-800 border-gray-700 text-yellow-400'
+                    } ${
+                        (activeContentTab === 'dataEntry' && activeDataTab === 'list')
+                            ? 'opacity-100 translate-y-0'
+                            : (isFabVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none')
+                    }`}
+                    style={{ bottom: 'calc(118px + env(safe-area-inset-bottom))' }}
+                >
+                    <span>채번</span>
+                </button>
             )}
             {isAuthReady && (
                    <div 
