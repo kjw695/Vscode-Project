@@ -26,7 +26,8 @@ const EMPTY_MAPPING = {
     quantity_entry_id: '',
     camp_entry_id: '',
     camp_choice_value: '',
-    static_fields: []
+    static_fields: [],
+    linked_fields: []
 };
 
 
@@ -38,30 +39,107 @@ function statusLabel(status) {
 
 function normalizeCampText(value) {
     return String(value || '')
+        .normalize('NFKC')
         .toLocaleLowerCase()
-        .replace(/\s+/g, '')
-        .replace(/[()（）]/g, '');
+        .replace(/^\\s*\\d+\\s*[.)、:：-]?\\s*/, '')
+        .replace(/[\\s\\u200B-\\u200D\\uFEFF*＊]/g, '')
+        .replace(/[(){}:：.,，!?！？]/g, '')
+        .replaceAll('[', '')
+        .replaceAll(']', '');
 }
 
-function isMobileCampBranchQuestion(question) {
-    return normalizeCampText(question?.label).includes('요청모바일캠프');
+function isCampRelatedQuestion(question) {
+    return /(캠프|거점)/.test(normalizeCampText(question?.label));
 }
 
-function isCampDestinationQuestion(question) {
-    const label = normalizeCampText(question?.label);
-    return /(캠프|거점)/i.test(label) && !isMobileCampBranchQuestion(question);
+function isCompactMobileCampChoice(value) {
+    const normalized = normalizeCampText(value);
+    return /^[a-z가-힣0-9_-]{2,24}$/i.test(normalized) &&
+        /(mb|mobile)$/i.test(normalized);
 }
 
-function inferMobileCampBranchValue(question) {
-    const choices = Array.isArray(question?.choices)
-        ? question.choices.map(value => String(value || '').trim()).filter(Boolean)
-        : [];
-    if (choices.length === 1) return choices[0];
+function chooseCampSelectionQuestion(questions, suggestedEntryId) {
+    const suggested = questions.find(
+        question => String(question.entry_id) === String(suggestedEntryId)
+    );
+    if (suggested && isCampRelatedQuestion(suggested) && suggested.choices?.length) {
+        return suggested;
+    }
 
-    const mobileChoices = choices.filter(choice => normalizeCampText(choice).includes('모바일'));
-    if (mobileChoices.length === 1) return mobileChoices[0];
+    const candidates = questions.filter(
+        question => isCampRelatedQuestion(question) && Array.isArray(question.choices) && question.choices.length > 0
+    );
+    const sameLabelMobileQuestions = candidates.filter(
+        question => normalizeCampText(question.label).includes('요청모바일캠프')
+    );
+    const compactChoices = sameLabelMobileQuestions.filter(
+        question => question.choices.every(isCompactMobileCampChoice)
+    );
+    if (compactChoices.length === 1) return compactChoices[0];
+    if (compactChoices.length > 1) {
+        const dropdowns = compactChoices.filter(question => Number(question.question_type) === 2);
+        if (dropdowns.length === 1) return dropdowns[0];
+        return null;
+    }
 
-    return null;
+    const priorities = [
+        candidates.filter(question => normalizeCampText(question.label).startsWith('기본요청캠프')),
+        candidates.filter(question => normalizeCampText(question.label).startsWith('요청캠프')),
+        candidates.filter(question => /요청.*캠프/i.test(normalizeCampText(question.label))),
+        candidates
+    ];
+    return priorities.find(group => group.length === 1)?.[0] || null;
+}
+
+function buildLinkedFields(questions, driverEntryId, campQuestion) {
+    const linkedFields = [];
+    const linkedIds = new Set();
+
+    if (driverEntryId) {
+        questions.forEach(question => {
+            const label = normalizeCampText(question.label);
+            if (!question.required ||
+                String(question.entry_id) === String(driverEntryId) ||
+                label !== '아이디입력') return;
+            linkedFields.push({ entry_id: String(question.entry_id), source: 'driver_id' });
+            linkedIds.add(String(question.entry_id));
+        });
+    }
+
+    if (campQuestion?.choices?.length) {
+        const childQuestions = questions.filter(question =>
+            question.required &&
+            String(question.entry_id) !== String(campQuestion.entry_id) &&
+            normalizeCampText(question.label).includes('요청모바일캠프') &&
+            Array.isArray(question.choices) &&
+            question.choices.length > 0
+        );
+
+        childQuestions.forEach(question => {
+            const valueMap = {};
+            let complete = true;
+            campQuestion.choices.forEach(parentChoice => {
+                const parentKey = normalizeCampText(parentChoice);
+                const matches = question.choices.filter(
+                    childChoice => normalizeCampText(childChoice).includes(parentKey)
+                );
+                if (matches.length !== 1) complete = false;
+                else valueMap[parentChoice] = matches[0];
+            });
+
+            if (complete && Object.keys(valueMap).length === campQuestion.choices.length) {
+                linkedFields.push({
+                    entry_id: String(question.entry_id),
+                    source: 'camp_choice',
+                    parent_entry_id: String(campQuestion.entry_id),
+                    value_map: valueMap
+                });
+                linkedIds.add(String(question.entry_id));
+            }
+        });
+    }
+
+    return linkedFields;
 }
 
 function createSuggestedMapping(result, campName) {
@@ -70,24 +148,8 @@ function createSuggestedMapping(result, campName) {
         ...(result?.suggested_mapping || {})
     };
     const questions = Array.isArray(result?.questions) ? result.questions : [];
-
-    let campQuestion = questions.find(
-        question => String(question.entry_id) === String(suggested.camp_entry_id)
-    );
-    if (!campQuestion || !isCampDestinationQuestion(campQuestion)) {
-        const candidates = questions.filter(
-            question => isCampDestinationQuestion(question) && Array.isArray(question.choices) && question.choices.length > 0
-        );
-        const priorityGroups = [
-            candidates.filter(question => normalizeCampText(question.label).startsWith('기본요청캠프')),
-            candidates.filter(question => normalizeCampText(question.label).startsWith('요청캠프')),
-            candidates.filter(question => /요청.*캠프/i.test(normalizeCampText(question.label))),
-            candidates
-        ];
-        const selected = priorityGroups.find(group => group.length === 1);
-        campQuestion = selected?.[0] || null;
-        suggested.camp_entry_id = campQuestion?.entry_id || '';
-    }
+    const campQuestion = chooseCampSelectionQuestion(questions, suggested.camp_entry_id);
+    suggested.camp_entry_id = campQuestion?.entry_id || '';
 
     const choices = Array.isArray(campQuestion?.choices) ? campQuestion.choices.filter(Boolean) : [];
     const normalizedCamp = normalizeCampText(campName);
@@ -99,7 +161,6 @@ function createSuggestedMapping(result, campName) {
             normalizedCamp.includes(choiceValue)
         );
     });
-
     suggested.camp_choice_value = exactMatches.length === 1
         ? exactMatches[0]
         : partialMatches.length === 1
@@ -108,26 +169,30 @@ function createSuggestedMapping(result, campName) {
                 ? choices[0]
                 : suggested.camp_choice_value || '';
 
-    const staticFields = Array.isArray(suggested.static_fields) ? [...suggested.static_fields] : [];
-    const staticIds = new Set(staticFields.map(field => String(field.entry_id)));
+    const linkedFields = buildLinkedFields(
+        questions,
+        suggested.driver_id_entry_id,
+        campQuestion
+    );
+    const existingLinks = Array.isArray(suggested.linked_fields) ? suggested.linked_fields : [];
+    const linkIds = new Set(linkedFields.map(field => String(field.entry_id)));
+    suggested.linked_fields = [
+        ...existingLinks.filter(field => !linkIds.has(String(field.entry_id))),
+        ...linkedFields
+    ];
+
+    const linkedIds = new Set(suggested.linked_fields.map(field => String(field.entry_id)));
     const reservedIds = new Set([
         suggested.invoice_entry_id,
         suggested.driver_id_entry_id,
         suggested.quantity_entry_id,
         suggested.camp_entry_id
     ].filter(Boolean).map(String));
-
-    questions.forEach(question => {
-        if (!question.required || !isMobileCampBranchQuestion(question)) return;
-        const entryId = String(question.entry_id);
-        if (reservedIds.has(entryId) || staticIds.has(entryId)) return;
-        const value = inferMobileCampBranchValue(question);
-        if (value) {
-            staticFields.push({ entry_id: entryId, value });
-            staticIds.add(entryId);
-        }
-    });
-    suggested.static_fields = staticFields;
+    const staticFields = Array.isArray(suggested.static_fields) ? [...suggested.static_fields] : [];
+    suggested.static_fields = staticFields.filter(field =>
+        !linkedIds.has(String(field.entry_id)) &&
+        !reservedIds.has(String(field.entry_id))
+    );
 
     return suggested;
 }
@@ -135,13 +200,16 @@ function getMappedEntryIds(fieldMap = {}) {
     const staticIds = (Array.isArray(fieldMap.static_fields) ? fieldMap.static_fields : [])
         .filter(field => String(field?.value ?? '').trim())
         .map(field => String(field.entry_id));
+    const linkedIds = (Array.isArray(fieldMap.linked_fields) ? fieldMap.linked_fields : [])
+        .map(field => String(field.entry_id));
 
     return new Set([
         fieldMap.invoice_entry_id,
         fieldMap.driver_id_entry_id,
         fieldMap.quantity_entry_id,
         fieldMap.camp_entry_id,
-        ...staticIds
+        ...staticIds,
+        ...linkedIds
     ].filter(Boolean).map(String));
 }
 
@@ -161,13 +229,13 @@ function getAutoRegistrationBlockers(result, campName, fieldMap = EMPTY_MAPPING)
     if (!fieldMap.driver_id_entry_id) blockers.push('기사님 아이디 문항');
     if (!fieldMap.quantity_entry_id) blockers.push('채번 수량 문항');
 
-    const hasCampRelatedQuestion = questions.some(
-        question => /(캠프|거점)/i.test(question.label)
-    );
+    const hasCampRelatedQuestion = questions.some(isCampRelatedQuestion);
     const selectedCampQuestion = questions.find(
         question =>
             String(question.entry_id) === String(fieldMap.camp_entry_id) &&
-            isCampDestinationQuestion(question)
+            isCampRelatedQuestion(question) &&
+            Array.isArray(question.choices) &&
+            question.choices.length > 0
     );
     const campMappingIsValid = !hasCampRelatedQuestion ||
         Boolean(selectedCampQuestion);
