@@ -123,6 +123,7 @@ const BluecoinsDailySummaryPreview = ({
     onCalendarDateSelect,
     onOpenDayOff,
     onSelectedDateChange,
+    resetToTodayKey = 0,
     homeCalendarDesign = 'current',
     homeCalendarVolumeItems = {},
     incomeConfig = []
@@ -137,20 +138,8 @@ const BluecoinsDailySummaryPreview = ({
     const chartInitialAlignmentRef = useRef(true);
     const [chartVisibleStartIndex, setChartVisibleStartIndex] = useState(0);
     const [chartAlignmentVersion, setChartAlignmentVersion] = useState(0);
-    const [selectedDate, setSelectedDate] = useState(() => {
-        const activeCalendarDates = (Array.isArray(calendarDays) ? calendarDays : [])
-            .filter((day) => day?.isCurrentMonth && (Number(day?.revenue) > 0 || Number(day?.expenses) > 0))
-            .map((day) => day.date)
-            .filter((date) => typeof date === 'string')
-            .sort();
-        if (activeCalendarDates.length) return activeCalendarDates[activeCalendarDates.length - 1];
-
-        const validDates = (Array.isArray(entries) ? entries : [])
-            .map((entry) => entry?.date)
-            .filter((date) => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date))
-            .sort();
-        return validDates.length ? validDates[validDates.length - 1] : toDateKey(new Date());
-    });
+    // 주간 차트의 기본 날짜는 마지막 배송 기록일이 아니라 기기 기준 오늘입니다.
+    const [selectedDate, setSelectedDate] = useState(() => toDateKey(new Date()));
 
     useEffect(() => {
         onSelectedDateChange?.(selectedDate);
@@ -397,6 +386,14 @@ const BluecoinsDailySummaryPreview = ({
     const shiftSelectedDate = (delta) => {
         selectDateAndAlignChart(getShiftedDateKey(selectedDate, delta), 'smooth');
     };
+
+    // 홈 화면에 새로 진입할 때마다 주간 차트의 마지막 날짜를 오늘로 되돌립니다.
+    useEffect(() => {
+        const todayKey = toDateKey(new Date());
+        chartAlignmentRequestRef.current = { dateKey: todayKey, behavior: 'auto' };
+        setSelectedDate(todayKey);
+        setChartAlignmentVersion((version) => version + 1);
+    }, [resetToTodayKey]);
 
     const handleCalendarTouchStart = (event) => {
         const touch = event.touches?.[0];
