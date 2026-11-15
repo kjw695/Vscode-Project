@@ -1568,7 +1568,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                             ? 'opacity-100 translate-y-0'
                             : (isFabVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none')
                     }`}
-                    style={{ bottom: 'calc(118px + env(safe-area-inset-bottom))' }}
+                    style={{ bottom: 'calc(132px + env(safe-area-inset-bottom))' }}
                 >
                     <span>채번</span>
                 </button>
