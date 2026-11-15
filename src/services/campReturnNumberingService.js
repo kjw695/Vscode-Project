@@ -109,9 +109,9 @@ export async function fetchCampReturnRecords(userId) {
 }
 
 function extractInvoiceIdentifiers(value) {
-    const text = String(value || '').replace(/\\s+/g, ' ').trim();
-    const trackingNumber = text.match(/운송장\\s*번호\\s*[:：]?\\s*([0-9]+)/i)?.[1] || '';
-    const orderNumber = text.match(/주문\\s*번호\\s*[:：]?\\s*([0-9]+)/i)?.[1] || '';
+    const text = String(value || '').replace(/\s+/g, ' ').trim();
+    const trackingNumber = text.match(/운송장\s*번호\s*[:：]?\s*([0-9]+)/i)?.[1] || '';
+    const orderNumber = text.match(/주문\s*번호\s*[:：]?\s*([0-9]+)/i)?.[1] || '';
     return { trackingNumber, orderNumber };
 }
 
