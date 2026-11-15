@@ -41,8 +41,8 @@ function normalizeCampText(value) {
     return String(value || '')
         .normalize('NFKC')
         .toLocaleLowerCase()
-        .replace(/^\\s*\\d+\\s*[.)、:：-]?\\s*/, '')
-        .replace(/[\\s\\u200B-\\u200D\\uFEFF*＊]/g, '')
+        .replace(/^\s*\d+\s*[.)、:：-]?\s*/, '')
+        .replace(/[\s\u200B-\u200D\uFEFF*＊]/g, '')
         .replace(/[(){}:：.,，!?！？]/g, '')
         .replaceAll('[', '')
         .replaceAll(']', '');
