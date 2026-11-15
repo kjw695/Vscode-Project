@@ -669,7 +669,7 @@ const BluecoinsDailySummaryPreview = ({
                             ><ChevronRight size={13} /></button>
                         </div>
                         <div
-                            className={'min-w-0 flex-1 overflow-hidden text-ellipsis rounded-xl px-1 py-1 text-center text-[9px] sm:text-[10px] font-black whitespace-nowrap ' + (
+                            className={'min-w-0 flex-1 rounded-xl px-1 py-1 text-center text-[clamp(7px,2.5vw,10px)] font-black tracking-tight whitespace-nowrap ' + (
                                 previousWorkingDays <= 0
                                     ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                                     : averageVolumeDiff > 0
@@ -679,12 +679,12 @@ const BluecoinsDailySummaryPreview = ({
                                             : 'bg-slate-500/10 text-slate-600 dark:text-slate-300'
                             )}
                             title={previousWorkingDays > 0
-                                ? `전월 하루 평균 대비 ${averageVolumeDiff > 0 ? '+' : ''}${averageVolumeDiff.toLocaleString()}건${averageVolumeDiffPct !== null ? ` (${averageVolumeDiffPct > 0 ? '+' : ''}${averageVolumeDiffPct.toFixed(1)}%)` : ' (증감률 계산 기준 없음)'}`
+                                ? `전월 하루 평균 대비 ${averageVolumeDiff > 0 ? '+' : ''}${averageVolumeDiff.toLocaleString()}건${averageVolumeDiffPct !== null ? ` · ${averageVolumeDiffPct > 0 ? '+' : ''}${averageVolumeDiffPct.toFixed(1)}%` : ' · 증감률 계산 기준 없음'}`
                                 : '전월 비교 데이터 없음'}
                         >
                             평균물량 {dailyAverageVolume.toLocaleString()}건
                             {previousWorkingDays > 0
-                                ? ` · 전월 ${averageVolumeDiff > 0 ? '▲' : averageVolumeDiff < 0 ? '▼' : '－'}${Math.abs(averageVolumeDiff).toLocaleString()}건${averageVolumeDiffPct !== null ? ` (${averageVolumeDiffPct > 0 ? '+' : ''}${averageVolumeDiffPct.toFixed(1)}%)` : ''}`
+                                ? ` · ${averageVolumeDiff > 0 ? '▲' : averageVolumeDiff < 0 ? '▼' : '－'}${Math.abs(averageVolumeDiff).toLocaleString()}건${averageVolumeDiffPct !== null ? ` ${averageVolumeDiffPct > 0 ? '+' : ''}${averageVolumeDiffPct.toFixed(1)}%` : ''}`
                                 : ' · 전월 비교 없음'}
                         </div>
                         <div className={'inline-flex shrink-0 whitespace-nowrap rounded-xl p-0.5 text-[10px] font-black ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
