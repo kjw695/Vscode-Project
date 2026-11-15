@@ -465,14 +465,6 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                 return;
             }
 
-            await saveCampReturnProfile(userId, {
-                defaultCamp: camp,
-                defaultFormId: selectedRegionalForm?.id || null,
-                defaultMobileCamp: selectedRegionalForm
-                    ? (selectedMobileCamp || selectedRegionalForm.field_map?.camp_choice_value || selectedRegionalForm.camp_name)
-                    : null
-            });
-
             const request = {
                 invoiceText: normalizedInvoice,
                 driverId: normalizedDriverId,
@@ -492,6 +484,17 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                 savedRecord,
                 ...current.filter(record => String(record.id) !== String(savedRecord.id))
             ]);
+
+            // The request log is the priority; a preference-save failure must not lose the request.
+            await saveCampReturnProfile(userId, {
+                defaultCamp: camp,
+                defaultFormId: selectedRegionalForm?.id || null,
+                defaultMobileCamp: selectedRegionalForm
+                    ? (selectedMobileCamp || selectedRegionalForm.field_map?.camp_choice_value || selectedRegionalForm.camp_name)
+                    : null
+            }).catch(error => {
+                console.warn('[CampReturnNumbering] 요청 기록 후 기본 양식 설정 저장 실패:', error);
+            });
 
             if (Capacitor.getPlatform() === 'web') {
                 const opened = window.open(url, '_blank', 'noopener,noreferrer');
