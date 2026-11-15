@@ -15,6 +15,7 @@ import {
     fetchCampReturnForms
 } from '../../services/campReturnNumberingService';
 import CampReturnFormManager from './CampReturnFormManager';
+import { getMonthlyDateRange } from '../../utils/calculator';
 
 const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSd8kBLT6B5iGSTLuG5yyMCbuCJ5l1e5qYpEqbUdtbtCSwUZqg/viewform';
 const CAMPS = ['학천MB', '농소MB'];
@@ -154,7 +155,7 @@ function parseInvoiceDetails(value) {
     return { trackingNumber, orderNumber };
 }
 
-export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkMode, user, showMessage }) {
+export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkMode, user, showMessage, monthlyStartDay = 26, monthlyEndDay = 25 }) {
     const [driverId, setDriverId] = useState('');
     const [invoiceText, setInvoiceText] = useState('');
     const [quantity, setQuantity] = useState('');
@@ -288,10 +289,38 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
         item => (Number(campTotals[item]) || 0) > 0
     );
 
-    const currentMonthKey = todayKey.slice(0, 7);
+    const monthlyPeriod = useMemo(() => {
+        const startDay = Number(monthlyStartDay) || 26;
+        const endDay = Number(monthlyEndDay) || 25;
+        const now = new Date();
+        let periodYear = now.getFullYear();
+        let periodMonth = now.getMonth() + 1;
+
+        // App.js uses the configured end day to decide which monthly ledger is current.
+        if (now.getDate() > endDay) {
+            periodMonth += 1;
+            if (periodMonth > 12) {
+                periodMonth = 1;
+                periodYear += 1;
+            }
+        }
+
+        const { startStr, endStr } = getMonthlyDateRange(
+            periodYear,
+            periodMonth,
+            startDay,
+            endDay
+        );
+        return { year: periodYear, month: periodMonth, startStr, endStr };
+    }, [monthlyStartDay, monthlyEndDay]);
+
     const currentMonthRecords = useMemo(
-        () => records.filter(record => record.user_confirmed_at && localDateKey(record.user_confirmed_at).slice(0, 7) === currentMonthKey),
-        [records, currentMonthKey]
+        () => records.filter(record => {
+            if (!record.user_confirmed_at) return false;
+            const recordDate = localDateKey(record.user_confirmed_at);
+            return recordDate >= monthlyPeriod.startStr && recordDate <= monthlyPeriod.endStr;
+        }),
+        [records, monthlyPeriod]
     );
     const monthlyQuantity = currentMonthRecords.reduce(
         (sum, record) => sum + (Number(record.quantity) || 0),
@@ -311,7 +340,8 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
     const monthLabel = new Intl.DateTimeFormat('ko-KR', {
         year: 'numeric',
         month: 'long'
-    }).format(new Date());
+    }).format(new Date(monthlyPeriod.year, monthlyPeriod.month - 1, 1));
+    const monthlyPeriodLabel = `${monthlyPeriod.startStr.slice(5).replace('-', '/')} ~ ${monthlyPeriod.endStr.slice(5).replace('-', '/')}`;
 
     const weekStart = new Date();
     weekStart.setHours(0, 0, 0, 0);
@@ -762,6 +792,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                                 <p className="text-2xl font-bold mt-1">{currentMonthRecords.length}회</p>
                             </div>
                         </div>
+                        <p className={`text-xs mb-3 ${mutedClass}`}>집계 기간: {monthlyPeriodLabel}</p>
                         {visibleMonthlyCampNames.length > 0 ? (
                             <div className="grid grid-cols-2 gap-2">
                                 {visibleMonthlyCampNames.map(item => (
