@@ -187,6 +187,25 @@ export async function addCampReturnRecord(userId, request) {
     return data;
 }
 
+export async function deleteCampReturnRecord(userId, recordId) {
+    if (!recordId) throw new Error('삭제할 채번 기록을 찾을 수 없습니다.');
+
+    if (!userId) {
+        const records = readLocal(null, 'records', []);
+        writeLocal(null, 'records', records.filter(record => String(record.id) !== String(recordId)));
+        return;
+    }
+
+    const { error } = await supabase
+        .from('camp_return_records')
+        .delete()
+        .eq('id', recordId)
+        .eq('user_id', userId);
+
+    if (error) throw error;
+}
+
+
 
 export async function fetchCampReturnForms(userId) {
     if (!userId) return [];
