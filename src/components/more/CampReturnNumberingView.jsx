@@ -503,7 +503,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
         } catch (error) {
             console.error('[CampReturnNumbering] 설문지 열기 또는 요청 기록 저장 실패:', error);
             if (savedRecord) {
-                showMessage?.(`채번 요청 기록은 저장되었습니다. 다만 설문지를 열지 못했습니다. 최근 기록에서 해당 항목을 삭제하거나 다시 시도해주세요.\n${error?.message || ''}`);
+                showMessage?.(`채번 요청 기록은 저장되었습니다. 다만 설문지를 열지 못했습니다. 최근 기록에서 해당 기록을 삭제한 뒤 다시 시도해주세요.\n${error?.message || ''}`);
             } else {
                 showMessage?.(error?.message || '채번 요청을 저장하거나 설문지를 여는 데 실패했습니다.');
             }
