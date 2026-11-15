@@ -1547,7 +1547,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                         }
                     }} 
                     className={`fixed z-40 right-2 px-6 py-2.5 rounded-full shadow-lg transition-all duration-300 flex justify-center items-center font-bold tracking-widest border-2 ${
-                        isDarkMode ? 'bg-blue-700 border-blue-500 text-white' : 'bg-blue-600 border-blue-700 text-white'
+                        isDarkMode ? 'bg-gray-900 border-yellow-500 text-yellow-400' : 'bg-gray-800 border-gray-700 text-yellow-400'
                     } ${
                         /* 리스트 화면에서는 투명해지지 않고 항상 100% 보이게 설정 */
                         (activeContentTab === 'dataEntry' && activeDataTab === 'list') 
@@ -1569,7 +1569,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                         setIsFabVisible(false);
                     }}
                     className={`fixed z-40 right-2 px-6 py-2.5 rounded-full shadow-lg transition-all duration-300 flex justify-center items-center font-bold tracking-widest border-2 ${
-                        isDarkMode ? 'bg-gray-900 border-yellow-500 text-yellow-400' : 'bg-gray-800 border-gray-700 text-yellow-400'
+                        isDarkMode ? 'bg-blue-700 border-blue-500 text-white' : 'bg-blue-600 border-blue-700 text-white'
                     } ${
                         (activeContentTab === 'dataEntry' && activeDataTab === 'list')
                             ? 'opacity-100 translate-y-0'
