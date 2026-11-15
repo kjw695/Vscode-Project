@@ -600,12 +600,12 @@ const BluecoinsDailySummaryPreview = ({
                                             : 'bg-slate-500/10 text-slate-600 dark:text-slate-300'
                             )}
                             title={previousWorkingDays > 0
-                                ? `전월 하루 평균 대비 ${averageVolumeDiff > 0 ? '+' : ''}${averageVolumeDiff.toLocaleString()}건 (${averageVolumeDiffPct > 0 ? '+' : ''}${averageVolumeDiffPct.toFixed(1)}%)`
+                                ? `전월 하루 평균 대비 ${averageVolumeDiff > 0 ? '+' : ''}${averageVolumeDiff.toLocaleString()}건${averageVolumeDiffPct !== null ? ` (${averageVolumeDiffPct > 0 ? '+' : ''}${averageVolumeDiffPct.toFixed(1)}%)` : ' (증감률 계산 기준 없음)'}`
                                 : '전월 비교 데이터 없음'}
                         >
                             평균물량 {dailyAverageVolume.toLocaleString()}건
                             {previousWorkingDays > 0
-                                ? ` · 전월 ${averageVolumeDiff > 0 ? '▲' : averageVolumeDiff < 0 ? '▼' : '－'}${Math.abs(averageVolumeDiff).toLocaleString()}건 (${averageVolumeDiffPct > 0 ? '+' : ''}${averageVolumeDiffPct.toFixed(1)}%)`
+                                ? ` · 전월 ${averageVolumeDiff > 0 ? '▲' : averageVolumeDiff < 0 ? '▼' : '－'}${Math.abs(averageVolumeDiff).toLocaleString()}건${averageVolumeDiffPct !== null ? ` (${averageVolumeDiffPct > 0 ? '+' : ''}${averageVolumeDiffPct.toFixed(1)}%)` : ''}`
                                 : ' · 전월 비교 없음'}
                         </div>
                         <div className={'inline-flex shrink-0 whitespace-nowrap rounded-xl p-0.5 text-[10px] font-black ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
