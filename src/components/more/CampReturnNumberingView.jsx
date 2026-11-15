@@ -4,6 +4,7 @@ import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import {
     addCampReturnRecord,
+    findCampReturnDuplicateRecord,
     fetchAccountDriverId,
     fetchGuestDriverId,
     saveGuestDriverId,
@@ -410,8 +411,36 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
             return;
         }
 
+        const invoiceDetails = parseInvoiceDetails(normalizedInvoice);
         setSaving(true);
         try {
+            const duplicateRecord = await findCampReturnDuplicateRecord(userId, invoiceDetails);
+            const pendingDetails = pendingRequest
+                ? parseInvoiceDetails(pendingRequest.invoiceText)
+                : null;
+            const pendingIsDuplicate = pendingDetails &&
+                invoiceDetails &&
+                (!invoiceDetails.trackingNumber || pendingDetails.trackingNumber === invoiceDetails.trackingNumber) &&
+                (!invoiceDetails.orderNumber || pendingDetails.orderNumber === invoiceDetails.orderNumber);
+
+            if (duplicateRecord || pendingIsDuplicate) {
+                const matchedRecord = duplicateRecord || {
+                    camp: pendingRequest?.camp,
+                    user_confirmed_at: null
+                };
+                const detailLines = [
+                    '이미 등록된 채번 요청입니다.',
+                    invoiceDetails?.trackingNumber ? `운송장번호 ${invoiceDetails.trackingNumber}` : '',
+                    invoiceDetails?.orderNumber ? `주문번호　　${invoiceDetails.orderNumber}` : '',
+                    matchedRecord.user_confirmed_at
+                        ? `기존 기록: ${matchedRecord.camp} · ${formatDate(matchedRecord.user_confirmed_at)} ${formatTime(matchedRecord.user_confirmed_at)}`
+                        : '현재 제출 확인 대기 중인 요청입니다.',
+                    '기존 요청 기록을 확인해주세요.'
+                ].filter(Boolean);
+                showMessage?.(detailLines.join('\\n'));
+                return;
+            }
+
             await saveCampReturnProfile(userId, {
                 defaultCamp: camp,
                 defaultFormId: selectedRegionalForm?.id || null,
