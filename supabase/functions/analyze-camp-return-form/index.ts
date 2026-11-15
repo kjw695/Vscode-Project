@@ -365,11 +365,15 @@ function suggestMapping(questions: FormQuestion[]) {
       const fixedRequestChoice = choices.find((choice) =>
         /채번\s*요청/.test(choice)
       );
+      const fixedMobileChoice = choices.find((choice) =>
+        /(?:요청\s*)?모바일\s*캠프/i.test(choice)
+      );
 
       // Conditional parent selectors are fixed to the "mobile camp" branch
       // whenever the available choices identify that value unambiguously.
       // This prevents the parent from appearing as an extra manual field.
       const value = fixedRequestChoice ??
+        fixedMobileChoice ??
         mobileBranchValue ??
         (choices.length === 1 ? choices[0] : null);
 
