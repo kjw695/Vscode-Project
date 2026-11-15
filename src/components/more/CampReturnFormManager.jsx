@@ -39,7 +39,7 @@ function statusLabel(status) {
 function normalizeCampText(value) {
     return String(value || '')
         .toLocaleLowerCase()
-        .replace(/\\s+/g, '')
+        .replace(/\s+/g, '')
         .replace(/[()（）]/g, '');
 }
 
