@@ -253,6 +253,7 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const mainTouchStartY = useRef(null);
     const [selectedMainTab, setSelectedMainTab] = useState('home');
     const [activeContentTab, setActiveContentTab] = useState('bluecoinsDailySummary');
+    const [homeVisitKey, setHomeVisitKey] = useState(0);
         const [moreSubView, setMoreSubView] = useState('main');
     const [autoEditAccountProfile, setAutoEditAccountProfile] = useState(false);
     const [returnToCampNumbering, setReturnToCampNumbering] = useState(false);
@@ -1285,6 +1286,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 onDateClick={handleCalendarDateClick}
                                 onOpenDayOff={() => setIsDayOffModalOpen(true)}
                                 onSelectedDateChange={setBluecoinsSelectedDate}
+                                resetToTodayKey={homeVisitKey}
                                 onCalendarDateSelect={(dateKey) => {
                                     setBluecoinsSelectedDate(dateKey);
                                     setIsFabVisible(true);
@@ -1585,7 +1587,13 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                     </button>
 
                     {/* ✨ 홈 버튼 클릭 시 handleResetToCurrentMonth() 추가 */}
-                    <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'home' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} onClick={() => { setSelectedMainTab('home'); setActiveContentTab('bluecoinsDailySummary'); handleResetToCurrentMonth(); }}>
+                    <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'home' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} onClick={() => {
+                        setSelectedMainTab('home');
+                        setActiveContentTab('bluecoinsDailySummary');
+                        setHomeVisitKey((key) => key + 1);
+                        setIsFabVisible(false);
+                        handleResetToCurrentMonth();
+                    }}>
                         <Home size={24} /> <span>홈</span>
                     </button>
                     <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'search' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} 
