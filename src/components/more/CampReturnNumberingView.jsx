@@ -437,7 +437,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                         : '현재 제출 확인 대기 중인 요청입니다.',
                     '기존 요청 기록을 확인해주세요.'
                 ].filter(Boolean);
-                showMessage?.(detailLines.join('\\n'));
+                showMessage?.(detailLines.join('\n'));
                 return;
             }
 
