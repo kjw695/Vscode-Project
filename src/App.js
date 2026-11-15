@@ -1471,6 +1471,8 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                         isDarkMode={isDarkMode}
                                         user={user}
                                         showMessage={showMessage}
+                                        monthlyStartDay={monthlyStartDay}
+                                        monthlyEndDay={monthlyEndDay}
                                     />
                                 )}
                                 {moreSubView === 'average_settings' && (
