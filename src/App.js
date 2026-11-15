@@ -1285,6 +1285,10 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 onDateClick={handleCalendarDateClick}
                                 onOpenDayOff={() => setIsDayOffModalOpen(true)}
                                 onSelectedDateChange={setBluecoinsSelectedDate}
+                                onCalendarDateSelect={(dateKey) => {
+                                    setBluecoinsSelectedDate(dateKey);
+                                    setIsFabVisible(true);
+                                }}
                                 homeCalendarDesign={homeCalendarDesign}
                                 homeCalendarVolumeItems={homeCalendarVolumeItems}
                                 incomeConfig={incomeConfig}
