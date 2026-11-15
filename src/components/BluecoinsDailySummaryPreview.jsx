@@ -782,7 +782,7 @@ const BluecoinsDailySummaryPreview = ({
                     <button
                         type="button"
                         onClick={() => onToggleCalendarMode?.(calendarMode === 'money' ? 'volume' : 'money')}
-                        className={'justify-self-start rounded-lg border px-2 py-1 text-[12px] font-bold ' + (dark ? 'border-slate-700 bg-slate-800 text-slate-200' : 'border-slate-200 bg-slate-50 text-slate-700')}
+                        className={'inline-flex items-center justify-center justify-self-start rounded-lg border px-2 py-1 text-[12px] font-bold ' + (dark ? 'border-slate-700 bg-slate-800 text-slate-200' : 'border-slate-200 bg-slate-50 text-slate-700')}
                     >
                         <span className="inline-flex items-center gap-1"><ArrowRightLeft size={13} className="text-blue-500" /><span className="font-extrabold">{calendarMode === 'money' ? '금액' : '물량'}</span></span>
                     </button>
