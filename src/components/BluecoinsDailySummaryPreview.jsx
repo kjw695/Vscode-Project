@@ -582,7 +582,7 @@ const BluecoinsDailySummaryPreview = ({
                             onPointerCancel={handleDatePointerEnd}
                             onContextMenu={(event) => event.preventDefault()}
                             onClick={() => handleDateClick(day.date)}
-                            className={'flex min-w-0 flex-col items-center rounded-xl px-0.5 py-1 ' + (
+                            className={'select-none flex min-w-0 flex-col items-center rounded-xl px-0.5 py-1 ' + (
                                 isSelected
                                     ? (calendarMode === 'money' ? 'bg-blue-500/10 ring-1 ring-blue-500/70' : 'bg-emerald-500/10 ring-1 ring-emerald-500/70')
                                     : (dark ? 'hover:bg-slate-700/50' : 'hover:bg-slate-200/60')
@@ -828,7 +828,7 @@ const BluecoinsDailySummaryPreview = ({
                                 onPointerCancel={handleDatePointerEnd}
                                 onContextMenu={(event) => event.preventDefault()}
                                 onClick={() => dayInfo?.date && handleDateClick(dayInfo.date)}
-                                className={(homeCalendarDesign === 'current'
+                                className={'select-none ' + (homeCalendarDesign === 'current'
                                     ? 'relative flex h-20 min-w-0 flex-col items-center justify-start border-b border-r p-1 text-left transition-colors ' + dividerClass
                                     : 'relative flex h-[62px] min-w-0 flex-col items-center justify-start rounded-md transition-colors') + ' ' + (
                                     isSelected
