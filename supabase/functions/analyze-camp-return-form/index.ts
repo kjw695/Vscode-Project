@@ -363,7 +363,7 @@ function suggestMapping(questions: FormQuestion[]) {
         ? inferMobileCampBranchValue(question)
         : null;
       const fixedRequestChoice = choices.find((choice) =>
-        /채번\\s*요청/.test(choice)
+        /채번\s*요청/.test(choice)
       );
 
       // Conditional parent selectors are fixed to the "mobile camp" branch
