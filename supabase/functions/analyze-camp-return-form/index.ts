@@ -282,17 +282,38 @@ function chooseByPriority(
   return null;
 }
 
-function isMobileCampBranchQuestion(question: FormQuestion): boolean {
-  return /요청모바일캠프/.test(normalizeQuestionLabel(question.label));
+function isCampRelatedQuestion(question: FormQuestion): boolean {
+  return /(캠프|거점)/.test(normalizeQuestionLabel(question.label));
 }
 
-function chooseCampDestinationQuestion(questions: FormQuestion[]): string | null {
-  // "요청 모바일 캠프" is a conditional branch selector, not the destination
-  // camp field. Never bind that parent field as camp_entry_id.
+function isCompactMobileCampChoice(value: string): boolean {
+  const normalized = normalizeQuestionLabel(value);
+  return /^[a-z가-힣0-9_-]{2,24}$/i.test(normalized) &&
+    /(mb|mobile)$/i.test(normalized);
+}
+
+function chooseCampDestinationQuestion(questions: FormQuestion[]): FormQuestion | null {
   const candidates = questions.filter((question) =>
-    /(캠프|거점)/.test(normalizeQuestionLabel(question.label)) &&
-    !isMobileCampBranchQuestion(question)
+    isCampRelatedQuestion(question) && question.choices.length > 0
   );
+
+  // This form has two questions both named "요청 모바일 캠프":
+  // the first contains short choices (학천MB/농소MB), while the conditional
+  // follow-up contains descriptive values (캠프명 + area). Use the short
+  // selector as the app-facing camp choice.
+  const mobileCampQuestions = candidates.filter((question) =>
+    /요청모바일캠프/.test(normalizeQuestionLabel(question.label))
+  );
+  const compactChoices = mobileCampQuestions.filter((question) =>
+    question.choices.length > 0 &&
+    question.choices.every(isCompactMobileCampChoice)
+  );
+  if (compactChoices.length === 1) return compactChoices[0];
+  if (compactChoices.length > 1) {
+    const dropdowns = compactChoices.filter((question) => question.question_type === 2);
+    if (dropdowns.length === 1) return dropdowns[0];
+    return null;
+  }
 
   const priorities: Array<(question: FormQuestion) => boolean> = [
     (question) => /^기본요청캠프/.test(normalizeQuestionLabel(question.label)),
@@ -300,39 +321,84 @@ function chooseCampDestinationQuestion(questions: FormQuestion[]): string | null
     (question) => /^요청.*캠프/.test(normalizeQuestionLabel(question.label)),
     (question) => /(요청|반품).*(캠프|거점)/.test(normalizeQuestionLabel(question.label)),
     (question) => /^캠프명/.test(normalizeQuestionLabel(question.label)),
-    (question) => /(캠프|거점)/.test(normalizeQuestionLabel(question.label)),
+    (question) => isCampRelatedQuestion(question),
   ];
 
   for (const predicate of priorities) {
     const matches = candidates.filter(predicate);
-    if (matches.length === 1) return matches[0].entry_id;
+    if (matches.length === 1) return matches[0];
     if (matches.length > 1) {
-      const withChoices = matches.filter((question) => question.choices.length > 0);
-      if (withChoices.length === 1) return withChoices[0].entry_id;
-      const optionalWithChoices = withChoices.filter((question) => !question.required);
-      if (optionalWithChoices.length === 1) return optionalWithChoices[0].entry_id;
+      const optionalWithChoices = matches.filter((question) => !question.required);
+      if (optionalWithChoices.length === 1) return optionalWithChoices[0];
       return null;
     }
   }
-
   return null;
 }
 
-function inferMobileCampBranchValue(question: FormQuestion): string | null {
-  const choices = question.choices.map((choice) => choice.trim()).filter(Boolean);
-  if (choices.length === 1) return choices[0];
+function buildLinkedFields(
+  questions: FormQuestion[],
+  driverEntryId: string | null,
+  campQuestion: FormQuestion | null,
+) {
+  const linkedFields: Array<Record<string, unknown>> = [];
+  const linkedIds = new Set<string>();
 
-  const mobileChoices = choices.filter((choice) =>
-    /모바일/.test(normalizeQuestionLabel(choice))
-  );
-  if (mobileChoices.length === 1) return mobileChoices[0];
+  // A conditional follow-up text box named "아이디 입력" receives the same
+  // driver ID that is already entered in the primary "기사님 아이디" field.
+  if (driverEntryId) {
+    for (const question of questions) {
+      const label = normalizeQuestionLabel(question.label);
+      if (!question.required ||
+        question.entry_id === driverEntryId ||
+        !/^아이디입력$/.test(label)) continue;
 
-  const explicitMobileChoices = choices.filter((choice) =>
-    /(?:요청)?모바일캠프/.test(normalizeQuestionLabel(choice))
-  );
-  if (explicitMobileChoices.length === 1) return explicitMobileChoices[0];
+      linkedFields.push({
+        entry_id: question.entry_id,
+        source: "driver_id",
+      });
+      linkedIds.add(question.entry_id);
+    }
+  }
 
-  return null;
+  // A second "요청 모바일 캠프" field can appear after the first choice.
+  // Convert the short selected value to its matching descriptive child value.
+  if (campQuestion && campQuestion.choices.length > 0) {
+    const childQuestions = questions.filter((question) =>
+      question.required &&
+      question.entry_id !== campQuestion.entry_id &&
+      /요청모바일캠프/.test(normalizeQuestionLabel(question.label)) &&
+      question.choices.length > 0
+    );
+
+    for (const question of childQuestions) {
+      const valueMap: Record<string, string> = {};
+      let complete = true;
+      for (const parentChoice of campQuestion.choices) {
+        const parentKey = normalizeQuestionLabel(parentChoice);
+        const matches = question.choices.filter((childChoice) =>
+          normalizeQuestionLabel(childChoice).includes(parentKey)
+        );
+        if (matches.length !== 1) {
+          complete = false;
+          break;
+        }
+        valueMap[parentChoice] = matches[0];
+      }
+
+      if (complete && Object.keys(valueMap).length === campQuestion.choices.length) {
+        linkedFields.push({
+          entry_id: question.entry_id,
+          source: "camp_choice",
+          parent_entry_id: campQuestion.entry_id,
+          value_map: valueMap,
+        });
+        linkedIds.add(question.entry_id);
+      }
+    }
+  }
+
+  return linkedFields;
 }
 
 function suggestMapping(questions: FormQuestion[]) {
@@ -351,32 +417,26 @@ function suggestMapping(questions: FormQuestion[]) {
     (question) => /채번수량/.test(normalizeQuestionLabel(question.label)),
     (question) => /수량/.test(normalizeQuestionLabel(question.label)),
   ]);
-  const camp = chooseCampDestinationQuestion(questions);
+  const campQuestion = chooseCampDestinationQuestion(questions);
+  const camp = campQuestion?.entry_id ?? null;
+  const linkedFields = buildLinkedFields(questions, driver, campQuestion);
+  const mappedIds = new Set([
+    invoice,
+    driver,
+    quantity,
+    camp,
+    ...linkedFields.map((field) => String(field.entry_id)),
+  ].filter(Boolean));
 
-  const mappedIds = new Set([invoice, driver, quantity, camp].filter(Boolean));
   const staticFields = questions
     .filter((question) => question.required && !mappedIds.has(question.entry_id))
     .flatMap((question) => {
       const choices = question.choices.map((choice) => choice.trim()).filter(Boolean);
-      const isMobileBranch = isMobileCampBranchQuestion(question);
-      const mobileBranchValue = isMobileBranch
-        ? inferMobileCampBranchValue(question)
-        : null;
       const fixedRequestChoice = choices.find((choice) =>
-        /채번\s*요청/.test(choice)
+        /채번\\s*요청/.test(choice)
       );
-      const fixedMobileChoice = choices.find((choice) =>
-        /(?:요청\s*)?모바일\s*캠프/i.test(choice)
-      );
-
-      // Conditional parent selectors are fixed to the "mobile camp" branch
-      // whenever the available choices identify that value unambiguously.
-      // This prevents the parent from appearing as an extra manual field.
       const value = fixedRequestChoice ??
-        fixedMobileChoice ??
-        mobileBranchValue ??
         (choices.length === 1 ? choices[0] : null);
-
       return value
         ? [{ entry_id: question.entry_id, value }]
         : [];
@@ -388,6 +448,7 @@ function suggestMapping(questions: FormQuestion[]) {
     quantity_entry_id: quantity,
     camp_entry_id: camp,
     static_fields: staticFields,
+    linked_fields: linkedFields,
   };
 }
 function getFormTitle(html: string): string {
@@ -566,24 +627,22 @@ Deno.serve(async (request) => {
     }
 
     const isCampQuestion = (question: FormQuestion) =>
-      /(캠프|거점)/i.test(question.label) && !isMobileCampBranchQuestion(question);
-    const hasCampRelatedQuestion = questions.some(
-      (question) => /(캠프|거점)/i.test(question.label),
-    );
+      isCampRelatedQuestion(question) && question.choices.length > 0;
+    const hasCampRelatedQuestion = questions.some(isCampRelatedQuestion);
+    const linkedFields = Array.isArray(mapping.linked_fields) ? mapping.linked_fields : [];
     const mappedIds = new Set([
       mapping.invoice_entry_id,
       mapping.driver_id_entry_id,
       mapping.quantity_entry_id,
       mapping.camp_entry_id,
       ...mapping.static_fields.map((field) => field.entry_id),
+      ...linkedFields.map((field) => String(field.entry_id)),
     ].filter(Boolean));
     const selectedCampQuestion = questions.find(
       (question) =>
         question.entry_id === mapping.camp_entry_id &&
         isCampQuestion(question),
     );
-    // A required branch-selector may be prefilled as a static field while
-    // camp_entry_id points to its optional child dropdown with actual camps.
     const campMappingIsValid = !hasCampRelatedQuestion ||
       Boolean(selectedCampQuestion);
     const unresolvedRequiredQuestions = questions.filter(
