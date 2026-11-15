@@ -120,6 +120,7 @@ const BluecoinsDailySummaryPreview = ({
     onMonthChange,
     onToday,
     onDateClick,
+    onCalendarDateSelect,
     onOpenDayOff,
     onSelectedDateChange,
     homeCalendarDesign = 'current',
@@ -130,6 +131,7 @@ const BluecoinsDailySummaryPreview = ({
     const [activeReportTab, setActiveReportTab] = useState('categories');
     const [isDayMode, setIsDayMode] = useState(true);
     const chartScrollRef = useRef(null);
+    const calendarSwipeStartRef = useRef(null);
     const reportSectionRef = useRef(null);
     const chartAlignmentRequestRef = useRef(null);
     const chartInitialAlignmentRef = useRef(true);
@@ -396,6 +398,39 @@ const BluecoinsDailySummaryPreview = ({
         selectDateAndAlignChart(getShiftedDateKey(selectedDate, delta), 'smooth');
     };
 
+    const handleCalendarTouchStart = (event) => {
+        const touch = event.touches?.[0];
+        if (!touch) return;
+        calendarSwipeStartRef.current = {
+            x: touch.clientX,
+            y: touch.clientY
+        };
+    };
+
+    const handleCalendarTouchEnd = (event) => {
+        const start = calendarSwipeStartRef.current;
+        const touch = event.changedTouches?.[0];
+        calendarSwipeStartRef.current = null;
+        if (!start || !touch) return;
+
+        const deltaX = start.x - touch.clientX;
+        const deltaY = start.y - touch.clientY;
+        const isHorizontalSwipe =
+            Math.abs(deltaX) >= 65 &&
+            Math.abs(deltaX) > Math.abs(deltaY) * 1.25;
+
+        if (!isHorizontalSwipe) return;
+
+        // 왼쪽으로 밀면 다음 달, 오른쪽으로 밀면 이전 달로 이동합니다.
+        event.preventDefault();
+        event.stopPropagation();
+        onMonthChange?.(deltaX > 0 ? 1 : -1);
+    };
+
+    const handleCalendarTouchCancel = () => {
+        calendarSwipeStartRef.current = null;
+    };
+
     const handleChartScroll = (event) => {
         const scrollElement = event.currentTarget;
         const dayWidth = scrollElement.clientWidth / 7;
@@ -647,7 +682,13 @@ const BluecoinsDailySummaryPreview = ({
                 </div>
             </section>
 
-            <section className={'mt-2 overflow-hidden rounded-2xl border shadow-sm ' + panelClass}>
+            <section
+                className={'mt-2 overflow-hidden rounded-2xl border shadow-sm ' + panelClass}
+                onTouchStart={handleCalendarTouchStart}
+                onTouchEnd={handleCalendarTouchEnd}
+                onTouchCancel={handleCalendarTouchCancel}
+                style={{ touchAction: 'pan-y' }}
+            >
                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1 px-2 py-2">
                     <button
                         type="button"
@@ -691,7 +732,11 @@ const BluecoinsDailySummaryPreview = ({
                                 type="button"
                                 key={dayInfo?.date || 'empty-' + index}
                                 disabled={!dayInfo?.date}
-                                onClick={() => dayInfo?.date && selectDateAndAlignChart(dayInfo.date)}
+                                onClick={() => {
+                                    if (!dayInfo?.date) return;
+                                    selectDateAndAlignChart(dayInfo.date);
+                                    onCalendarDateSelect?.(dayInfo.date);
+                                }}
                                 className={(homeCalendarDesign === 'current'
                                     ? 'relative flex h-20 min-w-0 flex-col items-center justify-start border-b border-r p-1 text-left transition-colors ' + dividerClass
                                     : 'relative flex h-[62px] min-w-0 flex-col items-center justify-start rounded-md transition-colors') + ' ' + (
