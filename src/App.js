@@ -1502,6 +1502,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
 
       {/* 👇 홈 화면이거나, 달력에서 특정 날짜를 콕 짚어서 들어온 경우(custom)에만 [입력] 버튼 표시 */}
       {(activeContentTab === 'bluecoinsDailySummary' || (activeContentTab === 'dataEntry' && activeDataTab === 'list' && filters.period === 'custom')) && (
+                <>
                 <button 
                     onClick={(e) => {
                         e.stopPropagation();
@@ -1571,6 +1572,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                 >
                     <span>채번</span>
                 </button>
+                </>
             )}
             {isAuthReady && (
                    <div 
