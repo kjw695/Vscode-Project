@@ -433,7 +433,7 @@ function suggestMapping(questions: FormQuestion[]) {
     .flatMap((question) => {
       const choices = question.choices.map((choice) => choice.trim()).filter(Boolean);
       const fixedRequestChoice = choices.find((choice) =>
-        /채번\\s*요청/.test(choice)
+        /채번\s*요청/.test(choice)
       );
       const value = fixedRequestChoice ??
         (choices.length === 1 ? choices[0] : null);
