@@ -39,8 +39,29 @@ function statusLabel(status) {
 function normalizeCampText(value) {
     return String(value || '')
         .toLocaleLowerCase()
-        .replace(/\s+/g, '')
+        .replace(/\\s+/g, '')
         .replace(/[()（）]/g, '');
+}
+
+function isMobileCampBranchQuestion(question) {
+    return normalizeCampText(question?.label).includes('요청모바일캠프');
+}
+
+function isCampDestinationQuestion(question) {
+    const label = normalizeCampText(question?.label);
+    return /(캠프|거점)/i.test(label) && !isMobileCampBranchQuestion(question);
+}
+
+function inferMobileCampBranchValue(question) {
+    const choices = Array.isArray(question?.choices)
+        ? question.choices.map(value => String(value || '').trim()).filter(Boolean)
+        : [];
+    if (choices.length === 1) return choices[0];
+
+    const mobileChoices = choices.filter(choice => normalizeCampText(choice).includes('모바일'));
+    if (mobileChoices.length === 1) return mobileChoices[0];
+
+    return null;
 }
 
 function createSuggestedMapping(result, campName) {
@@ -49,9 +70,25 @@ function createSuggestedMapping(result, campName) {
         ...(result?.suggested_mapping || {})
     };
     const questions = Array.isArray(result?.questions) ? result.questions : [];
-    const campQuestion = questions.find(
+
+    let campQuestion = questions.find(
         question => String(question.entry_id) === String(suggested.camp_entry_id)
     );
+    if (!campQuestion || !isCampDestinationQuestion(campQuestion)) {
+        const candidates = questions.filter(
+            question => isCampDestinationQuestion(question) && Array.isArray(question.choices) && question.choices.length > 0
+        );
+        const priorityGroups = [
+            candidates.filter(question => normalizeCampText(question.label).startsWith('기본요청캠프')),
+            candidates.filter(question => normalizeCampText(question.label).startsWith('요청캠프')),
+            candidates.filter(question => /요청.*캠프/i.test(normalizeCampText(question.label))),
+            candidates
+        ];
+        const selected = priorityGroups.find(group => group.length === 1);
+        campQuestion = selected?.[0] || null;
+        suggested.camp_entry_id = campQuestion?.entry_id || '';
+    }
+
     const choices = Array.isArray(campQuestion?.choices) ? campQuestion.choices.filter(Boolean) : [];
     const normalizedCamp = normalizeCampText(campName);
     const exactMatches = choices.filter(choice => normalizeCampText(choice) === normalizedCamp);
@@ -71,9 +108,29 @@ function createSuggestedMapping(result, campName) {
                 ? choices[0]
                 : suggested.camp_choice_value || '';
 
+    const staticFields = Array.isArray(suggested.static_fields) ? [...suggested.static_fields] : [];
+    const staticIds = new Set(staticFields.map(field => String(field.entry_id)));
+    const reservedIds = new Set([
+        suggested.invoice_entry_id,
+        suggested.driver_id_entry_id,
+        suggested.quantity_entry_id,
+        suggested.camp_entry_id
+    ].filter(Boolean).map(String));
+
+    questions.forEach(question => {
+        if (!question.required || !isMobileCampBranchQuestion(question)) return;
+        const entryId = String(question.entry_id);
+        if (reservedIds.has(entryId) || staticIds.has(entryId)) return;
+        const value = inferMobileCampBranchValue(question);
+        if (value) {
+            staticFields.push({ entry_id: entryId, value });
+            staticIds.add(entryId);
+        }
+    });
+    suggested.static_fields = staticFields;
+
     return suggested;
 }
-
 function getMappedEntryIds(fieldMap = {}) {
     const staticIds = (Array.isArray(fieldMap.static_fields) ? fieldMap.static_fields : [])
         .filter(field => String(field?.value ?? '').trim())
@@ -104,17 +161,14 @@ function getAutoRegistrationBlockers(result, campName, fieldMap = EMPTY_MAPPING)
     if (!fieldMap.driver_id_entry_id) blockers.push('기사님 아이디 문항');
     if (!fieldMap.quantity_entry_id) blockers.push('채번 수량 문항');
 
-    const isCampQuestion = question => /(요청\s*캠프|캠프|거점)/i.test(question.label);
     const requiredCampQuestions = questions.filter(
-        question => question.required && isCampQuestion(question)
+        question => question.required && isCampDestinationQuestion(question)
     );
     const selectedCampQuestion = questions.find(
         question =>
             String(question.entry_id) === String(fieldMap.camp_entry_id) &&
-            isCampQuestion(question)
+            isCampDestinationQuestion(question)
     );
-    // A required branch selector can be statically prefilled while the
-    // request camp mapping targets its optional child dropdown.
     const campMappingIsValid = requiredCampQuestions.length === 0 ||
         Boolean(selectedCampQuestion);
     if (!campMappingIsValid) blockers.push('필수 요청 캠프 문항');
@@ -205,9 +259,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
     }, [loadData]);
 
     const questions = useMemo(() => analysis?.questions || [], [analysis]);
-    const needsCampMapping = questions.some(
-        question => question.required && /(요청\s*캠프|캠프|거점)/i.test(question.label)
-    );
+    const needsCampMapping = questions.some(isCampDestinationQuestion);
     const unmappedRequiredQuestions = getUnmappedRequiredQuestions(questions, mapping);
     const registrationBlockers = analysis
         ? getAutoRegistrationBlockers(analysis, campName, mapping)
