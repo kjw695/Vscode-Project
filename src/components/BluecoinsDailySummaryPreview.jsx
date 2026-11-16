@@ -387,6 +387,13 @@ const BluecoinsDailySummaryPreview = ({
         setChartAlignmentVersion((version) => version + 1);
     };
 
+    // 집계 월 이동과 별개로 실제 선택 날짜와 주간 차트도 오늘로 맞춥니다.
+    const handleTodayButtonClick = () => {
+        const todayKey = toDateKey(new Date());
+        onToday?.();
+        selectDateAndAlignChart(todayKey);
+    };
+
     const shiftSelectedDate = (delta) => {
         selectDateAndAlignChart(getShiftedDateKey(selectedDate, delta), 'smooth');
     };
@@ -795,7 +802,7 @@ const BluecoinsDailySummaryPreview = ({
                     </div>
                     <div className="flex items-center justify-self-end gap-1">
                         <button type="button" onClick={onOpenDayOff} className="whitespace-nowrap rounded-lg border border-indigo-300 px-2 py-1 text-[12px] font-bold text-indigo-500">휴무</button>
-                        <button type="button" onClick={onToday} className="whitespace-nowrap rounded-lg border border-amber-300 px-2 py-1 text-[12px] font-bold text-amber-500">오늘</button>
+                        <button type="button" onClick={handleTodayButtonClick} className="whitespace-nowrap rounded-lg border border-amber-300 px-2 py-1 text-[12px] font-bold text-amber-500">오늘</button>
                     </div>
                 </div>
 
