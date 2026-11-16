@@ -274,7 +274,7 @@ const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution }) => 
 
         {/* 트럭 애니메이션 영역 */}
         <div className={`absolute top-0 z-20 transition-all duration-700 ease-out`} style={{ left: `${leftPosition}%`, transform: 'translateX(-50%) translateY(-65%)' }}>
-            <div className={`relative ${isAnimating ? 'animate-truck-image' : ''}`}>
+            <div className={`relative w-14 min-w-[3.5rem] shrink-0 ${isAnimating ? 'animate-truck-image' : ''}`}>
                 {isAnimating && (
                     <svg className="absolute -left-7 top-1/2 -translate-y-1/2 w-10 h-12 overflow-visible pointer-events-none" style={{ zIndex: -1 }}>
                         <path d="M0 8 H 10" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" className="speed-line" />
@@ -282,7 +282,7 @@ const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution }) => 
                         <path d="M0 28 H 10" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" className="speed-line delay-2" />
                     </svg>
                 )}
-                <img src={truckImg} alt="Delivery Truck" className="w-36 h-auto object-contain drop-shadow-md" />
+                <img src={truckImg} alt="Delivery Truck" className="w-14 max-w-none h-auto object-contain drop-shadow-md" />
                 <div className={`absolute -top-4 left-1/2 transform -translate-x-1/2 font-bold text-[9px] py-0.5 px-1.5 rounded-full whitespace-nowrap shadow-md ${isDarkMode ? 'bg-gray-800 text-white border border-gray-600' : 'bg-white text-blue-700 border border-blue-100'}`}>
                     {(current / 10000).toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}만
                 </div>
