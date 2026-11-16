@@ -240,7 +240,7 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const [filters, setFilters] = useState({ period: 'all', startDate: '', endDate: '', type: 'all' });
 
     // --- 팝업 및 로딩 ---
-    const [modalState, setModalState] = useState({ isOpen: false, content: '', type: 'info', onConfirm: null });
+    const [modalState, setModalState] = useState({ isOpen: false, content: '', type: 'info', onConfirm: null, preventTextSelection: false });
     const [isLoading, setIsLoading] = useState(false);
     const [loadingMessage, setLoadingMessage] = useState('');
 
@@ -503,9 +503,9 @@ const handleCloudRestore = async () => {
         setFormData(prev => ({ ...prev, [key]: value }));
     };
 
-    const showMessage = (msg) => setModalState({ isOpen: true, content: msg, type: 'info', onConfirm: null });
-    const showConfirmation = (msg, onConfirmAction) => setModalState({ isOpen: true, content: msg, type: 'confirm', onConfirm: onConfirmAction });
-    const closeModal = () => setModalState({ isOpen: false, content: '', type: 'info', onConfirm: null });
+    const showMessage = (msg) => setModalState({ isOpen: true, content: msg, type: 'info', onConfirm: null, preventTextSelection: false });
+    const showConfirmation = (msg, onConfirmAction, options = {}) => setModalState({ isOpen: true, content: msg, type: 'confirm', onConfirm: onConfirmAction, preventTextSelection: options.preventTextSelection === true });
+    const closeModal = () => setModalState({ isOpen: false, content: '', type: 'info', onConfirm: null, preventTextSelection: false });
     const handleConfirm = () => { if (modalState.onConfirm) modalState.onConfirm(); closeModal(); };
     const handleApplyFilters = (newFilters) => { setFilters(newFilters); setIsFilterModalOpen(false); };
 
@@ -1296,7 +1296,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                     showConfirmation(`${Number(month)}월 ${Number(day)}일 수정하시겠습니까?`, () => {
                                         setIsFabVisible(false);
                                         handleCalendarDateClick(dateKey);
-                                    });
+                                    }, { preventTextSelection: true });
                                 }}
                                 homeCalendarDesign={homeCalendarDesign}
                                 homeCalendarVolumeItems={homeCalendarVolumeItems}
@@ -1679,7 +1679,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                 activeTab={selectedMainTab}
             />
 
-            <MessageModal isOpen={modalState.isOpen} content={modalState.content} type={modalState.type} onConfirm={handleConfirm} onClose={closeModal} isDarkMode={isDarkMode} />
+            <MessageModal isOpen={modalState.isOpen} content={modalState.content} type={modalState.type} onConfirm={handleConfirm} onClose={closeModal} isDarkMode={isDarkMode} preventTextSelection={modalState.preventTextSelection} />
             
             {/* ✨ 휴무 등록 모달 연결 */}
              <DayOffModal 
