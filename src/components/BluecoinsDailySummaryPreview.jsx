@@ -120,8 +120,11 @@ const BluecoinsDailySummaryPreview = ({
     onMonthChange,
     onToday,
     onDateClick,
+    onCalendarDateSelect,
+    onRequestEditDate,
     onOpenDayOff,
     onSelectedDateChange,
+    resetToTodayKey = 0,
     homeCalendarDesign = 'current',
     homeCalendarVolumeItems = {},
     incomeConfig = []
@@ -130,25 +133,14 @@ const BluecoinsDailySummaryPreview = ({
     const [activeReportTab, setActiveReportTab] = useState('categories');
     const [isDayMode, setIsDayMode] = useState(true);
     const chartScrollRef = useRef(null);
+    const calendarSwipeStartRef = useRef(null);
     const reportSectionRef = useRef(null);
     const chartAlignmentRequestRef = useRef(null);
     const chartInitialAlignmentRef = useRef(true);
     const [chartVisibleStartIndex, setChartVisibleStartIndex] = useState(0);
     const [chartAlignmentVersion, setChartAlignmentVersion] = useState(0);
-    const [selectedDate, setSelectedDate] = useState(() => {
-        const activeCalendarDates = (Array.isArray(calendarDays) ? calendarDays : [])
-            .filter((day) => day?.isCurrentMonth && (Number(day?.revenue) > 0 || Number(day?.expenses) > 0))
-            .map((day) => day.date)
-            .filter((date) => typeof date === 'string')
-            .sort();
-        if (activeCalendarDates.length) return activeCalendarDates[activeCalendarDates.length - 1];
-
-        const validDates = (Array.isArray(entries) ? entries : [])
-            .map((entry) => entry?.date)
-            .filter((date) => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date))
-            .sort();
-        return validDates.length ? validDates[validDates.length - 1] : toDateKey(new Date());
-    });
+    // 주간 차트의 기본 날짜는 마지막 배송 기록일이 아니라 기기 기준 오늘입니다.
+    const [selectedDate, setSelectedDate] = useState(() => toDateKey(new Date()));
 
     useEffect(() => {
         onSelectedDateChange?.(selectedDate);
@@ -240,15 +232,18 @@ const BluecoinsDailySummaryPreview = ({
     const totalOffDays = holidayCount;
     const previousIncome = Number(previousMonthlyProfit?.totalRevenue) || 0;
     const incomeDiff = currentRevenue - previousIncome;
-    const incomeDiffPct = previousIncome > 0 ? ((incomeDiff / previousIncome) * 100).toFixed(1) : '0.0';
     const volumeDiff = currentVolume - previousVolume;
-    const volumeDiffPct = previousVolume > 0 ? ((volumeDiff / previousVolume) * 100).toFixed(1) : '0.0';
-    const averageIncomeDiff = dailyAverageIncome - (Number(previousMonthlyProfit?.totalWorkingDays) > 0
-        ? Math.round(previousIncome / Number(previousMonthlyProfit.totalWorkingDays))
+    const previousWorkingDays = Number(previousMonthlyProfit?.totalWorkingDays) || 0;
+    const previousAverageVolume = previousWorkingDays > 0
+        ? Math.round(previousVolume / previousWorkingDays)
+        : 0;
+    const averageIncomeDiff = dailyAverageIncome - (previousWorkingDays > 0
+        ? Math.round(previousIncome / previousWorkingDays)
         : 0);
-    const averageVolumeDiff = dailyAverageVolume - (Number(previousMonthlyProfit?.totalWorkingDays) > 0
-        ? Math.round(previousVolume / Number(previousMonthlyProfit.totalWorkingDays))
-        : 0);
+    const averageVolumeDiff = dailyAverageVolume - previousAverageVolume;
+    const averageVolumeDiffPct = previousAverageVolume > 0
+        ? (averageVolumeDiff / previousAverageVolume) * 100
+        : null;
     const selectedDayData = dailyMap[selectedDate] || {};
     const selectedDayIncome = Number(selectedDayData.totalRevenue) || 0;
     const selectedDayExpense = Number(selectedDayData.totalExpenses) || 0;
@@ -392,8 +387,128 @@ const BluecoinsDailySummaryPreview = ({
         setChartAlignmentVersion((version) => version + 1);
     };
 
+    // 집계 월 이동과 별개로 실제 선택 날짜와 주간 차트도 오늘로 맞춥니다.
+    const handleTodayButtonClick = () => {
+        const todayKey = toDateKey(new Date());
+        onToday?.();
+        selectDateAndAlignChart(todayKey);
+    };
+
     const shiftSelectedDate = (delta) => {
         selectDateAndAlignChart(getShiftedDateKey(selectedDate, delta), 'smooth');
+    };
+
+    // 날짜를 짧게 누르면 선택 및 입력/채번 버튼 표시를 토글하고,
+    // 길게 누르면 수정 확인 팝업을 요청합니다.
+    const dateLongPressTimerRef = useRef(null);
+    const dateLongPressStartRef = useRef(null);
+    const suppressDateClickRef = useRef(false);
+    const suppressDateClickResetRef = useRef(null);
+
+    const clearDateLongPress = () => {
+        if (dateLongPressTimerRef.current) {
+            clearTimeout(dateLongPressTimerRef.current);
+            dateLongPressTimerRef.current = null;
+        }
+        dateLongPressStartRef.current = null;
+    };
+
+    const handleDatePointerDown = (dateKey, event) => {
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+        clearDateLongPress();
+        if (suppressDateClickResetRef.current) {
+            clearTimeout(suppressDateClickResetRef.current);
+            suppressDateClickResetRef.current = null;
+        }
+        suppressDateClickRef.current = false;
+        dateLongPressStartRef.current = {
+            dateKey,
+            x: event.clientX,
+            y: event.clientY
+        };
+        dateLongPressTimerRef.current = setTimeout(() => {
+            dateLongPressTimerRef.current = null;
+            dateLongPressStartRef.current = null;
+            suppressDateClickRef.current = true;
+            onRequestEditDate?.(dateKey);
+            suppressDateClickResetRef.current = setTimeout(() => {
+                suppressDateClickRef.current = false;
+                suppressDateClickResetRef.current = null;
+            }, 1200);
+        }, 550);
+    };
+
+    const handleDatePointerMove = (event) => {
+        const start = dateLongPressStartRef.current;
+        if (!start) return;
+        if (Math.abs(event.clientX - start.x) > 12 || Math.abs(event.clientY - start.y) > 12) {
+            clearDateLongPress();
+        }
+    };
+
+    const handleDatePointerEnd = () => {
+        clearDateLongPress();
+    };
+
+    const handleDateClick = (dateKey) => {
+        if (suppressDateClickRef.current) {
+            suppressDateClickRef.current = false;
+            if (suppressDateClickResetRef.current) {
+                clearTimeout(suppressDateClickResetRef.current);
+                suppressDateClickResetRef.current = null;
+            }
+            return;
+        }
+
+        const isSameDate = dateKey === selectedDate;
+        selectDateAndAlignChart(dateKey);
+        onCalendarDateSelect?.(dateKey, isSameDate);
+    };
+
+    useEffect(() => () => {
+        if (dateLongPressTimerRef.current) clearTimeout(dateLongPressTimerRef.current);
+        if (suppressDateClickResetRef.current) clearTimeout(suppressDateClickResetRef.current);
+    }, []);
+
+    // 홈 화면에 새로 진입할 때마다 주간 차트의 마지막 날짜를 오늘로 되돌립니다.
+    useEffect(() => {
+        const todayKey = toDateKey(new Date());
+        chartAlignmentRequestRef.current = { dateKey: todayKey, behavior: 'auto' };
+        setSelectedDate(todayKey);
+        setChartAlignmentVersion((version) => version + 1);
+    }, [resetToTodayKey]);
+
+    const handleCalendarTouchStart = (event) => {
+        const touch = event.touches?.[0];
+        if (!touch) return;
+        calendarSwipeStartRef.current = {
+            x: touch.clientX,
+            y: touch.clientY
+        };
+    };
+
+    const handleCalendarTouchEnd = (event) => {
+        const start = calendarSwipeStartRef.current;
+        const touch = event.changedTouches?.[0];
+        calendarSwipeStartRef.current = null;
+        if (!start || !touch) return;
+
+        const deltaX = start.x - touch.clientX;
+        const deltaY = start.y - touch.clientY;
+        const isHorizontalSwipe =
+            Math.abs(deltaX) >= 65 &&
+            Math.abs(deltaX) > Math.abs(deltaY) * 1.25;
+
+        if (!isHorizontalSwipe) return;
+
+        // 왼쪽으로 밀면 다음 달, 오른쪽으로 밀면 이전 달로 이동합니다.
+        event.preventDefault();
+        event.stopPropagation();
+        onMonthChange?.(deltaX > 0 ? 1 : -1);
+    };
+
+    const handleCalendarTouchCancel = () => {
+        calendarSwipeStartRef.current = null;
     };
 
     const handleChartScroll = (event) => {
@@ -467,8 +582,14 @@ const BluecoinsDailySummaryPreview = ({
                             key={day.date}
                             data-chart-date={day.date}
                             type="button"
-                            onClick={() => setSelectedDate(day.date)}
-                            className={'flex min-w-0 flex-col items-center rounded-xl px-0.5 py-1 ' + (
+                            onPointerDown={(event) => handleDatePointerDown(day.date, event)}
+                            onPointerMove={handleDatePointerMove}
+                            onPointerUp={handleDatePointerEnd}
+                            onPointerLeave={handleDatePointerEnd}
+                            onPointerCancel={handleDatePointerEnd}
+                            onContextMenu={(event) => event.preventDefault()}
+                            onClick={() => handleDateClick(day.date)}
+                            className={'select-none flex min-w-0 flex-col items-center rounded-xl px-0.5 py-1 ' + (
                                 isSelected
                                     ? (calendarMode === 'money' ? 'bg-blue-500/10 ring-1 ring-blue-500/70' : 'bg-emerald-500/10 ring-1 ring-emerald-500/70')
                                     : (dark ? 'hover:bg-slate-700/50' : 'hover:bg-slate-200/60')
@@ -554,14 +675,24 @@ const BluecoinsDailySummaryPreview = ({
                                 aria-label="다음 날짜"
                             ><ChevronRight size={13} /></button>
                         </div>
-                        <div className={'min-w-0 flex-1 overflow-hidden text-ellipsis rounded-xl px-1 py-1 text-center text-[10px] sm:text-[11px] font-black whitespace-nowrap ' + (
-                            (calendarMode === 'money' ? incomeDiff : volumeDiff) >= 0
-                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                        )}>
-                            전월 대비 {calendarMode === 'money'
-                                ? ((incomeDiff >= 0 ? '▲' : '▼') + formatCompactManWon(Math.abs(incomeDiff)) + ' (' + incomeDiffPct + '%)')
-                                : ((volumeDiff >= 0 ? '▲' : '▼') + Math.abs(volumeDiff).toLocaleString() + '건 (' + volumeDiffPct + '%)')}
+                        <div
+                            className={'min-w-0 flex-1 rounded-xl px-1 py-1 text-center text-[clamp(7px,2.5vw,10px)] font-black tracking-tight whitespace-nowrap ' + (
+                                previousWorkingDays <= 0
+                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                    : averageVolumeDiff > 0
+                                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                        : averageVolumeDiff < 0
+                                            ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                            : 'bg-slate-500/10 text-slate-600 dark:text-slate-300'
+                            )}
+                            title={previousWorkingDays > 0
+                                ? `전월 하루 평균 대비 ${averageVolumeDiff > 0 ? '+' : ''}${averageVolumeDiff.toLocaleString()}건${averageVolumeDiffPct !== null ? ` · ${averageVolumeDiffPct > 0 ? '+' : ''}${averageVolumeDiffPct.toFixed(1)}%` : ' · 증감률 계산 기준 없음'}`
+                                : '전월 비교 데이터 없음'}
+                        >
+                            평균물량 {dailyAverageVolume.toLocaleString()}건
+                            {previousWorkingDays > 0
+                                ? ` · ${averageVolumeDiff > 0 ? '▲' : averageVolumeDiff < 0 ? '▼' : '－'}${Math.abs(averageVolumeDiff).toLocaleString()}건${averageVolumeDiffPct !== null ? ` ${averageVolumeDiffPct > 0 ? '+' : ''}${averageVolumeDiffPct.toFixed(1)}%` : ''}`
+                                : ' · 전월 비교 없음'}
                         </div>
                         <div className={'inline-flex shrink-0 whitespace-nowrap rounded-xl p-0.5 text-[10px] font-black ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
                             <button
@@ -623,14 +754,18 @@ const BluecoinsDailySummaryPreview = ({
                         </div>
                     </div>
 
-                    <div className={'mt-2 rounded-lg p-2 sm:p-4 shadow-md ' + (dark ? 'bg-gray-800' : 'bg-white')}>
-                        <GoalProgressBar
-                            current={monthlyProfit?.totalRevenue || 0}
-                            goal={goal}
-                            isDarkMode={dark}
-                            revenueDistribution={monthlyProfit?.revenueDistribution}
-                        />
-                    </div>
+                </div>
+            </section>
+
+            {/* 2026-11-13 이전 홈의 목표바 카드 외형을 복원합니다. */}
+            <div className={'p-2 sm:p-4 rounded-lg shadow-md ' + (dark ? 'bg-gray-800' : 'bg-white')}>
+                <GoalProgressBar
+                    current={monthlyProfit?.totalRevenue || 0}
+                    goal={goal}
+                    isDarkMode={dark}
+                    revenueDistribution={monthlyProfit?.revenueDistribution}
+                />
+            </div>
 
                     <div className="mt-2 flex items-center justify-between gap-2 px-1 text-[10px]">
                         <span className={'min-w-0 truncate ' + mutedClass}>
@@ -644,26 +779,30 @@ const BluecoinsDailySummaryPreview = ({
                             className="inline-flex shrink-0 items-center gap-1 font-black text-blue-600 dark:text-blue-400"
                         ><Plus size={12} /> 내역 열기</button>
                     </div>
-                </div>
-            </section>
 
-            <section className={'mt-2 overflow-hidden rounded-2xl border shadow-sm ' + panelClass}>
+            <section
+                className={'mt-2 overflow-hidden rounded-2xl border shadow-sm ' + panelClass}
+                onTouchStart={handleCalendarTouchStart}
+                onTouchEnd={handleCalendarTouchEnd}
+                onTouchCancel={handleCalendarTouchCancel}
+                style={{ touchAction: 'pan-y' }}
+            >
                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1 px-2 py-2">
                     <button
                         type="button"
                         onClick={() => onToggleCalendarMode?.(calendarMode === 'money' ? 'volume' : 'money')}
-                        className={'justify-self-start rounded-lg border px-2 py-1 text-[10px] font-bold ' + (dark ? 'border-slate-700 bg-slate-800 text-slate-200' : 'border-slate-200 bg-slate-50 text-slate-700')}
+                        className={'inline-flex items-center justify-center justify-self-start rounded-lg border px-2 py-1 text-[12px] font-bold ' + (dark ? 'border-slate-700 bg-slate-800 text-slate-200' : 'border-slate-200 bg-slate-50 text-slate-700')}
                     >
-                        <span className="inline-flex items-center gap-1"><ArrowRightLeft size={11} />{calendarMode === 'money' ? '금액' : '물량'}</span>
+                        <span className="inline-flex items-center gap-1"><ArrowRightLeft size={13} className="text-blue-500" /><span className="font-extrabold">{calendarMode === 'money' ? '금액' : '물량'}</span></span>
                     </button>
                     <div className="flex items-center justify-self-center gap-1">
                         <button type="button" onClick={() => onMonthChange?.(-1)} className="rounded-md p-0.5" aria-label="이전 달"><ChevronLeft size={19} /></button>
-                        <div className="whitespace-nowrap text-sm font-black">{currentCalendarDate?.getFullYear()}년 {Number(currentCalendarDate?.getMonth()) + 1}월</div>
+                        <div className="whitespace-nowrap text-base font-black">{currentCalendarDate?.getFullYear()}년 {Number(currentCalendarDate?.getMonth()) + 1}월</div>
                         <button type="button" onClick={() => onMonthChange?.(1)} className="rounded-md p-0.5" aria-label="다음 달"><ChevronRight size={19} /></button>
                     </div>
-                    <div className="flex w-full max-w-[90px] items-center justify-self-end gap-0.5">
-                        <button type="button" onClick={onOpenDayOff} className="rounded-lg border border-indigo-300 px-2 py-1 text-[10px] font-bold text-indigo-500">휴무</button>
-                        <button type="button" onClick={onToday} className="rounded-lg border border-amber-300 px-2 py-1 text-[10px] font-bold text-amber-500">오늘</button>
+                    <div className="flex items-center justify-self-end gap-1">
+                        <button type="button" onClick={onOpenDayOff} className="whitespace-nowrap rounded-lg border border-indigo-300 px-2 py-1 text-[12px] font-bold text-indigo-500">휴무</button>
+                        <button type="button" onClick={handleTodayButtonClick} className="whitespace-nowrap rounded-lg border border-amber-300 px-2 py-1 text-[12px] font-bold text-amber-500">오늘</button>
                     </div>
                 </div>
 
@@ -691,8 +830,14 @@ const BluecoinsDailySummaryPreview = ({
                                 type="button"
                                 key={dayInfo?.date || 'empty-' + index}
                                 disabled={!dayInfo?.date}
-                                onClick={() => dayInfo?.date && selectDateAndAlignChart(dayInfo.date)}
-                                className={(homeCalendarDesign === 'current'
+                                onPointerDown={(event) => dayInfo?.date && handleDatePointerDown(dayInfo.date, event)}
+                                onPointerMove={handleDatePointerMove}
+                                onPointerUp={handleDatePointerEnd}
+                                onPointerLeave={handleDatePointerEnd}
+                                onPointerCancel={handleDatePointerEnd}
+                                onContextMenu={(event) => event.preventDefault()}
+                                onClick={() => dayInfo?.date && handleDateClick(dayInfo.date)}
+                                className={'select-none ' + (homeCalendarDesign === 'current'
                                     ? 'relative flex h-20 min-w-0 flex-col items-center justify-start border-b border-r p-1 text-left transition-colors ' + dividerClass
                                     : 'relative flex h-[62px] min-w-0 flex-col items-center justify-start rounded-md transition-colors') + ' ' + (
                                     isSelected

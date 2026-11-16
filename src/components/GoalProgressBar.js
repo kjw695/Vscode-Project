@@ -22,14 +22,15 @@ const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution }) => 
 
  const [isAnimating, setIsAnimating] = useState(false);
   useEffect(() => {
-    setIsAnimating(progress > 0 && progress < 100);
+    // 목표를 향해 이동 중이거나 목표를 달성한 경우에도 트럭의 움직임을 유지합니다.
+    setIsAnimating(progress > 0);
   }, [progress]);
 
   // ✨ 1. 새로운 기상청 버전에 맞게 데이터 받아오기
   const { weatherData, locationName, isLoading } = useWeather();
   const loading = isLoading;
   const region = locationName || '위치 찾는 중...';
-  const temp = weatherData?.temp || '-';
+  const temp = weatherData?.temp ?? '-';
 
   // ✨ 2. 기상청 날씨(한국어)를 기존 애니메이션용(영어)으로 변환
   let condition = 'clear';
@@ -38,7 +39,7 @@ const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution }) => 
   else if (currentCondition.includes('눈')) condition = 'snow';
 
   // ✨ 3. 아이콘은 기상청 데이터에서 똑똑하게 바로 가져옴
-  let weatherIcon = weatherData?.icon || '☀️ ';
+  let weatherIcon = weatherData?.icon || '🌤️ ';
 
   // ✨ 4. 미세먼지 (기상청 단기예보에는 없으므로 에러 방지용 null 처리)
   let dust = null; 
@@ -54,7 +55,7 @@ const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution }) => 
 
   
   // ✨ 최종 날씨 글자
-  const weatherDisplayString = `[${region}] ${weatherIcon}${temp}°C`;
+  const weatherDisplayString = `[${region}] ${weatherIcon}${temp === '-' ? '날씨 확인 중' : `${temp}°C`}`;
 
   // 💡 2. 매출 비중 데이터 계산 로직 (상위 3개 + 기타)
   // 막대가 트럭까지 꽉 차게 보이기 위해 항목이 많을 경우 4번째는 '기타'로 묶습니다.
@@ -94,8 +95,8 @@ const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution }) => 
         <div className={`weather-overlay weather-${condition}`}></div>
       )}
 
-      {/* 날씨 텍스트 (색상 수치 추가!) */}
-      {!loading && region && temp !== null && (
+      {/* 날씨 이모지와 상태는 날씨 정보가 로딩 중이어도 자리에서 사라지지 않습니다. */}
+      {region && (
         <div className="absolute top-0 left-1 flex items-center z-30">
           <span className={`text-xs font-bold tracking-tight ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
             {weatherDisplayString}
@@ -112,15 +113,15 @@ const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution }) => 
 
      <style>{`
         @keyframes drive-bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-3px); }
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(-5px) rotate(-1deg); }
         }
         @keyframes wind-dash {
           0% { opacity: 0; transform: translateX(5px); }
           30% { opacity: 1; }
           100% { opacity: 0; transform: translateX(-15px); }
         }
-        .animate-truck-image { animation: drive-bounce 0.6s infinite ease-in-out; }
+        .animate-truck-image { animation: drive-bounce 0.55s infinite ease-in-out; will-change: transform; }
         .speed-line { animation: wind-dash 0.8s infinite linear; }
         .delay-1 { animation-delay: 0.2s; }
         .delay-2 { animation-delay: 0.4s; }
@@ -272,16 +273,16 @@ const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution }) => 
         </div>
 
         {/* 트럭 애니메이션 영역 */}
-        <div className={`absolute top-0 z-20 transition-all duration-700 ease-out`} style={{ left: `${leftPosition}%`, transform: 'translateX(-30%) translateY(-65%)' }}>
-            <div className={`relative ${isAnimating ? 'animate-truck-image' : ''}`}>
+        <div className={`absolute top-0 z-20 transition-all duration-700 ease-out`} style={{ left: `${leftPosition}%`, transform: 'translateX(-50%) translateY(-65%)' }}>
+            <div className={`relative w-14 min-w-[3.5rem] shrink-0 ${isAnimating ? 'animate-truck-image' : ''}`}>
                 {isAnimating && (
-                    <svg className="absolute -left-5 top-1/2 -translate-y-1/2 w-8 h-10 overflow-visible pointer-events-none" style={{ zIndex: -1 }}>
+                    <svg className="absolute -left-7 top-1/2 -translate-y-1/2 w-10 h-12 overflow-visible pointer-events-none" style={{ zIndex: -1 }}>
                         <path d="M0 8 H 10" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" className="speed-line" />
                         <path d="M-3 18 H 8" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" className="speed-line delay-1" />
                         <path d="M0 28 H 10" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" className="speed-line delay-2" />
                     </svg>
                 )}
-                <img src={truckImg} alt="Delivery Truck" className="w-14 h-auto object-contain drop-shadow-md" />
+                <img src={truckImg} alt="Delivery Truck" className="w-14 max-w-none h-auto object-contain drop-shadow-md" />
                 <div className={`absolute -top-4 left-1/2 transform -translate-x-1/2 font-bold text-[9px] py-0.5 px-1.5 rounded-full whitespace-nowrap shadow-md ${isDarkMode ? 'bg-gray-800 text-white border border-gray-600' : 'bg-white text-blue-700 border border-blue-100'}`}>
                     {(current / 10000).toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}만
                 </div>

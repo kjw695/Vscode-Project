@@ -253,6 +253,7 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const mainTouchStartY = useRef(null);
     const [selectedMainTab, setSelectedMainTab] = useState('home');
     const [activeContentTab, setActiveContentTab] = useState('bluecoinsDailySummary');
+    const [homeVisitKey, setHomeVisitKey] = useState(0);
         const [moreSubView, setMoreSubView] = useState('main');
     const [autoEditAccountProfile, setAutoEditAccountProfile] = useState(false);
     const [returnToCampNumbering, setReturnToCampNumbering] = useState(false);
@@ -1285,6 +1286,18 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 onDateClick={handleCalendarDateClick}
                                 onOpenDayOff={() => setIsDayOffModalOpen(true)}
                                 onSelectedDateChange={setBluecoinsSelectedDate}
+                                resetToTodayKey={homeVisitKey}
+                                onCalendarDateSelect={(dateKey, isSameDate) => {
+                                    setBluecoinsSelectedDate(dateKey);
+                                    setIsFabVisible((visible) => (isSameDate ? !visible : true));
+                                }}
+                                onRequestEditDate={(dateKey) => {
+                                    const [, month, day] = dateKey.split('-');
+                                    showConfirmation(`${Number(month)}월 ${Number(day)}일 수정하시겠습니까?`, () => {
+                                        setIsFabVisible(false);
+                                        handleCalendarDateClick(dateKey);
+                                    });
+                                }}
                                 homeCalendarDesign={homeCalendarDesign}
                                 homeCalendarVolumeItems={homeCalendarVolumeItems}
                                 incomeConfig={incomeConfig}
@@ -1471,6 +1484,8 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                         isDarkMode={isDarkMode}
                                         user={user}
                                         showMessage={showMessage}
+                                        monthlyStartDay={monthlyStartDay}
+                                        monthlyEndDay={monthlyEndDay}
                                     />
                                 )}
                                 {moreSubView === 'average_settings' && (
@@ -1494,6 +1509,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
 
       {/* 👇 홈 화면이거나, 달력에서 특정 날짜를 콕 짚어서 들어온 경우(custom)에만 [입력] 버튼 표시 */}
       {(activeContentTab === 'bluecoinsDailySummary' || (activeContentTab === 'dataEntry' && activeDataTab === 'list' && filters.period === 'custom')) && (
+                <>
                 <button 
                     onClick={(e) => {
                         e.stopPropagation();
@@ -1542,6 +1558,28 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                 >
                     <span>입력</span>
                 </button>
+                <button
+                    type="button"
+                    aria-label="채번 화면 열기"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedMainTab('more');
+                        setActiveContentTab('adminSettings');
+                        setMoreSubView('camp_return_numbering');
+                        setIsFabVisible(false);
+                    }}
+                    className={`fixed z-40 right-2 px-6 py-2.5 rounded-full shadow-lg transition-all duration-300 flex justify-center items-center font-bold tracking-widest border-2 ${
+                        isDarkMode ? 'bg-blue-700 border-blue-500 text-white' : 'bg-blue-600 border-blue-700 text-white'
+                    } ${
+                        (activeContentTab === 'dataEntry' && activeDataTab === 'list')
+                            ? 'opacity-100 translate-y-0'
+                            : (isFabVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none')
+                    }`}
+                    style={{ bottom: 'calc(132px + env(safe-area-inset-bottom))' }}
+                >
+                    <span>채번</span>
+                </button>
+                </>
             )}
             {isAuthReady && (
                    <div 
@@ -1579,7 +1617,13 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                     </button>
 
                     {/* ✨ 홈 버튼 클릭 시 handleResetToCurrentMonth() 추가 */}
-                    <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'home' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} onClick={() => { setSelectedMainTab('home'); setActiveContentTab('bluecoinsDailySummary'); handleResetToCurrentMonth(); }}>
+                    <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'home' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} onClick={() => {
+                        setSelectedMainTab('home');
+                        setActiveContentTab('bluecoinsDailySummary');
+                        setHomeVisitKey((key) => key + 1);
+                        setIsFabVisible(false);
+                        handleResetToCurrentMonth();
+                    }}>
                         <Home size={24} /> <span>홈</span>
                     </button>
                     <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'search' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} 
