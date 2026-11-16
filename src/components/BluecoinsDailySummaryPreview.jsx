@@ -750,8 +750,8 @@ const BluecoinsDailySummaryPreview = ({
                 </div>
             </section>
 
-            {/* 목표바는 상단 요약 카드와 분리해 기존 홈 화면처럼 넓게 표시합니다. */}
-            <div className="w-full">
+            {/* 2026-11-13 이전 홈의 목표바 카드 외형을 복원합니다. */}
+            <div className={'p-2 sm:p-4 rounded-lg shadow-md ' + (dark ? 'bg-gray-800' : 'bg-white')}>
                 <GoalProgressBar
                     current={monthlyProfit?.totalRevenue || 0}
                     goal={goal}
