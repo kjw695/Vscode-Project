@@ -747,14 +747,18 @@ const BluecoinsDailySummaryPreview = ({
                         </div>
                     </div>
 
-                    <div className="mt-2 w-full">
-                        <GoalProgressBar
-                            current={monthlyProfit?.totalRevenue || 0}
-                            goal={goal}
-                            isDarkMode={dark}
-                            revenueDistribution={monthlyProfit?.revenueDistribution}
-                        />
-                    </div>
+                </div>
+            </section>
+
+            {/* 목표바는 상단 요약 카드와 분리해 기존 홈 화면처럼 넓게 표시합니다. */}
+            <div className="w-full">
+                <GoalProgressBar
+                    current={monthlyProfit?.totalRevenue || 0}
+                    goal={goal}
+                    isDarkMode={dark}
+                    revenueDistribution={monthlyProfit?.revenueDistribution}
+                />
+            </div>
 
                     <div className="mt-2 flex items-center justify-between gap-2 px-1 text-[10px]">
                         <span className={'min-w-0 truncate ' + mutedClass}>
@@ -768,8 +772,6 @@ const BluecoinsDailySummaryPreview = ({
                             className="inline-flex shrink-0 items-center gap-1 font-black text-blue-600 dark:text-blue-400"
                         ><Plus size={12} /> 내역 열기</button>
                     </div>
-                </div>
-            </section>
 
             <section
                 className={'mt-2 overflow-hidden rounded-2xl border shadow-sm ' + panelClass}
