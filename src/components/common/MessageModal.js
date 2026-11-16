@@ -1,14 +1,18 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
 
-const MessageModal = ({ isOpen, content, type, onConfirm, onClose, isDarkMode }) => {
+const MessageModal = ({ isOpen, content, type, onConfirm, onClose, isDarkMode, preventTextSelection = false }) => {
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-[9999] p-4">
-            <div className={`p-6 rounded-2xl shadow-2xl max-w-sm w-full text-center animate-in zoom-in duration-200 ${
-                isDarkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-800'
-            }`}>
+            <div
+                className={`p-6 rounded-2xl shadow-2xl max-w-sm w-full text-center animate-in zoom-in duration-200 ${
+                    isDarkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-800'
+                } ${preventTextSelection ? 'select-none' : ''}`}
+                style={preventTextSelection ? { WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' } : undefined}
+                onContextMenu={preventTextSelection ? (event) => event.preventDefault() : undefined}
+            >
                 {/* 확인창일 때만 경고 아이콘 표시 */}
                 {type === 'confirm' && (
                     <div className="flex justify-center mb-4 text-red-500">
