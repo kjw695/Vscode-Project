@@ -23,10 +23,9 @@ const MessageModal = ({ isOpen, content, type, onConfirm, onClose, isDarkMode })
                 )}
 
                 <p
-                    className={`text-lg font-bold mb-6 whitespace-pre-wrap leading-relaxed ${preventTextSelection ? 'select-none' : ''}`}
-                    style={preventTextSelection ? { WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' } : undefined}
-                    onContextMenu={preventTextSelection ? (event) => event.preventDefault() : undefined}
-                    onTouchStart={preventTextSelection ? (event) => event.preventDefault() : undefined}
+                    className="text-lg font-bold mb-6 whitespace-pre-wrap leading-relaxed select-none"
+                    style={{ WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' }}
+                    onContextMenu={(event) => event.preventDefault()}
                 >
                     {content}
                 </p>
