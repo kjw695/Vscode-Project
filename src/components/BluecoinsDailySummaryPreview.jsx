@@ -747,7 +747,7 @@ const BluecoinsDailySummaryPreview = ({
                         </div>
                     </div>
 
-                    <div className={'mt-2 rounded-lg p-2 sm:p-4 shadow-md ' + (dark ? 'bg-gray-800' : 'bg-white')}>
+                    <div className="mt-2 w-full">
                         <GoalProgressBar
                             current={monthlyProfit?.totalRevenue || 0}
                             goal={goal}
