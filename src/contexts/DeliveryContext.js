@@ -450,7 +450,7 @@ export function DeliveryProvider({ children }) {
 
     const getExportData = () => {
         const lang = isKoreanSystem ? 'ko' : 'en';
-        return entries.map(({ id, isSynced, ...rest }) => {
+        return visibleEntries.map(({ id, isSynced, ...rest }) => {
             const exportedRow = {};
             exportedRow[fieldMapping['date']?.[lang] || 'Date'] = rest.date;
             exportedRow[fieldMapping['type']?.[lang] || 'Type'] = rest.type === 'income' ? (lang === 'ko' ? '수익' : 'income') : (lang === 'ko' ? '지출' : 'expense');
