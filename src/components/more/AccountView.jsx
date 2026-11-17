@@ -4,6 +4,12 @@ import LoginPage from '../auth/LoginPage';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabaseClient'; 
 import RegionCampModal from '../common/RegionCampModal';
+import { useDelivery } from '../../contexts/DeliveryContext';
+import {
+    getUnclassifiedLegacyData,
+    importUnclassifiedLegacyDataToAccount,
+    keepUnclassifiedLegacyDataOnDevice,
+} from '../../utils/migration';
 
 const maskName = (name) => {
     if (!name) return '-';
@@ -26,7 +32,12 @@ const maskVehicle = (vehicle) => {
 
 function AccountView({ onBack, isDarkMode, autoEdit = false }) {
   const [showLogin, setShowLogin] = useState(false);
-  const { isLoggedIn, user, profile, signOut } = useAuth(); 
+  const { isLoggedIn, user, profile, signOut } = useAuth();
+  const { pendingSyncCount, syncPendingData } = useDelivery();
+  const [unclassifiedCount, setUnclassifiedCount] = useState(0);
+  const [showLogoutOptions, setShowLogoutOptions] = useState(false);
+  const [logoutError, setLogoutError] = useState('');
+  const [isLoggingOut, setIsLoggingOut] = useState(false); 
 
   const [isEditing, setIsEditing] = useState(autoEdit);
   const [isSaving, setIsSaving] = useState(false);
@@ -58,6 +69,14 @@ function AccountView({ onBack, isDarkMode, autoEdit = false }) {
           });
       }
   }, [profile, user]);
+
+  useEffect(() => {
+      if (!user?.id) {
+          setUnclassifiedCount(0);
+          return;
+      }
+      setUnclassifiedCount(getUnclassifiedLegacyData(user.id).length);
+  }, [user?.id]);
 
   // Profile-required redirects open this view directly in edit mode.
   useEffect(() => {
@@ -192,11 +211,49 @@ const handleEditClick = () => {
       }
   };
 
-  const handleLogoutClick = async () => {
-      if(window.confirm("로그아웃 하시겠습니까?\n기기에 임시 저장된 남은 데이터가 지워지고 빈 오프라인 장부로 전환됩니다.")) {
+  const completeLogout = async (syncFirst) => {
+      setIsLoggingOut(true);
+      setLogoutError('');
+      try {
+          if (syncFirst && pendingSyncCount > 0) {
+              const result = await syncPendingData();
+              if (!result?.success) {
+                  setLogoutError(result?.message || '동기화에 실패했습니다. 데이터는 계정에 보관됩니다.');
+                  setIsLoggingOut(false);
+                  return;
+              }
+          }
+          // Defer mode deliberately keeps this account's local pending queue.
           await signOut();
-          window.location.reload(); 
+          window.location.reload();
+      } catch (error) {
+          setLogoutError(error.message || '로그아웃에 실패했습니다.');
+          setIsLoggingOut(false);
       }
+  };
+
+  const handleLogoutClick = async () => {
+      if (pendingSyncCount > 0) {
+          setShowLogoutOptions(true);
+          return;
+      }
+      if (window.confirm("로그아웃 하시겠습니까?\n이 계정의 데이터는 기기에 보관되며 게스트 데이터와 분리됩니다.")) {
+          await completeLogout(false);
+      }
+  };
+
+  const handleImportLegacyData = () => {
+      if (!user?.id || !window.confirm(`미분류 장부 ${unclassifiedCount}건을 현재 계정의 로컬 장부로 가져올까요?\n이번 단계에서는 서버로 전송하지 않습니다.`)) return;
+      const result = importUnclassifiedLegacyDataToAccount(user.id);
+      setUnclassifiedCount(0);
+      alert(`${result.imported}건을 현재 계정의 로컬 장부로 분류했습니다. 서버 전송은 진행하지 않았습니다.`);
+      window.location.reload();
+  };
+
+  const handleKeepLegacyDataOnDevice = () => {
+      if (!user?.id || !window.confirm('미분류 장부를 계정에 연결하지 않고 이 기기에만 보관할까요?')) return;
+      keepUnclassifiedLegacyDataOnDevice(user.id);
+      setUnclassifiedCount(0);
   };
 
   if (showLogin) {
@@ -359,6 +416,27 @@ const handleEditClick = () => {
             </div>
         </div>
       </div>
+
+      {isLoggedIn && unclassifiedCount > 0 && (
+        <div className={`${cardClass} border ${isDarkMode ? 'border-amber-700' : 'border-amber-200'}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <AlertCircle size={18} className="text-amber-500" />
+            <h3 className="font-bold">기존 장부 확인</h3>
+          </div>
+          <p className="text-sm text-gray-500 mb-3">
+            이전 버전에서 사용하던 장부 중 현재 계정 소유인지 확인되지 않은 항목이 {unclassifiedCount}건 있습니다. 자동으로 계정에 넣거나 서버로 전송하지 않았습니다.
+          </p>
+          <div className="flex flex-col gap-2">
+            <button onClick={handleImportLegacyData} className="w-full rounded-lg bg-blue-600 text-white font-semibold py-2.5 text-sm">
+              이 계정으로 가져오기 (로컬 분류만)
+            </button>
+            <button onClick={handleKeepLegacyDataOnDevice} className={`w-full rounded-lg py-2.5 text-sm font-semibold ${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700'}`}>
+              이 기기에만 보관
+            </button>
+            <p className="text-xs text-gray-400 text-center">나중에 결정하려면 이 화면을 나가세요. 원본 백업은 유지됩니다.</p>
+          </div>
+        </div>
+      )}
 
       </>
       )}
@@ -524,6 +602,29 @@ const handleEditClick = () => {
             </div>
         )}
       </div>
+
+      {showLogoutOptions && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+          <div className={`w-full max-w-sm rounded-2xl p-4 shadow-xl ${isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}>
+            <h3 className="font-bold text-lg mb-2">미전송 장부 {pendingSyncCount}건</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              로그아웃해도 미전송 장부는 이 계정의 기기 저장소에 보관됩니다. 다른 계정에서는 보이지 않습니다.
+            </p>
+            {logoutError && <p className="text-sm text-red-500 mb-3">{logoutError}</p>}
+            <div className="flex flex-col gap-2">
+              <button disabled={isLoggingOut} onClick={() => completeLogout(true)} className="w-full rounded-lg bg-blue-600 text-white py-3 font-semibold disabled:opacity-50">
+                {isLoggingOut ? '처리 중...' : '동기화 후 로그아웃'}
+              </button>
+              <button disabled={isLoggingOut} onClick={() => completeLogout(false)} className={`w-full rounded-lg py-3 font-semibold disabled:opacity-50 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                나중에 동기화하고 로그아웃
+              </button>
+              <button disabled={isLoggingOut} onClick={() => setShowLogoutOptions(false)} className="w-full py-2 text-sm text-gray-500">
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <RegionCampModal 
           isOpen={isRegionModalOpen}
