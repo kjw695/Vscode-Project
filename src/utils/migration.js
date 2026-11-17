@@ -73,6 +73,10 @@ export async function migrateLocalDataToServer(userId) {
     }
 
     const stateKey = getMigrationStateStorageKey(userId);
+    const pendingDeviceBucket = readJsonStorage(UNCLASSIFIED_KEY, null);
+    if (pendingDeviceBucket?.reviewUserId === 'device' && pendingDeviceBucket.status === 'pending') {
+        writeJsonStorage(UNCLASSIFIED_KEY, { ...pendingDeviceBucket, reviewUserId: userId });
+    }
     const previousState = readJsonStorage(stateKey, null);
     if (previousState?.prepared === true) {
         const bucket = readJsonStorage(UNCLASSIFIED_KEY, null);
@@ -169,6 +173,36 @@ export async function migrateLocalDataToServer(userId) {
     }
 }
 
+export function prepareLegacyDataForGuest() {
+    const existingBucket = readJsonStorage(UNCLASSIFIED_KEY, null);
+    if (existingBucket) {
+        return {
+            prepared: true,
+            unclassifiedCount: existingBucket.reviewUserId === 'device' && existingBucket.status === 'pending'
+                ? (existingBucket.entries || []).length : 0,
+        };
+    }
+
+    try {
+        const snapshotKey = createLegacySnapshot();
+        const legacyEntries = readJsonStorage(LEGACY_ENTRIES_KEY, []);
+        const entries = Array.isArray(legacyEntries) ? legacyEntries : [];
+        if (entries.length > 0) {
+            writeJsonStorage(UNCLASSIFIED_KEY, {
+                reviewUserId: 'device',
+                status: 'pending',
+                createdAt: new Date().toISOString(),
+                snapshotKey,
+                entries,
+            });
+        }
+        return { prepared: true, snapshotKey, unclassifiedCount: entries.length };
+    } catch (error) {
+        console.error('[Migration] 게스트 기존 데이터 보관 준비 실패:', error);
+        return { prepared: false, unclassifiedCount: 0, error: error.message };
+    }
+}
+
 export function getUnclassifiedLegacyData(userId) {
     const bucket = readJsonStorage(UNCLASSIFIED_KEY, null);
     if (!userId || !bucket || bucket.reviewUserId !== userId || bucket.status !== 'pending') {
@@ -211,6 +245,27 @@ export function importUnclassifiedLegacyDataToAccount(userId) {
 export function keepUnclassifiedLegacyDataOnDevice(userId) {
     const bucket = readJsonStorage(UNCLASSIFIED_KEY, null);
     if (!bucket || bucket.reviewUserId !== userId || bucket.status !== 'pending') return false;
+
+    if (userId === 'device') {
+        const guestKey = getDeliveryEntriesStorageKey(null);
+        const current = readJsonStorage(guestKey, []);
+        const guestEntries = (bucket.entries || []).map((entry, index) => ({
+            ...entry,
+            id: `${entry.type === 'expense' ? 'z' : 's'}legacy_guest_${Date.now()}_${index}`,
+            legacyId: entry.id ?? null,
+            ownerId: null,
+            timestamp: entry.timestamp || new Date().toISOString(),
+            isEdited: entry.isEdited || false,
+            isSynced: false,
+        }));
+        writeJsonStorage(guestKey, [...current, ...guestEntries]);
+        writeJsonStorage(UNCLASSIFIED_KEY, {
+            ...bucket,
+            status: 'guest_local',
+            resolvedAt: new Date().toISOString(),
+        });
+        return true;
+    }
 
     writeJsonStorage(UNCLASSIFIED_KEY, {
         ...bucket,
