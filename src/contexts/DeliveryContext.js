@@ -104,6 +104,12 @@ export function DeliveryProvider({ children }) {
                         .eq('user_id', user.id)
                         .order('date', { ascending: false });
 
+                    if (error && isMounted) {
+                        // 네트워크가 끊겨도 현재 계정의 로컬 데이터는 표시합니다.
+                        setEntries(localData);
+                        syncToStorage(localData, user.id);
+                    }
+
                     if (!error && isMounted) {
                         let effectiveDbData = dbData || [];
                         let effectiveLocalData = localData;
@@ -208,7 +214,7 @@ export function DeliveryProvider({ children }) {
                     } else if (payload.eventType === 'DELETE') {
                         setEntries(prev => {
                             const newEntries = prev.filter(e => e.id !== payload.old.id);
-                            syncToStorage(newEntries);
+                            syncToStorage(newEntries, user.id);
                             return newEntries;
                         });
                     }
@@ -247,6 +253,7 @@ export function DeliveryProvider({ children }) {
                 setEntries(prev => {
                     const updated = prev.map(e => e.id === entry.id ? { ...e, id: res.data.id, isSynced: true } : e);
                     syncToStorage(updated, user.id);
+                    if (currentOwnerRef.current !== user.id) return prev;
                     return updated;
                 });
             }
@@ -350,8 +357,10 @@ export function DeliveryProvider({ children }) {
             }
 
             // 모두 처리 후 화면에 전체 덮어쓰기
-            setEntries(currentEntries);
             syncToStorage(currentEntries, user.id);
+            if (currentOwnerRef.current === user.id) {
+                setEntries(currentEntries);
+            }
 
             if (successCount === pendingEntries.length) {
                 return { success: true, message: `✅ ${successCount}건 서버 전송 완료!` };
