@@ -23,6 +23,7 @@ export function useMigrationOnLogin() {
             .then((result) => {
                 if (!isMounted) return;
                 setMigrationResult(result);
+                window.dispatchEvent(new CustomEvent('deliverytracker:legacy-data-prepared', { detail: { userId: user.id } }));
                 if (!result.success) {
                     console.error('[Migration] 로컬 데이터 분류 준비 실패:', result.error);
                 }
