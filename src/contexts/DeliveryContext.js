@@ -314,11 +314,26 @@ export function DeliveryProvider({ children }) {
             };
 
             // 3. 서버 응답 안 기다리고 기기에 즉시 저장! (화면 바로 넘어감)
+            const ownerId = isLoggedIn && user ? user.id : null;
             setEntries(prev => {
-                const nextEntries = isEditing 
-                    ? prev.map(e => e.id === localId ? newEntry : e) 
+                const storageKey = getDeliveryEntriesStorageKey(ownerId);
+                if (currentOwnerRef.current !== ownerId) {
+                    let accountEntries = [];
+                    try {
+                        accountEntries = JSON.parse(localStorage.getItem(storageKey) || '[]');
+                    } catch (storageError) {
+                        console.warn('[Delivery] 계정별 장부 읽기 실패:', storageError);
+                    }
+                    const savedEntries = isEditing
+                        ? accountEntries.map(entry => entry.id === localId ? newEntry : entry)
+                        : [newEntry, ...accountEntries];
+                    syncToStorage(savedEntries, ownerId);
+                    return prev;
+                }
+                const nextEntries = isEditing
+                    ? prev.map(e => e.id === localId ? newEntry : e)
                     : [newEntry, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date));
-                syncToStorage(nextEntries, isLoggedIn && user ? user.id : null); 
+                syncToStorage(nextEntries, ownerId);
                 return nextEntries;
             });
             lastSaveTimeRef.current = Date.now();
