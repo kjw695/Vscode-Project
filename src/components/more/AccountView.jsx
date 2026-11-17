@@ -73,9 +73,16 @@ function AccountView({ onBack, isDarkMode, autoEdit = false }) {
   useEffect(() => {
       if (!user?.id) {
           setUnclassifiedCount(0);
-          return;
+          return undefined;
       }
-      setUnclassifiedCount(getUnclassifiedLegacyData(user.id).length);
+      const refreshLegacyCount = (event) => {
+          if (!event?.detail?.userId || event.detail.userId === user.id) {
+              setUnclassifiedCount(getUnclassifiedLegacyData(user.id).length);
+          }
+      };
+      refreshLegacyCount();
+      window.addEventListener('deliverytracker:legacy-data-prepared', refreshLegacyCount);
+      return () => window.removeEventListener('deliverytracker:legacy-data-prepared', refreshLegacyCount);
   }, [user?.id]);
 
   // Profile-required redirects open this view directly in edit mode.
@@ -433,7 +440,9 @@ const handleEditClick = () => {
             <button onClick={handleKeepLegacyDataOnDevice} className={`w-full rounded-lg py-2.5 text-sm font-semibold ${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700'}`}>
               이 기기에만 보관
             </button>
-            <p className="text-xs text-gray-400 text-center">나중에 결정하려면 이 화면을 나가세요. 원본 백업은 유지됩니다.</p>
+            <button onClick={() => setUnclassifiedCount(0)} className="w-full py-2 text-sm text-gray-500">
+              나중에 결정
+            </button>
           </div>
         </div>
       )}
