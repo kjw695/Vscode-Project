@@ -435,8 +435,8 @@ export function DeliveryProvider({ children }) {
                 const { data: refreshed } = await supabase.from('entries').select('*').eq('user_id', user.id).order('date', { ascending: false });
                 if (refreshed) {
                     const ownedEntries = refreshed.map(row => toClientFormat(row, user.id));
-                    setEntries(ownedEntries);
                     syncToStorage(ownedEntries, user.id);
+                    if (currentOwnerRef.current === user.id) setEntries(ownedEntries);
                 }
 
                 return { added: validRows.length, skipped: skippedCount };
@@ -480,8 +480,9 @@ export function DeliveryProvider({ children }) {
             if (isLoggedIn && user) {
                 await supabase.from('entries').delete().eq('id', id).eq('user_id', user.id);
                 setEntries(prev => {
+                    if (currentOwnerRef.current !== user.id) return prev;
                     const filtered = prev.filter(e => e.id !== id);
-                    syncToStorage(filtered, user?.id || null);
+                    syncToStorage(filtered, user.id);
                     return filtered;
                 });
             } else {
@@ -499,8 +500,8 @@ export function DeliveryProvider({ children }) {
             try {
                 if (isLoggedIn && user) {
                     await supabase.from('entries').delete().eq('user_id', user.id);
-                    setEntries([]);
                     localStorage.removeItem(getDeliveryEntriesStorageKey(user.id));
+                    if (currentOwnerRef.current === user.id) setEntries([]);
                 } else {
                     lastSRef.current = 0; lastZRef.current = 0; setEntries([]); localStorage.removeItem(getDeliveryEntriesStorageKey(null));
                 }
