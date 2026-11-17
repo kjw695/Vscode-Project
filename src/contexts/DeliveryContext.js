@@ -443,7 +443,9 @@ export function DeliveryProvider({ children }) {
             } else {
                 return new Promise((resolve) => {
                     setEntries(prev => {
-                        let currentEntries = [...prev];
+                        let currentEntries = currentOwnerRef.current === null
+                            ? [...prev]
+                            : JSON.parse(localStorage.getItem(getDeliveryEntriesStorageKey(null)) || '[]');
                         let addedCount = 0; let skippedCount = 0;
                         const incomeGroup = incomingData.filter(d => d.type === 'income');
                         const expenseGroup = incomingData.filter(d => d.type === 'expense');
@@ -456,8 +458,9 @@ export function DeliveryProvider({ children }) {
                             });
                         };
                         processGroup(incomeGroup, 's', lastSRef); processGroup(expenseGroup, 'z', lastZRef);
-                        syncToStorage(currentEntries, null); resolve({ added: addedCount, skipped: skippedCount });
-                        return currentEntries;
+                        syncToStorage(currentEntries, null);
+                        resolve({ added: addedCount, skipped: skippedCount });
+                        return currentOwnerRef.current === null ? currentEntries : prev;
                     });
                 });
             }
@@ -487,8 +490,10 @@ export function DeliveryProvider({ children }) {
                 });
             } else {
                 setEntries(prev => {
+                    if (currentOwnerRef.current !== null) return prev;
                     const filtered = prev.filter(e => e.id !== id);
-                    syncToStorage(filtered, null); return filtered;
+                    syncToStorage(filtered, null);
+                    return filtered;
                 });
             }
         } catch (err) { alert(err.message); } finally { setIsLoading(false); }
