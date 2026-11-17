@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useContext, useCallback, use
 import { isDuplicateEntry } from '../utils/calculator';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from './AuthContext';
+import { getDeliveryEntriesStorageKey } from '../utils/accountDataStorage';
 
 const DeliveryContext = createContext();
 
@@ -25,7 +26,8 @@ const isStandaloneDayOffEntry = (entry) => {
 };
 
 // ✨ DB 데이터를 변환할 때, 서버에 있는 건 무조건 '전송 완료(isSynced: true)' 취급합니다.
-const toClientFormat = (row) => ({
+const toClientFormat = (row, userId) => ({
+    ownerId: userId,
     id: row.id, 
     date: row.date,
     type: row.type,
@@ -43,7 +45,8 @@ export function DeliveryProvider({ children }) {
     const [isLoading, setIsLoading] = useState(false);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-    const { user, isLoggedIn } = useAuth();
+    const { user, isLoggedIn, isAuthLoading } = useAuth();
+    const currentOwnerRef = useRef(null);
 
     const lastSRef = useRef(0);
     const lastZRef = useRef(0);
@@ -64,20 +67,33 @@ export function DeliveryProvider({ children }) {
         lastZRef.current = zNums.length > 0 ? Math.max(...zNums) : 0;
     };
 
-    const syncToStorage = (data) => {
+    const syncToStorage = (data, ownerId = currentOwnerRef.current) => {
         const sorted = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
-        localStorage.setItem('deliveryEntries', JSON.stringify(sorted));
+        localStorage.setItem(getDeliveryEntriesStorageKey(ownerId), JSON.stringify(sorted));
     };
 
     // ✨ 데이터 로드 (로컬 + DB 혼합)
     useEffect(() => {
         let isMounted = true;
         const loadData = async () => {
+            if (isAuthLoading) {
+                setEntries([]);
+                setIsDataLoaded(false);
+                setIsLoading(false);
+                return;
+            }
+            const ownerId = isLoggedIn && user?.id ? user.id : null;
+            currentOwnerRef.current = ownerId;
+            setEntries([]);
+            setIsDataLoaded(false);
             setIsLoading(true);
             try {
                 // 1. 기기에 저장된 데이터(미전송 데이터 포함) 먼저 불러오기
-                const saved = localStorage.getItem('deliveryEntries');
+                const saved = localStorage.getItem(getDeliveryEntriesStorageKey(ownerId));
                 let localData = saved ? JSON.parse(saved) : [];
+                localData = Array.isArray(localData)
+                    ? localData.filter(entry => entry.ownerId === ownerId)
+                    : [];
                 updateLastIdRefs(localData);
 
                 if (isLoggedIn && user) {
@@ -133,10 +149,10 @@ export function DeliveryProvider({ children }) {
                             console.warn('기존 휴무 자동 취소 확인 실패:', cleanupError);
                         }
 
-                        const parsedDbData = effectiveDbData.map(toClientFormat);
+                        const parsedDbData = effectiveDbData.map(row => toClientFormat(row, user.id));
 
                         // 3. 서버 데이터와 기기의 '미전송(isSynced: false)' 데이터를 하나로 합치기
-                        const unsyncedLocal = effectiveLocalData.filter(e => e.isSynced === false);
+                        const unsyncedLocal = effectiveLocalData.filter(e => e.ownerId === user.id && e.isSynced === false);
                         const merged = [...unsyncedLocal];
 
                         parsedDbData.forEach(dbItem => {
@@ -145,10 +161,13 @@ export function DeliveryProvider({ children }) {
 
                         merged.sort((a, b) => new Date(b.date) - new Date(a.date));
                         setEntries(merged);
-                        syncToStorage(merged);
+                        syncToStorage(merged, user.id);
                     }
                 } else {
-                    if (isMounted) setEntries(localData);
+                    if (isMounted) {
+                        setEntries(localData);
+                        syncToStorage(localData, null);
+                    }
                 }
             } catch (e) {
                 console.error("데이터 로드 실패:", e);
@@ -162,7 +181,7 @@ export function DeliveryProvider({ children }) {
 
         loadData();
         return () => { isMounted = false; };
-    }, [isLoggedIn, user]);
+    }, [isAuthLoading, isLoggedIn, user]);
 
     // ✨ 실시간 동기화
     useEffect(() => {
@@ -176,13 +195,13 @@ export function DeliveryProvider({ children }) {
                     if (payload.eventType === 'INSERT') {
                         setEntries(prev => {
                             if (prev.some(e => e.id === payload.new.id)) return prev;
-                            const newEntries = [toClientFormat(payload.new), ...prev].sort((a, b) => new Date(b.date) - new Date(a.date));
-                            syncToStorage(newEntries);
+                            const newEntries = [toClientFormat(payload.new, user.id), ...prev].sort((a, b) => new Date(b.date) - new Date(a.date));
+                            syncToStorage(newEntries, user.id);
                             return newEntries;
                         });
                     } else if (payload.eventType === 'UPDATE') {
                         setEntries(prev => {
-                            const newEntries = prev.map(e => e.id === payload.new.id ? toClientFormat(payload.new) : e);
+                            const newEntries = prev.map(e => e.id === payload.new.id ? toClientFormat(payload.new, user.id) : e);
                             syncToStorage(newEntries);
                             return newEntries;
                         });
@@ -202,7 +221,7 @@ export function DeliveryProvider({ children }) {
 
    // ✨ 서버로 조용히 데이터를 쏴주는 백그라운드 함수 (ID 충돌 해결버전)
     const sendToSupabase = async (entry) => {
-        if (!isLoggedIn || !user) return;
+        if (!isLoggedIn || !user || entry.ownerId !== user.id) return;
         try {
             const payload = {
                 user_id: user.id, date: entry.date, type: entry.type,
@@ -227,7 +246,7 @@ export function DeliveryProvider({ children }) {
                 // 성공하면 진짜 번호로 교체하고 '미전송' 꼬리표 떼기
                 setEntries(prev => {
                     const updated = prev.map(e => e.id === entry.id ? { ...e, id: res.data.id, isSynced: true } : e);
-                    syncToStorage(updated);
+                    syncToStorage(updated, user.id);
                     return updated;
                 });
             }
@@ -263,7 +282,8 @@ export function DeliveryProvider({ children }) {
             // 2. 무조건 기기에 저장할 새 데이터 덩어리 만들기
             const newEntry = { 
                 ...entryData, 
-                id: localId, 
+                id: localId,
+                ownerId: isLoggedIn && user ? user.id : null, 
                 timestamp: currentTimestamp, 
                 isEdited: isEditing,
                 isSynced: false // ✨ 핵심: 서버 확인 전까지 무조건 미전송 상태!
@@ -292,7 +312,7 @@ export function DeliveryProvider({ children }) {
     const syncPendingData = useCallback(async () => {
         if (!isLoggedIn || !user) return { success: false, message: '로그인이 필요합니다.' };
         
-        const pendingEntries = entries.filter(e => e.isSynced === false);
+        const pendingEntries = entries.filter(e => e.isSynced === false && e.ownerId === user.id);
         if (pendingEntries.length === 0) return { success: true, message: '동기화할 데이터가 없습니다.' };
 
         setIsLoading(true);
@@ -331,7 +351,7 @@ export function DeliveryProvider({ children }) {
 
             // 모두 처리 후 화면에 전체 덮어쓰기
             setEntries(currentEntries);
-            syncToStorage(currentEntries);
+            syncToStorage(currentEntries, user.id);
 
             if (successCount === pendingEntries.length) {
                 return { success: true, message: `✅ ${successCount}건 서버 전송 완료!` };
@@ -372,7 +392,11 @@ export function DeliveryProvider({ children }) {
                 if (error) throw new Error(error.message);
 
                 const { data: refreshed } = await supabase.from('entries').select('*').eq('user_id', user.id).order('date', { ascending: false });
-                if (refreshed) setEntries(refreshed.map(toClientFormat));
+                if (refreshed) {
+                    const ownedEntries = refreshed.map(row => toClientFormat(row, user.id));
+                    setEntries(ownedEntries);
+                    syncToStorage(ownedEntries, user.id);
+                }
 
                 return { added: validRows.length, skipped: skippedCount };
             } else {
@@ -386,7 +410,7 @@ export function DeliveryProvider({ children }) {
                         const processGroup = (group, prefix, ref) => {
                             group.forEach(row => {
                                 if (currentEntries.some(e => isDuplicateEntry(e, row))) { skippedCount++; return; }
-                                currentEntries.push({ ...row, id: `${prefix}${++ref.current}_${Date.now()}`, timestamp: row.timestamp || new Date().toISOString(), isSynced: false });
+                                currentEntries.push({ ...row, id: `${prefix}${++ref.current}_${Date.now()}`, ownerId: null, timestamp: row.timestamp || new Date().toISOString(), isSynced: false });
                                 addedCount++;
                             });
                         };
@@ -416,13 +440,13 @@ export function DeliveryProvider({ children }) {
                 await supabase.from('entries').delete().eq('id', id).eq('user_id', user.id);
                 setEntries(prev => {
                     const filtered = prev.filter(e => e.id !== id);
-                    syncToStorage(filtered);
+                    syncToStorage(filtered, user?.id || null);
                     return filtered;
                 });
             } else {
                 setEntries(prev => {
                     const filtered = prev.filter(e => e.id !== id);
-                    syncToStorage(filtered); return filtered;
+                    syncToStorage(filtered, null); return filtered;
                 });
             }
         } catch (err) { alert(err.message); } finally { setIsLoading(false); }
@@ -435,16 +459,16 @@ export function DeliveryProvider({ children }) {
                 if (isLoggedIn && user) {
                     await supabase.from('entries').delete().eq('user_id', user.id);
                     setEntries([]);
-                    localStorage.removeItem('deliveryEntries');
+                    localStorage.removeItem(getDeliveryEntriesStorageKey(user.id));
                 } else {
-                    lastSRef.current = 0; lastZRef.current = 0; setEntries([]); localStorage.removeItem('deliveryEntries');
+                    lastSRef.current = 0; lastZRef.current = 0; setEntries([]); localStorage.removeItem(getDeliveryEntriesStorageKey(null));
                 }
             } catch (err) { alert(err.message); } finally { setIsLoading(false); }
         }
     }, [isLoggedIn, user]);
 
     // ✨ 화면(App.js)에 미전송 건수와 동기화 함수를 전달!
-    const pendingSyncCount = entries.filter(e => e.isSynced === false).length;
+    const pendingSyncCount = entries.filter(e => e.isSynced === false && e.ownerId === (isLoggedIn && user ? user.id : null)).length;
 
     const memoizedValue = useMemo(() => ({
         entries, saveEntry, deleteEntry, clearAllEntries, importStrictly, getExportData, isLoading, isDataLoaded,
