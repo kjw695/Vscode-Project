@@ -35,6 +35,7 @@ export function useMigrationOnLogin() {
             .catch((error) => {
                 if (!isMounted) return;
                 setMigrationResult({ success: false, error: error.message });
+                window.dispatchEvent(new CustomEvent('deliverytracker:legacy-data-prepared', { detail: { userId: user.id } }));
                 console.error('[Migration] 로컬 데이터 분류 준비 실패:', error);
             })
             .finally(() => {
