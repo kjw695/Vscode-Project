@@ -42,6 +42,7 @@ const toClientFormat = (row, userId) => ({
 
 export function DeliveryProvider({ children }) {
     const [entries, setEntries] = useState([]);
+    const [entriesOwnerId, setEntriesOwnerId] = useState(undefined);
     const [isLoading, setIsLoading] = useState(false);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
 
@@ -78,12 +79,14 @@ export function DeliveryProvider({ children }) {
         const loadData = async () => {
             if (isAuthLoading) {
                 setEntries([]);
+                setEntriesOwnerId(undefined);
                 setIsDataLoaded(false);
                 setIsLoading(false);
                 return;
             }
             const ownerId = isLoggedIn && user?.id ? user.id : null;
             currentOwnerRef.current = ownerId;
+            setEntriesOwnerId(ownerId);
             setEntries([]);
             setIsDataLoaded(false);
             setIsLoading(true);
@@ -490,12 +493,17 @@ export function DeliveryProvider({ children }) {
     }, [isLoggedIn, user]);
 
     // ✨ 화면(App.js)에 미전송 건수와 동기화 함수를 전달!
-    const pendingSyncCount = entries.filter(e => e.isSynced === false && e.ownerId === (isLoggedIn && user ? user.id : null)).length;
+    const activeOwnerId = isLoggedIn && user?.id ? user.id : null;
+    const isCurrentOwnerLoaded = !isAuthLoading && entriesOwnerId === activeOwnerId;
+    const visibleEntries = isCurrentOwnerLoaded ? entries : [];
+    const visibleIsDataLoaded = isCurrentOwnerLoaded && isDataLoaded;
+    const pendingSyncCount = visibleEntries.filter(e => e.isSynced === false && e.ownerId === activeOwnerId).length;
 
     const memoizedValue = useMemo(() => ({
-        entries, saveEntry, deleteEntry, clearAllEntries, importStrictly, getExportData, isLoading, isDataLoaded,
+        entries: visibleEntries, saveEntry, deleteEntry, clearAllEntries, importStrictly, getExportData,
+        isLoading: isLoading || !isCurrentOwnerLoaded, isDataLoaded: visibleIsDataLoaded,
         syncPendingData, pendingSyncCount // ✨ 미전송 처리용 신규 무기 장착
-    }), [entries, saveEntry, deleteEntry, clearAllEntries, importStrictly, isLoading, isDataLoaded, syncPendingData, pendingSyncCount]); 
+    }), [visibleEntries, saveEntry, deleteEntry, clearAllEntries, importStrictly, getExportData, isLoading, isCurrentOwnerLoaded, visibleIsDataLoaded, syncPendingData, pendingSyncCount]); 
 
     return (
         <DeliveryContext.Provider value={memoizedValue}>
