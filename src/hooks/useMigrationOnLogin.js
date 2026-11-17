@@ -2,7 +2,7 @@
 // Legacy records are classified locally only; this hook never uploads them.
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { migrateLocalDataToServer } from '../utils/migration';
+import { migrateLocalDataToServer, prepareLegacyDataForGuest } from '../utils/migration';
 
 export function useMigrationOnLogin() {
     const { user, isLoggedIn, isAuthLoading } = useAuth();
@@ -10,9 +10,13 @@ export function useMigrationOnLogin() {
     const [isMigrating, setIsMigrating] = useState(false);
 
     useEffect(() => {
-        if (isAuthLoading || !isLoggedIn || !user?.id) {
-            setMigrationResult(null);
+        if (isAuthLoading) return undefined;
+
+        if (!isLoggedIn || !user?.id) {
+            const result = prepareLegacyDataForGuest();
+            setMigrationResult(result);
             setIsMigrating(false);
+            window.dispatchEvent(new CustomEvent('deliverytracker:legacy-data-prepared', { detail: { userId: 'device' } }));
             return undefined;
         }
 
