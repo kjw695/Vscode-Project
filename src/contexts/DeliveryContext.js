@@ -202,7 +202,7 @@ export function DeliveryProvider({ children }) {
                 { event: '*', schema: 'public', table: 'entries', filter: `user_id=eq.${user.id}` },
                 (payload) => {
                     if (currentOwnerRef.current !== user.id) return;
-                    if (payload.eventType === 'INSERT') {}
+                    if (payload.eventType === 'INSERT') {
                         setEntries(prev => {
                             if (prev.some(e => e.id === payload.new.id)) return prev;
                             const newEntries = [toClientFormat(payload.new, user.id), ...prev].sort((a, b) => new Date(b.date) - new Date(a.date));
