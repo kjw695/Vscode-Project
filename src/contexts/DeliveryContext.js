@@ -202,7 +202,7 @@ export function DeliveryProvider({ children }) {
                     } else if (payload.eventType === 'UPDATE') {
                         setEntries(prev => {
                             const newEntries = prev.map(e => e.id === payload.new.id ? toClientFormat(payload.new, user.id) : e);
-                            syncToStorage(newEntries);
+                            syncToStorage(newEntries, user.id);
                             return newEntries;
                         });
                     } else if (payload.eventType === 'DELETE') {
@@ -294,7 +294,7 @@ export function DeliveryProvider({ children }) {
                 const nextEntries = isEditing 
                     ? prev.map(e => e.id === localId ? newEntry : e) 
                     : [newEntry, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date));
-                syncToStorage(nextEntries); 
+                syncToStorage(nextEntries, isLoggedIn && user ? user.id : null); 
                 return nextEntries;
             });
             lastSaveTimeRef.current = Date.now();
@@ -415,7 +415,7 @@ export function DeliveryProvider({ children }) {
                             });
                         };
                         processGroup(incomeGroup, 's', lastSRef); processGroup(expenseGroup, 'z', lastZRef);
-                        syncToStorage(currentEntries); resolve({ added: addedCount, skipped: skippedCount });
+                        syncToStorage(currentEntries, null); resolve({ added: addedCount, skipped: skippedCount });
                         return currentEntries;
                     });
                 });
