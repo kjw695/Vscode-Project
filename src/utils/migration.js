@@ -192,6 +192,8 @@ export function importUnclassifiedLegacyDataToAccount(userId) {
         id: `${entry.type === 'expense' ? 'z' : 's'}legacy_${Date.now()}_${index}`,
         legacyId: entry.id ?? null,
         ownerId: userId,
+        timestamp: entry.timestamp || new Date().toISOString(),
+        isEdited: entry.isEdited || false,
         isSynced: false,
     }));
 
