@@ -201,7 +201,8 @@ export function DeliveryProvider({ children }) {
             .on('postgres_changes',
                 { event: '*', schema: 'public', table: 'entries', filter: `user_id=eq.${user.id}` },
                 (payload) => {
-                    if (payload.eventType === 'INSERT') {
+                    if (currentOwnerRef.current !== user.id) return;
+                    if (payload.eventType === 'INSERT') {}
                         setEntries(prev => {
                             if (prev.some(e => e.id === payload.new.id)) return prev;
                             const newEntries = [toClientFormat(payload.new, user.id), ...prev].sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -230,7 +231,7 @@ export function DeliveryProvider({ children }) {
 
    // ✨ 서버로 조용히 데이터를 쏴주는 백그라운드 함수 (ID 충돌 해결버전)
     const sendToSupabase = async (entry) => {
-        if (!isLoggedIn || !user || entry.ownerId !== user.id) return;
+        if (!isLoggedIn || !user || entry.ownerId !== user.id || currentOwnerRef.current !== user.id) return;
         try {
             const payload = {
                 user_id: user.id, date: entry.date, type: entry.type,
