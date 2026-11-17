@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useContext, useCallback, use
 import { isDuplicateEntry } from '../utils/calculator';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from './AuthContext';
-import { getDeliveryEntriesStorageKey } from '../utils/accountDataStorage';
+import { getDeliveryEntriesStorageKey, readJsonStorage } from '../utils/accountDataStorage';
 
 const DeliveryContext = createContext();
 
@@ -445,7 +445,7 @@ export function DeliveryProvider({ children }) {
                     setEntries(prev => {
                         let currentEntries = currentOwnerRef.current === null
                             ? [...prev]
-                            : JSON.parse(localStorage.getItem(getDeliveryEntriesStorageKey(null)) || '[]');
+                            : readJsonStorage(getDeliveryEntriesStorageKey(null), []);
                         let addedCount = 0; let skippedCount = 0;
                         const incomeGroup = incomingData.filter(d => d.type === 'income');
                         const expenseGroup = incomingData.filter(d => d.type === 'expense');
