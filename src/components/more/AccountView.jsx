@@ -256,7 +256,9 @@ const handleEditClick = () => {
   };
 
   const handleKeepLegacyDataOnDevice = () => {
-      if (!user?.id || !window.confirm('미분류 장부를 계정에 연결하지 않고 이 기기에만 보관할까요?')) return;
+      if (!window.confirm(isLoggedIn
+          ? '미분류 장부를 계정에 연결하지 않고 이 기기에만 보관할까요?'
+          : '미분류 장부를 게스트 장부로 보관할까요?')) return;
       const reviewOwnerId = isLoggedIn && user?.id ? user.id : 'device';
       keepUnclassifiedLegacyDataOnDevice(reviewOwnerId);
       setUnclassifiedCount(0);
