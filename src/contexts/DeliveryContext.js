@@ -503,7 +503,8 @@ export function DeliveryProvider({ children }) {
                     localStorage.removeItem(getDeliveryEntriesStorageKey(user.id));
                     if (currentOwnerRef.current === user.id) setEntries([]);
                 } else {
-                    lastSRef.current = 0; lastZRef.current = 0; setEntries([]); localStorage.removeItem(getDeliveryEntriesStorageKey(null));
+                    lastSRef.current = 0; lastZRef.current = 0; localStorage.removeItem(getDeliveryEntriesStorageKey(null));
+                    if (currentOwnerRef.current === null) setEntries([]);
                 }
             } catch (err) { alert(err.message); } finally { setIsLoading(false); }
         }
