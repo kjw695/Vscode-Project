@@ -32,7 +32,7 @@ const maskVehicle = (vehicle) => {
 
 function AccountView({ onBack, isDarkMode, autoEdit = false }) {
   const [showLogin, setShowLogin] = useState(false);
-  const { isLoggedIn, user, profile, signOut } = useAuth();
+  const { isLoggedIn, user, profile, signOut, isAuthLoading } = useAuth();
   const { pendingSyncCount, syncPendingData } = useDelivery();
   const [unclassifiedCount, setUnclassifiedCount] = useState(0);
   const [showLogoutOptions, setShowLogoutOptions] = useState(false);
@@ -71,19 +71,17 @@ function AccountView({ onBack, isDarkMode, autoEdit = false }) {
   }, [profile, user]);
 
   useEffect(() => {
-      if (!user?.id) {
-          setUnclassifiedCount(0);
-          return undefined;
-      }
+      if (isAuthLoading) return undefined;
+      const reviewOwnerId = isLoggedIn && user?.id ? user.id : 'device';
       const refreshLegacyCount = (event) => {
-          if (!event?.detail?.userId || event.detail.userId === user.id) {
-              setUnclassifiedCount(getUnclassifiedLegacyData(user.id).length);
+          if (!event?.detail?.userId || event.detail.userId === reviewOwnerId) {
+              setUnclassifiedCount(getUnclassifiedLegacyData(reviewOwnerId).length);
           }
       };
       refreshLegacyCount();
       window.addEventListener('deliverytracker:legacy-data-prepared', refreshLegacyCount);
       return () => window.removeEventListener('deliverytracker:legacy-data-prepared', refreshLegacyCount);
-  }, [user?.id]);
+  }, [user?.id, isLoggedIn, isAuthLoading]);
 
   // Profile-required redirects open this view directly in edit mode.
   useEffect(() => {
@@ -259,8 +257,10 @@ const handleEditClick = () => {
 
   const handleKeepLegacyDataOnDevice = () => {
       if (!user?.id || !window.confirm('미분류 장부를 계정에 연결하지 않고 이 기기에만 보관할까요?')) return;
-      keepUnclassifiedLegacyDataOnDevice(user.id);
+      const reviewOwnerId = isLoggedIn && user?.id ? user.id : 'device';
+      keepUnclassifiedLegacyDataOnDevice(reviewOwnerId);
       setUnclassifiedCount(0);
+      if (!isLoggedIn) window.location.reload();
   };
 
   if (showLogin) {
@@ -431,14 +431,16 @@ const handleEditClick = () => {
             <h3 className="font-bold">기존 장부 확인</h3>
           </div>
           <p className="text-sm text-gray-500 mb-3">
-            이전 버전에서 사용하던 장부 중 현재 계정 소유인지 확인되지 않은 항목이 {unclassifiedCount}건 있습니다. 자동으로 계정에 넣거나 서버로 전송하지 않았습니다.
+            이전 버전에서 사용하던 장부 중 소유권이 확인되지 않은 항목이 {unclassifiedCount}건 있습니다. {isLoggedIn ? '현재 계정으로 가져오면 로컬에만 분류하며 서버 전송은 하지 않습니다.' : '계정에 연결하지 않고 게스트 장부로 보관할 수 있습니다.'}
           </p>
           <div className="flex flex-col gap-2">
-            <button onClick={handleImportLegacyData} className="w-full rounded-lg bg-blue-600 text-white font-semibold py-2.5 text-sm">
-              이 계정으로 가져오기 (로컬 분류만)
-            </button>
+            {isLoggedIn && (
+              <button onClick={handleImportLegacyData} className="w-full rounded-lg bg-blue-600 text-white font-semibold py-2.5 text-sm">
+                이 계정으로 가져오기 (로컬 분류만)
+              </button>
+            )}
             <button onClick={handleKeepLegacyDataOnDevice} className={`w-full rounded-lg py-2.5 text-sm font-semibold ${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700'}`}>
-              이 기기에만 보관
+              {isLoggedIn ? '이 기기에만 보관' : '게스트 장부로 보관'}
             </button>
             <button onClick={() => setUnclassifiedCount(0)} className="w-full py-2 text-sm text-gray-500">
               나중에 결정
