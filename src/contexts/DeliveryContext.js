@@ -251,9 +251,22 @@ export function DeliveryProvider({ children }) {
             if (!res.error && res.data) {
                 // 성공하면 진짜 번호로 교체하고 '미전송' 꼬리표 떼기
                 setEntries(prev => {
+                    if (currentOwnerRef.current !== user.id) {
+                        const accountKey = getDeliveryEntriesStorageKey(user.id);
+                        let accountEntries = [];
+                        try {
+                            accountEntries = JSON.parse(localStorage.getItem(accountKey) || '[]');
+                        } catch (storageError) {
+                            console.warn('[Delivery] 계정별 저장 데이터 확인 실패:', storageError);
+                        }
+                        const updatedAccountEntries = accountEntries.map(item =>
+                            item.id === entry.id ? { ...item, id: res.data.id, isSynced: true } : item
+                        );
+                        syncToStorage(updatedAccountEntries, user.id);
+                        return prev;
+                    }
                     const updated = prev.map(e => e.id === entry.id ? { ...e, id: res.data.id, isSynced: true } : e);
                     syncToStorage(updated, user.id);
-                    if (currentOwnerRef.current !== user.id) return prev;
                     return updated;
                 });
             }
