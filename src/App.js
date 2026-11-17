@@ -62,6 +62,7 @@ import {
 //로그인
 import LoginPage from './components/auth/LoginPage';
 import { useAuth } from './contexts/AuthContext';
+import { getAppSettingsStorageKey } from './utils/accountDataStorage';
 //팀관리
 import TeamManagementView from './components/team/TeamManagementView';
 //관리자페이지
@@ -158,7 +159,7 @@ const { isLoggedIn, user, profile } = useAuth();
     // --- 통계용 상태 ---
 const [selectedMonth, setSelectedMonth] = useState(() => {
         // 저장된 설정(시작일)을 확인하고, 없으면 기본값 26일 사용
-        const savedSettings = localStorage.getItem('appSettings');
+        const savedSettings = localStorage.getItem(getAppSettingsStorageKey(user?.id));
         const parsed = savedSettings ? JSON.parse(savedSettings) : {};
         const startDay = parsed.monthlyPeriod?.startDay || 26;
         return getSmartCurrentMonth(startDay);
@@ -166,9 +167,9 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
     const [calendarMode, setCalendarMode] = useState('money');
-    const [homeCalendarDesign] = useState(() => {
+    const [homeCalendarDesign, setHomeCalendarDesign] = useState(() => {
         try {
-            const settings = JSON.parse(localStorage.getItem('appSettings') || '{}');
+            const settings = JSON.parse(localStorage.getItem(getAppSettingsStorageKey(user?.id)) || '{}');
             return settings.homeCalendarDesign === 'classic' ? 'classic' : 'current';
         } catch (error) {
             console.warn('홈 달력 디자인 설정을 읽지 못했습니다:', error);
@@ -177,7 +178,7 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     });
     const [homeCalendarVolumeItems, setHomeCalendarVolumeItems] = useState(() => {
         try {
-            const settings = JSON.parse(localStorage.getItem('appSettings') || '{}');
+            const settings = JSON.parse(localStorage.getItem(getAppSettingsStorageKey(user?.id)) || '{}');
             return {
                 ...DEFAULT_HOME_CALENDAR_VOLUME_ITEMS,
                 ...(settings.homeCalendarVolumeItems || {})
@@ -201,7 +202,7 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
 
     // --- 항목 설정 (지출/수익) ---
     const [expenseConfig, setExpenseConfig] = useState(() => {
-        const savedSettings = localStorage.getItem('appSettings');
+        const savedSettings = localStorage.getItem(getAppSettingsStorageKey(user?.id));
         const parsedSettings = savedSettings ? JSON.parse(savedSettings) : {};
         return parsedSettings.expenseConfig || [
             { key: 'penaltyAmount', label: '패널티', isVisible: true },
@@ -215,7 +216,7 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     });
 
     const [incomeConfig, setIncomeConfig] = useState(() => {
-        const savedSettings = localStorage.getItem('appSettings');
+        const savedSettings = localStorage.getItem(getAppSettingsStorageKey(user?.id));
         const parsedSettings = savedSettings ? JSON.parse(savedSettings) : {};
         return parsedSettings.incomeConfig || [
             { key: 'deliveryCount', label: '배송', isVisible: true },
@@ -366,35 +367,56 @@ useEffect(() => {
         checkForUpdate();
     }, []);
 
-    // 설정값 로드
+    // 로그인 계정이 바뀌면 해당 계정의 설정만 다시 불러옵니다.
     useEffect(() => {
-        const loadSettings = async () => {
-            try {
-                const savedSettings = localStorage.getItem('appSettings');
-                if (savedSettings) {
-                    const settings = JSON.parse(savedSettings);
-                    if (settings.favoriteUnitPrices) {
-                        setFavoriteUnitPrices(settings.favoriteUnitPrices);
-                        setAdminFavoritePricesInput(settings.favoriteUnitPrices.join(', '));
-                        if (settings.favoriteUnitPrices.length === 1) setUnitPrice(settings.favoriteUnitPrices[0].toString());
-                    }
-                    if (settings.monthlyPeriod) {
-                        setMonthlyStartDay(settings.monthlyPeriod.startDay);
-                        setMonthlyEndDay(settings.monthlyPeriod.endDay);
-                        setAdminMonthlyStartDayInput(settings.monthlyPeriod.startDay.toString());
-                        setAdminMonthlyEndDayInput(settings.monthlyPeriod.endDay.toString());
-                    }
-                    if (settings.goalAmount) setGoalAmount(settings.goalAmount);
-                    if (settings.selectedInsurance) setSelectedInsurance(settings.selectedInsurance);
-if (settings.selectedItemsForAverage) setSelectedItemsForAverage(settings.selectedItemsForAverage); // 👈 저장된 항목들을 불러옵니다!
-if (settings.expenseConfig) setExpenseConfig(settings.expenseConfig);
-                }
-            } catch (error) {
-                console.error("설정 로드 실패:", error);
-            }
-        };
-        loadSettings();
-    }, []);
+        if (isAuthLoading) return;
+
+        try {
+            const savedSettings = localStorage.getItem(getAppSettingsStorageKey(user?.id));
+            const settings = savedSettings ? JSON.parse(savedSettings) : {};
+            const startDay = settings.monthlyPeriod?.startDay || 26;
+            const endDay = settings.monthlyPeriod?.endDay || 25;
+            const favoritePrices = settings.favoriteUnitPrices || [700];
+            const defaultExpenseConfig = [
+                { key: 'penaltyAmount', label: '패널티', isVisible: true },
+                { key: 'industrialAccidentCost', label: '산재', isVisible: true },
+                { key: 'fuelCost', label: '유류비', isVisible: true },
+                { key: 'maintenanceCost', label: '유지보수비', isVisible: true },
+                { key: 'vatAmount', label: '부가세', isVisible: true },
+                { key: 'incomeTaxAmount', label: '종합소득세', isVisible: true },
+                { key: 'taxAccountantFee', label: '세무사 비용', isVisible: true },
+            ];
+            const defaultIncomeConfig = [
+                { key: 'deliveryCount', label: '배송', isVisible: true },
+                { key: 'deliveryInterruptionAmount', label: '중단', isVisible: true },
+                { key: 'returnCount', label: '반품', isVisible: true },
+                { key: 'freshBagCount', label: '프레시백', isVisible: true, useCustomPrice: true, customPrice: [100, 200] },
+                { key: 'assignmentCount', label: '채번', isVisible: false },
+                { key: 'promotionAmount', label: '프로모션', isVisible: false, useCustomPrice: true, customPrice: [1] }
+            ];
+
+            setFavoriteUnitPrices(favoritePrices);
+            setAdminFavoritePricesInput(favoritePrices.join(', '));
+            setUnitPrice(favoritePrices.length === 1 ? favoritePrices[0].toString() : '');
+            setMonthlyStartDay(startDay);
+            setMonthlyEndDay(endDay);
+            setAdminMonthlyStartDayInput(String(startDay));
+            setAdminMonthlyEndDayInput(String(endDay));
+            setGoalAmount(settings.goalAmount || 7000000);
+            setSelectedInsurance(settings.selectedInsurance || null);
+            setSelectedItemsForAverage(settings.selectedItemsForAverage || ['배송', '반품']);
+            setExpenseConfig(settings.expenseConfig || defaultExpenseConfig);
+            setIncomeConfig(settings.incomeConfig || defaultIncomeConfig);
+            setHomeCalendarDesign(settings.homeCalendarDesign === 'classic' ? 'classic' : 'current');
+            setHomeCalendarVolumeItems({
+                ...DEFAULT_HOME_CALENDAR_VOLUME_ITEMS,
+                ...(settings.homeCalendarVolumeItems || {})
+            });
+            setSelectedMonth(getSmartCurrentMonth(startDay));
+        } catch (error) {
+            console.error("계정별 설정 로드 실패:", error);
+        }
+    }, [user?.id, isAuthLoading]);
 
     useEffect(() => {
         const now = new Date();
@@ -417,9 +439,10 @@ if (settings.expenseConfig) setExpenseConfig(settings.expenseConfig);
     }, [monthlyEndDay]);
 
     const saveSettingsToLocal = (newSettings) => {
-        const currentSettings = JSON.parse(localStorage.getItem('appSettings') || '{}');
+        const settingsKey = getAppSettingsStorageKey(user?.id);
+        const currentSettings = JSON.parse(localStorage.getItem(settingsKey) || '{}');
         const updatedSettings = { ...currentSettings, ...newSettings };
-        localStorage.setItem('appSettings', JSON.stringify(updatedSettings));
+        localStorage.setItem(settingsKey, JSON.stringify(updatedSettings));
     };
 const handleCloudRestore = async () => {
         try {
