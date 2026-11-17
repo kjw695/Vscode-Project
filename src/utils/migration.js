@@ -132,7 +132,7 @@ export async function migrateLocalDataToServer(userId) {
 
         if (unclassified.length > 0) {
             const existingBucket = readJsonStorage(UNCLASSIFIED_KEY, null);
-            if (!existingBucket || existingBucket.status !== 'pending') {
+            if (!existingBucket) {
                 writeJsonStorage(UNCLASSIFIED_KEY, {
                     reviewUserId: userId,
                     status: 'pending',
