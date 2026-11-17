@@ -426,7 +426,7 @@ const handleEditClick = () => {
         </div>
       </div>
 
-      {isLoggedIn && unclassifiedCount > 0 && (
+      {unclassifiedCount > 0 && (
         <div className={`${cardClass} border ${isDarkMode ? 'border-amber-700' : 'border-amber-200'}`}>
           <div className="flex items-center gap-2 mb-2">
             <AlertCircle size={18} className="text-amber-500" />
