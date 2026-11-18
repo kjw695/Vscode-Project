@@ -251,7 +251,7 @@ const handleEditClick = () => {
   };
 
   const handleImportLegacyData = () => {
-      if (!user?.id || !window.confirm(`이 기기의 게스트 데이터${unclassifiedCount > 0 ? ` 장부 ${unclassifiedCount}건` : ''}${hasUnclassifiedSettings ? ' 및 앱 설정' : ''}을 현재 계정에 귀속할까요?\n원본 백업은 유지하며, 이번 단계에서는 서버로 전송하지 않습니다.`)) return;
+      if (!user?.id || !window.confirm(`이 기기의 게스트 데이터${unclassifiedCount > 0 ? ` 장부 ${unclassifiedCount}건` : ''}${hasUnclassifiedSettings ? ' 및 앱 설정' : ''}을 현재 계정에 귀속할까요?\n현재 계정에 저장된 설정은 덮어쓰지 않습니다. 원본 백업은 유지하며 서버로 전송하지 않습니다.`)) return;
       const result = importUnclassifiedLegacyDataToAccount(user.id);
       setUnclassifiedCount(0);
       setHasUnclassifiedSettings(false);
@@ -437,7 +437,7 @@ const handleEditClick = () => {
             <h3 className="font-bold">기존 장부 확인</h3>
           </div>
           <p className="text-sm text-gray-500 mb-3">
-            이 기기에 계정 소유권이 아직 정해지지 않은 게스트 데이터가 있습니다. {unclassifiedCount > 0 ? `장부 ${unclassifiedCount}건` : ''}{hasUnclassifiedSettings ? ' 앱 설정 포함' : ''}. {isLoggedIn ? '현재 계정에 귀속하면 이 계정의 로컬 저장소로만 옮기며 서버 전송은 하지 않습니다.' : '로그인 후 원하는 계정에 귀속할 수 있습니다.'}
+            이 기기에 계정 소유권이 아직 정해지지 않은 게스트 데이터가 있습니다. {unclassifiedCount > 0 ? `장부 ${unclassifiedCount}건` : ''}{hasUnclassifiedSettings ? ' 앱 설정 포함' : ''}. {isLoggedIn ? '현재 계정에 귀속하면 장부는 이 계정의 로컬 저장소로 옮깁니다. 기존 계정 설정은 덮어쓰지 않으며 서버 전송은 하지 않습니다.' : '로그인 후 원하는 계정에 귀속할 수 있습니다.'}
           </p>
           <div className="flex flex-col gap-2">
             {isLoggedIn && (
