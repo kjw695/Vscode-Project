@@ -206,7 +206,21 @@ describe('DeliveryContext account switching', () => {
         supabase.from.mockImplementation(() => ({
             select: () => ({
                 eq: () => ({
-                    order: () => Promise.resolve({ data: [], error: null }),
+                    order: () => Promise.resolve({
+                        data: [{
+                            id: 501,
+                            user_id: 'account-a',
+                            date: '2026-11-16',
+                            type: 'income',
+                            unit_price: 0,
+                            round: 0,
+                            memo: null,
+                            custom_items: [],
+                            is_edited: false,
+                            created_at: '2026-11-16T09:00:00.000Z',
+                        }],
+                        error: null,
+                    }),
                 }),
             }),
             insert: () => ({
@@ -255,7 +269,7 @@ describe('DeliveryContext account switching', () => {
             }),
         ]));
         expect(accountRows).toEqual(expect.arrayContaining([
-            expect.objectContaining({ id: 'account-a-existing' }),
+            expect.objectContaining({ id: 501, ownerId: 'account-a' }),
         ]));
 
         expect(JSON.parse(localStorage.getItem(GUEST_ENTRIES_STORAGE_KEY))).toEqual([]);
