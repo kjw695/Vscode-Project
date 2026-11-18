@@ -48,7 +48,169 @@ function AdminDashboard({ onBack }) {
     }, [currentView, onBack]); 
     
     // ✨ 통제소에서 필요한 데이터와 통계치를 한 줄로 가져옵니다!
-    const { employees } = useAdminData();
+    const {
+        employees,
+        regions,
+        teams,
+        routes,
+        scope,
+        syncStatus,
+        organizationRole,
+        hasLegacyLocalData,
+        initializeSharedState,
+        reloadSharedState
+    } = useAdminData();
+    const [sharedSetupBusy, setSharedSetupBusy] = useState(false);
+
+    const handleInitializeSharedState = async (importLegacy) => {
+        const message = importLegacy
+            ? '이 기기의 기존 지역·팀·직원·노선 설정을 회사 공용 데이터로 한 번만 이전합니다. 이전 후에는 모든 회사 관리자가 같은 데이터를 사용합니다. 진행할까요?'
+            : '빈 회사 공용 데이터로 시작합니다. 이 기기의 기존 설정은 삭제하지 않고 남겨둡니다. 진행할까요?';
+        if (!window.confirm(message)) return;
+
+        try {
+            setSharedSetupBusy(true);
+            await initializeSharedState(importLegacy);
+        } catch (error) {
+            window.alert(error?.message || '회사 공용 데이터 연결에 실패했습니다.');
+        } finally {
+            setSharedSetupBusy(false);
+        }
+    };
+
+    const handleReloadSharedState = async () => {
+        if (!window.confirm('현재 기기에서 저장하지 못한 변경 사항은 적용되지 않습니다. 최신 회사 공용 데이터를 다시 불러올까요?')) return;
+        try {
+            setSharedSetupBusy(true);
+            await reloadSharedState();
+        } catch (error) {
+            window.alert(error?.message || '최신 회사 공용 데이터를 불러오지 못했습니다.');
+        } finally {
+            setSharedSetupBusy(false);
+        }
+    };
+
+    if (scope === 'resolving' || syncStatus === 'loading') {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50 px-6 text-center">
+                <div>
+                    <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
+                    <p className="text-sm font-bold text-slate-700">회사 관리자 권한과 공용 데이터를 확인하고 있습니다.</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (syncStatus === 'unauthorized') {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+                <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+                    <ShieldCheck className="mx-auto mb-3 text-slate-400" size={32} />
+                    <h2 className="text-lg font-black text-slate-800">관리자 권한이 필요합니다.</h2>
+                    <p className="mt-2 text-sm text-slate-500">회사 대표 관리자에게 일반 관리자 권한을 요청해주세요.</p>
+                    <button onClick={onBack} className="mt-5 w-full rounded-xl bg-slate-900 py-3 text-sm font-bold text-white">돌아가기</button>
+                </div>
+            </div>
+        );
+    }
+
+    if (syncStatus === 'awaiting_owner' || syncStatus === 'needs_migration') {
+        const isOwner = organizationRole === 'owner';
+        return (
+            <div className="min-h-screen bg-slate-50 px-4 py-8">
+                <div className="mx-auto max-w-xl">
+                    <div className="mb-5 flex items-center gap-3">
+                        <ShieldCheck className="text-indigo-600" size={28} />
+                        <div>
+                            <h1 className="text-xl font-black text-slate-900">회사 공용 관리자 데이터</h1>
+                            <p className="text-xs text-slate-500">첫 연결을 완료하면 모든 관리자가 같은 설정을 사용합니다.</p>
+                        </div>
+                    </div>
+                    <div className="rounded-2xl border border-indigo-100 bg-white p-5 shadow-sm">
+                        {isOwner ? (
+                            <>
+                                <h2 className="text-base font-black text-slate-800">기존 관리자 설정을 이전할까요?</h2>
+                                <p className="mt-2 text-sm leading-6 text-slate-600">
+                                    지금까지 이 기기에 저장된 지역·팀·직원·노선 설정을 회사 공용 데이터로 옮깁니다.
+                                    다른 회사나 다른 기기의 데이터는 자동으로 합치지 않습니다.
+                                </p>
+                                <div className="mt-4 grid grid-cols-2 gap-2 text-center">
+                                    {[
+                                        ['지역', regions.length],
+                                        ['팀', teams.length],
+                                        ['직원', employees.length],
+                                        ['노선', routes.length]
+                                    ].map(([label, count]) => (
+                                        <div key={label} className="rounded-xl bg-slate-50 p-3">
+                                            <p className="text-xs text-slate-500">{label}</p>
+                                            <p className="mt-1 text-lg font-black tabular-nums text-slate-800">{count}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                                {!hasLegacyLocalData && (
+                                    <p className="mt-3 text-xs text-amber-700">이 기기에서 이전할 기존 설정이 확인되지 않았습니다.</p>
+                                )}
+                                <button
+                                    type="button"
+                                    disabled={sharedSetupBusy}
+                                    onClick={() => handleInitializeSharedState(true)}
+                                    className="mt-5 w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white disabled:opacity-50"
+                                >
+                                    {sharedSetupBusy ? '연결 중...' : '현재 기기의 기존 설정 이전'}
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={sharedSetupBusy}
+                                    onClick={() => handleInitializeSharedState(false)}
+                                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-700 disabled:opacity-50"
+                                >
+                                    빈 데이터로 시작
+                                </button>
+                                <p className="mt-3 text-[11px] leading-5 text-slate-400">
+                                    기존 로컬 설정은 이전이 성공해도 기기에서 바로 삭제하지 않습니다. 공용 데이터가 정상인지 확인한 뒤 정리할 수 있습니다.
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <h2 className="text-base font-black text-slate-800">대표 관리자의 최초 연결이 필요합니다.</h2>
+                                <p className="mt-2 text-sm leading-6 text-slate-600">
+                                    회사 공용 설정이 아직 만들어지지 않았습니다. 대표 관리자가 기존 설정 이전 또는 빈 데이터 시작을 완료하면 이 화면에서 자동으로 연결됩니다.
+                                </p>
+                                <button onClick={onBack} className="mt-5 w-full rounded-xl bg-slate-900 py-3 text-sm font-bold text-white">돌아가기</button>
+                            </>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (syncStatus === 'conflict' || syncStatus === 'error') {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+                <div className="w-full max-w-md rounded-2xl border border-amber-200 bg-white p-6 text-center shadow-sm">
+                    <AlertCircle className="mx-auto mb-3 text-amber-500" size={32} />
+                    <h2 className="text-lg font-black text-slate-800">
+                        {syncStatus === 'conflict' ? '다른 관리자의 변경이 먼저 저장되었습니다.' : '회사 공용 데이터 연결에 실패했습니다.'}
+                    </h2>
+                    <p className="mt-2 text-sm leading-6 text-slate-500">
+                        {syncStatus === 'conflict'
+                            ? '이 기기의 변경 사항은 덮어쓰지 않고 보류했습니다. 최신 데이터를 다시 불러온 뒤 필요한 수정 사항을 다시 적용해주세요.'
+                            : '네트워크 연결과 회사 관리자 권한을 확인한 뒤 다시 불러와주세요.'}
+                    </p>
+                    <button
+                        type="button"
+                        disabled={sharedSetupBusy}
+                        onClick={handleReloadSharedState}
+                        className="mt-5 w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white disabled:opacity-50"
+                    >
+                        {sharedSetupBusy ? '불러오는 중...' : '최신 공용 데이터 다시 불러오기'}
+                    </button>
+                    <button onClick={onBack} className="mt-2 w-full rounded-xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-700">돌아가기</button>
+                </div>
+            </div>
+        );
+    }
 
     // 🔀 화면 전환 라우팅
     if (currentView === 'employee') return <EmployeeManager onBack={() => setCurrentView('main')} />;
@@ -60,6 +222,12 @@ function AdminDashboard({ onBack }) {
 
     return (
         <div className="admin-safe-top w-full h-full min-h-screen bg-gray-100 p-5 flex flex-col font-sans">
+            {scope === 'shared' && (
+                <div className="mb-3 flex items-center justify-between rounded-xl border border-emerald-100 bg-white px-3 py-2 text-xs">
+                    <span className="font-bold text-emerald-700">회사 공용 데이터 연결됨</span>
+                    <span className="text-slate-500">{syncStatus === 'saving' ? '저장 중...' : `버전 ${sharedVersion || 1}`}</span>
+                </div>
+            )}
             <div className="flex justify-between items-center mb-6 mt-4">
                 <div>
                     <h1 className="text-2xl font-black text-gray-800 flex items-center gap-2">
