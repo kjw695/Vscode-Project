@@ -533,6 +533,8 @@ export default function Calendar({ onBack }) {
         return isOffRecord(selectedRecord, employee);
     });
 
+    const selectedAssignments = selectedRecord && Array.isArray(selectedRecord.subs) ? selectedRecord.subs : [];
+
 
     const handleMonthChange = function (offset) {
         const nextDate = new Date(year, currentDate.getMonth() + offset, 1);
