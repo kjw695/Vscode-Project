@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, UserX, AlertCircle, Cloud, LogOut, Eye, EyeOff } from 'lucide-react';
+import { ChevronLeft, UserX, AlertCircle, Cloud, LogOut, Eye, EyeOff, FileText, ArrowRight } from 'lucide-react';
 import LoginPage from '../auth/LoginPage';
+import GuestLedgerImportView from './GuestLedgerImportView';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabaseClient'; 
 import RegionCampModal from '../common/RegionCampModal';
@@ -11,6 +12,7 @@ import {
     importUnclassifiedLegacyDataToAccount,
     keepUnclassifiedLegacyDataOnDevice,
 } from '../../utils/migration';
+import { getAvailableGuestEntries } from '../../utils/guestLedgerImport';
 
 const maskName = (name) => {
     if (!name) return '-';
@@ -33,6 +35,8 @@ const maskVehicle = (vehicle) => {
 
 function AccountView({ onBack, isDarkMode, autoEdit = false }) {
   const [showLogin, setShowLogin] = useState(false);
+  const [showGuestLedgerImport, setShowGuestLedgerImport] = useState(false);
+  const [guestEntryCount, setGuestEntryCount] = useState(0);
   const { isLoggedIn, user, profile, signOut, isAuthLoading } = useAuth();
   const { pendingSyncCount, syncPendingData, isDataLoaded } = useDelivery();
   const [unclassifiedCount, setUnclassifiedCount] = useState(0);
@@ -71,6 +75,19 @@ function AccountView({ onBack, isDarkMode, autoEdit = false }) {
           });
       }
   }, [profile, user]);
+
+  useEffect(() => {
+      if (isAuthLoading || !isLoggedIn || !user?.id) {
+          setGuestEntryCount(0);
+          return undefined;
+      }
+      const refreshGuestCount = () => {
+          setGuestEntryCount(getAvailableGuestEntries(user.id).length);
+      };
+      refreshGuestCount();
+      window.addEventListener('storage', refreshGuestCount);
+      return () => window.removeEventListener('storage', refreshGuestCount);
+  }, [user?.id, isLoggedIn, isAuthLoading]);
 
   useEffect(() => {
       if (isAuthLoading) return undefined;
@@ -281,6 +298,19 @@ const handleEditClick = () => {
       if (!isLoggedIn) window.location.reload();
   };
 
+  if (showGuestLedgerImport && isLoggedIn && user?.id) {
+    return (
+      <GuestLedgerImportView
+        userId={user.id}
+        isDarkMode={isDarkMode}
+        onBack={() => {
+          setGuestEntryCount(getAvailableGuestEntries(user.id).length);
+          setShowGuestLedgerImport(false);
+        }}
+      />
+    );
+  }
+
   if (showLogin) {
     return <LoginPage onBack={() => setShowLogin(false)} isDarkMode={isDarkMode} />;
   }
@@ -441,6 +471,29 @@ const handleEditClick = () => {
             </div>
         </div>
       </div>
+
+      {isLoggedIn && guestEntryCount > 0 && (
+        <div className={`${cardClass} border ${isDarkMode ? 'border-blue-800' : 'border-blue-200'}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <FileText size={18} className="text-blue-500" />
+            <h3 className="font-bold">게스트 장부 가져오기</h3>
+            <span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-bold ${isDarkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-50 text-blue-700'}`}>
+              {guestEntryCount.toLocaleString()}건
+            </span>
+          </div>
+          <p className="text-sm text-gray-500 mb-3">
+            로그인하지 않은 상태에서 저장한 장부를 날짜별로 확인하고, 개별·월별·연도별 또는 전체 단위로 현재 계정에 가져올 수 있습니다.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowGuestLedgerImport(true)}
+            className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 text-white font-semibold py-2.5 text-sm"
+          >
+            게스트 장부 선택하기
+            <ArrowRight size={16} />
+          </button>
+        </div>
+      )}
 
       {(unclassifiedCount > 0 || hasUnclassifiedSettings) && (
         <div className={`${cardClass} border ${isDarkMode ? 'border-amber-700' : 'border-amber-200'}`}>
