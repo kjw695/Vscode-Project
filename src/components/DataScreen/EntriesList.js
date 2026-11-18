@@ -1,12 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Edit, Trash2, ChevronDown, ChevronUp, AlertCircle, Clock, Calendar, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
+import { Edit, Trash2, ChevronDown, ChevronUp, AlertCircle, Clock, Calendar } from 'lucide-react';
 
 const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, onOpenFilter, filterType }) => {
     const [expandedDate, setExpandedDate] = useState(null);
     const [expandedId, setExpandedId] = useState(null);
     const [collapsedMonths, setCollapsedMonths] = useState({});
 
-    const toggleExpand = (id) => setExpandedId(expandedId === id ? null : id);
     const toggleDateExpand = (date) => setExpandedDate(expandedDate === date ? null : date);
     const toggleMonthCollapse = (month) => setCollapsedMonths(prev => ({ ...prev, [month]: !prev[month] }));
 
@@ -256,7 +255,6 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                             };
                                         }, { revenue: 0, expense: 0, volume: 0, totalItemCounts: {}, totalExpenseTotals: {} });
 
-                                        const dailyNetProfit = dailySummary.revenue - dailySummary.expense;
                                         const isDateExpanded = expandedDate === date;
 
                                         const incomeList = [];
