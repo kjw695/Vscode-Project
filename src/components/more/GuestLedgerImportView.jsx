@@ -4,7 +4,6 @@ import {
     Check,
     ChevronLeft,
     ChevronRight,
-    CircleHelp,
     FileText,
     Loader2
 } from 'lucide-react';
@@ -146,9 +145,16 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
     };
 
     const changeMonth = (delta) => {
-        setCurrentCalendarDate((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
+        const nextMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + delta, 1);
+        setCurrentCalendarDate(nextMonth);
         setSelectedDate('');
         setNotice('');
+        if (selectionMode === 'month') {
+            const range = getPeriodRange(nextMonth, periodSettings.startDay, periodSettings.endDay);
+            setSelectedEntryIds(
+                getEntriesInRange(guestEntries, range.startDate, range.endDate).map((entry) => String(entry.id))
+            );
+        }
     };
 
     const handleModeChange = (mode) => {
@@ -322,8 +328,13 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                             type="button"
                                             onClick={() => {
                                                 const today = new Date();
-                                                setCurrentCalendarDate(new Date(today.getFullYear(), today.getMonth(), 1));
+                                                const todayMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                                                setCurrentCalendarDate(todayMonth);
                                                 setSelectedDate(toDateKey(today));
+                                                if (selectionMode === 'month') {
+                                                    const range = getPeriodRange(todayMonth, periodSettings.startDay, periodSettings.endDay);
+                                                    setSelectedForRange(range.startDate, range.endDate);
+                                                }
                                             }}
                                             className="rounded-lg border border-amber-300 px-2 py-1 text-xs font-bold text-amber-500"
                                         >
