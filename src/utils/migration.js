@@ -222,8 +222,9 @@ export function getUnclassifiedLegacyData(userId) {
 
 export function getUnclassifiedLegacySettings(userId) {
     const bucket = getPendingAttributionBucket(userId);
-    if (!bucket?.hasSettings) return null;
-    return readJsonStorage(LEGACY_SETTINGS_KEY, null);
+    if (!bucket) return null;
+    const settings = readJsonStorage(LEGACY_SETTINGS_KEY, null);
+    return settings && typeof settings === 'object' && Object.keys(settings).length > 0 ? settings : null;
 }
 
 /**
@@ -251,7 +252,7 @@ export function importUnclassifiedLegacyDataToAccount(userId) {
 
     // Preserve existing account settings. Import guest settings only when the
     // destination account has no settings yet; never overwrite an account.
-    const legacySettings = bucket.hasSettings ? readJsonStorage(LEGACY_SETTINGS_KEY, null) : null;
+    const legacySettings = readJsonStorage(LEGACY_SETTINGS_KEY, null);
     const settingsKey = getAppSettingsStorageKey(userId);
     const currentSettings = readJsonStorage(settingsKey, null);
     let importedSettings = false;
