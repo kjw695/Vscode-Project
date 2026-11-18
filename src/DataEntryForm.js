@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Save, Plus, ChevronDown, ChevronUp, Check, Calculator, ChevronLeft, ChevronRight, X, Loader2, Camera } from 'lucide-react';
+import { Save, Plus, ChevronUp, Check, Calculator, ChevronLeft, ChevronRight } from 'lucide-react';
 import CalculatorPage from './CalculatorPage'; 
-import { useNavigate } from 'react-router-dom';
 import InstallmentPage from './InstallmentPage';
 import { useDelivery } from './contexts/DeliveryContext';
 import InstallmentManagePage from './InstallmentManagePage';
@@ -172,13 +171,11 @@ const DataEntryForm = ({
     entries,
     onGoToExpenseSettings
 }) => {
-    const navigate = useNavigate();
 
     const { saveEntry, deleteEntry } = useDelivery();
     const [selectedExtraKeys, setSelectedExtraKeys] = useState([]);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [selectedItemPrices, setSelectedItemPrices] = useState({});
-    const [openDropdownKey, setOpenDropdownKey] = useState(null);
     const [currentRound, setCurrentRound] = useState(null);
     const [viewMode, setViewMode] = useState('form'); 
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -269,7 +266,7 @@ const DataEntryForm = ({
                 }
             }, 0);
         }
-    }, [entryToEdit]);
+    }, [entryToEdit, setUnitPrice, setFormType, handleInputChange, incomeConfig, expenseConfig]);
 
     // ✨ [추가] 공통 단가가 딱 1개만 있으면 자동으로 선택 (2개 이상이면 무시)
     useEffect(() => {
