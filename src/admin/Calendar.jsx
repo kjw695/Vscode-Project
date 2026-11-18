@@ -732,18 +732,19 @@ export default function Calendar({ onBack }) {
         if (!selectedTeam || !isScheduleGenerated) { window.alert('팀을 선택하고 근무표 초안을 먼저 생성해주세요.'); return; }
         const expectedVersion = Number(savedRecord?.version || 0);
         const now = new Date().toISOString();
+        const draftEmployeeDetails = organizationId ? buildEmployeeDetails() : {};
         const record = {
             teamId: selectedTeam, year: year, month: month,
             weekStart: formatDate(weekDates[0]), weekEnd: formatDate(weekDates[6]),
             status: 'draft', version: expectedVersion + 1, updatedAt: now, confirmedAt: null,
-            schedule: generatedSchedule, employeeDetails: {}, warnings: warnings
+            schedule: generatedSchedule, employeeDetails: draftEmployeeDetails, warnings: warnings
         };
         try {
             if (organizationId) {
                 const shared = await saveMyOrganizationWeeklySchedule({
                     teamId: selectedTeam, teamLabel: getTeamDisplayName(selectedTeamRecord),
                     weekStart: record.weekStart, weekEnd: record.weekEnd,
-                    status: 'draft', schedule: generatedSchedule, employeeDetails: {},
+                    status: 'draft', schedule: generatedSchedule, employeeDetails: draftEmployeeDetails,
                     warnings: warnings, expectedVersion: expectedVersion
                 });
                 record.version = Number(shared?.version || record.version);
