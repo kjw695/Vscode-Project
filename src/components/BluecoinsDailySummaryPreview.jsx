@@ -184,7 +184,6 @@ const BluecoinsDailySummaryPreview = ({
     const workingDays = Number(monthlyProfit?.totalWorkingDays) || 0;
     const dailyAverageIncome = workingDays > 0 ? Math.round(currentRevenue / workingDays) : 0;
     const dailyAverageVolume = workingDays > 0 ? Math.round(currentVolume / workingDays) : 0;
-    // 장부 홈의 예상 급여는 예상 총금액 값에만 적용합니다.
     const salaryRemainingCalendarDays = useMemo(() => {
         if (!selectedMonth || !monthlyEndDay) return 1;
         try {
@@ -226,7 +225,7 @@ const BluecoinsDailySummaryPreview = ({
     const totalOffDays = holidayCount;
     const previousIncome = Number(previousMonthlyProfit?.totalRevenue) || 0;
     const incomeDiff = currentRevenue - previousIncome;
-        const previousWorkingDays = Number(previousMonthlyProfit?.totalWorkingDays) || 0;
+    const previousWorkingDays = Number(previousMonthlyProfit?.totalWorkingDays) || 0;
     const previousAverageVolume = previousWorkingDays > 0
         ? Math.round(previousVolume / previousWorkingDays)
         : 0;
@@ -234,9 +233,6 @@ const BluecoinsDailySummaryPreview = ({
         ? Math.round(previousIncome / previousWorkingDays)
         : 0);
     const averageVolumeDiff = dailyAverageVolume - previousAverageVolume;
-    const averageVolumeDiffPct = previousAverageVolume > 0
-        ? (averageVolumeDiff / previousAverageVolume) * 100
-        : null;
     const selectedDayData = dailyMap[selectedDate] || {};
     const selectedDayIncome = Number(selectedDayData.totalRevenue) || 0;
     const selectedDayExpense = Number(selectedDayData.totalExpenses) || 0;
