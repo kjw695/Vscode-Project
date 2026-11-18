@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - security-audit
+      - feature/account-data-isolation
   pull_request:
     branches:
       - security-audit
