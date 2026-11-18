@@ -124,7 +124,7 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
     }, [monthlyEntries]);
 
     const selectedSummary = useMemo(() => calculateData(selectedEntries, {}), [selectedEntries]);
-    const selectedDateCount = new Set(selectedEntries.map((entry) => entry.date)).size;
+    const selectedDateCount = new Set(selectedEntries.map((entry) => getGuestEntryDateKey(entry.date)).filter(Boolean)).size;
 
     const monthlyPeriod = useMemo(
         () => getGuestImportMonthlyPeriodRange(currentCalendarDate, periodSettings.startDay, periodSettings.endDay),
