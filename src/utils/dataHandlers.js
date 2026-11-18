@@ -1,7 +1,6 @@
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
-import { parse } from 'papaparse'; 
 
 // 1. CSV 내보내기 (Capacitor Native 공유 적용)
 export const exportDataAsCsv = async (entries, showMessage) => {

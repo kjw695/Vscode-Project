@@ -7,7 +7,6 @@ import { ArrowUp, ArrowDown, Home, BarChart2, List, MoreHorizontal } from 'lucid
 import { backupToDrive, restoreFromDrive } from './utils/googleDrive';
 import { Preferences } from '@capacitor/preferences';
 import MessageModal from './components/common/MessageModal';
-import { formatDate } from './utils';
 import StatsDisplay from './StatsDisplay';
 import FilterModal from './components/DataScreen/FilterModal';
 import EntriesList from './components/DataScreen/EntriesList';
@@ -37,7 +36,7 @@ import InstallmentPage from './InstallmentPage'; // 👈 할부
 // [추가] 로고 이미지 (경로는 실제 로고 경로에 맞게 조정 필요, 없으면 텍스트만 표시됨)
 import logoImage from './logo.png'; 
 import AdBanner from './AdBanner';
-import { AdMob, RewardAdPluginEvents } from '@capacitor-community/admob';
+import { AdMob } from '@capacitor-community/admob';
 import LoadingOverlay from './components/common/LoadingOverlay';
 import { useAdReward } from './hooks/useAdReward';
 //검색기능

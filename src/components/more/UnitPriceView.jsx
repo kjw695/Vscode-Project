@@ -324,7 +324,7 @@ const UnitPriceView = ({
                 targetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }, 300);
         }
-    }, [targetItemKey]);
+    }, [targetItemKey, isIndividualExpanded]);
 
     const isCommonActive = activeCardKey === 'common';
     let commonContainerStyle = !isCommonValid 

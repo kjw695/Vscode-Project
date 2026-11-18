@@ -7,7 +7,6 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { migrateLocalDataToServer } from '../../utils/migration';
 
 const LoginPage = ({ onBack, isDarkMode, onMigrationComplete }) => {
     const { signInWithGoogle, signInWithApple, signInWithKakao, isLoggedIn, user } = useAuth();

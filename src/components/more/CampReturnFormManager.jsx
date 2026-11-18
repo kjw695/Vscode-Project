@@ -282,7 +282,6 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
     const [saving, setSaving] = useState(false);
     const [deletingId, setDeletingId] = useState('');
     const [expandedFormId, setExpandedFormId] = useState('');
-    const [loadError, setLoadError] = useState('');
 
     const panelClass = isDark
         ? 'bg-gray-800 border-gray-700 text-gray-100'
@@ -300,7 +299,6 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
         }
 
         setLoading(true);
-        setLoadError('');
         try {
             const [savedForms, adminAccess] = await Promise.all([
                 fetchCampReturnForms(userId),
@@ -316,7 +314,6 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
             }
         } catch (error) {
             console.error('[CampReturnFormManager] 데이터 조회 실패:', error);
-            setLoadError(error?.message || '양식 정보를 불러오지 못했습니다.');
         } finally {
             setLoading(false);
         }

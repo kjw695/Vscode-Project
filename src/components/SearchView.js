@@ -107,7 +107,7 @@ const SearchView = ({ entries, itemLabels, isDarkMode, onEdit }) => {
                 });
             }
 
-            const [y, m, d] = entry.date.split('-');
+            const [, m, d] = entry.date.split('-');
             const month = parseInt(m, 10);
             const day = parseInt(d, 10);
             
@@ -158,13 +158,13 @@ const SearchView = ({ entries, itemLabels, isDarkMode, onEdit }) => {
                 const targetMonth = parseInt(dateMatch[1], 10);
                 const targetDay = parseInt(dateMatch[2], 10);
                 filtered = baseEntries.filter(entry => {
-                    const [y, m, d] = entry.date.split('-');
+                    const [, m, d] = entry.date.split('-');
                     return parseInt(m, 10) === targetMonth && parseInt(d, 10) === targetDay;
                 });
             } else if (dayMatch && !query.includes('월')) {
                 const targetDay = parseInt(dayMatch[1], 10);
                 filtered = baseEntries.filter(entry => {
-                    const [y, m, d] = entry.date.split('-');
+                    const [, , d] = entry.date.split('-');
                     return parseInt(d, 10) === targetDay;
                 });
             } else {
@@ -313,7 +313,7 @@ const SearchView = ({ entries, itemLabels, isDarkMode, onEdit }) => {
                             </div>
 
                             {groupedResults[month].map(entry => {
-                                const [y, m, d] = entry.date.split('-');
+                                const [, m, d] = entry.date.split('-');
                                 const formattedDate = `${parseInt(m)}월 ${parseInt(d)}일`;
                                 const isPositive = entry._stats.netProfit >= 0;
 
