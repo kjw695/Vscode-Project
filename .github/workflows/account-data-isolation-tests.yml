@@ -1,0 +1,51 @@
+name: Account Data Isolation Tests
+
+on:
+  push:
+    branches:
+      - feature/account-data-isolation-tests
+  pull_request:
+    branches:
+      - feature/account-data-isolation
+
+permissions:
+  contents: read
+
+concurrency:
+  group: account-data-isolation-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  migration-tests:
+    name: Legacy migration and account isolation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run account isolation tests
+        env:
+          CI: 'true'
+        run: npm test -- --watchAll=false --runInBand src/utils/migration.test.js
+
+      - name: Run account switching regression test
+        env:
+          CI: 'true'
+        run: npm test -- --watchAll=false --runInBand src/contexts/DeliveryContext.test.js
+
+      - name: Build React production bundle
+        env:
+          NODE_OPTIONS: --openssl-legacy-provider
+          CI: 'false'
+        run: npm run build
