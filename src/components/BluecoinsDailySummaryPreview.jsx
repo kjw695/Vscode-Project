@@ -602,12 +602,6 @@ const BluecoinsDailySummaryPreview = ({
         );
     };
 
-    const openCategoryBreakdown = () => {
-        setIsDayMode(true);
-        setActiveReportTab('categories');
-        reportSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    };
-
     const reportTitle = isDayMode
         ? selectedDate + ' 하루 요약'
         : (selectedMonth || '') + ' 장부 기간 전체 요약';
