@@ -7,7 +7,6 @@ import { ArrowUp, ArrowDown, Home, BarChart2, List, MoreHorizontal } from 'lucid
 import { backupToDrive, restoreFromDrive } from './utils/googleDrive';
 import { Preferences } from '@capacitor/preferences';
 import MessageModal from './components/common/MessageModal';
-import { formatDate } from './utils';
 import StatsDisplay from './StatsDisplay';
 import FilterModal from './components/DataScreen/FilterModal';
 import EntriesList from './components/DataScreen/EntriesList';
@@ -37,7 +36,7 @@ import InstallmentPage from './InstallmentPage'; // 👈 할부
 // [추가] 로고 이미지 (경로는 실제 로고 경로에 맞게 조정 필요, 없으면 텍스트만 표시됨)
 import logoImage from './logo.png'; 
 import AdBanner from './AdBanner';
-import { AdMob, RewardAdPluginEvents } from '@capacitor-community/admob';
+import { AdMob } from '@capacitor-community/admob';
 import LoadingOverlay from './components/common/LoadingOverlay';
 import { useAdReward } from './hooks/useAdReward';
 //검색기능
@@ -60,7 +59,6 @@ import {
     fetchMyOrganizationScheduleSyncFrom
 } from './services/organizationScheduleService';
 //로그인
-import LoginPage from './components/auth/LoginPage';
 import { useAuth } from './contexts/AuthContext';
 import { getAppSettingsStorageKey } from './utils/accountDataStorage';
 //팀관리
@@ -111,7 +109,6 @@ const DEFAULT_HOME_CALENDAR_VOLUME_ITEMS = {
 };
 
 function AppContent() {
-    const navigate = useNavigate();
     useMigrationOnLogin();
 const { isLoggedIn, user, profile } = useAuth();
 
@@ -129,8 +126,6 @@ const { isLoggedIn, user, profile } = useAuth();
     const [goalAmount, setGoalAmount] = useState(7000000);
     const [selectedInsurance, setSelectedInsurance] = useState(null);
     const [selectedItemsForAverage, setSelectedItemsForAverage] = useState(['배송', '반품']);
-    const [isEditingGoal, setIsEditingGoal] = useState(false);
-    const [newGoalAmountInput, setNewGoalAmountInput] = useState('');
 
    const { isAuthLoading } = useAuth(); 
     const isAuthReady = !isAuthLoading;
@@ -229,8 +224,6 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     });
 
     // --- 정렬 및 필터 ---
-    const [sortColumn, setSortColumn] = useState('date');
-    const [sortDirection, setSortDirection] = useState('desc');
     const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [isDayOffModalOpen, setIsDayOffModalOpen] = useState(false); // ✨ 휴무 모달 상태 추가
@@ -522,9 +515,9 @@ const handleCloudRestore = async () => {
         setFormType('income');
     };
 
-    const handleInputChange = (key, value) => {
+    const handleInputChange = useCallback((key, value) => {
         setFormData(prev => ({ ...prev, [key]: value }));
-    };
+    }, []);
 
     const showMessage = (msg) => setModalState({ isOpen: true, content: msg, type: 'info', onConfirm: null });
     const showConfirmation = (msg, onConfirmAction) => setModalState({ isOpen: true, content: msg, type: 'confirm', onConfirm: onConfirmAction });
@@ -539,15 +532,6 @@ const handleCloudRestore = async () => {
         setLoadingMessage,
         setStatisticsView
     });
-
-    const handleSaveGoal = () => {
-        const newGoal = parseInt(newGoalAmountInput);
-        if (!isNaN(newGoal) && newGoal > 0) {
-            setGoalAmount(newGoal);
-            setIsEditingGoal(false);
-            saveSettingsToLocal({ goalAmount: newGoal });
-        } else { showMessage("올바른 금액을 숫자로 입력해주세요."); }
-    };
 
     // src/App.js 내부 handleSubmit 함수 수정 제안
     const handleSubmit = async (e, round, customItems = []) => {
@@ -697,15 +681,6 @@ const handleCloudRestore = async () => {
         previousMonthlyProfit = { totalWorkingDays: 0, totalVolume: 0, totalFreshBag: 0, dailyAverageVolume: 0 }
     } = profitData;
 
-    const renderComparison = (currentValue, previousValue, isCurrency = false) => {
-        if ((previousValue || 0) === 0 && (currentValue || 0) === 0) return <span className="text-gray-500">-</span>;
-        if ((previousValue || 0) === 0) return <span className="text-red-500 flex items-center text-xs sm:text-sm">{currentValue.toLocaleString()} {isCurrency ? '원' : ''} <ArrowUp size={14} className="ml-1" /></span>;
-        const diff = currentValue - previousValue;
-        const colorClass = diff > 0 ? 'text-red-500' : (diff < 0 ? 'text-blue-500' : 'text-gray-500');
-        const arrow = diff > 0 ? <ArrowUp size={14} className="ml-1" /> : (diff < 0 ? <ArrowDown size={14} className="ml-1" /> : null);
-        return <span className={`${colorClass} flex items-center text-xs sm:text-sm`}>{Math.abs(diff).toLocaleString()} {isCurrency ? '원' : ''} {arrow}</span>;
-    };
-
     const finalFilteredEntries = useMemo(() => {
         const filtered = entries.filter(entry => {
             // ✨ 하드코딩 완전 삭제! 단일 계산기 사용
@@ -719,7 +694,7 @@ const handleCloudRestore = async () => {
             return entry.date >= filters.startDate && entry.date <= filters.endDate;
         });
         return filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
-    }, [entries, filters, sortColumn, sortDirection, itemLabels]);
+    }, [entries, filters, itemLabels]);
 
     const handleSaveFavoritePrices = async () => {
         const pricesArray = adminFavoritePricesInput.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
