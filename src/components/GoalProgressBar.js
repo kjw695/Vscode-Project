@@ -63,7 +63,7 @@ const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution, weath
   }, [revenueDistribution, current]);
 
   return (
-    <div className="relative w-full mt-2 mb-2 px-1 pt-2">
+    <div className="relative w-full mt-2 mb-1 px-1 pt-2">
       
       {/* 🌍 구역 한정 날씨 레이어 */}
       {weatherData && condition !== 'clear' && (
