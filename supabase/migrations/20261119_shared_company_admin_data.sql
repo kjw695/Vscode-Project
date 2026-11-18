@@ -7,9 +7,19 @@ BEGIN;
 ALTER TABLE public.organizations
     ADD COLUMN IF NOT EXISTS included_admin_seats integer NOT NULL DEFAULT 1;
 
-ALTER TABLE public.organizations
-    ADD CONSTRAINT organizations_included_admin_seats_nonnegative
-    CHECK (included_admin_seats >= 0);
+DO $constraint$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'organizations_included_admin_seats_nonnegative'
+          AND conrelid = 'public.organizations'::regclass
+    ) THEN
+        ALTER TABLE public.organizations
+            ADD CONSTRAINT organizations_included_admin_seats_nonnegative
+            CHECK (included_admin_seats >= 0);
+    END IF;
+END;
+$constraint$;
 
 CREATE TABLE IF NOT EXISTS public.organization_admins (
     organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
@@ -177,15 +187,15 @@ BEGIN
         RAISE EXCEPTION '공용 데이터 버전이 올바르지 않습니다.';
     END IF;
 
-    IF jsonb_typeof(p_regions) <> 'array'
-       OR jsonb_typeof(p_teams) <> 'array'
-       OR jsonb_typeof(p_employees) <> 'array'
-       OR jsonb_typeof(p_routes) <> 'array' THEN
+    IF jsonb_typeof(p_regions) IS DISTINCT FROM 'array'
+       OR jsonb_typeof(p_teams) IS DISTINCT FROM 'array'
+       OR jsonb_typeof(p_employees) IS DISTINCT FROM 'array'
+       OR jsonb_typeof(p_routes) IS DISTINCT FROM 'array' THEN
         RAISE EXCEPTION '회사 운영 데이터 형식이 올바르지 않습니다.';
     END IF;
 
     IF pg_column_size(p_regions) + pg_column_size(p_teams)
-       + pg_column_size(p_employees) + pg_column_size(p_routes) > 4000000 THEN
+       + pg_column_size(p_employees) + pg_column_size(p_routes) > 800000 THEN
         RAISE EXCEPTION '회사 운영 데이터가 허용 크기(약 4MB)를 초과했습니다.';
     END IF;
 
@@ -197,6 +207,17 @@ BEGIN
     IF v_organization_id IS NULL
        OR NOT public.is_current_user_organization_admin(v_organization_id) THEN
         RAISE EXCEPTION '회사 관리자만 공용 운영 데이터를 수정할 수 있습니다.';
+    END IF;
+
+    -- Only the owner may initialize shared state. Delegated admins may edit it afterwards.
+    IF p_expected_version = 0
+       AND NOT EXISTS (
+            SELECT 1
+            FROM public.organizations o
+            WHERE o.id = v_organization_id
+              AND o.owner_id = v_user_id
+       ) THEN
+        RAISE EXCEPTION '회사 대표 관리자가 최초 공용 데이터를 연결해야 합니다.';
     END IF;
 
     INSERT INTO public.organization_admin_state (
@@ -543,18 +564,13 @@ BEGIN
     v_definition := replace(v_definition, 'v_is_owner', 'v_is_admin');
     v_definition := replace(
         v_definition,
-        $old$
-    SELECT EXISTS (
-        SELECT 1
-        FROM public.organizations o
-        WHERE o.id = v_organization_id
-          AND o.owner_id = v_user_id
-    )
-    INTO v_is_admin;
-$old$,
-        '    v_is_admin := public.is_current_user_organization_admin(v_organization_id);'
+        'AND o.owner_id = v_user_id',
+        'AND public.is_current_user_organization_admin(o.id)'
     );
-    IF v_definition = v_original OR position('v_is_owner' in v_definition) > 0 THEN
+    IF v_definition = v_original
+       OR position('v_is_owner' in v_definition) > 0
+       OR position('o.owner_id = v_user_id' in v_definition) > 0
+       OR position('public.is_current_user_organization_admin(o.id)' in v_definition) = 0 THEN
         RAISE EXCEPTION 'list_my_organization_weekly_schedules 권한 조건을 변경하지 못했습니다.';
     END IF;
     EXECUTE v_definition;
