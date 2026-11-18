@@ -59,7 +59,6 @@ import {
     fetchMyOrganizationScheduleSyncFrom
 } from './services/organizationScheduleService';
 //로그인
-import LoginPage from './components/auth/LoginPage';
 import { useAuth } from './contexts/AuthContext';
 import { getAppSettingsStorageKey } from './utils/accountDataStorage';
 //팀관리
@@ -110,7 +109,6 @@ const DEFAULT_HOME_CALENDAR_VOLUME_ITEMS = {
 };
 
 function AppContent() {
-    const navigate = useNavigate();
     useMigrationOnLogin();
 const { isLoggedIn, user, profile } = useAuth();
 
