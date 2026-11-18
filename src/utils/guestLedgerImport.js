@@ -92,6 +92,40 @@ const toLocalDateKey = (date) => {
     return `${year}-${month}-${day}`;
 };
 
+// Normalize date-only values and ISO timestamps to the same local calendar key.
+// Database date columns normally arrive as YYYY-MM-DD; legacy local rows may
+// contain a time suffix, which must not prevent the matching calendar day.
+export function getGuestEntryDateKey(value) {
+    if (value instanceof Date) {
+        return Number.isNaN(value.getTime()) ? '' : toLocalDateKey(value);
+    }
+
+    const raw = String(value ?? '').trim();
+    if (!raw) return '';
+
+    const match = raw.match(/^(\\d{4})[-/.]\\s*(\\d{1,2})[-/.]\\s*(\\d{1,2})/);
+    if (match) {
+        const [, year, month, day] = match;
+        return `${year}-${String(Number(month)).padStart(2, '0')}-${String(Number(day)).padStart(2, '0')}`;
+    }
+
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? '' : toLocalDateKey(parsed);
+}
+
+export function getGuestEntriesInRange(entries, startDate, endDate) {
+    return (Array.isArray(entries) ? entries : []).filter((entry) => {
+        const dateKey = getGuestEntryDateKey(entry?.date);
+        return dateKey && dateKey >= startDate && dateKey <= endDate;
+    });
+}
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 // Match the application's Settings > Aggregation Period calendar exactly.
 // When startDay is later than endDay, the settlement period crosses months.
 export function getGuestImportMonthlyPeriodRange(calendarDate, startDay, endDay) {
