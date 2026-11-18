@@ -207,12 +207,32 @@ export function prepareLegacyDataForGuest() {
     }
 }
 
+/**
+ * Reserve the review prompt for the first authenticated account that encounters
+ * this device-level bucket. This is NOT ownership attribution: records stay in
+ * the unclassified bucket until the user explicitly accepts the import.
+ */
+export function reserveUnclassifiedLegacyDataForAccount(userId) {
+    if (!userId) return false;
+    const bucket = readJsonStorage(UNCLASSIFIED_KEY, null);
+    if (!bucket || bucket.status !== 'pending') return false;
+    if (bucket.reviewUserId === 'device') {
+        writeJsonStorage(UNCLASSIFIED_KEY, {
+            ...bucket,
+            reviewUserId: userId,
+            reviewAssignedAt: new Date().toISOString(),
+        });
+        return true;
+    }
+    return bucket.reviewUserId === userId;
+}
+
 function getPendingAttributionBucket(userId) {
     const bucket = readJsonStorage(UNCLASSIFIED_KEY, null);
     if (!userId || !bucket || bucket.status !== 'pending') return null;
     // Device-level guest data can be offered to the signed-in user, but is not
     // assigned until that user explicitly confirms the attribution.
-    return bucket.reviewUserId === userId || bucket.reviewUserId === 'device' ? bucket : null;
+    return bucket.reviewUserId === userId ? bucket : null;
 }
 
 export function getUnclassifiedLegacyData(userId) {
