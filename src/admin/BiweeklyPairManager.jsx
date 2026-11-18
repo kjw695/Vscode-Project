@@ -141,7 +141,6 @@ export default function BiweeklyPairManager({ onBack }) {
     const selectedEmployees = selectedIds
         .map((id) => activeBiweeklyEmployees.find((employee) => String(employee.id) === String(id)))
         .filter(Boolean);
-    const selectedPatternDays = selectedEmployees.length ? getBiweeklyDays(selectedEmployees[0]) : null;
     const canCreatePair = selectedEmployees.length === 2 &&
         hasSameRegionAndTeam(selectedEmployees[0], selectedEmployees[1], teams);
 
