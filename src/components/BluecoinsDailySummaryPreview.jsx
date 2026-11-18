@@ -12,6 +12,7 @@ import { calculateData } from '../utils/calculator';
 import GoalProgressBar from './GoalProgressBar';
 import { useWeather } from '../hooks/useWeather';
 
+const SHOW_HOME_WEEKLY_PERFORMANCE = false; // 홈 주간 실적 임시 숨김
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const VOLUME_METRICS = [
     { key: 'deliveryCount', label: '배송', shortLabel: '배' },
@@ -627,7 +628,7 @@ const BluecoinsDailySummaryPreview = ({
         : (selectedMonth || '') + ' 장부 기간 전체 요약';
 
     return (
-        <div className="flex w-full flex-col gap-2 px-2 pb-4">
+        <div className="flex w-full flex-col gap-1 px-2 pb-4">
             <section className={'overflow-hidden rounded-2xl border shadow-sm ' + panelClass}>
                 <div className={'grid grid-cols-4 divide-x ' + dividerClass}>
                     <div className="min-w-0 px-1 py-2 text-center">
@@ -653,7 +654,7 @@ const BluecoinsDailySummaryPreview = ({
                 </div>
             </section>
 
-            <section className={'overflow-hidden rounded-2xl border p-3 shadow-sm ' + panelClass}>
+            <section className={'overflow-hidden rounded-2xl border px-3 pt-3 pb-1.5 shadow-sm ' + panelClass}>
                 <div className="flex min-w-0 items-center justify-between gap-1.5">
                     <h2 className={'shrink-0 whitespace-nowrap text-[clamp(12px,3.5vw,15px)] font-black ' + mutedClass}>이번 달 총 금액</h2>
                     <div className="flex min-w-0 items-center justify-end gap-1.5">
@@ -693,12 +694,12 @@ const BluecoinsDailySummaryPreview = ({
             </section>
 
             <div className="grid grid-cols-2 gap-2">
-                <section className={'min-w-0 rounded-2xl border p-3 text-center shadow-sm ' + panelClass}>
-                    <p className={'text-xs font-bold ' + mutedClass}>일 평균</p>
-                    <p className="mt-1 whitespace-nowrap text-[clamp(1.25rem,5.3vw,2rem)] font-black leading-tight tracking-tight tabular-nums">
+                <section className={'min-w-0 rounded-2xl border px-3 py-2 text-center shadow-sm ' + panelClass}>
+                    <p className={'text-sm font-bold ' + mutedClass}>일 평균</p>
+                    <p className="mt-1 whitespace-nowrap text-[clamp(1.4rem,6vw,2rem)] font-black leading-none tracking-tight tabular-nums">
                         {formatLargeManWon(dailyAverageIncome)}
                     </p>
-                    <p className={'mt-1.5 whitespace-nowrap text-[clamp(9px,2.7vw,12px)] font-bold ' + (
+                    <p className={'mt-1 whitespace-nowrap text-[clamp(10px,2.8vw,13px)] font-bold ' + (
                         previousWorkingDays <= 0
                             ? mutedClass
                             : averageIncomeDiff > 0
@@ -713,12 +714,12 @@ const BluecoinsDailySummaryPreview = ({
                     </p>
                 </section>
 
-                <section className={'min-w-0 rounded-2xl border p-3 text-center shadow-sm ' + panelClass}>
-                    <p className={'text-xs font-bold ' + mutedClass}>평균 물량</p>
-                    <p className="mt-1 whitespace-nowrap text-[clamp(1.25rem,5.3vw,2rem)] font-black leading-tight tracking-tight tabular-nums">
+                <section className={'min-w-0 rounded-2xl border px-3 py-2 text-center shadow-sm ' + panelClass}>
+                    <p className={'text-sm font-bold ' + mutedClass}>평균 물량</p>
+                    <p className="mt-1 whitespace-nowrap text-[clamp(1.4rem,6vw,2rem)] font-black leading-none tracking-tight tabular-nums">
                         {dailyAverageVolume.toLocaleString('ko-KR')}건
                     </p>
-                    <p className={'mt-1.5 whitespace-nowrap text-[clamp(9px,2.7vw,12px)] font-bold ' + (
+                    <p className={'mt-1 whitespace-nowrap text-[clamp(10px,2.8vw,13px)] font-bold ' + (
                         previousWorkingDays <= 0
                             ? mutedClass
                             : averageVolumeDiff > 0
@@ -755,6 +756,7 @@ const BluecoinsDailySummaryPreview = ({
                 >내역 열기 <ArrowUpRight size={13} /></button>
             </div>
 
+            {SHOW_HOME_WEEKLY_PERFORMANCE && (
             <section className={'overflow-hidden rounded-2xl border p-3 shadow-sm ' + panelClass}>
                 <div className="mb-2 flex items-center justify-between gap-2">
                     <span className="text-xs font-black sm:text-sm">주간 실적</span>
@@ -787,6 +789,7 @@ const BluecoinsDailySummaryPreview = ({
                     {renderRecentChart(chartDays)}
                 </div>
             </section>
+            )}
 
             <section
                 className={'mt-2 overflow-hidden rounded-2xl border shadow-sm ' + panelClass}
