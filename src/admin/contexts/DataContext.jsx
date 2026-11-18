@@ -522,7 +522,12 @@ export function DataProvider({ children }) {
         if (organizationRole !== 'owner' || scope !== 'shared') {
             throw new Error('회사 대표 관리자만 최초 공용 데이터를 연결할 수 있습니다.');
         }
-        const source = importLegacy ? readLegacyAdminData() : {
+        const source = importLegacy ? {
+            regions,
+            teams,
+            employees,
+            routes
+        } : {
             regions: [],
             teams: [],
             employees: [],
@@ -547,7 +552,7 @@ export function DataProvider({ children }) {
             }
             throw error;
         }
-    }, [applyData, organizationRole, scope, setStatus]);
+    }, [applyData, employees, organizationRole, regions, routes, scope, setStatus, teams]);
 
     const updateEmployee = useCallback((updatedEmployee) => {
         const oldEmployee = employees.find((employee) =>
