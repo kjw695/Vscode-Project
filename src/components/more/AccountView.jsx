@@ -249,7 +249,7 @@ const handleEditClick = () => {
   const handleLogoutClick = async () => {
       // 로컬 큐를 읽기 전에 로그아웃하면 미전송 건수 확인을 건너뛸 수 있습니다.
       if (!isDataLoaded) {
-          setLogoutError('현재 계정의 장부를 확인하고 있습니다. 확인이 끝난 뒤 다시 시도해주세요.');
+          setLogoutError('');
           setShowLogoutOptions(true);
           return;
       }
