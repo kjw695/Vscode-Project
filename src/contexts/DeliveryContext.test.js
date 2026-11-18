@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { DeliveryProvider, useDelivery } from './DeliveryContext';
 import { supabase } from '../lib/supabaseClient';
 import { getDeliveryEntriesStorageKey, writeJsonStorage } from '../utils/accountDataStorage';
+import { GUEST_ENTRIES_STORAGE_KEY, GUEST_ENTRIES_IMPORT_BACKUP_KEY } from '../utils/guestLedgerImport';
 
 let mockAuthState = {
     user: { id: 'account-a' },
@@ -22,6 +23,21 @@ jest.mock('../lib/supabaseClient', () => ({
         removeChannel: jest.fn(),
     },
 }));
+
+function GuestImportProbe() {
+    const { importGuestEntries, entries, isDataLoaded } = useDelivery();
+    const [result, setResult] = useState(null);
+    return (
+        <div>
+            <output data-testid="guest-import-loaded">{String(isDataLoaded)}</output>
+            <output data-testid="guest-import-result">{result ? JSON.stringify(result) : ''}</output>
+            <output data-testid="guest-import-entries">{JSON.stringify(entries.map(entry => entry.id))}</output>
+            <button type="button" onClick={async () => setResult(await importGuestEntries(['guest-source-1']))}>
+                가져오기 실행
+            </button>
+        </div>
+    );
+}
 
 function deferred() {
     let resolve;
@@ -159,5 +175,98 @@ describe('DeliveryContext account switching', () => {
             expect.objectContaining({ id: 202, ownerId: 'account-b' }),
         ]));
         expect(localStorage.getItem(getDeliveryEntriesStorageKey('account-a'))).toContain('local-a');
+    });
+
+    test('imports selected guest entries into only the active account and archives the guest originals', async () => {
+        mockAuthState = {
+            user: { id: 'account-a' },
+            isLoggedIn: true,
+            isAuthLoading: false,
+        };
+
+        writeJsonStorage(getDeliveryEntriesStorageKey('account-a'), [{
+            id: 'account-a-existing',
+            ownerId: 'account-a',
+            date: '2026-11-16',
+            type: 'income',
+            isSynced: true,
+        }]);
+        writeJsonStorage(GUEST_ENTRIES_STORAGE_KEY, [{
+            id: 'guest-source-1',
+            ownerId: null,
+            date: '2026-11-17',
+            type: 'income',
+            unitPrice: 1000,
+            round: 1,
+            customItems: [{ key: 'deliveryCount', name: '배송', type: 'income', count: 10, unitPrice: 1000 }],
+            timestamp: '2026-11-17T09:00:00.000Z',
+            isSynced: false,
+        }]);
+
+        supabase.from.mockImplementation(() => ({
+            select: () => ({
+                eq: () => ({
+                    order: () => Promise.resolve({ data: [], error: null }),
+                }),
+            }),
+            insert: () => ({
+                select: () => ({
+                    single: () => Promise.resolve({
+                        data: { id: 909, created_at: '2026-11-17T09:00:00.000Z' },
+                        error: null,
+                    }),
+                }),
+            }),
+        }));
+        supabase.rpc.mockResolvedValue({ data: null, error: null });
+
+        const channel = {
+            on: jest.fn().mockReturnThis(),
+            subscribe: jest.fn().mockReturnThis(),
+        };
+        supabase.channel.mockReturnValue(channel);
+
+        render(
+            <DeliveryProvider>
+                <GuestImportProbe />
+            </DeliveryProvider>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId('guest-import-loaded')).toHaveTextContent('true');
+        });
+
+        await act(async () => {
+            screen.getByRole('button', { name: '가져오기 실행' }).click();
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('guest-import-result')).toHaveTextContent('"importedCount":1');
+        });
+
+        const accountRows = JSON.parse(localStorage.getItem(getDeliveryEntriesStorageKey('account-a')));
+        expect(accountRows).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                id: 909,
+                ownerId: 'account-a',
+                guestSourceId: 'guest-source-1',
+                guestSourceAccountId: 'account-a',
+                isSynced: true,
+            }),
+        ]));
+        expect(accountRows).toEqual(expect.arrayContaining([
+            expect.objectContaining({ id: 'account-a-existing' }),
+        ]));
+
+        expect(JSON.parse(localStorage.getItem(GUEST_ENTRIES_STORAGE_KEY))).toEqual([]);
+        expect(JSON.parse(localStorage.getItem(GUEST_ENTRIES_IMPORT_BACKUP_KEY))).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    sourceId: 'guest-source-1',
+                    importedAccountId: 'account-a',
+                }),
+            ])
+        );
+        expect(localStorage.getItem(getDeliveryEntriesStorageKey('account-b'))).toBeNull();
     });
 });
