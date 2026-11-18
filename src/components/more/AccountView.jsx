@@ -449,7 +449,7 @@ const handleEditClick = () => {
             <h3 className="font-bold">기존 장부 확인</h3>
           </div>
           <p className="text-sm text-gray-500 mb-3">
-            이 기기에 계정 소유권이 아직 정해지지 않은 게스트 데이터가 있습니다. {unclassifiedCount > 0 ? `장부 ${unclassifiedCount}건` : ''}{hasUnclassifiedSettings ? ' 앱 설정 포함' : ''}. {isLoggedIn ? '현재 계정에 귀속하면 장부는 이 계정의 로컬 저장소로 옮깁니다. 기존 계정 설정은 덮어쓰지 않으며 서버 전송은 하지 않습니다.' : '로그인 후 원하는 계정에 귀속할 수 있습니다.'}
+            이 기기에 계정 소유권이 정해지지 않은 게스트 데이터가 있습니다. {unclassifiedCount > 0 ? `장부 ${unclassifiedCount}건` : ''}{hasUnclassifiedSettings ? ' 앱 설정 포함' : ''}. {isLoggedIn ? '원할 때 현재 계정에 귀속할 수 있습니다. 기존 계정 설정은 덮어쓰지 않으며 서버로 자동 전송하지 않습니다.' : '로그인 후 귀속할 계정을 선택할 수 있습니다.'} 지금 결정하지 않아도 앱 사용에는 영향이 없습니다.
           </p>
           <div className="flex flex-col gap-2">
             {isLoggedIn && (
@@ -462,7 +462,7 @@ const handleEditClick = () => {
                 게스트 장부로 보관
               </button>
             )}
-            <button onClick={() => setUnclassifiedCount(0)} className="w-full py-2 text-sm text-gray-500">
+            <button onClick={() => { setUnclassifiedCount(0); setHasUnclassifiedSettings(false); }} className="w-full py-2 text-sm text-gray-500">
               나중에 결정
             </button>
           </div>
