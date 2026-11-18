@@ -1,4 +1,3 @@
-import { Capacitor } from '@capacitor/core';
 
 // ⚠️ [보안 개선] API 키는 코드에 하드코딩하지 말고 .env 파일로 관리하는 것을 권장합니다.
 // .env 파일 예시: REACT_APP_GOOGLE_CLIENT_ID=...
