@@ -12,6 +12,8 @@ import { calculateData } from '../../utils/calculator';
 import { getAppSettingsStorageKey } from '../../utils/accountDataStorage';
 import {
     getAvailableGuestEntries,
+    getGuestEntryDateKey,
+    getGuestEntriesInRange,
     getGuestImportMonthlyPeriodRange,
     getGuestImportYearlyPeriodRange
 } from '../../utils/guestLedgerImport';
@@ -32,9 +34,7 @@ const parseDateKey = (dateKey) => {
 
 const formatWon = (value) => (Number(value) || 0).toLocaleString('ko-KR') + '원';
 
-const getEntriesInRange = (entries, startDate, endDate) => entries.filter((entry) => (
-    entry.date >= startDate && entry.date <= endDate
-));
+const getEntriesInRange = getGuestEntriesInRange;
 
 function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
     const { importGuestEntries, isDataLoaded } = useDelivery();
@@ -94,15 +94,34 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
     const availableDates = useMemo(() => {
         const counts = {};
         guestEntries.forEach((entry) => {
-            if (entry?.date) counts[entry.date] = (counts[entry.date] || 0) + 1;
+            const dateKey = getGuestEntryDateKey(entry?.date);
+            if (dateKey) counts[dateKey] = (counts[dateKey] || 0) + 1;
         });
         return counts;
     }, [guestEntries]);
 
     const selectedDateEntries = useMemo(
-        () => guestEntries.filter((entry) => entry.date === selectedDate),
+        () => guestEntries.filter((entry) => getGuestEntryDateKey(entry?.date) === selectedDate),
         [guestEntries, selectedDate]
     );
+
+    // 월별 모드에서는 특정 날짜만이 아니라 해당 집계 기간 전체 기록을
+    // 날짜별로 나누어 아래 목록에 표시합니다.
+    const monthlyEntries = useMemo(
+        () => getEntriesInRange(guestEntries, monthlyPeriod.startDate, monthlyPeriod.endDate),
+        [guestEntries, monthlyPeriod]
+    );
+
+    const monthlyEntryGroups = useMemo(() => {
+        const groups = new Map();
+        monthlyEntries.forEach((entry) => {
+            const dateKey = getGuestEntryDateKey(entry?.date);
+            if (!dateKey) return;
+            if (!groups.has(dateKey)) groups.set(dateKey, []);
+            groups.get(dateKey).push(entry);
+        });
+        return Array.from(groups.entries()).sort(([a], [b]) => b.localeCompare(a));
+    }, [monthlyEntries]);
 
     const selectedSummary = useMemo(() => calculateData(selectedEntries, {}), [selectedEntries]);
     const selectedDateCount = new Set(selectedEntries.map((entry) => entry.date)).size;
@@ -134,7 +153,7 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                 isCurrentMonth: date >= monthlyPeriod.startDate && date <= monthlyPeriod.endDate,
                 isToday: date === today,
                 count: availableDates[date] || 0,
-                selectedCount: guestEntries.filter((entry) => entry.date === date && selectedIds.has(String(entry.id))).length
+                selectedCount: guestEntries.filter((entry) => getGuestEntryDateKey(entry.date) === date && selectedIds.has(String(entry.id))).length
             });
             cursor.setDate(cursor.getDate() + 1);
         }
@@ -186,7 +205,7 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
     };
 
     const handleCalendarDayClick = (date) => {
-        const dayEntries = guestEntries.filter((entry) => entry.date === date);
+        const dayEntries = guestEntries.filter((entry) => getGuestEntryDateKey(entry.date) === date);
         if (dayEntries.length === 0) return;
 
         setSelectedDate(date);
@@ -262,6 +281,29 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
     const detailTitle = selectedDate
         ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })
         : '날짜를 선택하면 장부가 표시됩니다.';
+
+    const renderEntryItem = (entry) => {
+        const checked = selectedIds.has(String(entry.id));
+        const stats = calculateData([entry], {});
+        const amount = entry.type === 'expense' ? stats.totalExpenses : stats.totalRevenue;
+        const customItems = Array.isArray(entry.customItems) ? entry.customItems : [];
+        return (
+            <label key={entry.id} className={'flex cursor-pointer items-start gap-3 rounded-lg border p-3 ' + (checked
+                ? (dark ? 'border-blue-500 bg-blue-950/30' : 'border-blue-300 bg-blue-50')
+                : (dark ? 'border-slate-700' : 'border-slate-200'))}>
+                <input type="checkbox" checked={checked} onChange={() => handleEntryToggle(entry.id)} className="mt-1 h-4 w-4 accent-blue-600" />
+                <span className="min-w-0 flex-1">
+                    <span className="flex items-center justify-between gap-2">
+                        <span className="truncate text-sm font-bold">{entry.round ? entry.round + '회전' : (entry.type === 'expense' ? '지출 장부' : '수익 장부')}</span>
+                        <span className={'shrink-0 text-sm font-black ' + (entry.type === 'expense' ? 'text-blue-500' : 'text-rose-500')}>{formatWon(amount)}</span>
+                    </span>
+                    <span className={'mt-1 block text-xs ' + (dark ? 'text-slate-400' : 'text-slate-500')}>
+                        {customItems.map((item) => item.name || item.key).filter(Boolean).join(' · ')}
+                    </span>
+                </span>
+            </label>
+        );
+    };
 
     return (
         <div className={'mx-auto flex min-h-full w-full max-w-3xl flex-col ' + (dark ? 'text-slate-100' : 'text-slate-900')}>
@@ -456,35 +498,40 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                             </section>
                         )}
 
-                        {selectedDate && (selectionMode === 'individual' || selectionMode === 'month') && selectedDateEntries.length > 0 && (
+                        {selectionMode === 'month' && monthlyEntries.length > 0 && (
+                            <section className={'rounded-2xl border p-3 ' + (dark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-white')}>
+                                <div className="mb-3 flex items-center justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <h3 className="font-black">정산 기간 내 장부</h3>
+                                        <p className={'mt-0.5 text-xs ' + (dark ? 'text-slate-400' : 'text-slate-500')}>
+                                            {monthlyPeriod.startDate} ~ {monthlyPeriod.endDate}
+                                        </p>
+                                    </div>
+                                    <span className={'shrink-0 text-xs ' + (dark ? 'text-slate-400' : 'text-slate-500')}>
+                                        {monthlyEntries.filter((entry) => selectedIds.has(String(entry.id))).length}/{monthlyEntries.length}건 선택
+                                    </span>
+                                </div>
+                                <div className="space-y-4">
+                                    {monthlyEntryGroups.map(([dateKey, entriesForDate]) => (
+                                        <div key={dateKey}>
+                                            <div className={'mb-2 flex items-center justify-between border-b pb-1 text-xs font-bold ' + (dark ? 'border-slate-700 text-slate-300' : 'border-slate-200 text-slate-600')}>
+                                                <span>{new Date(dateKey + 'T00:00:00').toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}</span>
+                                                <span>{entriesForDate.filter((entry) => selectedIds.has(String(entry.id))).length}/{entriesForDate.length}건</span>
+                                            </div>
+                                            <div className="space-y-2">{entriesForDate.map(renderEntryItem)}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
+
+                        {selectionMode === 'individual' && selectedDate && selectedDateEntries.length > 0 && (
                             <section className={'rounded-2xl border p-3 ' + (dark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-white')}>
                                 <div className="mb-2 flex items-center justify-between gap-2">
                                     <h3 className="font-black">{detailTitle}</h3>
                                     <span className={'text-xs ' + (dark ? 'text-slate-400' : 'text-slate-500')}>{selectedDateEntries.filter((entry) => selectedIds.has(String(entry.id))).length}/{selectedDateEntries.length}건 선택</span>
                                 </div>
-                                <div className="space-y-2">
-                                    {selectedDateEntries.map((entry) => {
-                                        const checked = selectedIds.has(String(entry.id));
-                                        const stats = calculateData([entry], {});
-                                        const amount = entry.type === 'expense' ? stats.totalExpenses : stats.totalRevenue;
-                                        return (
-                                            <label key={entry.id} className={'flex cursor-pointer items-start gap-3 rounded-lg border p-3 ' + (checked
-                                                ? (dark ? 'border-blue-500 bg-blue-950/30' : 'border-blue-300 bg-blue-50')
-                                                : (dark ? 'border-slate-700' : 'border-slate-200'))}>
-                                                <input type="checkbox" checked={checked} onChange={() => handleEntryToggle(entry.id)} className="mt-1 h-4 w-4 accent-blue-600" />
-                                                <span className="min-w-0 flex-1">
-                                                    <span className="flex items-center justify-between gap-2">
-                                                        <span className="truncate text-sm font-bold">{entry.round ? entry.round + '회전' : (entry.type === 'expense' ? '지출 장부' : '수익 장부')}</span>
-                                                        <span className={'shrink-0 text-sm font-black ' + (entry.type === 'expense' ? 'text-blue-500' : 'text-rose-500')}>{formatWon(amount)}</span>
-                                                    </span>
-                                                    <span className={'mt-1 block text-xs ' + (dark ? 'text-slate-400' : 'text-slate-500')}>
-                                                        {Array.isArray(entry.customItems) ? entry.customItems.map((item) => item.name || item.key).filter(Boolean).join(' · ') : ''}
-                                                    </span>
-                                                </span>
-                                            </label>
-                                        );
-                                    })}
-                                </div>
+                                <div className="space-y-2">{selectedDateEntries.map(renderEntryItem)}</div>
                             </section>
                         )}
                     </>
