@@ -228,6 +228,7 @@ const BluecoinsDailySummaryPreview = ({
     }, [entries]);
 
     const salaryRemainingWorkDays = Math.max(0, salaryRemainingCalendarDays - salaryFutureHolidays);
+    const expectedRemainingSalary = dailyAverageIncome * salaryRemainingWorkDays;
     
     const holidayCount = calendarDays.filter((day) => day?.isCurrentMonth && day?.isDayOff).length;
     const totalOffDays = holidayCount;
@@ -755,6 +756,18 @@ const BluecoinsDailySummaryPreview = ({
                     className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[clamp(10px,3vw,13px)] font-black text-blue-600 dark:text-blue-400"
                 >내역 열기 <ArrowUpRight size={13} /></button>
             </div>
+
+            <section className={'flex min-w-0 items-center justify-between gap-3 rounded-2xl border px-3 py-2 shadow-sm ' + panelClass}>
+                <div className="min-w-0">
+                    <p className={'text-xs font-bold ' + mutedClass}>예상 월급</p>
+                    <p className={'mt-0.5 whitespace-nowrap text-[10px] font-semibold ' + mutedClass}>
+                        일 평균 × 남은 근무 {salaryRemainingWorkDays}일
+                    </p>
+                </div>
+                <p className="shrink-0 whitespace-nowrap text-[clamp(1.2rem,5.5vw,1.65rem)] font-black leading-none tracking-tight tabular-nums">
+                    {formatLargeManWon(expectedRemainingSalary)}
+                </p>
+            </section>
 
             {SHOW_HOME_WEEKLY_PERFORMANCE && (
             <section className={'overflow-hidden rounded-2xl border p-3 shadow-sm ' + panelClass}>
