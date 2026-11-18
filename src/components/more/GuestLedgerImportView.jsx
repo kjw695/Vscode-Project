@@ -512,9 +512,30 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                 <p className={'mt-1 text-center text-sm ' + (dark ? 'text-slate-400' : 'text-slate-500')}>
                                     {guestEntries.length.toLocaleString()}건의 장부가 표시됩니다. 가져올 장부만 직접 선택하세요.
                                 </p>
-                                <button type="button" onClick={() => setSelectedEntryIds(guestEntries.map((entry) => String(entry.id)))} className="mt-3 w-full rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-bold text-white">
-                                    전체 장부 선택
-                                </button>
+                                <div className="mt-3 grid grid-cols-2 gap-2">
+                                    <button
+                                        type="button"
+                                        disabled={guestEntries.length === 0 || guestEntries.every((entry) => selectedIds.has(String(entry.id)))}
+                                        onClick={() => setSelectedEntryIds(guestEntries.map((entry) => String(entry.id)))}
+                                        className="rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                                    >
+                                        전체 선택
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={!guestEntries.some((entry) => selectedIds.has(String(entry.id)))}
+                                        onClick={() => {
+                                            setSelectedEntryIds((current) => removeGuestEntrySelection(
+                                                current,
+                                                guestEntries.map((entry) => String(entry.id))
+                                            ));
+                                            setNotice('');
+                                        }}
+                                        className={'rounded-lg border px-3 py-2.5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40 ' + (dark ? 'border-slate-600 text-slate-200' : 'border-slate-300 text-slate-700')}
+                                    >
+                                        전체 해지
+                                    </button>
+                                </div>
                             </section>
                         )}
 
@@ -551,11 +572,11 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                                 <th className="border-y px-1 py-2 font-bold whitespace-nowrap">날짜</th>
                                                 <th className="border-y px-1 py-2 font-bold whitespace-nowrap">회전</th>
                                                 {tableColumns.map((column) => (
-                                                    <th key={column.key} className="border-y px-2 py-2 text-center font-bold whitespace-nowrap">
+                                                    <th key={column.key} className="border-y px-1 py-2 text-center font-bold whitespace-nowrap">
                                                         {column.label}
                                                     </th>
                                                 ))}
-                                                <th className="border-y px-2 py-2 text-center font-black whitespace-nowrap">금액</th>
+                                                <th className="border-y px-1 py-2 text-center font-black whitespace-nowrap">금액</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -593,7 +614,7 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                                         {tableColumns.map((column) => {
                                                             const cell = getEntryColumnValue(entry, column);
                                                             return (
-                                                                <td key={column.key} className="border-b px-2 py-2 text-center whitespace-nowrap">
+                                                                <td key={column.key} className="border-b px-1 py-2 text-center whitespace-nowrap">
                                                                     <div className="font-semibold">{cell.primary}</div>
                                                                     {cell.secondary && (
                                                                         <div className={'mt-0.5 text-[10px] ' + (dark ? 'text-slate-400' : 'text-slate-500')}>
@@ -603,7 +624,7 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                                                 </td>
                                                             );
                                                         })}
-                                                        <td className="border-b px-2 py-2 text-center whitespace-nowrap">
+                                                        <td className="border-b px-1 py-2 text-center whitespace-nowrap">
                                                             <div className={'font-black ' + (entry.type === 'expense' ? 'text-blue-500' : 'text-rose-500')}>
                                                                 {formatWon(amount)}
                                                             </div>
