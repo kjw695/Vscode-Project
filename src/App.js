@@ -249,6 +249,7 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const touchEndY = useRef(null);
     const mainTouchStartX = useRef(null); // ✨ [추가] 바탕화면 스와이프 전용
     const mainTouchStartY = useRef(null);
+    const mainScrollContainerRef = useRef(null);
     const [selectedMainTab, setSelectedMainTab] = useState('home');
     const [activeContentTab, setActiveContentTab] = useState('bluecoinsDailySummary');
     const [homeVisitKey, setHomeVisitKey] = useState(0);
@@ -1247,6 +1248,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
 )}
 
           <div 
+            ref={mainScrollContainerRef}
             className="w-full h-full overflow-y-auto pb-20"
             onClick={(e) => {
                 // 다른 버튼이나 입력창을 눌렀을 때는 무시하고, 진짜 바탕화면일 때만 반응
@@ -1655,7 +1657,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
     <SearchIcon size={24} /> <span>검색</span>
 </button>
 
-                    <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'more' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} onClick={() => { setSelectedMainTab('more'); setActiveContentTab('adminSettings'); setMoreSubView('main'); }}>
+                    <button className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'more' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} onClick={() => { mainScrollContainerRef.current?.scrollTo(0, 0); setSelectedMainTab('more'); setActiveContentTab('adminSettings'); setMoreSubView('main'); }}>
                         <MoreHorizontal size={24} /> <span>더보기</span>
                     </button>
                 </div>
