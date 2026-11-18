@@ -125,7 +125,7 @@ function AdminDashboard({ onBack }) {
                         <ShieldCheck className="text-indigo-600" size={28} />
                         <div>
                             <h1 className="text-xl font-black text-slate-900">회사 공용 관리자 데이터</h1>
-                            <p className="text-xs text-slate-500">첫 연결을 완료하면 모든 관리자가 같은 설정을 사용합니다.</p>
+                            <p className="text-xs text-slate-500">회사 공용 설정을 연결하면 이후 접속 기기에서도 같은 데이터를 사용합니다.</p>
                         </div>
                     </div>
                     <div className="rounded-2xl border border-indigo-100 bg-white p-5 shadow-sm">
@@ -193,7 +193,7 @@ function AdminDashboard({ onBack }) {
                 <div className="w-full max-w-md rounded-2xl border border-amber-200 bg-white p-6 text-center shadow-sm">
                     <AlertCircle className="mx-auto mb-3 text-amber-500" size={32} />
                     <h2 className="text-lg font-black text-slate-800">
-                        {syncStatus === 'conflict' ? '다른 관리자의 변경이 먼저 저장되었습니다.' : '회사 공용 데이터 연결에 실패했습니다.'}
+                        {syncStatus === 'conflict' ? '다른 기기에서 변경한 데이터가 먼저 저장되었습니다.' : '회사 공용 데이터 연결에 실패했습니다.'}
                     </h2>
                     <p className="mt-2 text-sm leading-6 text-slate-500">
                         {syncStatus === 'conflict'
