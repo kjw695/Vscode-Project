@@ -142,7 +142,7 @@ describe('DeliveryContext account switching', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('entry-ids')).toHaveTextContent('[202]');
+            expect(screen.getByTestId('entry-ids')).toHaveTextContent('202');
             expect(screen.getByTestId('loaded')).toHaveTextContent('true');
         });
 
@@ -151,7 +151,7 @@ describe('DeliveryContext account switching', () => {
             await accountARequest.promise;
         });
 
-        expect(screen.getByTestId('entry-ids')).toHaveTextContent('[202]');
+        expect(screen.getByTestId('entry-ids')).toHaveTextContent('202');
         expect(screen.getByTestId('entry-ids')).not.toHaveTextContent('101');
 
         const accountBCache = JSON.parse(localStorage.getItem(getDeliveryEntriesStorageKey('account-b')));
