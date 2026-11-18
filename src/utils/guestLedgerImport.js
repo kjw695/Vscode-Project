@@ -86,9 +86,14 @@ export function buildGuestImportBatch({
 
 
 const toLocalDateKey = (date) => {
-// Normalize date-only values and ISO timestamps to the same local calendar key.
-// Database date columns normally arrive as YYYY-MM-DD; legacy local rows may
-// contain a time suffix, which must not prevent the matching calendar day.
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+// Normalize date-only values and ISO timestamps to the same calendar key.
+// Legacy local rows can contain a time suffix or a dotted date representation.
 export function getGuestEntryDateKey(value) {
     if (value instanceof Date) {
         return Number.isNaN(value.getTime()) ? '' : toLocalDateKey(value);
@@ -113,12 +118,6 @@ export function getGuestEntriesInRange(entries, startDate, endDate) {
         return dateKey && dateKey >= startDate && dateKey <= endDate;
     });
 }
-
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-};
 
 // Match the application's Settings > Aggregation Period calendar exactly.
 // When startDay is later than endDay, the settlement period crosses months.
