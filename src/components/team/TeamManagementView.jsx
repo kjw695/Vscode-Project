@@ -561,13 +561,6 @@ const handleCopyCode = async (code) => {
                                             </button>
                                         )}
                                     </div>
-                                ) : (
-                                    <button
-                                        onClick={onGoToAdmin}
-                                        className="w-full py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-md transition-all active:scale-95"
-                                    >
-                                        ⚙️ 관리자센터 열기
-                                    </button>
                                 ) : deletionState?.active ? (
                                     <div className="space-y-2">
                                         <p className="text-xs text-amber-700 dark:text-amber-300">
