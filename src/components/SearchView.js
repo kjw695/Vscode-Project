@@ -107,7 +107,7 @@ const SearchView = ({ entries, itemLabels, isDarkMode, onEdit }) => {
                 });
             }
 
-            const [y, m, d] = entry.date.split('-');
+            const [, m, d] = entry.date.split('-');
             const month = parseInt(m, 10);
             const day = parseInt(d, 10);
             
