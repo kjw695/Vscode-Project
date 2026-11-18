@@ -39,10 +39,13 @@ const safeReadArray = (key) => {
 
 const readLegacyAdminData = () => {
     const teams = safeReadArray(LEGACY_KEYS.teams);
-    const storedRegions = safeReadArray(LEGACY_KEYS.regions);
+    const storedRegions = safeReadArray(LEGACY_KEYS.regions)
+        .filter((region) => typeof region === 'string' && region.trim())
+        .map((region) => region.trim());
     const teamRegions = teams
         .map((team) => team?.region || '기본 지역')
-        .filter(Boolean);
+        .filter((region) => typeof region === 'string' && region.trim())
+        .map((region) => region.trim());
 
     return {
         regions: [...new Set([...storedRegions, ...teamRegions])],
@@ -80,17 +83,13 @@ export function DataProvider({ children }) {
     const versionRef = useRef(null);
     const lastPersistedSignatureRef = useRef(null);
     const latestDataRef = useRef({ regions: [], teams: [], employees: [], routes: [] });
-    const scopeRef = useRef('resolving');
-    const statusRef = useRef('loading');
     const writeEnabledRef = useRef(false);
     const savingRef = useRef(false);
     const saveTimerRef = useRef(null);
     const subscriptionCleanupRef = useRef(null);
     const currentOrganizationRef = useRef(null);
-    const currentUserRef = useRef(null);
 
     const setStatus = useCallback((next) => {
-        statusRef.current = next;
         setSyncStatus(next);
     }, []);
 
@@ -168,7 +167,6 @@ export function DataProvider({ children }) {
         let active = true;
         const userId = currentUser?.id || null;
 
-        scopeRef.current = 'resolving';
         writeEnabledRef.current = false;
         currentOrganizationRef.current = null;
         setScope('resolving');
@@ -201,7 +199,6 @@ export function DataProvider({ children }) {
                 setTeamsState(legacy.teams);
                 setEmployeesState(legacy.employees);
                 setRoutesState(legacy.routes);
-                scopeRef.current = 'local';
                 setScope('local');
                 setStatus('local');
                 return;
@@ -218,7 +215,6 @@ export function DataProvider({ children }) {
                     setTeamsState(legacy.teams);
                     setEmployeesState(legacy.employees);
                     setRoutesState(legacy.routes);
-                    scopeRef.current = 'local';
                     setScope('local');
                     setStatus('local');
                     return;
@@ -229,8 +225,6 @@ export function DataProvider({ children }) {
                 setOrganizationId(orgId);
                 setOrganizationRole(role);
                 currentOrganizationRef.current = orgId;
-                currentUserRef.current = userId;
-                scopeRef.current = 'shared';
                 setScope('shared');
 
                 if (role !== 'owner' && role !== 'admin') {
