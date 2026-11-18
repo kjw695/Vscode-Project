@@ -103,7 +103,7 @@ export function getGuestEntryDateKey(value) {
     const raw = String(value ?? '').trim();
     if (!raw) return '';
 
-    const match = raw.match(/^(\\d{4})[-/.]\\s*(\\d{1,2})[-/.]\\s*(\\d{1,2})/);
+    const match = raw.match(/^(\d{4})[-/.]\s*(\d{1,2})[-/.]\s*(\d{1,2})/);
     if (match) {
         const [, year, month, day] = match;
         return `${year}-${String(Number(month)).padStart(2, '0')}-${String(Number(day)).padStart(2, '0')}`;
