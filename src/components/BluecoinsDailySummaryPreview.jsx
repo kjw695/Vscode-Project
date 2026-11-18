@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { calculateData } from '../utils/calculator';
 import GoalProgressBar from './GoalProgressBar';
+import { useWeather } from '../hooks/useWeather';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const VOLUME_METRICS = [
@@ -127,6 +128,13 @@ const BluecoinsDailySummaryPreview = ({
     incomeConfig = []
 }) => {
     const dark = Boolean(isDarkMode);
+    const { weatherData, locationName } = useWeather();
+    const weatherLocation = locationName && !['위치 찾는 중...', '위치 확인 불가'].includes(locationName)
+        ? locationName
+        : '날씨';
+    const weatherTemperature = weatherData?.temp !== undefined && weatherData?.temp !== null && weatherData?.temp !== '-'
+        ? String(weatherData.temp) + '°C'
+        : '확인 중';
     const [activeReportTab, setActiveReportTab] = useState('categories');
     const [isDayMode, setIsDayMode] = useState(true);
     const chartScrollRef = useRef(null);
@@ -238,7 +246,7 @@ const BluecoinsDailySummaryPreview = ({
     const selectedDayVolume = getDayVolume(selectedDayData, selectedItemsForAverage);
     const insuranceName = selectedInsurance?.name
         ? selectedInsurance.name.split('(')[0].trim()
-        : '보험사 미등록';
+        : '미등록';
 
     const currentPeriodDates = useMemo(() => {
         return new Set(calendarDays.filter((day) => day?.isCurrentMonth && day?.date).map((day) => day.date));
@@ -623,45 +631,52 @@ const BluecoinsDailySummaryPreview = ({
             <section className={'overflow-hidden rounded-2xl border shadow-sm ' + panelClass}>
                 <div className={'grid grid-cols-4 divide-x ' + dividerClass}>
                     <div className="min-w-0 px-1 py-2 text-center">
-                        <div className={'text-[10px] whitespace-nowrap ' + mutedClass}>근무일</div>
-                        <div className="mt-0.5 text-sm font-black tabular-nums">{workingDays}일</div>
+                        <div className={'text-xs whitespace-nowrap font-semibold ' + mutedClass}>근무일</div>
+                        <div className="mt-0.5 text-lg font-black tabular-nums">{workingDays}일</div>
                     </div>
                     <div className="min-w-0 px-1 py-2 text-center">
-                        <div className={'text-[10px] whitespace-nowrap ' + mutedClass}>휴무일</div>
-                        <div className="mt-0.5 text-sm font-black tabular-nums text-rose-500">{totalOffDays}일</div>
+                        <div className={'text-xs whitespace-nowrap font-semibold ' + mutedClass}>휴무일</div>
+                        <div className="mt-0.5 text-lg font-black tabular-nums text-rose-500">{totalOffDays}일</div>
                     </div>
                     <div className="min-w-0 px-1 py-2 text-center">
-                        <div className={'text-[10px] whitespace-nowrap ' + mutedClass}>남은 근무</div>
-                        <div className="mt-0.5 text-sm font-black tabular-nums text-purple-500">{salaryRemainingWorkDays}일</div>
+                        <div className={'text-xs whitespace-nowrap font-semibold ' + mutedClass}>남은 근무</div>
+                        <div className="mt-0.5 text-lg font-black tabular-nums text-purple-500">{salaryRemainingWorkDays}일</div>
                     </div>
                     <button
                         type="button"
                         onClick={onOpenInsurance}
                         className={'min-w-0 px-1 py-2 text-center ' + (dark ? 'hover:bg-slate-800' : 'hover:bg-slate-50')}
                     >
-                        <div className={'text-[10px] whitespace-nowrap ' + mutedClass}>보험사</div>
-                        <div className="mt-0.5 truncate text-[11px] font-black">{insuranceName}</div>
+                        <div className={'text-xs whitespace-nowrap font-semibold ' + mutedClass}>보험사</div>
+                        <div className="mt-0.5 truncate text-[clamp(12px,3.5vw,16px)] font-black">{insuranceName}</div>
                     </button>
                 </div>
             </section>
 
             <section className={'overflow-hidden rounded-2xl border p-3 shadow-sm ' + panelClass}>
-                <div className="flex min-w-0 items-center justify-between gap-2">
-                    <h2 className={'whitespace-nowrap text-sm font-black sm:text-base ' + mutedClass}>이번 달 총 금액</h2>
-                    {previousWorkingDays > 0 ? (
-                        <span className={'inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[clamp(9px,2.8vw,12px)] font-black tabular-nums ' + (
-                            incomeDiff > 0
-                                ? 'bg-emerald-500/15 text-emerald-500'
-                                : incomeDiff < 0
-                                    ? 'bg-rose-500/15 text-rose-500'
-                                    : (dark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600')
-                        )}>
-                            {incomeDiff > 0 ? '▲' : incomeDiff < 0 ? '▼' : '－'}
-                            {formatLargeManWon(Math.abs(incomeDiff))}
+                <div className="flex min-w-0 items-center justify-between gap-1.5">
+                    <h2 className={'shrink-0 whitespace-nowrap text-[clamp(12px,3.5vw,15px)] font-black ' + mutedClass}>이번 달 총 금액</h2>
+                    <div className="flex min-w-0 items-center justify-end gap-1.5">
+                        {previousWorkingDays > 0 ? (
+                            <span className={'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[clamp(8px,2.5vw,11px)] font-black tabular-nums ' + (
+                                incomeDiff > 0
+                                    ? 'bg-emerald-500/15 text-emerald-500'
+                                    : incomeDiff < 0
+                                        ? 'bg-rose-500/15 text-rose-500'
+                                        : (dark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600')
+                            )}>
+                                {incomeDiff > 0 ? '▲' : incomeDiff < 0 ? '▼' : '－'}
+                                {formatLargeManWon(Math.abs(incomeDiff))}
+                            </span>
+                        ) : (
+                            <span className={'shrink-0 text-[8px] font-semibold ' + mutedClass}>전월 비교 없음</span>
+                        )}
+                        <span className={'inline-flex min-w-0 shrink items-center justify-end gap-1 whitespace-nowrap text-[clamp(9px,2.7vw,11px)] font-semibold ' + mutedClass}>
+                            <span className="max-w-[54px] truncate">{weatherLocation}</span>
+                            <span>{weatherData?.icon || '🌤️'}</span>
+                            <strong className="text-[clamp(10px,3vw,13px)] font-black tabular-nums">{weatherTemperature}</strong>
                         </span>
-                    ) : (
-                        <span className={'shrink-0 text-[10px] font-semibold ' + mutedClass}>전월 비교 데이터 없음</span>
-                    )}
+                    </div>
                 </div>
                 <div className="mt-1 min-w-0">
                     <div className="whitespace-nowrap text-[clamp(2rem,11.5vw,3.6rem)] font-black leading-none tracking-tight tabular-nums">
@@ -673,11 +688,12 @@ const BluecoinsDailySummaryPreview = ({
                     goal={goal}
                     isDarkMode={dark}
                     revenueDistribution={monthlyProfit?.revenueDistribution}
+                    weatherData={weatherData}
                 />
             </section>
 
             <div className="grid grid-cols-2 gap-2">
-                <section className={'min-w-0 rounded-2xl border p-3 shadow-sm ' + panelClass}>
+                <section className={'min-w-0 rounded-2xl border p-3 text-center shadow-sm ' + panelClass}>
                     <p className={'text-xs font-bold ' + mutedClass}>일 평균</p>
                     <p className="mt-1 whitespace-nowrap text-[clamp(1.25rem,5.3vw,2rem)] font-black leading-tight tracking-tight tabular-nums">
                         {formatLargeManWon(dailyAverageIncome)}
@@ -697,7 +713,7 @@ const BluecoinsDailySummaryPreview = ({
                     </p>
                 </section>
 
-                <section className={'min-w-0 rounded-2xl border p-3 shadow-sm ' + panelClass}>
+                <section className={'min-w-0 rounded-2xl border p-3 text-center shadow-sm ' + panelClass}>
                     <p className={'text-xs font-bold ' + mutedClass}>평균 물량</p>
                     <p className="mt-1 whitespace-nowrap text-[clamp(1.25rem,5.3vw,2rem)] font-black leading-tight tracking-tight tabular-nums">
                         {dailyAverageVolume.toLocaleString('ko-KR')}건
