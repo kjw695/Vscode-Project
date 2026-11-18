@@ -200,7 +200,7 @@ export async function migrateLocalDataToServer(userId) {
             ? isFirstPreparedAccount
             : existingBucket.status === 'pending' && (
                 existingBucket.reviewUserId === userId ||
-                (existingBucket.reviewUserId === 'device' && !hasOtherPreparedAccount)
+                (existingBucket.reviewUserId === 'device' && isFirstPreparedAccount)
             );
         const hasLegacySource = candidateEntries.length > 0 || hasLegacySettings || !!existingBucket;
 
