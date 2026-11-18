@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import truckImg from '../assets/truck.png'; 
-import { useWeather } from '../hooks/useWeather'; 
 
 // 차트 색상 팔레트 (RevenueDistributionChart에서 가져옴)
 const COLORS = [
@@ -15,7 +14,7 @@ const getProgressColor = (progress) => {
 };
 
 // 💡 1. props에 revenueDistribution 추가
-const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution }) => {
+const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution, weatherData }) => {
   const progress = goal > 0 ? Math.min((current / goal) * 100, 100) : 0;
   const progressColor = getProgressColor(progress);
   const leftPosition = Math.min(Math.max(progress, 0), 92); 
@@ -26,35 +25,12 @@ const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution }) => 
     setIsAnimating(progress > 0);
   }, [progress]);
 
-  // ✨ 1. 새로운 기상청 버전에 맞게 데이터 받아오기
-  const { weatherData, locationName, isLoading } = useWeather();
-  const loading = isLoading;
-  const region = locationName || '위치 찾는 중...';
-  const temp = weatherData?.temp ?? '-';
-
-  // ✨ 2. 기상청 날씨(한국어)를 기존 애니메이션용(영어)으로 변환
+  // 홈 화면에서 전달받은 기상청 데이터를 사용해 날씨 효과를 표시합니다.
   let condition = 'clear';
   const currentCondition = weatherData?.condition || '';
   if (currentCondition.includes('비')) condition = 'rain';
   else if (currentCondition.includes('눈')) condition = 'snow';
 
-  // ✨ 3. 아이콘은 기상청 데이터에서 똑똑하게 바로 가져옴
-  let weatherIcon = weatherData?.icon || '🌤️ ';
-
-  // ✨ 4. 미세먼지 (기상청 단기예보에는 없으므로 에러 방지용 null 처리)
-  let dust = null; 
-  let dustColorClass = '';
-
-  // 🚨 [여기에 임시 코드 작성!] 🚨
-  // 아래 주석(//)을 풀고 원하는 날씨로 바꿔치기 해보세요. 확인 후엔 다시 주석 처리하거나 지우면 됩니다!
-  
-  // condition = 'rain'; weatherIcon = '☔ ';  // 👈 비 테스트
-  // condition = 'snow'; weatherIcon = '❄️ ';  // 👈 눈 테스트
-  // condition = 'dust'; weatherIcon = '😷 ';  // 👈 미세먼지 테스트
-
-  
-  // ✨ 최종 날씨 글자
-  const weatherDisplayString = `[${region}] ${weatherIcon}${temp === '-' ? '날씨 확인 중' : `${temp}°C`}`;
 
   // 💡 2. 매출 비중 데이터 계산 로직 (상위 3개 + 기타)
   // 막대가 트럭까지 꽉 차게 보이기 위해 항목이 많을 경우 4번째는 '기타'로 묶습니다.
@@ -87,28 +63,13 @@ const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution }) => 
   }, [revenueDistribution, current]);
 
   return (
-    <div className="relative w-full mt-2 mb-2 px-1 pt-16">
+    <div className="relative w-full mt-2 mb-2 px-1 pt-2">
       
       {/* 🌍 구역 한정 날씨 레이어 */}
-      {!loading && condition !== 'clear' && (
+      {weatherData && condition !== 'clear' && (
         <div className={`weather-overlay weather-${condition}`}></div>
       )}
 
-      {/* 날씨 이모지와 상태는 날씨 정보가 로딩 중이어도 자리에서 사라지지 않습니다. */}
-      {region && (
-        <div className="absolute top-0 right-1 flex max-w-full items-center justify-end text-right z-30">
-          <span className={`text-xs font-bold tracking-tight ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-            {weatherDisplayString}
-            {/* 미세먼지가 맑음이 아닐 때만 수치 띄우기 */}
-           {dust && (condition !== 'clear' || dust.includes('나쁨')) && (
-                <>
-                  <span className="text-gray-400 mx-1">|</span>
-                  <span className={`${dustColorClass}`}>{dust}</span>
-                </>
-            )}
-          </span>
-        </div>
-      )}
 
      <style>{`
         @keyframes drive-bounce {
