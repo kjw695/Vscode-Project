@@ -105,6 +105,13 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
         [guestEntries, selectedDate]
     );
 
+    // Declare the selected accounting period before deriving its entry list.
+    // Referencing a later const here throws at render time and blanks the screen.
+    const monthlyPeriod = useMemo(
+        () => getGuestImportMonthlyPeriodRange(currentCalendarDate, periodSettings.startDay, periodSettings.endDay),
+        [currentCalendarDate, periodSettings]
+    );
+
     // 월별 모드에서는 특정 날짜만이 아니라 해당 집계 기간 전체 기록을
     // 날짜별로 나누어 아래 목록에 표시합니다.
     const monthlyEntries = useMemo(
@@ -125,11 +132,6 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
 
     const selectedSummary = useMemo(() => calculateData(selectedEntries, {}), [selectedEntries]);
     const selectedDateCount = new Set(selectedEntries.map((entry) => getGuestEntryDateKey(entry.date)).filter(Boolean)).size;
-
-    const monthlyPeriod = useMemo(
-        () => getGuestImportMonthlyPeriodRange(currentCalendarDate, periodSettings.startDay, periodSettings.endDay),
-        [currentCalendarDate, periodSettings]
-    );
 
     const calendarDays = useMemo(() => {
         const periodStart = parseDateKey(monthlyPeriod.startDate);
