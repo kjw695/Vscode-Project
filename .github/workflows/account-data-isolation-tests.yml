@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - feature/account-data-isolation-tests
+      - feature/schedule-workflow-tools
   pull_request:
     branches:
       - feature/account-data-isolation
       - feature/shared-company-admin-data
+      - feature/admin-data-backup-restore
 
 permissions:
   contents: read
