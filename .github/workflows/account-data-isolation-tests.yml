@@ -44,6 +44,11 @@ jobs:
           CI: 'true'
         run: npm test -- --watchAll=false --runInBand src/contexts/DeliveryContext.test.js
 
+      - name: Run guest ledger import tests
+        env:
+          CI: 'true'
+        run: npm test -- --watchAll=false --runInBand src/utils/guestLedgerImport.test.js
+
       - name: Build React production bundle
         env:
           NODE_OPTIONS: --openssl-legacy-provider
