@@ -7,6 +7,7 @@ import RegionCampModal from '../common/RegionCampModal';
 import { useDelivery } from '../../contexts/DeliveryContext';
 import {
     getUnclassifiedLegacyData,
+    getUnclassifiedLegacySettings,
     importUnclassifiedLegacyDataToAccount,
     keepUnclassifiedLegacyDataOnDevice,
 } from '../../utils/migration';
@@ -35,6 +36,7 @@ function AccountView({ onBack, isDarkMode, autoEdit = false }) {
   const { isLoggedIn, user, profile, signOut, isAuthLoading } = useAuth();
   const { pendingSyncCount, syncPendingData } = useDelivery();
   const [unclassifiedCount, setUnclassifiedCount] = useState(0);
+  const [hasUnclassifiedSettings, setHasUnclassifiedSettings] = useState(false);
   const [showLogoutOptions, setShowLogoutOptions] = useState(false);
   const [logoutError, setLogoutError] = useState('');
   const [isLoggingOut, setIsLoggingOut] = useState(false); 
@@ -76,6 +78,7 @@ function AccountView({ onBack, isDarkMode, autoEdit = false }) {
       const refreshLegacyCount = (event) => {
           if (!event?.detail?.userId || event.detail.userId === reviewOwnerId) {
               setUnclassifiedCount(getUnclassifiedLegacyData(reviewOwnerId).length);
+              setHasUnclassifiedSettings(!!getUnclassifiedLegacySettings(reviewOwnerId));
           }
       };
       refreshLegacyCount();
@@ -248,10 +251,11 @@ const handleEditClick = () => {
   };
 
   const handleImportLegacyData = () => {
-      if (!user?.id || !window.confirm(`미분류 장부 ${unclassifiedCount}건을 현재 계정의 로컬 장부로 가져올까요?\n이번 단계에서는 서버로 전송하지 않습니다.`)) return;
+      if (!user?.id || !window.confirm(`이 기기의 게스트 데이터${unclassifiedCount > 0 ? ` 장부 ${unclassifiedCount}건` : ''}${hasUnclassifiedSettings ? ' 및 앱 설정' : ''}을 현재 계정에 귀속할까요?\n원본 백업은 유지하며, 이번 단계에서는 서버로 전송하지 않습니다.`)) return;
       const result = importUnclassifiedLegacyDataToAccount(user.id);
       setUnclassifiedCount(0);
-      alert(`${result.imported}건을 현재 계정의 로컬 장부로 분류했습니다. 서버 전송은 진행하지 않았습니다.`);
+      setHasUnclassifiedSettings(false);
+      alert(`${result.imported}건의 장부${result.importedSettings ? '와 앱 설정' : ''}을 현재 계정에 로컬 귀속했습니다. 서버 전송은 진행하지 않았습니다.`);
       window.location.reload();
   };
 
@@ -426,24 +430,26 @@ const handleEditClick = () => {
         </div>
       </div>
 
-      {unclassifiedCount > 0 && (
+      {(unclassifiedCount > 0 || hasUnclassifiedSettings) && (
         <div className={`${cardClass} border ${isDarkMode ? 'border-amber-700' : 'border-amber-200'}`}>
           <div className="flex items-center gap-2 mb-2">
             <AlertCircle size={18} className="text-amber-500" />
             <h3 className="font-bold">기존 장부 확인</h3>
           </div>
           <p className="text-sm text-gray-500 mb-3">
-            이전 버전에서 사용하던 장부 중 소유권이 확인되지 않은 항목이 {unclassifiedCount}건 있습니다. {isLoggedIn ? '현재 계정으로 가져오면 로컬에만 분류하며 서버 전송은 하지 않습니다.' : '계정에 연결하지 않고 게스트 장부로 보관할 수 있습니다.'}
+            이 기기에 계정 소유권이 아직 정해지지 않은 게스트 데이터가 있습니다. {unclassifiedCount > 0 ? `장부 ${unclassifiedCount}건` : ''}{hasUnclassifiedSettings ? ' 앱 설정 포함' : ''}. {isLoggedIn ? '현재 계정에 귀속하면 이 계정의 로컬 저장소로만 옮기며 서버 전송은 하지 않습니다.' : '로그인 후 원하는 계정에 귀속할 수 있습니다.'}
           </p>
           <div className="flex flex-col gap-2">
             {isLoggedIn && (
               <button onClick={handleImportLegacyData} className="w-full rounded-lg bg-blue-600 text-white font-semibold py-2.5 text-sm">
-                이 계정으로 가져오기 (로컬 분류만)
+                게스트 데이터를 이 계정에 귀속
               </button>
             )}
-            <button onClick={handleKeepLegacyDataOnDevice} className={`w-full rounded-lg py-2.5 text-sm font-semibold ${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700'}`}>
-              {isLoggedIn ? '이 기기에만 보관' : '게스트 장부로 보관'}
-            </button>
+            {!isLoggedIn && (
+              <button onClick={handleKeepLegacyDataOnDevice} className={`w-full rounded-lg py-2.5 text-sm font-semibold ${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700'}`}>
+                게스트 장부로 보관
+              </button>
+            )}
             <button onClick={() => setUnclassifiedCount(0)} className="w-full py-2 text-sm text-gray-500">
               나중에 결정
             </button>
