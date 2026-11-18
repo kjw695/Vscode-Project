@@ -109,7 +109,7 @@ function AdminDashboard({ onBack }) {
                 <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
                     <ShieldCheck className="mx-auto mb-3 text-slate-400" size={32} />
                     <h2 className="text-lg font-black text-slate-800">관리자 권한이 필요합니다.</h2>
-                    <p className="mt-2 text-sm text-slate-500">회사 대표 관리자에게 일반 관리자 권한을 요청해주세요.</p>
+                    <p className="mt-2 text-sm text-slate-500">현재 회사 관리자 계정으로 로그인한 뒤 이용해주세요.</p>
                     <button onClick={onBack} className="mt-5 w-full rounded-xl bg-slate-900 py-3 text-sm font-bold text-white">돌아가기</button>
                 </div>
             </div>
@@ -174,9 +174,9 @@ function AdminDashboard({ onBack }) {
                             </>
                         ) : (
                             <>
-                                <h2 className="text-base font-black text-slate-800">대표 관리자의 최초 연결이 필요합니다.</h2>
+                                <h2 className="text-base font-black text-slate-800">회사 관리자의 최초 연결이 필요합니다.</h2>
                                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                                    회사 공용 설정이 아직 만들어지지 않았습니다. 대표 관리자가 기존 설정 이전 또는 빈 데이터 시작을 완료하면 이 화면에서 자동으로 연결됩니다.
+                                    회사 공용 설정이 아직 만들어지지 않았습니다. 기존 설정 이전 또는 빈 데이터 시작을 완료하면 이 화면에서 자동으로 연결됩니다.
                                 </p>
                                 <button onClick={onBack} className="mt-5 w-full rounded-xl bg-slate-900 py-3 text-sm font-bold text-white">돌아가기</button>
                             </>
