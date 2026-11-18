@@ -672,10 +672,10 @@ const BluecoinsDailySummaryPreview = ({
                         ) : (
                             <span className={'shrink-0 text-[8px] font-semibold ' + mutedClass}>전월 비교 없음</span>
                         )}
-                        <span className={'inline-flex min-w-0 shrink items-center justify-end gap-1 whitespace-nowrap text-[clamp(9px,2.7vw,11px)] font-semibold ' + mutedClass}>
+                        <span className={'inline-flex min-w-0 shrink items-center justify-end gap-1 whitespace-nowrap py-0 text-[clamp(12px,3.2vw,14px)] font-semibold leading-none ' + mutedClass}>
                             <span className="max-w-[54px] truncate">{weatherLocation}</span>
                             <span>{weatherData?.icon || '🌤️'}</span>
-                            <strong className="text-[clamp(10px,3vw,13px)] font-black tabular-nums">{weatherTemperature}</strong>
+                            <strong className="text-[clamp(12px,3.2vw,14px)] font-black leading-none tabular-nums">{weatherTemperature}</strong>
                         </span>
                     </div>
                 </div>
