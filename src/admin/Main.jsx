@@ -57,6 +57,7 @@ function AdminDashboard({ onBack }) {
         scope,
         syncStatus,
         organizationRole,
+        sharedVersion,
         hasLegacyLocalData,
         initializeSharedState,
         reloadSharedState
