@@ -96,7 +96,7 @@ const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution }) => 
 
       {/* 날씨 이모지와 상태는 날씨 정보가 로딩 중이어도 자리에서 사라지지 않습니다. */}
       {region && (
-        <div className="absolute top-0 left-1 flex items-center z-30">
+        <div className="absolute top-0 right-1 flex max-w-full items-center justify-end text-right z-30">
           <span className={`text-xs font-bold tracking-tight ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
             {weatherDisplayString}
             {/* 미세먼지가 맑음이 아닐 때만 수치 띄우기 */}

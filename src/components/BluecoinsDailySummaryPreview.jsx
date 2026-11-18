@@ -6,8 +6,7 @@ import {
     ChevronLeft,
     ChevronRight,
     Layers,
-    ListFilter,
-    Plus
+    ListFilter
 } from 'lucide-react';
 import { calculateData } from '../utils/calculator';
 import GoalProgressBar from './GoalProgressBar';
@@ -54,6 +53,11 @@ const formatSummaryWon = (amount) => {
     if (value <= 0) return '0원';
     const man = Math.round((value / 10000) * 10) / 10;
     return (Number.isInteger(man) ? String(man) : man.toFixed(1)) + '만원';
+};
+
+const formatLargeManWon = (amount) => {
+    const man = Math.round(((Number(amount) || 0) / 10000) * 10) / 10;
+    return man.toLocaleString('ko-KR', { maximumFractionDigits: 1 }) + '만원';
 };
 
 const getSelectedVolume = (profit, selectedItems) => {
@@ -179,10 +183,6 @@ const BluecoinsDailySummaryPreview = ({
     const workingDays = Number(monthlyProfit?.totalWorkingDays) || 0;
     const dailyAverageIncome = workingDays > 0 ? Math.round(currentRevenue / workingDays) : 0;
     const dailyAverageVolume = workingDays > 0 ? Math.round(currentVolume / workingDays) : 0;
-    const effectiveTargetDays = Math.max(25, workingDays);
-    const expectedTotalVolume = dailyAverageVolume * effectiveTargetDays;
-
-    // 장부 홈의 예상 급여는 예상 총금액 값에만 적용합니다.
     const salaryRemainingCalendarDays = useMemo(() => {
         if (!selectedMonth || !monthlyEndDay) return 1;
         try {
@@ -219,12 +219,11 @@ const BluecoinsDailySummaryPreview = ({
     }, [entries]);
 
     const salaryRemainingWorkDays = Math.max(0, salaryRemainingCalendarDays - salaryFutureHolidays);
-    const expectedTotalIncome = currentRevenue + (dailyAverageIncome * salaryRemainingWorkDays);
+    
     const holidayCount = calendarDays.filter((day) => day?.isCurrentMonth && day?.isDayOff).length;
     const totalOffDays = holidayCount;
     const previousIncome = Number(previousMonthlyProfit?.totalRevenue) || 0;
     const incomeDiff = currentRevenue - previousIncome;
-    const volumeDiff = currentVolume - previousVolume;
     const previousWorkingDays = Number(previousMonthlyProfit?.totalWorkingDays) || 0;
     const previousAverageVolume = previousWorkingDays > 0
         ? Math.round(previousVolume / previousWorkingDays)
@@ -233,9 +232,6 @@ const BluecoinsDailySummaryPreview = ({
         ? Math.round(previousIncome / previousWorkingDays)
         : 0);
     const averageVolumeDiff = dailyAverageVolume - previousAverageVolume;
-    const averageVolumeDiffPct = previousAverageVolume > 0
-        ? (averageVolumeDiff / previousAverageVolume) * 100
-        : null;
     const selectedDayData = dailyMap[selectedDate] || {};
     const selectedDayIncome = Number(selectedDayData.totalRevenue) || 0;
     const selectedDayExpense = Number(selectedDayData.totalExpenses) || 0;
@@ -623,7 +619,7 @@ const BluecoinsDailySummaryPreview = ({
         : (selectedMonth || '') + ' 장부 기간 전체 요약';
 
     return (
-        <div className="w-full px-2 pb-4">
+        <div className="flex w-full flex-col gap-2 px-2 pb-4">
             <section className={'overflow-hidden rounded-2xl border shadow-sm ' + panelClass}>
                 <div className={'grid grid-cols-4 divide-x ' + dividerClass}>
                     <div className="min-w-0 px-1 py-2 text-center">
@@ -647,130 +643,134 @@ const BluecoinsDailySummaryPreview = ({
                         <div className="mt-0.5 truncate text-[11px] font-black">{insuranceName}</div>
                     </button>
                 </div>
-
-                <div className={'border-t px-2 pt-2 pb-2 ' + dividerClass}>
-                    <div className="flex min-w-0 items-center gap-1">
-                        <div className={'flex shrink-0 items-center gap-0 rounded-xl p-0.5 ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
-                            <button
-                                type="button"
-                                onClick={() => shiftSelectedDate(-1)}
-                                className="rounded-lg p-0.5 hover:bg-white/70 dark:hover:bg-slate-700"
-                                aria-label="이전 날짜"
-                            ><ChevronLeft size={13} /></button>
-                            <span className="whitespace-nowrap px-0.5 text-[11px] sm:text-xs font-black">
-                                {selectedDate.slice(5).replace('-', '.')} ({WEEKDAYS[parseLocalDate(selectedDate).getDay()]})
-                            </span>
-                            <button
-                                type="button"
-                                onClick={() => shiftSelectedDate(1)}
-                                className="rounded-lg p-0.5 hover:bg-white/70 dark:hover:bg-slate-700"
-                                aria-label="다음 날짜"
-                            ><ChevronRight size={13} /></button>
-                        </div>
-                        <div
-                            className={'min-w-0 flex-1 rounded-xl px-1 py-1 text-center text-[clamp(7px,2.5vw,10px)] font-black tracking-tight whitespace-nowrap ' + (
-                                previousWorkingDays <= 0
-                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                    : averageVolumeDiff > 0
-                                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                        : averageVolumeDiff < 0
-                                            ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                                            : 'bg-slate-500/10 text-slate-600 dark:text-slate-300'
-                            )}
-                            title={previousWorkingDays > 0
-                                ? `전월 하루 평균 대비 ${averageVolumeDiff > 0 ? '+' : ''}${averageVolumeDiff.toLocaleString()}건${averageVolumeDiffPct !== null ? ` · ${averageVolumeDiffPct > 0 ? '+' : ''}${averageVolumeDiffPct.toFixed(1)}%` : ' · 증감률 계산 기준 없음'}`
-                                : '전월 비교 데이터 없음'}
-                        >
-                            평균물량 {dailyAverageVolume.toLocaleString()}건
-                            {previousWorkingDays > 0
-                                ? ` · ${averageVolumeDiff > 0 ? '▲' : averageVolumeDiff < 0 ? '▼' : '－'}${Math.abs(averageVolumeDiff).toLocaleString()}건${averageVolumeDiffPct !== null ? ` ${averageVolumeDiffPct > 0 ? '+' : ''}${averageVolumeDiffPct.toFixed(1)}%` : ''}`
-                                : ' · 전월 비교 없음'}
-                        </div>
-                        <div className={'inline-flex shrink-0 whitespace-nowrap rounded-xl p-0.5 text-[10px] font-black ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
-                            <button
-                                type="button"
-                                onClick={() => onToggleCalendarMode?.('money')}
-                                className={'rounded-lg px-1.5 sm:px-2 py-1 whitespace-nowrap ' + (calendarMode === 'money' ? 'bg-blue-600 text-white' : mutedClass)}
-                            >금액</button>
-                            <button
-                                type="button"
-                                onClick={() => onToggleCalendarMode?.('volume')}
-                                className={'rounded-lg px-1.5 sm:px-2 py-1 whitespace-nowrap ' + (calendarMode === 'volume' ? 'bg-emerald-600 text-white' : mutedClass)}
-                            >물량</button>
-                        </div>
-                    </div>
-
-                    <style>{'.daily-summary-chart-scroll::-webkit-scrollbar { display: none; }'}</style>
-                    <div
-                        ref={chartScrollRef}
-                        onScroll={handleChartScroll}
-                        className={'daily-summary-chart-scroll mt-1 overflow-x-auto overflow-y-hidden rounded-2xl border pt-2 pb-2 ' + (dark ? 'border-slate-800 bg-slate-800/40' : 'border-slate-100 bg-slate-50')}
-                        style={{
-                            scrollbarWidth: 'none',
-                            msOverflowStyle: 'none',
-                            WebkitOverflowScrolling: 'touch',
-                            overscrollBehaviorX: 'contain',
-                            touchAction: 'pan-x pan-y'
-                        }}
-                    >
-                        {renderRecentChart(chartDays)}
-                    </div>
-
-                    <div className={'mt-2 grid grid-cols-3 rounded-2xl p-2.5 text-center ' + (dark ? 'bg-slate-800/80' : 'bg-slate-100')}>
-                        <div className="min-w-0 px-0.5">
-                            <p className={'whitespace-nowrap text-[9px] font-bold ' + mutedClass}>{calendarMode === 'money' ? '일 평균 금액' : '일 평균 배송량'}</p>
-                            <p className="mt-0.5 whitespace-nowrap text-[12px] font-black">{calendarMode === 'money' ? formatSummaryWon(dailyAverageIncome) : dailyAverageVolume.toLocaleString() + '건'}</p>
-                            <p className="mt-0.5 whitespace-nowrap text-[8px] font-bold text-emerald-600 dark:text-emerald-400">
-                                전월대비 {calendarMode === 'money'
-                                    ? ((averageIncomeDiff >= 0 ? '▲' : '▼') + formatCompactManWon(Math.abs(averageIncomeDiff)))
-                                    : ((averageVolumeDiff >= 0 ? '▲' : '▼') + Math.abs(averageVolumeDiff) + '건')}
-                            </p>
-                        </div>
-                        <div className={'min-w-0 border-x px-0.5 ' + dividerClass}>
-                            <p className={'whitespace-nowrap text-[9px] font-bold ' + mutedClass}>{calendarMode === 'money' ? '총 금액' : '총 배송량'}</p>
-                            <p className={'mt-0.5 whitespace-nowrap text-[12px] font-black ' + (calendarMode === 'money' ? 'text-blue-600 dark:text-blue-400' : 'text-emerald-600 dark:text-emerald-400')}>
-                                {calendarMode === 'money' ? formatSummaryWon(currentRevenue) : currentVolume.toLocaleString() + '건'}
-                            </p>
-                            <p className="mt-0.5 whitespace-nowrap text-[8px] font-bold text-emerald-600 dark:text-emerald-400">
-                                전월대비 {calendarMode === 'money'
-                                    ? ((incomeDiff >= 0 ? '▲' : '▼') + formatCompactManWon(Math.abs(incomeDiff)))
-                                    : ((volumeDiff >= 0 ? '▲' : '▼') + Math.abs(volumeDiff) + '건')}
-                            </p>
-                        </div>
-                        <div className="min-w-0 px-0.5">
-                            <p className={'whitespace-nowrap text-[9px] font-bold ' + mutedClass}>{calendarMode === 'money' ? '예상 총금액' : '예상 총배송량'}</p>
-                            <p className="mt-0.5 whitespace-nowrap text-[12px] font-black text-amber-600 dark:text-amber-400">
-                                {calendarMode === 'money' ? formatSummaryWon(expectedTotalIncome) : expectedTotalVolume.toLocaleString() + '건'}
-                            </p>
-                            <p className={'mt-0.5 whitespace-nowrap text-[8px] font-semibold ' + mutedClass}>남은 근무 {salaryRemainingWorkDays}일 반영</p>
-                        </div>
-                    </div>
-
-                </div>
             </section>
 
-            {/* 2026-11-13 이전 홈의 목표바 카드 외형을 복원합니다. */}
-            <div className={'p-2 sm:p-4 rounded-lg shadow-md ' + (dark ? 'bg-gray-800' : 'bg-white')}>
+            <section className={'overflow-hidden rounded-2xl border p-3 shadow-sm ' + panelClass}>
+                <div className="flex min-w-0 items-center justify-between gap-2">
+                    <h2 className={'whitespace-nowrap text-sm font-black sm:text-base ' + mutedClass}>이번 달 총 금액</h2>
+                    {previousWorkingDays > 0 ? (
+                        <span className={'inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[clamp(9px,2.8vw,12px)] font-black tabular-nums ' + (
+                            incomeDiff > 0
+                                ? 'bg-emerald-500/15 text-emerald-500'
+                                : incomeDiff < 0
+                                    ? 'bg-rose-500/15 text-rose-500'
+                                    : (dark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600')
+                        )}>
+                            {incomeDiff > 0 ? '▲' : incomeDiff < 0 ? '▼' : '－'}
+                            {formatLargeManWon(Math.abs(incomeDiff))}
+                        </span>
+                    ) : (
+                        <span className={'shrink-0 text-[10px] font-semibold ' + mutedClass}>전월 비교 데이터 없음</span>
+                    )}
+                </div>
+                <div className="mt-1 min-w-0">
+                    <div className="whitespace-nowrap text-[clamp(2rem,11.5vw,3.6rem)] font-black leading-none tracking-tight tabular-nums">
+                        {formatLargeManWon(currentRevenue)}
+                    </div>
+                </div>
                 <GoalProgressBar
                     current={monthlyProfit?.totalRevenue || 0}
                     goal={goal}
                     isDarkMode={dark}
                     revenueDistribution={monthlyProfit?.revenueDistribution}
                 />
+            </section>
+
+            <div className="grid grid-cols-2 gap-2">
+                <section className={'min-w-0 rounded-2xl border p-3 shadow-sm ' + panelClass}>
+                    <p className={'text-xs font-bold ' + mutedClass}>일 평균</p>
+                    <p className="mt-1 whitespace-nowrap text-[clamp(1.25rem,5.3vw,2rem)] font-black leading-tight tracking-tight tabular-nums">
+                        {formatLargeManWon(dailyAverageIncome)}
+                    </p>
+                    <p className={'mt-1.5 whitespace-nowrap text-[clamp(9px,2.7vw,12px)] font-bold ' + (
+                        previousWorkingDays <= 0
+                            ? mutedClass
+                            : averageIncomeDiff > 0
+                                ? 'text-emerald-500'
+                                : averageIncomeDiff < 0
+                                    ? 'text-rose-500'
+                                    : mutedClass
+                    )}>
+                        {previousWorkingDays > 0
+                            ? (averageIncomeDiff > 0 ? '▲ ' : averageIncomeDiff < 0 ? '▼ ' : '－ ') + formatLargeManWon(Math.abs(averageIncomeDiff)) + ' 전월 대비'
+                            : '전월 비교 없음'}
+                    </p>
+                </section>
+
+                <section className={'min-w-0 rounded-2xl border p-3 shadow-sm ' + panelClass}>
+                    <p className={'text-xs font-bold ' + mutedClass}>평균 물량</p>
+                    <p className="mt-1 whitespace-nowrap text-[clamp(1.25rem,5.3vw,2rem)] font-black leading-tight tracking-tight tabular-nums">
+                        {dailyAverageVolume.toLocaleString('ko-KR')}건
+                    </p>
+                    <p className={'mt-1.5 whitespace-nowrap text-[clamp(9px,2.7vw,12px)] font-bold ' + (
+                        previousWorkingDays <= 0
+                            ? mutedClass
+                            : averageVolumeDiff > 0
+                                ? 'text-emerald-500'
+                                : averageVolumeDiff < 0
+                                    ? 'text-rose-500'
+                                    : mutedClass
+                    )}>
+                        {previousWorkingDays > 0
+                            ? (averageVolumeDiff > 0 ? '▲ ' : averageVolumeDiff < 0 ? '▼ ' : '－ ') + Math.abs(averageVolumeDiff).toLocaleString('ko-KR') + '건 전월 대비'
+                            : '전월 비교 없음'}
+                    </p>
+                </section>
             </div>
 
-                    <div className="mt-2 flex items-center justify-between gap-2 px-1 text-[10px]">
-                        <span className={'min-w-0 truncate ' + mutedClass}>
-                            <strong className={dark ? 'text-slate-200' : 'text-slate-800'}>{selectedDate.slice(8)}일 ({WEEKDAYS[parseLocalDate(selectedDate).getDay()]})</strong>
-                            {' · 매출 ' + formatSummaryWon(selectedDayIncome) + ' · 물량 ' + selectedDayVolume.toLocaleString() + '건'}
-                            {selectedDayExpense > 0 ? ' · 지출 ' + formatCompactManWon(selectedDayExpense) : ''}
-                        </span>
+            <div className="flex min-w-0 items-center justify-between gap-1 px-1 py-1">
+                <div className="flex min-w-0 items-center gap-1 whitespace-nowrap text-[clamp(9px,2.8vw,12px)]">
+                    <button type="button" onClick={() => shiftSelectedDate(-1)} className={'rounded-md p-0.5 ' + mutedClass} aria-label="이전 날짜">
+                        <ChevronLeft size={15} />
+                    </button>
+                    <strong className="shrink-0 text-sm">{selectedDate.slice(8)}일 ({WEEKDAYS[parseLocalDate(selectedDate).getDay()]})</strong>
+                    <button type="button" onClick={() => shiftSelectedDate(1)} className={'rounded-md p-0.5 ' + mutedClass} aria-label="다음 날짜">
+                        <ChevronRight size={15} />
+                    </button>
+                    <span className={'min-w-0 truncate ' + mutedClass}>
+                        · 매출 {formatSummaryWon(selectedDayIncome)} · 물량 {selectedDayVolume.toLocaleString('ko-KR')}건
+                        {selectedDayExpense > 0 ? ' · 지출 ' + formatCompactManWon(selectedDayExpense) : ''}
+                    </span>
+                </div>
+                <button
+                    type="button"
+                    onClick={openCategoryBreakdown}
+                    className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[clamp(10px,3vw,13px)] font-black text-blue-600 dark:text-blue-400"
+                >내역 열기 <ArrowUpRight size={13} /></button>
+            </div>
+
+            <section className={'overflow-hidden rounded-2xl border p-3 shadow-sm ' + panelClass}>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-xs font-black sm:text-sm">주간 실적</span>
+                    <div className={'inline-flex shrink-0 whitespace-nowrap rounded-xl p-0.5 text-[10px] font-black ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
                         <button
                             type="button"
-                            onClick={openCategoryBreakdown}
-                            className="inline-flex shrink-0 items-center gap-1 font-black text-blue-600 dark:text-blue-400"
-                        ><Plus size={12} /> 내역 열기</button>
+                            onClick={() => onToggleCalendarMode?.('money')}
+                            className={'rounded-lg px-2 py-1 whitespace-nowrap ' + (calendarMode === 'money' ? 'bg-blue-600 text-white' : mutedClass)}
+                        >금액</button>
+                        <button
+                            type="button"
+                            onClick={() => onToggleCalendarMode?.('volume')}
+                            className={'rounded-lg px-2 py-1 whitespace-nowrap ' + (calendarMode === 'volume' ? 'bg-emerald-600 text-white' : mutedClass)}
+                        >물량</button>
                     </div>
+                </div>
+                <style>{'.daily-summary-chart-scroll::-webkit-scrollbar { display: none; }'}</style>
+                <div
+                    ref={chartScrollRef}
+                    onScroll={handleChartScroll}
+                    className={'daily-summary-chart-scroll overflow-x-auto overflow-y-hidden rounded-2xl border pt-2 pb-2 ' + (dark ? 'border-slate-800 bg-slate-800/40' : 'border-slate-100 bg-slate-50')}
+                    style={{
+                        scrollbarWidth: 'none',
+                        msOverflowStyle: 'none',
+                        WebkitOverflowScrolling: 'touch',
+                        overscrollBehaviorX: 'contain',
+                        touchAction: 'pan-x pan-y'
+                    }}
+                >
+                    {renderRecentChart(chartDays)}
+                </div>
+            </section>
 
             <section
                 className={'mt-2 overflow-hidden rounded-2xl border shadow-sm ' + panelClass}
