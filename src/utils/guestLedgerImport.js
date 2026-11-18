@@ -151,3 +151,45 @@ export function getGuestImportYearlyPeriodRange(yearValue, startDay, endDay) {
         endDate: toLocalDateKey(end)
     };
 }
+
+
+export function addGuestEntrySelection(currentIds, targetIds) {
+    const next = new Set((currentIds || []).map(String));
+    (targetIds || []).forEach((id) => next.add(String(id)));
+    return Array.from(next);
+}
+
+export function removeGuestEntrySelection(currentIds, targetIds) {
+    const next = new Set((currentIds || []).map(String));
+    (targetIds || []).forEach((id) => next.delete(String(id)));
+    return Array.from(next);
+}
+
+export function toggleGuestEntrySelection(currentIds, targetIds) {
+    const normalizedTargets = Array.from(new Set((targetIds || []).map(String)));
+    const current = new Set((currentIds || []).map(String));
+    const allSelected = normalizedTargets.length > 0 && normalizedTargets.every((id) => current.has(id));
+
+    normalizedTargets.forEach((id) => {
+        if (allSelected) current.delete(id);
+        else current.add(id);
+    });
+
+    return Array.from(current);
+}
+
+// Build the month cards used inside year mode. Cross-month settings follow
+// the configured settlement periods; same-month settings partition the
+// calendar year by actual calendar months so every date belongs to a card.
+export function getGuestImportYearMonthRange(yearValue, monthIndex, startDay, endDay) {
+    const year = Number(yearValue);
+    const month = Number(monthIndex);
+    if (Number(startDay) > Number(endDay)) {
+        return getGuestImportMonthlyPeriodRange(new Date(year, month, 1), startDay, endDay);
+    }
+
+    return {
+        startDate: toLocalDateKey(new Date(year, month, 1)),
+        endDate: toLocalDateKey(new Date(year, month + 1, 0))
+    };
+}

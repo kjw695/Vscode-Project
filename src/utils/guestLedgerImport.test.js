@@ -6,7 +6,11 @@ import {
     getGuestImportMonthlyPeriodRange,
     getGuestImportYearlyPeriodRange,
     getGuestEntryDateKey,
-    getGuestEntriesInRange
+    getGuestEntriesInRange,
+    addGuestEntrySelection,
+    removeGuestEntrySelection,
+    toggleGuestEntrySelection,
+    getGuestImportYearMonthRange
 } from './guestLedgerImport';
 
 describe('guest ledger import', () => {
@@ -157,5 +161,36 @@ describe('guest import entry date matching', () => {
 
         expect(getGuestEntriesInRange(entries, '2026-10-26', '2026-11-25').map((entry) => entry.id))
             .toEqual(['start', 'middle', 'end']);
+    });
+});
+
+
+describe('guest import selection helpers', () => {
+    test('toggles a fully selected date off and a partially selected date fully on', () => {
+        expect(toggleGuestEntrySelection(['a', 'b', 'outside'], ['a', 'b']))
+            .toEqual(['outside']);
+        expect(toggleGuestEntrySelection(['a', 'outside'], ['a', 'b']))
+            .toEqual(['a', 'outside', 'b']);
+    });
+
+    test('adds and clears one period without changing selections outside it', () => {
+        expect(addGuestEntrySelection(['outside'], ['a', 'b']))
+            .toEqual(['outside', 'a', 'b']);
+        expect(removeGuestEntrySelection(['outside', 'a', 'b'], ['a', 'b']))
+            .toEqual(['outside']);
+    });
+
+    test('year month cards cover full calendar months for same-month settings', () => {
+        expect(getGuestImportYearMonthRange(2026, 1, 1, 31)).toEqual({
+            startDate: '2026-02-01',
+            endDate: '2026-02-28'
+        });
+    });
+
+    test('year month cards follow configured settlement periods for cross-month settings', () => {
+        expect(getGuestImportYearMonthRange(2026, 0, 26, 25)).toEqual({
+            startDate: '2025-12-26',
+            endDate: '2026-01-25'
+        });
     });
 });
