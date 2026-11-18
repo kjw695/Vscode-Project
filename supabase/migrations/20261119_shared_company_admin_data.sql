@@ -473,6 +473,33 @@ FOR EACH ROW
 EXECUTE FUNCTION public.remove_organization_admin_on_profile_org_change();
 
 -- Include the current organization's role in the existing company-info RPC.
+-- Ownership election changes the owner, not a paid/assigned administrator seat.
+-- Remove both sides from the delegated-admin table so a successor owner is not charged a seat
+-- and the former owner does not accidentally retain operational admin rights.
+CREATE OR REPLACE FUNCTION public.sync_organization_admin_owner_change()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $function$
+BEGIN
+    IF OLD.owner_id IS DISTINCT FROM NEW.owner_id THEN
+        DELETE FROM public.organization_admins
+        WHERE organization_id = NEW.id
+          AND user_id IN (OLD.owner_id, NEW.owner_id);
+    END IF;
+    RETURN NEW;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.sync_organization_admin_owner_change() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS organizations_sync_admin_roles_on_owner_change ON public.organizations;
+CREATE TRIGGER organizations_sync_admin_roles_on_owner_change
+AFTER UPDATE OF owner_id ON public.organizations
+FOR EACH ROW
+EXECUTE FUNCTION public.sync_organization_admin_owner_change();
+
 CREATE OR REPLACE FUNCTION public.get_my_organization_info()
 RETURNS jsonb
 LANGUAGE plpgsql
