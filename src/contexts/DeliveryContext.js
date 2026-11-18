@@ -3,6 +3,7 @@ import { isDuplicateEntry } from '../utils/calculator';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from './AuthContext';
 import { getDeliveryEntriesStorageKey, readJsonStorage } from '../utils/accountDataStorage';
+import { buildGuestImportBatch, GUEST_ENTRIES_STORAGE_KEY, GUEST_ENTRIES_IMPORT_BACKUP_KEY } from '../utils/guestLedgerImport';
 
 const DeliveryContext = createContext();
 
@@ -347,6 +348,104 @@ export function DeliveryProvider({ children }) {
         }
     }, [isLoggedIn, user, sendToSupabase, syncToStorage]);
 
+    // 로그인 계정으로 게스트 장부를 선택 가져오기 합니다.
+    // 계정 로컬 저장소에 먼저 기록하고, 서버 전송 실패 시에도 미전송 대기열을 유지합니다.
+    const importGuestEntries = useCallback(async (selectedEntryIds) => {
+        if (!isLoggedIn || !user?.id) {
+            return { success: false, message: '로그인한 계정이 필요합니다.' };
+        }
+        if (!isDataLoaded || entriesOwnerId !== user.id || currentOwnerRef.current !== user.id) {
+            return { success: false, message: '현재 계정의 장부 로딩이 끝난 뒤 다시 시도해주세요.' };
+        }
+
+        try {
+            const guestEntries = readJsonStorage(GUEST_ENTRIES_STORAGE_KEY, []);
+            const accountKey = getDeliveryEntriesStorageKey(user.id);
+            const accountEntries = readJsonStorage(accountKey, []);
+            const backupEntries = readJsonStorage(GUEST_ENTRIES_IMPORT_BACKUP_KEY, []);
+            const safeGuestEntries = Array.isArray(guestEntries) ? guestEntries : [];
+            const safeAccountEntries = Array.isArray(accountEntries) ? accountEntries : [];
+            const safeBackupEntries = Array.isArray(backupEntries) ? backupEntries : [];
+            const alreadyArchivedIds = new Set(
+                safeBackupEntries
+                    .filter((entry) => entry?.importedAccountId)
+                    .map((entry) => String(entry.sourceId))
+            );
+            const availableGuestEntries = safeGuestEntries.filter((entry) =>
+                !alreadyArchivedIds.has(String(entry?.id))
+            );
+
+            const batch = buildGuestImportBatch({
+                guestEntries: availableGuestEntries,
+                accountEntries: safeAccountEntries,
+                userId: user.id,
+                selectedEntryIds
+            });
+
+            if (batch.selectedSourceEntries.length === 0) {
+                return { success: false, message: '선택한 게스트 장부를 찾을 수 없습니다. 목록을 새로고침해주세요.' };
+            }
+
+            const importedAt = new Date().toISOString();
+            const nextAccountEntries = [
+                ...safeAccountEntries,
+                ...batch.importedEntries
+            ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            // 가장 중요한 계정별 원본을 먼저 기록합니다. 이 저장이 실패하면 게스트 원본은 건드리지 않습니다.
+            localStorage.setItem(accountKey, JSON.stringify(nextAccountEntries));
+
+            const importedBySourceId = new Map(
+                batch.importedEntries.map((entry) => [String(entry.guestSourceId), entry])
+            );
+            const existingBySourceId = new Map(
+                safeAccountEntries
+                    .filter((entry) => entry?.guestSourceAccountId === user.id && entry?.guestSourceId != null)
+                    .map((entry) => [String(entry.guestSourceId), entry])
+            );
+            const sourceIds = new Set(batch.selectedSourceEntries.map((entry) => String(entry.id)));
+            const archiveRows = batch.selectedSourceEntries.map((source) => ({
+                ...source,
+                sourceId: String(source.id),
+                importedAccountId: user.id,
+                importedAt,
+                importedEntryId: importedBySourceId.get(String(source.id))?.id ||
+                    existingBySourceId.get(String(source.id))?.id || null
+            }));
+
+            // 백업 기록이 성공한 뒤에만 게스트 활성 목록에서 선택한 원본을 제외합니다.
+            const nextBackupEntries = [
+                ...safeBackupEntries.filter((entry) => !sourceIds.has(String(entry?.sourceId))),
+                ...archiveRows
+            ];
+            localStorage.setItem(GUEST_ENTRIES_IMPORT_BACKUP_KEY, JSON.stringify(nextBackupEntries));
+
+            const remainingGuestEntries = safeGuestEntries.filter((entry) =>
+                !sourceIds.has(String(entry?.id))
+            );
+            localStorage.setItem(GUEST_ENTRIES_STORAGE_KEY, JSON.stringify(remainingGuestEntries));
+
+            syncToStorage(nextAccountEntries, user.id);
+            setEntries(nextAccountEntries);
+
+            // 기존 saveEntry처럼 서버 전송을 시도합니다. 실패한 건은 isSynced:false로 남습니다.
+            await Promise.all(batch.importedEntries.map((entry) => sendToSupabase(entry)));
+
+            return {
+                success: true,
+                importedCount: batch.importedEntries.length,
+                skippedCount: batch.skippedCount,
+                pendingCount: batch.importedEntries.length
+            };
+        } catch (error) {
+            console.error('[GuestImport] 게스트 장부 가져오기 실패:', error);
+            return {
+                success: false,
+                message: error?.message || '저장 중 오류가 발생했습니다. 게스트 원본은 유지됩니다.'
+            };
+        }
+    }, [isLoggedIn, user, isDataLoaded, entriesOwnerId, syncToStorage, sendToSupabase]);
+
    // ✨ [동기화 버튼용] 쌓여있는 미전송 데이터를 한 번에 서버로 올리는 함수 (ID 충돌 해결버전)
     const syncPendingData = useCallback(async () => {
         if (!isLoggedIn || !user) return { success: false, message: '로그인이 필요합니다.' };
@@ -522,10 +621,10 @@ export function DeliveryProvider({ children }) {
     }, [isKoreanSystem, visibleEntries]);
 
     const memoizedValue = useMemo(() => ({
-        entries: visibleEntries, saveEntry, deleteEntry, clearAllEntries, importStrictly, getExportData,
+        entries: visibleEntries, saveEntry, deleteEntry, clearAllEntries, importStrictly, importGuestEntries, getExportData,
         isLoading: isLoading || !isCurrentOwnerLoaded, isDataLoaded: visibleIsDataLoaded,
         syncPendingData, pendingSyncCount // ✨ 미전송 처리용 신규 무기 장착
-    }), [visibleEntries, saveEntry, deleteEntry, clearAllEntries, importStrictly, getExportData, isLoading, isCurrentOwnerLoaded, visibleIsDataLoaded, syncPendingData, pendingSyncCount]); 
+    }), [visibleEntries, saveEntry, deleteEntry, clearAllEntries, importStrictly, importGuestEntries, getExportData, isLoading, isCurrentOwnerLoaded, visibleIsDataLoaded, syncPendingData, pendingSyncCount]); 
 
     return (
         <DeliveryContext.Provider value={memoizedValue}>
