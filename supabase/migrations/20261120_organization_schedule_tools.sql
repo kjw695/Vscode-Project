@@ -73,6 +73,7 @@ BEGIN
 END;
 $function$;
 DROP TRIGGER IF EXISTS organization_weekly_schedule_history_capture ON public.organization_weekly_schedules;
+REVOKE ALL ON FUNCTION public.capture_organization_weekly_schedule_history() FROM PUBLIC, anon, authenticated;
 CREATE TRIGGER organization_weekly_schedule_history_capture
 AFTER INSERT OR UPDATE ON public.organization_weekly_schedules
 FOR EACH ROW EXECUTE FUNCTION public.capture_organization_weekly_schedule_history();
