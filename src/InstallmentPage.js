@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ChevronLeft, Calendar, CreditCard, Tag, FileText, ChevronRight, ChevronUp, ChevronDown, CheckSquare } from 'lucide-react';
 
 
@@ -158,7 +158,7 @@ const [memo, setMemo] = useState('');
     const [selectedDays, setSelectedDays] = useState([]); // [0(일), 1(월), ..., 6(토)]
 
     // ✨ 날짜 계산 로직 업그레이드 (n개월 동안 해당 요일이 몇 번 있는지 색출!)
-    const calculateDates = (startStr, durationMonths) => {
+    const calculateDates = useCallback((startStr, durationMonths) => {
         const dates = [];
         const start = new Date(startStr);
 
@@ -192,12 +192,12 @@ const [memo, setMemo] = useState('');
             }
         }
         return dates;
-    };
+    }, [isCustomDays, selectedDays]);
 
     const previewDates = useMemo(() => {
         if (!startDate || Number(months) < 1) return [];
         return calculateDates(startDate, Number(months));
-    }, [startDate, months, isCustomDays, selectedDays]);
+    }, [startDate, months, calculateDates]);
 
     const totalAmount = useMemo(() => {
         if (isCustomDays) return (Number(monthlyAmount) || 0) * previewDates.length;
