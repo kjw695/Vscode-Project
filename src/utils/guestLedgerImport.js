@@ -92,6 +92,33 @@ const toLocalDateKey = (date) => {
     return `${year}-${month}-${day}`;
 };
 
+// Normalize date-only values and ISO timestamps to the same calendar key.
+// Legacy local rows can contain a time suffix or a dotted date representation.
+export function getGuestEntryDateKey(value) {
+    if (value instanceof Date) {
+        return Number.isNaN(value.getTime()) ? '' : toLocalDateKey(value);
+    }
+
+    const raw = String(value ?? '').trim();
+    if (!raw) return '';
+
+    const match = raw.match(/^(\d{4})[-/.]\s*(\d{1,2})[-/.]\s*(\d{1,2})/);
+    if (match) {
+        const [, year, month, day] = match;
+        return `${year}-${String(Number(month)).padStart(2, '0')}-${String(Number(day)).padStart(2, '0')}`;
+    }
+
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? '' : toLocalDateKey(parsed);
+}
+
+export function getGuestEntriesInRange(entries, startDate, endDate) {
+    return (Array.isArray(entries) ? entries : []).filter((entry) => {
+        const dateKey = getGuestEntryDateKey(entry?.date);
+        return dateKey && dateKey >= startDate && dateKey <= endDate;
+    });
+}
+
 // Match the application's Settings > Aggregation Period calendar exactly.
 // When startDay is later than endDay, the settlement period crosses months.
 export function getGuestImportMonthlyPeriodRange(calendarDate, startDay, endDay) {
