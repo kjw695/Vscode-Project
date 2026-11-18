@@ -40,6 +40,9 @@ jobs:
       - name: Verify administrator backup and restore migration safeguards
         run: node scripts/verify-admin-backup-migration.js
 
+      - name: Verify weekly schedule tools migration safeguards
+        run: node scripts/verify-schedule-tools-migration.js
+
       - name: Run account isolation tests
         env:
           CI: 'true'
