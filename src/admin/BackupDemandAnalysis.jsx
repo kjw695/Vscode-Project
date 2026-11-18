@@ -55,21 +55,6 @@ function formatDays(value) {
     return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
-function getDefaultBackupPattern(backups) {
-    if (!backups.length) return '주 5일';
-
-    const counts = new Map();
-    backups.forEach((employee) => {
-        const pattern = normalizePattern(employee.pattern || employee.work_pattern || '주 5일');
-        counts.set(pattern, (counts.get(pattern) || 0) + 1);
-    });
-
-    return Array.from(counts.entries()).sort((a, b) => {
-        if (b[1] !== a[1]) return b[1] - a[1];
-        return getAverageWorkDays(a[0]) - getAverageWorkDays(b[0]);
-    })[0][0];
-}
-
 function getRouteNames(employee, routes, teamId) {
     const assigned = routes.filter((route) =>
         String(route.team_id) === String(teamId) &&
@@ -231,20 +216,9 @@ export default function BackupDemandAnalysis({ onBack }) {
         }),
     [employeeRows, patternOverrides]);
 
-    // 노선 개수 표시는 유지하되, 휴무 보충 일수 계산에는 중복 적용하지 않습니다.
-    const fixedRouteCount = useMemo(() => employeeRows
-        .filter((employee) => employee.isCounted)
-        .reduce((count, employee) => count + employee.routeNames.length, 0),
-    [employeeRows]);
-
     const currentBackups = useMemo(() => teamEmployees
         .filter((employee) => getEmployeeType(employee) === 'sub'),
     [teamEmployees]);
-
-    const backupPattern = useMemo(
-        () => getDefaultBackupPattern(currentBackups),
-        [currentBackups]
-    );
 
     // 단 한 주의 환산 수요만 계산합니다. 격주 근무는 실제 근무일 환산값에 0.5를 더합니다.
     const fixedOffDays = useMemo(() => fixedEmployeeRows.reduce(
