@@ -2,35 +2,47 @@ const fs = require('fs');
 const path = require('path');
 
 const read = (file) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
-const sql = read('supabase/migrations/20261120_organization_schedule_tools.sql').replace(/\\s+/g, ' ').toLowerCase();
+const sql = read('supabase/migrations/20261120_organization_schedule_tools.sql').toLowerCase();
 const calendar = read('src/admin/Calendar.jsx');
 const service = read('src/services/organizationScheduleService.js');
 
+const getFunction = (name) => {
+    const start = sql.indexOf('create or replace function public.' + name);
+    if (start < 0) return '';
+    const end = sql.indexOf('$function$;', start);
+    return end < 0 ? sql.slice(start) : sql.slice(start, end);
+};
+const saveFn = getFunction('save_my_organization_weekly_schedule_v2');
+const historyListFn = getFunction('list_my_organization_weekly_schedule_history');
+const restoreFn = getFunction('restore_my_organization_weekly_schedule_history');
+const templateSaveFn = getFunction('save_my_organization_schedule_template');
+const templateListFn = getFunction('list_my_organization_schedule_templates');
+const templateDeleteFn = getFunction('delete_my_organization_schedule_template');
+
 const checks = [
-  ['schedule history table is company scoped', /create table if not exists public\\.organization_weekly_schedule_history[\\s\\S]*?organization_id uuid not null references public\\.organizations\\(id\\)/.test(sql)],
-  ['schedule history snapshots include version and full schedule data', /version integer not null check\\(version>0\\)[\\s\\S]*?schedule jsonb not null[\\s\\S]*?employee_details jsonb not null[\\s\\S]*?warnings jsonb not null/.test(sql)],
-  ['schedule history table is protected by RLS and revoked direct access', /alter table public\\.organization_weekly_schedule_history enable row level security/.test(sql) && /revoke all privileges on table public\\.organization_weekly_schedule_history from public,anon,authenticated/.test(sql)],
-  ['all schedule inserts and updates are captured', /create trigger organization_weekly_schedule_history_capture after insert or update on public\\.organization_weekly_schedules/.test(sql)],
-  ['schedule history retention is 100 versions', /order by x\\.created_at desc,x\\.id desc limit 100/.test(sql)],
-  ['versioned save uses transaction advisory lock', /save_my_organization_weekly_schedule_v2[\\s\\S]*?pg_advisory_xact_lock/.test(sql)],
-  ['versioned save compares the expected version', /v_row\\.version<>p_expected_version/.test(sql)],
-  ['versioned save is owner checked', /save_my_organization_weekly_schedule_v2[\\s\\S]*?o\\.owner_id=v_user/.test(sql)],
-  ['history reads are owner checked and organization scoped', /list_my_organization_weekly_schedule_history[\\s\\S]*?o\\.owner_id=v_user[\\s\\S]*?h\\.organization_id=v_org/.test(sql)],
-  ['history restore checks version and writes a new version', /restore_my_organization_weekly_schedule_history[\\s\\S]*?v_now\\.version<>p_expected_version[\\s\\S]*?version=version\+1/.test(sql)],
-  ['template storage is company/team scoped and unique', /unique\\(organization_id,team_id,template_name\\)/.test(sql)],
-  ['template CRUD RPCs verify representative ownership', /save_my_organization_schedule_template[\\s\\S]*?o\\.owner_id=v_user[\\s\\S]*?list_my_organization_schedule_templates[\\s\\S]*?o\\.owner_id=v_user[\\s\\S]*?delete_my_organization_schedule_template[\\s\\S]*?o\\.owner_id=v_user/.test(sql)],
-  ['RPC execute is granted to authenticated but revoked from public and anon', /revoke all on function public\\.restore_my_organization_weekly_schedule_history\\(uuid,integer\\) from public,anon/.test(sql) && /grant execute on function public\\.restore_my_organization_weekly_schedule_history\\(uuid,integer\\) to authenticated/.test(sql)],
-  ['previous-week copy is a client action', calendar.includes('handleCopyPreviousWeek') && calendar.includes('지난주 근무표를 이번 주 초안으로 복사했습니다.')],
-  ['template and history tools are mounted', calendar.includes('<ScheduleToolsPanel') && calendar.includes('handleApplyScheduleTemplate') && calendar.includes('handleRestoreScheduleHistory')],
-  ['drafts use shared versioned save and do not auto-confirm', calendar.includes("status: 'draft', schedule: generatedSchedule") && calendar.includes('expectedVersion: expectedVersion') && calendar.includes("setScheduleStatus('saved')")],
-  ['service uses v2 optimistic save and exposes history/template RPCs', service.includes('save_my_organization_weekly_schedule_v2') && service.includes('restore_my_organization_weekly_schedule_history') && service.includes('save_my_organization_schedule_template')]
+    ['history table is company-scoped', sql.includes('create table if not exists public.organization_weekly_schedule_history') && sql.includes('organization_id uuid not null references public.organizations(id)')],
+    ['history stores version, schedule, employee details and warnings', sql.includes('version integer not null check(version>0)') && sql.includes('schedule jsonb not null') && sql.includes('employee_details jsonb not null') && sql.includes('warnings jsonb not null')],
+    ['history table is RLS-protected with direct access revoked', sql.includes('alter table public.organization_weekly_schedule_history enable row level security') && sql.includes('revoke all privileges on table public.organization_weekly_schedule_history from public,anon,authenticated')],
+    ['schedule insert and update trigger captures every saved version', sql.includes('after insert or update on public.organization_weekly_schedules') && sql.includes('execute function public.capture_organization_weekly_schedule_history()')],
+    ['history retention is capped at 100 versions per schedule', sql.includes('order by x.created_at desc,x.id desc limit 100')],
+    ['versioned save serializes updates and checks expected version', saveFn.includes('pg_advisory_xact_lock') && saveFn.includes('v_row.version<>p_expected_version')],
+    ['versioned save verifies the representative account', saveFn.includes('o.owner_id=v_user')],
+    ['history listing is company-scoped and representative-only', historyListFn.includes('o.owner_id=v_user') && historyListFn.includes('h.organization_id=v_org')],
+    ['history restore checks current version and increments it', restoreFn.includes('v_now.version<>p_expected_version') && restoreFn.includes('version=version+1')],
+    ['templates are unique per company, team and name', sql.includes('unique(organization_id,team_id,template_name)')],
+    ['template save, list and delete all verify ownership', templateSaveFn.includes('o.owner_id=v_user') && templateListFn.includes('o.owner_id=v_user') && templateDeleteFn.includes('o.owner_id=v_user')],
+    ['restore RPC execute is limited to authenticated users', sql.includes('revoke all on function public.restore_my_organization_weekly_schedule_history(uuid,integer) from public,anon') && sql.includes('grant execute on function public.restore_my_organization_weekly_schedule_history(uuid,integer) to authenticated')],
+    ['previous-week copy generates a draft only', calendar.includes('handleCopyPreviousWeek') && calendar.includes('setScheduleStatus(\'generated\')') && calendar.includes('아직 저장·확정되지 않았습니다.')],
+    ['template and history UI is mounted', calendar.includes('<ScheduleToolsPanel') && calendar.includes('handleApplyScheduleTemplate') && calendar.includes('handleRestoreScheduleHistory')],
+    ['organization drafts are stored through versioned save', calendar.includes('saveMyOrganizationWeeklySchedule({') && calendar.includes('expectedVersion: expectedVersion') && calendar.includes('employeeDetails: draftEmployeeDetails')],
+    ['service calls the v2 save RPC and exposes history/template actions', service.includes('save_my_organization_weekly_schedule_v2') && service.includes('restore_my_organization_weekly_schedule_history') && service.includes('save_my_organization_schedule_template')]
 ];
 
-const failed = checks.filter(([, passed]) => !passed);
-checks.forEach(([label, passed]) => process.stdout.write(`${passed ? 'PASS' : 'FAIL'} ${label}\\n`));
-if (failed.length) {
-  process.stderr.write(`\\n${failed.length} schedule-tools verification check(s) failed.\\n`);
-  process.exitCode = 1;
+const failures = checks.filter(([, passed]) => !passed);
+checks.forEach(([label, passed]) => process.stdout.write((passed ? 'PASS ' : 'FAIL ') + label + '\n'));
+if (failures.length) {
+    process.stderr.write('\n' + failures.length + ' schedule-tools checks failed.\n');
+    process.exitCode = 1;
 } else {
-  process.stdout.write(`\\nAll ${checks.length} schedule-tools verification checks passed.\\n`);
+    process.stdout.write('\nAll ' + checks.length + ' schedule-tools checks passed.\n');
 }
