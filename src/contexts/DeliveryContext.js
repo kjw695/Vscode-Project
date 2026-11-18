@@ -6,6 +6,11 @@ import { getDeliveryEntriesStorageKey, readJsonStorage } from '../utils/accountD
 
 const DeliveryContext = createContext();
 
+const syncToStorage = (data, ownerId) => {
+    const sorted = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
+    localStorage.setItem(getDeliveryEntriesStorageKey(ownerId), JSON.stringify(sorted));
+};
+
 // Only delete standalone, zero-value personal day-off records.
 // Mixed entries containing other custom items or earnings are preserved.
 const isStandaloneDayOffEntry = (entry) => {
@@ -66,11 +71,6 @@ export function DeliveryProvider({ children }) {
         const zNums = data.filter(e => typeof e.id === 'string' && e.id.startsWith('z')).map(e => parseInt(e.id.split('_')[0].slice(1)) || 0);
         lastSRef.current = sNums.length > 0 ? Math.max(...sNums) : 0;
         lastZRef.current = zNums.length > 0 ? Math.max(...zNums) : 0;
-    };
-
-    const syncToStorage = (data, ownerId = currentOwnerRef.current) => {
-        const sorted = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
-        localStorage.setItem(getDeliveryEntriesStorageKey(ownerId), JSON.stringify(sorted));
     };
 
     // ✨ 데이터 로드 (로컬 + DB 혼합)
@@ -230,7 +230,7 @@ export function DeliveryProvider({ children }) {
     }, [isLoggedIn, user]);
 
    // ✨ 서버로 조용히 데이터를 쏴주는 백그라운드 함수 (ID 충돌 해결버전)
-    const sendToSupabase = async (entry) => {
+    const sendToSupabase = useCallback(async (entry) => {
         if (!isLoggedIn || !user || entry.ownerId !== user.id || currentOwnerRef.current !== user.id) return;
         try {
             const payload = {
@@ -277,7 +277,7 @@ export function DeliveryProvider({ children }) {
         } catch (e) {
             console.warn("오프라인 상태: 서버 전송 대기열에 남겨둡니다.", e);
         }
-    };
+    }, [isLoggedIn, user]);
 
     // ✨ [오프라인 우선 저장소] saveEntry
 // ✨ [오프라인 우선 저장소] saveEntry
@@ -345,7 +345,7 @@ export function DeliveryProvider({ children }) {
             if (error.message !== "SAVE_CANCELLED") alert(error.message);
             throw error; 
         }
-    }, [isLoggedIn, user]);
+    }, [isLoggedIn, user, sendToSupabase]);
 
    // ✨ [동기화 버튼용] 쌓여있는 미전송 데이터를 한 번에 서버로 올리는 함수 (ID 충돌 해결버전)
     const syncPendingData = useCallback(async () => {
@@ -411,7 +411,6 @@ export function DeliveryProvider({ children }) {
         setIsLoading(true);
         try {
             if (isLoggedIn && user) {
-                let addedCount = 0;
                 let skippedCount = 0;
 
                 const validRows = incomingData.filter(row => {
@@ -467,16 +466,6 @@ export function DeliveryProvider({ children }) {
         } finally { setIsLoading(false); }
     }, [isLoggedIn, user, entries]);
 
-    const getExportData = () => {
-        const lang = isKoreanSystem ? 'ko' : 'en';
-        return visibleEntries.map(({ id, isSynced, ...rest }) => {
-            const exportedRow = {};
-            exportedRow[fieldMapping['date']?.[lang] || 'Date'] = rest.date;
-            exportedRow[fieldMapping['type']?.[lang] || 'Type'] = rest.type === 'income' ? (lang === 'ko' ? '수익' : 'income') : (lang === 'ko' ? '지출' : 'expense');
-            return exportedRow;
-        });
-    };
-
     const deleteEntry = useCallback(async (id) => {
         setIsLoading(true);
         try {
@@ -518,9 +507,19 @@ export function DeliveryProvider({ children }) {
     // ✨ 화면(App.js)에 미전송 건수와 동기화 함수를 전달!
     const activeOwnerId = isLoggedIn && user?.id ? user.id : null;
     const isCurrentOwnerLoaded = !isAuthLoading && entriesOwnerId === activeOwnerId;
-    const visibleEntries = isCurrentOwnerLoaded ? entries : [];
+    const visibleEntries = useMemo(() => isCurrentOwnerLoaded ? entries : [], [isCurrentOwnerLoaded, entries]);
     const visibleIsDataLoaded = isCurrentOwnerLoaded && isDataLoaded;
     const pendingSyncCount = visibleEntries.filter(e => e.isSynced === false && e.ownerId === activeOwnerId).length;
+
+    const getExportData = useCallback(() => {
+        const lang = isKoreanSystem ? 'ko' : 'en';
+        return visibleEntries.map(({ id, isSynced, ...rest }) => {
+            const exportedRow = {};
+            exportedRow[fieldMapping['date']?.[lang] || 'Date'] = rest.date;
+            exportedRow[fieldMapping['type']?.[lang] || 'Type'] = rest.type === 'income' ? (lang === 'ko' ? '수익' : 'income') : (lang === 'ko' ? '지출' : 'expense');
+            return exportedRow;
+        });
+    }, [isKoreanSystem, visibleEntries]);
 
     const memoizedValue = useMemo(() => ({
         entries: visibleEntries, saveEntry, deleteEntry, clearAllEntries, importStrictly, getExportData,
