@@ -20,44 +20,51 @@ export function AuthProvider({ children }) {
     const [isAuthLoading, setIsAuthLoading] = useState(true); // 최초 로그인 상태 확인 중인지
     const [profile, setProfile] = useState(null);     // profiles 테이블의 추가 정보 (조직, 역할 등)
 
-    // 최초 로드 시 현재 세션 확인 + 이후 로그인/로그아웃 변화 감지
+    // 최초 세션 확인과 인증 이벤트를 함께 처리합니다.
     useEffect(() => {
         let isMounted = true;
+        let authStateVersion = 0;
 
-        // 세션 조회에 일시적인 오류가 발생하면 게스트 상태로 간주하지 않습니다.
-        // 성공적으로 session:null이 확인된 경우에만 로그아웃/게스트 상태로 전환합니다.
-        const resolveSession = async () => {
-            try {
-                const { data, error } = await supabase.auth.getSession();
-                if (error) throw error;
-                if (!isMounted) return;
-                setUser(data?.session?.user ?? null);
-                setIsAuthLoading(false);
-            } catch (error) {
-                console.warn('[Auth] 세션 확인 실패. 기존 인증 상태를 유지하고 재연결을 기다립니다:', error);
-                // isAuthLoading을 유지해 인증 여부가 불명확한 상태에서 게스트 저장소를 열지 않습니다.
-            }
-        };
-
-        resolveSession();
-
-        // 로그인/로그아웃/토큰갱신 등 상태 변화를 실시간으로 감지합니다.
+        // 인증 이벤트를 먼저 구독합니다. 로그인/로그아웃 이벤트가 getSession보다
+        // 늦게 도착한 오래된 결과에 의해 덮어써지는 경쟁 조건을 막습니다.
         const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
             if (!isMounted) return;
+
             if (session?.user) {
+                authStateVersion += 1;
                 setUser(session.user);
                 setIsAuthLoading(false);
                 return;
             }
-            // null 세션은 명시적 로그아웃 또는 최초 세션 확인일 때만 반영합니다.
-            // 일시적인 TOKEN_REFRESHED 등의 빈 이벤트는 기존 계정을 게스트로 바꾸지 않습니다.
+
+            // 명시적 로그아웃 또는 최초 세션 확인 결과만 게스트 상태로 반영합니다.
+            // 일시적인 토큰 갱신/네트워크 오류는 계정 상태를 초기화하지 않습니다.
             if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
+                authStateVersion += 1;
                 setUser(null);
                 setIsAuthLoading(false);
             }
         });
 
-        // 엘리베이터/지하 등에서 네트워크가 복구되면 세션 확인을 다시 시도합니다.
+        const resolveSession = async () => {
+            const requestedVersion = authStateVersion;
+            try {
+                const { data, error } = await supabase.auth.getSession();
+                if (error) throw error;
+                if (!isMounted || authStateVersion !== requestedVersion) return;
+                setUser(data?.session?.user ?? null);
+                setIsAuthLoading(false);
+            } catch (error) {
+                if (!isMounted || authStateVersion !== requestedVersion) return;
+                console.warn('[Auth] 세션 확인 실패. 기존 인증 상태를 유지하고 재연결을 기다립니다:', error);
+                // 인증 상태가 불명확할 때 게스트 저장소를 열지 않습니다.
+                // 네트워크 복구 시 online 이벤트에서 다시 확인합니다.
+            }
+        };
+
+        // 구독을 먼저 연결한 뒤 초기 세션을 읽어 오래된 null 응답의 덮어쓰기를 방지합니다.
+        resolveSession();
+
         const handleOnline = () => { resolveSession(); };
         window.addEventListener('online', handleOnline);
 
@@ -154,12 +161,12 @@ setupDeepLink().catch((error) => {
 });
 
 
-       return () => {
-    isMounted = false;
-    listener?.subscription?.unsubscribe();
-    window.removeEventListener('online', handleOnline);
-    appUrlListener?.remove();
-};
+        return () => {
+            isMounted = false;
+            listener?.subscription?.unsubscribe();
+            window.removeEventListener('online', handleOnline);
+            appUrlListener?.remove();
+        };
     }, []);
 
     // 로그인한 사용자의 profiles 정보를 별도로 불러옵니다 (조직 소속, 관리자 여부 등)
