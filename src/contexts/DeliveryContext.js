@@ -11,6 +11,12 @@ const syncToStorage = (data, ownerId) => {
     localStorage.setItem(getDeliveryEntriesStorageKey(ownerId), JSON.stringify(sorted));
 };
 
+const fieldMapping = {
+    date: { ko: '날짜', en: 'Date' },
+    type: { ko: '구분', en: 'Type' },
+    timestamp: { ko: '기록시간', en: 'Timestamp' }
+};
+
 // Only delete standalone, zero-value personal day-off records.
 // Mixed entries containing other custom items or earnings are preserved.
 const isStandaloneDayOffEntry = (entry) => {
@@ -59,12 +65,6 @@ export function DeliveryProvider({ children }) {
     const lastSaveTimeRef = useRef(0); 
 
     const isKoreanSystem = navigator.language?.startsWith('ko');
-
-    const fieldMapping = {
-        date: { ko: '날짜', en: 'Date' },
-        type: { ko: '구분', en: 'Type' }, 
-        timestamp: { ko: '기록시간', en: 'Timestamp' }
-    };
 
     const updateLastIdRefs = (data) => {
         const sNums = data.filter(e => typeof e.id === 'string' && e.id.startsWith('s')).map(e => parseInt(e.id.split('_')[0].slice(1)) || 0);
