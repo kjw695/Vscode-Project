@@ -28,11 +28,13 @@ import { useAdminData } from './contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
     fetchMyOrganizationWeeklySchedules,
-    saveMyOrganizationWeeklySchedule
+    saveMyOrganizationWeeklySchedule,
+    restoreMyOrganizationWeeklyScheduleHistory
 } from '../services/organizationScheduleService';
 import { fetchMyVendorInfo } from '../services/teamService';
 import RegionTeamDropdown from './RegionTeamDropdown';
 import ExtraDayOffRequestsPanel from './ExtraDayOffRequestsPanel';
+import ScheduleToolsPanel from './ScheduleToolsPanel';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const MONTH_WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'];
@@ -222,6 +224,7 @@ export default function Calendar({ onBack }) {
     const [warnings, setWarnings] = useState([]);
     const [savedRecord, setSavedRecord] = useState(null);
     const [warningsAcknowledged, setWarningsAcknowledged] = useState(false);
+    const [showScheduleTools, setShowScheduleTools] = useState(false);
     const [isScheduleSectionCollapsed, setIsScheduleSectionCollapsed] = useState(function () {
         try {
             const saved = localStorage.getItem('admin_schedule_section_collapsed');
@@ -569,6 +572,122 @@ export default function Calendar({ onBack }) {
         setScheduleStatus('ready');
     };
 
+
+    const rebaseScheduleToWeek = function (sourceSchedule, sourceWeekStart, targetWeekStart) {
+        const sourceStart = new Date(String(sourceWeekStart) + 'T00:00:00');
+        const targetStart = new Date(String(targetWeekStart) + 'T00:00:00');
+        const rebased = {};
+        Object.entries(sourceSchedule || {}).forEach(function ([dateKey, dayRecord]) {
+            const parsed = new Date(String(dateKey) + 'T00:00:00');
+            if (Number.isNaN(parsed.getTime())) return;
+            const offset = Math.round((parsed.getTime() - sourceStart.getTime()) / 86400000);
+            if (offset < 0 || offset > 6) return;
+            const nextDate = new Date(targetStart);
+            nextDate.setDate(targetStart.getDate() + offset);
+            const nextKey = formatDate(nextDate);
+            rebased[nextKey] = Object.assign({}, dayRecord, { date: nextKey });
+        });
+        return rebased;
+    };
+
+    const handleCopyPreviousWeek = async function () {
+        if (!selectedTeam) { window.alert('먼저 팀을 선택해주세요.'); return; }
+        if (scheduleStatus === 'confirmed' &&
+            !window.confirm('현재 확정 근무표를 지난주 일정으로 바꾸는 초안을 만듭니다. 직원 앱 일정은 다시 확정하기 전까지 유지됩니다. 계속할까요?')) return;
+
+        const previousStart = new Date(weekDates[0]);
+        previousStart.setDate(previousStart.getDate() - 7);
+        const previousEnd = new Date(previousStart);
+        previousEnd.setDate(previousEnd.getDate() + 6);
+        const from = formatDate(previousStart);
+        const to = formatDate(previousEnd);
+        let sourceSchedule = null;
+        let sourceWarnings = [];
+
+        if (organizationId && user?.id) {
+            try {
+                const rows = await fetchMyOrganizationWeeklySchedules(from, to);
+                const row = rows.find(item => String(item.team_id) === String(selectedTeam) && String(item.week_start) === from);
+                sourceSchedule = row?.schedule || null;
+                sourceWarnings = row?.warnings || [];
+            } catch (error) {
+                console.warn('지난주 공용 근무표 조회 실패:', error);
+            }
+        }
+        if (!sourceSchedule) {
+            try {
+                const raw = localStorage.getItem('my_schedule_' + String(selectedTeam) + '_' + from);
+                const localRecord = raw ? JSON.parse(raw) : null;
+                sourceSchedule = localRecord?.schedule || null;
+                sourceWarnings = localRecord?.warnings || [];
+            } catch (error) {
+                console.warn('지난주 근무표 로컬 사본 읽기 실패:', error);
+            }
+        }
+        if (!sourceSchedule || !Object.keys(sourceSchedule).length) {
+            window.alert('같은 팀의 지난주 근무표를 찾지 못했습니다.'); return;
+        }
+        const copied = rebaseScheduleToWeek(sourceSchedule, from, weekStartKey);
+        if (!Object.keys(copied).length) {
+            window.alert('지난주 근무표의 날짜 형식을 확인할 수 없습니다.'); return;
+        }
+        const copiedWarnings = (Array.isArray(sourceWarnings) ? sourceWarnings : []).map(warning =>
+            String(warning).replace(/\\d{4}-\\d{2}-\\d{2}/g, dateKey => {
+                const date = new Date(dateKey + 'T00:00:00');
+                if (Number.isNaN(date.getTime())) return dateKey;
+                date.setDate(date.getDate() + 7);
+                return formatDate(date);
+            })
+        );
+        setGeneratedSchedule(copied);
+        setWarnings(copiedWarnings);
+        setWarningsAcknowledged(false);
+        setScheduleStatus('generated');
+        window.alert('지난주 근무표를 이번 주 초안으로 복사했습니다. 아직 저장·확정되지 않았습니다.');
+    };
+
+    const handleApplyScheduleTemplate = function (template) {
+        if (!template?.schedule) return;
+        if (scheduleStatus === 'confirmed' &&
+            !window.confirm('현재 확정 근무표를 템플릿 초안으로 바꿉니다. 직원 앱 일정은 다시 확정하기 전까지 유지됩니다. 계속할까요?')) return;
+        const firstKey = Object.keys(template.schedule).sort()[0];
+        const sourceWeek = firstKey ? getSunday(new Date(firstKey + 'T00:00:00')) : weekDates[0];
+        const rebased = rebaseScheduleToWeek(template.schedule, formatDate(sourceWeek), weekStartKey);
+        if (!Object.keys(rebased).length) { window.alert('템플릿 날짜 형식을 확인할 수 없습니다.'); return; }
+        setGeneratedSchedule(rebased);
+        setWarnings(Array.isArray(template.warnings) ? template.warnings : []);
+        setWarningsAcknowledged(false);
+        setScheduleStatus('generated');
+        setShowScheduleTools(false);
+        window.alert('템플릿을 이번 주 초안으로 불러왔습니다. 검토 후 저장 또는 확정해주세요.');
+    };
+
+    const handleRestoreScheduleHistory = async function (historyRecord) {
+        if (!historyRecord?.id || !savedRecord?.version) {
+            throw new Error('현재 근무표 버전을 확인할 수 없습니다. 최신 근무표를 다시 불러와주세요.');
+        }
+        if (!window.confirm('선택한 버전으로 복구할까요? 현재 근무표도 새 이력으로 보관됩니다.')) {
+            throw new Error('복구를 취소했습니다.');
+        }
+        const restored = await restoreMyOrganizationWeeklyScheduleHistory(historyRecord.id, Number(savedRecord.version));
+        const record = {
+            teamId: restored.team_id, teamLabel: restored.team_label,
+            year: Number(String(restored.week_start).slice(0, 4)),
+            month: Number(String(restored.week_start).slice(5, 7)),
+            weekStart: restored.week_start, weekEnd: restored.week_end,
+            status: restored.status, version: Number(restored.version || 1),
+            updatedAt: restored.updated_at, confirmedAt: restored.confirmed_at,
+            schedule: restored.schedule || {}, employeeDetails: restored.employee_details || {},
+            warnings: restored.warnings || [], sharedScheduleId: restored.id
+        };
+        setGeneratedSchedule(record.schedule);
+        setWarnings(record.warnings);
+        setSavedRecord(record);
+        setScheduleStatus(record.status === 'confirmed' ? 'confirmed' : 'saved');
+        setWarningsAcknowledged(true);
+        localStorage.setItem(scheduleKey, JSON.stringify(record));
+    };
+
     const handleStartAutoSchedule = function () {
         setWarningsAcknowledged(false);
         if (!selectedTeam) {
@@ -602,7 +721,6 @@ export default function Calendar({ onBack }) {
             setWarnings(result.warnings || []);
             setWarningsAcknowledged(false);
             setScheduleStatus('generated');
-            setSavedRecord(null);
         } catch (error) {
             console.error('자동 근무표 생성에 실패했습니다.', error);
             setScheduleStatus('ready');
@@ -610,38 +728,39 @@ export default function Calendar({ onBack }) {
         }
     };
 
-    const handleSaveDraft = function () {
-        if (!selectedTeam) {
-            window.alert('먼저 근무조에 속한 팀을 선택해주세요.');
-            return;
-        }
-        if (!isScheduleGenerated) {
-            window.alert('먼저 자동 생성으로 근무표 초안을 만들어주세요.');
-            return;
-        }
-
+    const handleSaveDraft = async function () {
+        if (!selectedTeam || !isScheduleGenerated) { window.alert('팀을 선택하고 근무표 초안을 먼저 생성해주세요.'); return; }
+        const expectedVersion = Number(savedRecord?.version || 0);
+        const now = new Date().toISOString();
         const record = {
-            teamId: selectedTeam,
-            year: year,
-            month: month,
-            weekStart: formatDate(weekDates[0]),
-            weekEnd: formatDate(weekDates[6]),
-            status: 'draft',
-            version: (savedRecord && savedRecord.version ? savedRecord.version : 0) + 1,
-            updatedAt: new Date().toISOString(),
-            confirmedAt: null,
-            schedule: generatedSchedule,
-            warnings: warnings
+            teamId: selectedTeam, year: year, month: month,
+            weekStart: formatDate(weekDates[0]), weekEnd: formatDate(weekDates[6]),
+            status: 'draft', version: expectedVersion + 1, updatedAt: now, confirmedAt: null,
+            schedule: generatedSchedule, employeeDetails: {}, warnings: warnings
         };
-
         try {
+            if (organizationId) {
+                const shared = await saveMyOrganizationWeeklySchedule({
+                    teamId: selectedTeam, teamLabel: getTeamDisplayName(selectedTeamRecord),
+                    weekStart: record.weekStart, weekEnd: record.weekEnd,
+                    status: 'draft', schedule: generatedSchedule, employeeDetails: {},
+                    warnings: warnings, expectedVersion: expectedVersion
+                });
+                record.version = Number(shared?.version || record.version);
+                record.sharedScheduleId = shared?.id || null;
+                record.updatedAt = shared?.updated_at || now;
+            }
             localStorage.setItem(scheduleKey, JSON.stringify(record));
             setSavedRecord(record);
             setScheduleStatus('saved');
-            window.alert('근무표 초안을 이 기기의 브라우저 저장소에 저장했습니다.');
+            window.alert(organizationId
+                ? '근무표 초안을 회사 서버에 저장했습니다. 직원 앱에는 확정 일정으로 공유되지 않습니다.'
+                : '근무표 초안을 이 기기의 브라우저 저장소에 저장했습니다.');
         } catch (error) {
             console.error('근무표 저장에 실패했습니다.', error);
-            window.alert('근무표를 저장하지 못했습니다. 브라우저 저장 공간을 확인해주세요.');
+            window.alert(error?.code === '40001'
+                ? '다른 기기에서 이 근무표를 먼저 변경했습니다. 최신 근무표를 다시 불러와주세요.'
+                : (error?.message || '근무표를 저장하지 못했습니다.'));
         }
     };
 
@@ -741,7 +860,8 @@ export default function Calendar({ onBack }) {
                     status: 'confirmed',
                     schedule: generatedSchedule,
                     employeeDetails: employeeDetails,
-                    warnings: warnings
+                    warnings: warnings,
+                    expectedVersion: Number(savedRecord?.version || 0)
                 });
                 record.version = Number(shared?.version || record.version);
                 record.sharedScheduleId = shared?.id || null;
@@ -806,7 +926,8 @@ export default function Calendar({ onBack }) {
                     status: 'draft',
                     schedule: generatedSchedule,
                     employeeDetails: employeeDetails,
-                    warnings: warnings
+                    warnings: warnings,
+                    expectedVersion: Number(savedRecord?.version || 0)
                 });
                 record.version = Number(shared?.version || record.version);
                 record.sharedScheduleId = shared?.id || null;
@@ -1179,6 +1300,14 @@ export default function Calendar({ onBack }) {
                             )}
                         </div>
                     </div>
+                    <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+                        <button type="button" onClick={handleCopyPreviousWeek} disabled={scheduleStatus === 'processing'} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-40">
+                            <RotateCcw size={14} /> 지난주 복사
+                        </button>
+                        {organizationId && <button type="button" onClick={function () { setShowScheduleTools(true); }} disabled={!selectedTeam} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100 disabled:opacity-40">
+                            <CalendarDays size={14} /> 템플릿 · 변경 이력
+                        </button>}
+                    </div>
                     <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2 py-1.5 text-[10px] leading-4 text-amber-800">
                         <AlertCircle size={13} className="shrink-0" />
                         <p>{organizationId
@@ -1186,6 +1315,22 @@ export default function Calendar({ onBack }) {
                             : '이 기기에만 저장 · 회사 서버 공유는 사용하지 않음'}</p>
                     </div>
                 </section>
+
+                {organizationId && selectedTeam && (
+                    <ScheduleToolsPanel
+                        open={showScheduleTools}
+                        onClose={function () { setShowScheduleTools(false); }}
+                        teamId={selectedTeam}
+                        teamLabel={getTeamDisplayName(selectedTeamRecord)}
+                        weekStart={weekStartKey}
+                        weekEnd={formatDate(weekDates[6])}
+                        generatedSchedule={generatedSchedule}
+                        warnings={warnings}
+                        currentVersion={savedRecord?.version || 0}
+                        onLoadTemplate={handleApplyScheduleTemplate}
+                        onRestoreHistory={handleRestoreScheduleHistory}
+                    />
+                )}
 
                 {organizationId && selectedTeam && (
                     <ExtraDayOffRequestsPanel
