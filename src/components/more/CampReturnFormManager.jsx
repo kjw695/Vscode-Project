@@ -282,7 +282,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
     const [saving, setSaving] = useState(false);
     const [deletingId, setDeletingId] = useState('');
     const [expandedFormId, setExpandedFormId] = useState('');
-    const [loadError, setLoadError] = useState('');
+    const [, setLoadError] = useState('');
 
     const panelClass = isDark
         ? 'bg-gray-800 border-gray-700 text-gray-100'
