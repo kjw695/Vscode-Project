@@ -5,7 +5,14 @@
 BEGIN;
 
 ALTER TABLE public.organizations
-    ADD COLUMN IF NOT EXISTS included_admin_seats integer NOT NULL DEFAULT 1;
+    ADD COLUMN IF NOT EXISTS included_admin_seats integer NOT NULL DEFAULT 0;
+
+-- The owner is the included representative account and never consumes a paid admin seat.
+ALTER TABLE public.organizations
+    ALTER COLUMN included_admin_seats SET DEFAULT 0;
+UPDATE public.organizations
+SET included_admin_seats = 0
+WHERE included_admin_seats <> 0;
 
 DO $constraint$
 BEGIN
@@ -35,7 +42,7 @@ REVOKE ALL PRIVILEGES ON TABLE public.organization_admins FROM PUBLIC, anon, aut
 CREATE TABLE IF NOT EXISTS public.organization_admin_seat_purchases (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
-    quantity integer NOT NULL CHECK (quantity > 0),
+    quantity integer NOT NULL DEFAULT 1 CHECK (quantity = 1),
     provider text NOT NULL CHECK (provider IN ('google_play', 'app_store', 'web', 'manual')),
     product_id text NOT NULL,
     order_reference text,
