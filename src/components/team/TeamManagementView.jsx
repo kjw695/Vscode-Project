@@ -1,17 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Users, PlusCircle, LogIn, Copy, Check } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import {
-    createTeam,
-    joinTeamByCode,
-    fetchMyVendorInfo,
-    leaveTeam,
-    requestTeamDeletion,
-    cancelTeamDeletion,
-    fetchTeamDeletionState,
-    registerTeamLeaderCandidate,
-    voteForTeamLeader
-} from '../../services/teamService';
+import { createTeam, joinTeamByCode, fetchMyVendorInfo, leaveTeam, requestTeamDeletion, cancelTeamDeletion, fetchTeamDeletionState, registerTeamLeaderCandidate, voteForTeamLeader } from '../../services/teamService';
 
 const formatDeletionCountdown = (scheduledAt, nowMs) => {
     const deadline = Date.parse(scheduledAt || '');
