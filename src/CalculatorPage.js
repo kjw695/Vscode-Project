@@ -156,7 +156,6 @@ const CalculatorPage = ({
                             // 주식시장 컬러 테마
                             const isZero = currentQty === 0;
                             const isNegative = currentQty < 0; // 하락 (파랑)
-                            const isPositive = currentQty > 0; // 상승 (빨강)
 
                             return (
                                 <div key={item.key} 
