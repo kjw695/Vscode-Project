@@ -233,7 +233,7 @@ const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution, weath
         </div>
 
         {/* 트럭 애니메이션 영역 */}
-        <div className={`absolute top-0 z-20 transition-all duration-700 ease-out`} style={{ left: `${leftPosition}%`, transform: 'translateX(-50%) translateY(-65%)' }}>
+        <div className={`absolute top-0 z-20 transition-all duration-700 ease-out`} style={{ left: `${leftPosition}%`, transform: 'translateX(-50%) translateY(-35%)' }}>
             <div className={`relative w-14 min-w-[3.5rem] shrink-0 ${isAnimating ? 'animate-truck-image' : ''}`}>
                 {isAnimating && (
                     <svg className="absolute -left-7 top-1/2 -translate-y-1/2 w-10 h-12 overflow-visible pointer-events-none" style={{ zIndex: -1 }}>
