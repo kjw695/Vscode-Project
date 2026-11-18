@@ -24,18 +24,42 @@ export function AuthProvider({ children }) {
     useEffect(() => {
         let isMounted = true;
 
-        // 1. 현재 세션이 있는지 확인 (앱 재시작 시에도 로그인 유지되는지)
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        // 세션 조회에 일시적인 오류가 발생하면 게스트 상태로 간주하지 않습니다.
+        // 성공적으로 session:null이 확인된 경우에만 로그아웃/게스트 상태로 전환합니다.
+        const resolveSession = async () => {
+            try {
+                const { data, error } = await supabase.auth.getSession();
+                if (error) throw error;
+                if (!isMounted) return;
+                setUser(data?.session?.user ?? null);
+                setIsAuthLoading(false);
+            } catch (error) {
+                console.warn('[Auth] 세션 확인 실패. 기존 인증 상태를 유지하고 재연결을 기다립니다:', error);
+                // isAuthLoading을 유지해 인증 여부가 불명확한 상태에서 게스트 저장소를 열지 않습니다.
+            }
+        };
+
+        resolveSession();
+
+        // 로그인/로그아웃/토큰갱신 등 상태 변화를 실시간으로 감지합니다.
+        const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
             if (!isMounted) return;
-            setUser(session?.user ?? null);
-            setIsAuthLoading(false);
+            if (session?.user) {
+                setUser(session.user);
+                setIsAuthLoading(false);
+                return;
+            }
+            // null 세션은 명시적 로그아웃 또는 최초 세션 확인일 때만 반영합니다.
+            // 일시적인 TOKEN_REFRESHED 등의 빈 이벤트는 기존 계정을 게스트로 바꾸지 않습니다.
+            if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
+                setUser(null);
+                setIsAuthLoading(false);
+            }
         });
 
-        // 2. 로그인/로그아웃/토큰갱신 등 상태 변화를 실시간으로 감지
-        const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-            if (!isMounted) return;
-            setUser(session?.user ?? null);
-        });
+        // 엘리베이터/지하 등에서 네트워크가 복구되면 세션 확인을 다시 시도합니다.
+        const handleOnline = () => { resolveSession(); };
+        window.addEventListener('online', handleOnline);
 
       // 모바일 딥링크: 로그인 복귀와 팀 초대를 함께 처리합니다.
 let appUrlListener = null;
@@ -133,6 +157,7 @@ setupDeepLink().catch((error) => {
        return () => {
     isMounted = false;
     listener?.subscription?.unsubscribe();
+    window.removeEventListener('online', handleOnline);
     appUrlListener?.remove();
 };
     }, []);
