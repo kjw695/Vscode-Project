@@ -58,6 +58,8 @@ CREATE INDEX IF NOT EXISTS organization_admin_seat_purchase_paid_idx
 
 ALTER TABLE public.organization_admin_seat_purchases ENABLE ROW LEVEL SECURITY;
 REVOKE ALL PRIVILEGES ON TABLE public.organization_admin_seat_purchases FROM PUBLIC, anon, authenticated;
+-- Only trusted server-side purchase verifiers (service_role) may write payment records.
+GRANT ALL PRIVILEGES ON TABLE public.organization_admin_seat_purchases TO service_role;
 
 CREATE TABLE IF NOT EXISTS public.organization_admin_state (
     organization_id uuid PRIMARY KEY REFERENCES public.organizations(id) ON DELETE CASCADE,
