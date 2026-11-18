@@ -1,5 +1,5 @@
 // src/hooks/useAppBackButton.js
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 
 const useAppBackButton = ({
@@ -90,7 +90,12 @@ const useAppBackButton = ({
             }
         };
     }, [
-        modalState, isFilterModalOpen, isExpenseSettingsModalOpen, moreSubView, selectedMainTab, activeContentTab, showConfirmation, 
+        modalState, closeModal,
+        isFilterModalOpen, setIsFilterModalOpen,
+        isExpenseSettingsModalOpen, setIsExpenseSettingsModalOpen,
+        moreSubView, setMoreSubView,
+        selectedMainTab, setSelectedMainTab,
+        activeContentTab, setActiveContentTab, showConfirmation,
         isEditing, closeEditMode, handleDayOffBack, isDayOffModalOpen, setIsDayOffModalOpen
     ]);
 };
