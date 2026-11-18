@@ -197,3 +197,42 @@ export function subscribeToOrganizationAdminState(organizationId, onChange) {
     };
 }
 
+
+
+// Company administrator data backups. These RPCs derive the organization from auth.uid()
+// on the server; the client never supplies an organization_id.
+export async function fetchMyOrganizationAdminBackups(limit = 50) {
+    const { data, error } = await supabase.rpc(
+        'list_my_organization_admin_backups',
+        { p_limit: limit }
+    );
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+}
+
+export async function fetchMyOrganizationAdminBackup(backupId) {
+    const { data, error } = await supabase.rpc(
+        'get_my_organization_admin_backup',
+        { p_backup_id: backupId }
+    );
+    if (error) throw error;
+    return data || null;
+}
+
+export async function createMyOrganizationAdminBackup() {
+    const { data, error } = await supabase.rpc('create_my_organization_admin_backup');
+    if (error) throw error;
+    return data;
+}
+
+export async function restoreMyOrganizationAdminBackup(backupId, expectedVersion) {
+    const { data, error } = await supabase.rpc(
+        'restore_my_organization_admin_backup',
+        {
+            p_backup_id: backupId,
+            p_expected_version: expectedVersion
+        }
+    );
+    if (error) throw error;
+    return data;
+}
