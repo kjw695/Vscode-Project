@@ -63,13 +63,6 @@ const getSelectedVolume = (profit, selectedItems) => {
     }, 0);
 };
 
-const isDayOffEntry = (entry) => Boolean(
-    entry?.isDayOff === true ||
-    (typeof entry?.memo === 'string' && entry.memo.includes('휴무')) ||
-    (Array.isArray(entry?.customItems) &&
-        entry.customItems.some((item) => item?.key === 'dayOff' || item?.key === '휴무'))
-);
-
 const getDayVolume = (profit, selectedItems) => getSelectedVolume(profit, selectedItems);
 
 const buildChartDays = (startDate, endDate, dailyMap, selectedItems) => {
@@ -187,7 +180,6 @@ const BluecoinsDailySummaryPreview = ({
     const dailyAverageIncome = workingDays > 0 ? Math.round(currentRevenue / workingDays) : 0;
     const dailyAverageVolume = workingDays > 0 ? Math.round(currentVolume / workingDays) : 0;
     const effectiveTargetDays = Math.max(25, workingDays);
-    const remainingWorkDays = Math.max(0, effectiveTargetDays - workingDays);
     const expectedTotalVolume = dailyAverageVolume * effectiveTargetDays;
 
     // 장부 홈의 예상 급여는 예상 총금액 값에만 적용합니다.
@@ -350,7 +342,7 @@ const BluecoinsDailySummaryPreview = ({
                 if (b.round === 0) return -1;
                 return a.round - b.round;
             });
-    }, [reportEntries, itemLabels, isDayMode]);
+    }, [reportEntries, itemLabels]);
 
     const transactionTotal = useMemo(() => transactionRows.reduce((total, row) => {
         total.deliveryCount += Number(row.volumeBreakdown?.deliveryCount) || 0;
