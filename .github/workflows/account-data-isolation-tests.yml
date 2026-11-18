@@ -39,6 +39,11 @@ jobs:
           CI: 'true'
         run: npm test -- --watchAll=false --runInBand src/utils/migration.test.js
 
+      - name: Run account switching regression test
+        env:
+          CI: 'true'
+        run: npm test -- --watchAll=false --runInBand src/contexts/DeliveryContext.test.js
+
       - name: Build React production bundle
         env:
           NODE_OPTIONS: --openssl-legacy-provider
