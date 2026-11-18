@@ -50,13 +50,6 @@ const formatCompactManWon = (amount) => {
     return (Number.isInteger(man) ? String(man) : man.toFixed(1)) + '만';
 };
 
-const formatSummaryWon = (amount) => {
-    const value = Number(amount) || 0;
-    if (value <= 0) return '0원';
-    const man = Math.round((value / 10000) * 10) / 10;
-    return (Number.isInteger(man) ? String(man) : man.toFixed(1)) + '만원';
-};
-
 const formatLargeManWon = (amount) => {
     const man = Math.round(((Number(amount) || 0) / 10000) * 10) / 10;
     return man.toLocaleString('ko-KR', { maximumFractionDigits: 1 }) + '만원';
@@ -228,7 +221,6 @@ const BluecoinsDailySummaryPreview = ({
     }, [entries]);
 
     const salaryRemainingWorkDays = Math.max(0, salaryRemainingCalendarDays - salaryFutureHolidays);
-    const expectedRemainingSalary = dailyAverageIncome * salaryRemainingWorkDays;
     
     const holidayCount = calendarDays.filter((day) => day?.isCurrentMonth && day?.isDayOff).length;
     const totalOffDays = holidayCount;
@@ -242,10 +234,6 @@ const BluecoinsDailySummaryPreview = ({
         ? Math.round(previousIncome / previousWorkingDays)
         : 0);
     const averageVolumeDiff = dailyAverageVolume - previousAverageVolume;
-    const selectedDayData = dailyMap[selectedDate] || {};
-    const selectedDayIncome = Number(selectedDayData.totalRevenue) || 0;
-    const selectedDayExpense = Number(selectedDayData.totalExpenses) || 0;
-    const selectedDayVolume = getDayVolume(selectedDayData, selectedItemsForAverage);
     const insuranceName = selectedInsurance?.name
         ? selectedInsurance.name.split('(')[0].trim()
         : '미등록';
@@ -390,10 +378,6 @@ const BluecoinsDailySummaryPreview = ({
         const todayKey = toDateKey(new Date());
         onToday?.();
         selectDateAndAlignChart(todayKey);
-    };
-
-    const shiftSelectedDate = (delta) => {
-        selectDateAndAlignChart(getShiftedDateKey(selectedDate, delta), 'smooth');
     };
 
     // 날짜를 짧게 누르면 선택 및 입력/채번 버튼 표시를 토글하고,
@@ -680,8 +664,7 @@ const BluecoinsDailySummaryPreview = ({
                         </span>
                     </div>
                 </div>
-                <div className="mt-1 min-w-0">
-                    <div className="whitespace-nowrap text-[clamp(2rem,11.5vw,3.6rem)] font-black leading-none tracking-tight tabular-nums">
+
                         {formatLargeManWon(currentRevenue)}
                     </div>
                 </div>
@@ -735,39 +718,6 @@ const BluecoinsDailySummaryPreview = ({
                     </p>
                 </section>
             </div>
-
-            <div className="flex min-w-0 items-center justify-between gap-1 px-1 py-1">
-                <div className="flex min-w-0 items-center gap-1 whitespace-nowrap text-[clamp(9px,2.8vw,12px)]">
-                    <button type="button" onClick={() => shiftSelectedDate(-1)} className={'rounded-md p-0.5 ' + mutedClass} aria-label="이전 날짜">
-                        <ChevronLeft size={15} />
-                    </button>
-                    <strong className="shrink-0 text-sm">{selectedDate.slice(8)}일 ({WEEKDAYS[parseLocalDate(selectedDate).getDay()]})</strong>
-                    <button type="button" onClick={() => shiftSelectedDate(1)} className={'rounded-md p-0.5 ' + mutedClass} aria-label="다음 날짜">
-                        <ChevronRight size={15} />
-                    </button>
-                    <span className={'min-w-0 truncate ' + mutedClass}>
-                        · 매출 {formatSummaryWon(selectedDayIncome)} · 물량 {selectedDayVolume.toLocaleString('ko-KR')}건
-                        {selectedDayExpense > 0 ? ' · 지출 ' + formatCompactManWon(selectedDayExpense) : ''}
-                    </span>
-                </div>
-                <button
-                    type="button"
-                    onClick={openCategoryBreakdown}
-                    className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[clamp(10px,3vw,13px)] font-black text-blue-600 dark:text-blue-400"
-                >내역 열기 <ArrowUpRight size={13} /></button>
-            </div>
-
-            <section className={'flex min-w-0 items-center justify-between gap-3 rounded-2xl border px-3 py-2 shadow-sm ' + panelClass}>
-                <div className="min-w-0">
-                    <p className={'text-xs font-bold ' + mutedClass}>예상 월급</p>
-                    <p className={'mt-0.5 whitespace-nowrap text-[10px] font-semibold ' + mutedClass}>
-                        일 평균 × 남은 근무 {salaryRemainingWorkDays}일
-                    </p>
-                </div>
-                <p className="shrink-0 whitespace-nowrap text-[clamp(1.2rem,5.5vw,1.65rem)] font-black leading-none tracking-tight tabular-nums">
-                    {formatLargeManWon(expectedRemainingSalary)}
-                </p>
-            </section>
 
             {SHOW_HOME_WEEKLY_PERFORMANCE && (
             <section className={'overflow-hidden rounded-2xl border p-3 shadow-sm ' + panelClass}>
