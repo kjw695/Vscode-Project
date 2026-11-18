@@ -3,6 +3,7 @@
 import { supabase } from '../lib/supabaseClient';
 import {
     getDeliveryEntriesStorageKey,
+    getAppSettingsStorageKey,
     getMigrationStateStorageKey,
     readJsonStorage,
     writeJsonStorage,
@@ -73,10 +74,6 @@ export async function migrateLocalDataToServer(userId) {
     }
 
     const stateKey = getMigrationStateStorageKey(userId);
-    const pendingDeviceBucket = readJsonStorage(UNCLASSIFIED_KEY, null);
-    if (pendingDeviceBucket?.reviewUserId === 'device' && pendingDeviceBucket.status === 'pending') {
-        writeJsonStorage(UNCLASSIFIED_KEY, { ...pendingDeviceBucket, reviewUserId: userId });
-    }
     const previousState = readJsonStorage(stateKey, null);
     if (previousState?.prepared === true) {
         const bucket = readJsonStorage(UNCLASSIFIED_KEY, null);
@@ -134,14 +131,18 @@ export async function migrateLocalDataToServer(userId) {
             writeJsonStorage(accountKey, merged);
         }
 
-        if (unclassified.length > 0) {
+        const legacySettings = readJsonStorage(LEGACY_SETTINGS_KEY, null);
+        const hasLegacySettings = !!(legacySettings && typeof legacySettings === 'object' && Object.keys(legacySettings).length);
+        if (unclassified.length > 0 || hasLegacySettings) {
             const existingBucket = readJsonStorage(UNCLASSIFIED_KEY, null);
             if (!existingBucket) {
                 writeJsonStorage(UNCLASSIFIED_KEY, {
-                    reviewUserId: userId,
+                    reviewUserId: 'device',
                     status: 'pending',
                     createdAt: new Date().toISOString(),
+                    snapshotKey,
                     entries: unclassified,
+                    hasSettings: hasLegacySettings,
                 });
             }
         }
@@ -187,28 +188,42 @@ export function prepareLegacyDataForGuest() {
         const snapshotKey = createLegacySnapshot();
         const legacyEntries = readJsonStorage(LEGACY_ENTRIES_KEY, []);
         const entries = Array.isArray(legacyEntries) ? legacyEntries : [];
-        if (entries.length > 0) {
+        const legacySettings = readJsonStorage(LEGACY_SETTINGS_KEY, null);
+        const hasSettings = !!(legacySettings && typeof legacySettings === 'object' && Object.keys(legacySettings).length);
+        if (entries.length > 0 || hasSettings) {
             writeJsonStorage(UNCLASSIFIED_KEY, {
                 reviewUserId: 'device',
                 status: 'pending',
                 createdAt: new Date().toISOString(),
                 snapshotKey,
                 entries,
+                hasSettings,
             });
         }
-        return { prepared: true, snapshotKey, unclassifiedCount: entries.length };
+        return { prepared: true, snapshotKey, unclassifiedCount: entries.length, hasSettings };
     } catch (error) {
         console.error('[Migration] 게스트 기존 데이터 보관 준비 실패:', error);
         return { prepared: false, unclassifiedCount: 0, error: error.message };
     }
 }
 
-export function getUnclassifiedLegacyData(userId) {
+function getPendingAttributionBucket(userId) {
     const bucket = readJsonStorage(UNCLASSIFIED_KEY, null);
-    if (!userId || !bucket || bucket.reviewUserId !== userId || bucket.status !== 'pending') {
-        return [];
-    }
-    return Array.isArray(bucket.entries) ? bucket.entries : [];
+    if (!userId || !bucket || bucket.status !== 'pending') return null;
+    // Device-level guest data can be offered to the signed-in user, but is not
+    // assigned until that user explicitly confirms the attribution.
+    return bucket.reviewUserId === userId || bucket.reviewUserId === 'device' ? bucket : null;
+}
+
+export function getUnclassifiedLegacyData(userId) {
+    const bucket = getPendingAttributionBucket(userId);
+    return Array.isArray(bucket?.entries) ? bucket.entries : [];
+}
+
+export function getUnclassifiedLegacySettings(userId) {
+    const bucket = getPendingAttributionBucket(userId);
+    if (!bucket?.hasSettings) return null;
+    return readJsonStorage(LEGACY_SETTINGS_KEY, null);
 }
 
 /**
@@ -216,9 +231,10 @@ export function getUnclassifiedLegacyData(userId) {
  * queue only. This function intentionally does not call Supabase.
  */
 export function importUnclassifiedLegacyDataToAccount(userId) {
-    const entries = getUnclassifiedLegacyData(userId);
-    if (!entries.length) return { imported: 0 };
+    const bucket = getPendingAttributionBucket(userId);
+    if (!bucket) return { imported: 0, importedSettings: false };
 
+    const entries = Array.isArray(bucket.entries) ? bucket.entries : [];
     const accountKey = getDeliveryEntriesStorageKey(userId);
     const current = readJsonStorage(accountKey, []);
     const imported = entries.map((entry, index) => ({
@@ -231,15 +247,31 @@ export function importUnclassifiedLegacyDataToAccount(userId) {
         isSynced: false,
     }));
 
-    writeJsonStorage(accountKey, [...current, ...imported]);
+    if (imported.length > 0) writeJsonStorage(accountKey, [...current, ...imported]);
+
+    // Preserve existing account settings. Import guest settings only when the
+    // destination account has no settings yet; never overwrite an account.
+    const legacySettings = bucket.hasSettings ? readJsonStorage(LEGACY_SETTINGS_KEY, null) : null;
+    const settingsKey = getAppSettingsStorageKey(userId);
+    const currentSettings = readJsonStorage(settingsKey, null);
+    let importedSettings = false;
+    if (legacySettings && typeof legacySettings === 'object' &&
+        Object.keys(legacySettings).length > 0 &&
+        (!currentSettings || Object.keys(currentSettings).length === 0)) {
+        writeJsonStorage(settingsKey, legacySettings);
+        importedSettings = true;
+    }
+
     writeJsonStorage(UNCLASSIFIED_KEY, {
+        ...bucket,
         reviewUserId: userId,
         status: 'imported_locally',
         resolvedAt: new Date().toISOString(),
         entries,
+        settingsImportedToAccount: importedSettings,
     });
 
-    return { imported: imported.length };
+    return { imported: imported.length, importedSettings };
 }
 
 export function keepUnclassifiedLegacyDataOnDevice(userId) {
