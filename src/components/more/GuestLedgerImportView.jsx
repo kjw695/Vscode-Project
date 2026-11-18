@@ -170,12 +170,6 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
         return days;
     }, [monthlyPeriod, availableDates, guestEntries, selectedIds]);
 
-    const setSelectedForRange = (startDate, endDate) => {
-        const ids = getEntriesInRange(guestEntries, startDate, endDate).map((entry) => String(entry.id));
-        setSelectedEntryIds(ids);
-        setNotice('');
-    };
-
     const addEntriesForRange = (startDate, endDate) => {
         const ids = getEntriesInRange(guestEntries, startDate, endDate).map((entry) => String(entry.id));
         setSelectedEntryIds((current) => addGuestEntrySelection(current, ids));
@@ -200,26 +194,10 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
         setNotice('');
     };
 
+    // 모드 전환은 표시 범위만 변경하고, 사용자가 직접 선택한 장부는 유지합니다.
     const handleModeChange = (mode) => {
         setSelectionMode(mode);
         setNotice('');
-        if (mode === 'individual') {
-            setSelectedEntryIds([]);
-                return;
-        }
-        if (mode === 'month') {
-            const range = getGuestImportMonthlyPeriodRange(currentCalendarDate, periodSettings.startDay, periodSettings.endDay);
-            setSelectedForRange(range.startDate, range.endDate);
-            return;
-        }
-        if (mode === 'year') {
-            const range = getGuestImportYearlyPeriodRange(selectedYear, periodSettings.startDay, periodSettings.endDay);
-            setSelectedForRange(range.startDate, range.endDate);
-            return;
-        }
-        if (mode === 'all') {
-            setSelectedEntryIds(guestEntries.map((entry) => String(entry.id)));
-            }
     };
 
     const handleCalendarDayClick = (date) => {
@@ -273,18 +251,17 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
     ];
 
     const modeDescription = selectionMode === 'individual'
-        ? '달력에서 날짜를 선택하세요. 날짜를 누르면 해당 날짜의 장부가 선택됩니다.'
+        ? '달력 날짜 또는 표의 장부 행을 눌러 필요한 항목만 선택·해제하세요.'
         : selectionMode === 'month'
-            ? '현재 달력의 정산 기간에 해당하는 게스트 장부를 모두 선택합니다.'
+            ? '현재 정산 기간의 장부가 표시됩니다. 필요한 항목만 선택하세요. 전체·해지 버튼으로 기간 전체를 조정할 수 있습니다.'
             : selectionMode === 'year'
-                ? '설정된 집계일 기준으로 계산한 해당 연도의 게스트 장부를 모두 선택합니다.'
-                : '기기에 남아 있는 모든 게스트 장부를 선택합니다.';
+                ? '해당 연도의 장부가 표시됩니다. 월별 카드 또는 표에서 필요한 항목만 선택하세요.'
+                : '모든 게스트 장부가 표시됩니다. 가져올 항목만 직접 선택하세요.';
 
     const handleYearChange = (delta) => {
         const nextYear = selectedYear + delta;
         setSelectedYear(nextYear);
-        const range = getGuestImportYearlyPeriodRange(nextYear, periodSettings.startDay, periodSettings.endDay);
-        setSelectedForRange(range.startDate, range.endDate);
+        setNotice('');
     };
 
     const getEntryColumnValue = (entry, column) => {
@@ -480,7 +457,7 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                 </div>
                                 <button type="button" onClick={() => {
                                     const range = getGuestImportYearlyPeriodRange(selectedYear, periodSettings.startDay, periodSettings.endDay);
-                                    setSelectedForRange(range.startDate, range.endDate);
+                                    addEntriesForRange(range.startDate, range.endDate);
                                 }} className="mt-3 w-full rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-bold text-white">
                                     {selectedYear}년 장부 전체 선택
                                 </button>
@@ -533,7 +510,7 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                 <FileText size={28} className="mx-auto mb-2 text-blue-500" />
                                 <p className="text-center font-bold">모든 게스트 장부</p>
                                 <p className={'mt-1 text-center text-sm ' + (dark ? 'text-slate-400' : 'text-slate-500')}>
-                                    {guestEntries.length.toLocaleString()}건의 장부를 한 번에 선택합니다.
+                                    {guestEntries.length.toLocaleString()}건의 장부가 표시됩니다. 가져올 장부만 직접 선택하세요.
                                 </p>
                                 <button type="button" onClick={() => setSelectedEntryIds(guestEntries.map((entry) => String(entry.id)))} className="mt-3 w-full rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-bold text-white">
                                     전체 장부 선택
