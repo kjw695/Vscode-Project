@@ -45,8 +45,7 @@ export async function fetchMyVendorInfo(userId) {
         return null;
     }
 
-    const role = orgData.organization_role ||
-        (orgData.owner_id === userId ? 'owner' : 'member');
+    const role = orgData.owner_id === userId ? 'owner' : 'member';
 
     return {
         role,
@@ -198,18 +197,3 @@ export function subscribeToOrganizationAdminState(organizationId, onChange) {
     };
 }
 
-export async function fetchMyOrganizationAdminManagement() {
-    const { data, error } = await supabase.rpc('get_my_organization_admin_management');
-    if (error) throw error;
-    return data || null;
-}
-
-export async function setMyOrganizationAdminRole(memberId, isAdmin) {
-    const { data, error } = await supabase.rpc('set_my_organization_admin_role', {
-        p_member_id: memberId,
-        p_make_admin: Boolean(isAdmin)
-    });
-
-    if (error) throw error;
-    return data;
-}
