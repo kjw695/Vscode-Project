@@ -1,7 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Users, PlusCircle, LogIn, Copy, Check } from 'lucide-react';
+import { ArrowLeft, Users, PlusCircle, LogIn, Copy, Check, UserCog } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { createTeam, joinTeamByCode, fetchMyVendorInfo, leaveTeam, requestTeamDeletion, cancelTeamDeletion, fetchTeamDeletionState, registerTeamLeaderCandidate, voteForTeamLeader } from '../../services/teamService';
+import {
+    createTeam,
+    joinTeamByCode,
+    fetchMyVendorInfo,
+    leaveTeam,
+    requestTeamDeletion,
+    cancelTeamDeletion,
+    fetchTeamDeletionState,
+    registerTeamLeaderCandidate,
+    voteForTeamLeader,
+    fetchMyOrganizationAdminManagement,
+    setMyOrganizationAdminRole
+} from '../../services/teamService';
 
 const formatDeletionCountdown = (scheduledAt, nowMs) => {
     const deadline = Date.parse(scheduledAt || '');
@@ -46,6 +58,10 @@ export default function TeamManagementView({ onBack, isDarkMode, showMessage, on
     const [deletionState, setDeletionState] = useState(null);
     const [clockNow, setClockNow] = useState(Date.now());
     const [actionLoading, setActionLoading] = useState(false);
+    const [adminManagement, setAdminManagement] = useState(null);
+    const [showAdminManagement, setShowAdminManagement] = useState(false);
+    const [adminManagementLoading, setAdminManagementLoading] = useState(false);
+    const [adminActionUserId, setAdminActionUserId] = useState(null);
 // 초대 링크로 전달받은 코드를 가입 입력창에 자동으로 채웁니다.
 // 실제 팀 가입은 사용자가 가입 버튼을 눌렀을 때만 진행합니다.
 useEffect(() => {
@@ -342,6 +358,49 @@ const handleCopyCode = async (code) => {
         }
     };
 
+    const handleToggleAdminManagement = async () => {
+        if (showAdminManagement) {
+            setShowAdminManagement(false);
+            return;
+        }
+
+        setShowAdminManagement(true);
+        if (adminManagement) return;
+
+        try {
+            setAdminManagementLoading(true);
+            const result = await fetchMyOrganizationAdminManagement();
+            setAdminManagement(result);
+        } catch (error) {
+            window.alert('관리자 현황을 불러오지 못했습니다: ' + (error?.message || ''));
+            setShowAdminManagement(false);
+        } finally {
+            setAdminManagementLoading(false);
+        }
+    };
+
+    const handleSetAdminRole = async (member) => {
+        const makeAdmin = !member.is_admin;
+        const message = makeAdmin
+            ? `${member.display_name}님을 일반 관리자로 지정할까요? 회사 공용 직원·노선·근무표를 수정할 수 있게 됩니다.`
+            : `${member.display_name}님의 일반 관리자 권한을 해제할까요? 직원 계정과 근무표 기록은 삭제되지 않습니다.`;
+        if (!window.confirm(message)) return;
+
+        try {
+            setAdminActionUserId(member.user_id);
+            await setMyOrganizationAdminRole(member.user_id, makeAdmin);
+            const updated = await fetchMyOrganizationAdminManagement();
+            setAdminManagement(updated);
+            if (showMessage) {
+                showMessage(makeAdmin ? '일반 관리자 권한이 부여되었습니다.' : '일반 관리자 권한이 해제되었습니다.');
+            }
+        } catch (error) {
+            window.alert('관리자 권한 변경 실패: ' + (error?.message || ''));
+        } finally {
+            setAdminActionUserId(null);
+        }
+    };
+
     const handleLeaveTeam = async () => {
         if (!window.confirm("정말 팀을 나가시겠습니까?")) return;
         try {
@@ -377,8 +436,8 @@ const handleCopyCode = async (code) => {
                                     <Users className="text-indigo-600" size={22} />
                                     <h3 className="font-black text-lg">{vendorInfo.name}</h3>
                                 </div>
-                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${role === 'owner' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
-                                    {role === 'owner' ? '팀장 (Owner)' : '팀원 (Member)'}
+                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${role === 'owner' ? 'bg-amber-100 text-amber-700' : role === 'admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700'}`}>
+                                    {role === 'owner' ? '대표 관리자' : role === 'admin' ? '일반 관리자' : '직원'}
                                 </span>
                             </div>
 
@@ -530,6 +589,85 @@ const handleCopyCode = async (code) => {
     </div>
 )}
 
+                            {role === 'owner' && (
+                                <div className="mt-4 rounded-xl border border-indigo-100 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
+                                    <button
+                                        type="button"
+                                        onClick={handleToggleAdminManagement}
+                                        className="flex w-full items-center justify-between gap-3 text-left"
+                                    >
+                                        <span className="flex min-w-0 items-center gap-2">
+                                            <UserCog size={18} className="shrink-0 text-indigo-600" />
+                                            <span className="min-w-0">
+                                                <span className="block text-sm font-black">일반 관리자 관리</span>
+                                                <span className="mt-0.5 block text-[11px] text-gray-500">
+                                                    {adminManagement
+                                                        ? `관리자 ${adminManagement.used_admin_seats || 0} / ${adminManagement.total_admin_seats || 0}명 사용`
+                                                        : '직원에게 관리자 권한 부여'}
+                                                </span>
+                                            </span>
+                                        </span>
+                                        <span className="text-xs font-bold text-indigo-600">{showAdminManagement ? '접기' : '관리'}</span>
+                                    </button>
+
+                                    {showAdminManagement && (
+                                        <div className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-700">
+                                            {adminManagementLoading ? (
+                                                <p className="py-4 text-center text-xs text-gray-400">관리자 현황을 불러오는 중...</p>
+                                            ) : adminManagement ? (
+                                                <>
+                                                    <div className="mb-3 grid grid-cols-3 gap-2 text-center">
+                                                        <div className="rounded-lg bg-slate-50 p-2 dark:bg-gray-800">
+                                                            <p className="text-[10px] text-gray-500">기본 제공</p>
+                                                            <p className="text-sm font-black">{adminManagement.included_admin_seats || 0}명</p>
+                                                        </div>
+                                                        <div className="rounded-lg bg-slate-50 p-2 dark:bg-gray-800">
+                                                            <p className="text-[10px] text-gray-500">구매 추가</p>
+                                                            <p className="text-sm font-black">{adminManagement.purchased_admin_seats || 0}명</p>
+                                                        </div>
+                                                        <div className="rounded-lg bg-slate-50 p-2 dark:bg-gray-800">
+                                                            <p className="text-[10px] text-gray-500">남은 정원</p>
+                                                            <p className="text-sm font-black">{adminManagement.remaining_admin_seats || 0}명</p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        {(adminManagement.members || []).length === 0 ? (
+                                                            <p className="py-3 text-center text-xs text-gray-400">관리자로 지정할 회사 직원이 없습니다.</p>
+                                                        ) : (adminManagement.members || []).map((member) => {
+                                                            const isFull = (adminManagement.remaining_admin_seats || 0) <= 0;
+                                                            return (
+                                                                <div key={member.user_id} className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 px-3 py-2 dark:border-gray-700">
+                                                                    <div className="min-w-0">
+                                                                        <p className="truncate text-sm font-bold">{member.display_name}</p>
+                                                                        <p className="text-[10px] text-gray-500">{member.is_admin ? '일반 관리자' : '직원'}</p>
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={adminActionUserId === member.user_id || (!member.is_admin && isFull)}
+                                                                        onClick={() => handleSetAdminRole(member)}
+                                                                        className={`shrink-0 rounded-lg px-3 py-2 text-[11px] font-bold disabled:opacity-40 ${member.is_admin ? 'border border-red-200 text-red-600 dark:border-red-900' : 'bg-indigo-600 text-white'}`}
+                                                                    >
+                                                                        {adminActionUserId === member.user_id
+                                                                            ? '처리 중'
+                                                                            : member.is_admin ? '권한 해제' : '관리자 지정'}
+                                                                    </button>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    <p className="mt-3 text-[10px] leading-5 text-gray-400">
+                                                        대표 관리자는 관리자 정원에 포함되지 않습니다. 현재 기본 제공 일반 관리자 정원은 1명이며, 추가 정원 구매와 스토어 결제 검증은 다음 단계에서 연결합니다.
+                                                    </p>
+                                                </>
+                                            ) : (
+                                                <p className="py-3 text-center text-xs text-gray-400">관리자 현황을 불러오지 못했습니다.</p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                                 {role === 'owner' ? (
                                     <div className="flex flex-col space-y-3">
@@ -551,6 +689,13 @@ const handleCopyCode = async (code) => {
                                             </button>
                                         )}
                                     </div>
+                                ) : role === 'admin' ? (
+                                    <button
+                                        onClick={onGoToAdmin}
+                                        className="w-full py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-md transition-all active:scale-95"
+                                    >
+                                        ⚙️ 관리자센터 열기
+                                    </button>
                                 ) : deletionState?.active ? (
                                     <div className="space-y-2">
                                         <p className="text-xs text-amber-700 dark:text-amber-300">
