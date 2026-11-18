@@ -50,6 +50,7 @@ function AdminDashboard({ onBack }) {
     // ✨ 통제소에서 필요한 데이터와 통계치를 한 줄로 가져옵니다!
     const {
         employees,
+        memberSyncStatus,
         regions,
         teams,
         routes,
@@ -152,15 +153,15 @@ function AdminDashboard({ onBack }) {
                                 )}
                                 <button
                                     type="button"
-                                    disabled={sharedSetupBusy}
+                                    disabled={sharedSetupBusy || memberSyncStatus === 'loading'}
                                     onClick={() => handleInitializeSharedState(true)}
                                     className="mt-5 w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white disabled:opacity-50"
                                 >
-                                    {sharedSetupBusy ? '연결 중...' : '현재 기기의 기존 설정 이전'}
+                                    {sharedSetupBusy ? '연결 중...' : memberSyncStatus === 'loading' ? '회사 직원 목록 확인 중...' : '현재 기기의 기존 설정 이전'}
                                 </button>
                                 <button
                                     type="button"
-                                    disabled={sharedSetupBusy}
+                                    disabled={sharedSetupBusy || memberSyncStatus === 'loading'}
                                     onClick={() => handleInitializeSharedState(false)}
                                     className="mt-2 w-full rounded-xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-700 disabled:opacity-50"
                                 >
