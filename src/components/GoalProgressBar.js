@@ -44,7 +44,6 @@ const GoalProgressBar = ({ current, goal, isDarkMode, revenueDistribution }) => 
   // ✨ 4. 미세먼지 (기상청 단기예보에는 없으므로 에러 방지용 null 처리)
   let dust = null; 
   let dustColorClass = '';
-  let overlayClass = condition;
 
   // 🚨 [여기에 임시 코드 작성!] 🚨
   // 아래 주석(//)을 풀고 원하는 날씨로 바꿔치기 해보세요. 확인 후엔 다시 주석 처리하거나 지우면 됩니다!
