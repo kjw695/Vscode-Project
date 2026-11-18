@@ -176,6 +176,7 @@ const DataEntryForm = ({
     const [selectedExtraKeys, setSelectedExtraKeys] = useState([]);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [selectedItemPrices, setSelectedItemPrices] = useState({});
+    const [, setOpenDropdownKey] = useState(null);
     const [currentRound, setCurrentRound] = useState(null);
     const [viewMode, setViewMode] = useState('form'); 
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
