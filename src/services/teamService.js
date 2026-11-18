@@ -45,7 +45,8 @@ export async function fetchMyVendorInfo(userId) {
         return null;
     }
 
-    const role = orgData.owner_id === userId ? 'owner' : 'member';
+    const role = orgData.organization_role ||
+        (orgData.owner_id === userId ? 'owner' : 'member');
 
     return {
         role,
@@ -145,4 +146,70 @@ export async function fetchPreferredDays(userId) {
 
     if (error) return [];
     return data?.preferred_days || [];
+}
+
+// Company-shared admin setup. All mutations are authorized by database RPCs.
+export async function fetchMyOrganizationAdminState() {
+    const { data, error } = await supabase.rpc('get_my_organization_admin_state');
+    if (error) throw error;
+    return data || null;
+}
+
+export async function saveMyOrganizationAdminState({
+    regions,
+    teams,
+    employees,
+    routes,
+    expectedVersion
+}) {
+    const { data, error } = await supabase.rpc('save_my_organization_admin_state', {
+        p_regions: Array.isArray(regions) ? regions : [],
+        p_teams: Array.isArray(teams) ? teams : [],
+        p_employees: Array.isArray(employees) ? employees : [],
+        p_routes: Array.isArray(routes) ? routes : [],
+        p_expected_version: expectedVersion
+    });
+
+    if (error) throw error;
+    return data;
+}
+
+export function subscribeToOrganizationAdminState(organizationId, onChange) {
+    if (!organizationId || typeof onChange !== 'function') {
+        return () => {};
+    }
+
+    const channel = supabase
+        .channel(`organization-admin-state-${organizationId}`)
+        .on(
+            'postgres_changes',
+            {
+                event: '*',
+                schema: 'public',
+                table: 'organization_admin_state',
+                filter: `organization_id=eq.${organizationId}`
+            },
+            onChange
+        )
+        .subscribe();
+
+    return () => {
+        supabase.removeChannel(channel);
+    };
+}
+
+export async function fetchMyOrganizationAdminManagement() {
+    const { data, error } = await supabase.rpc('get_my_organization_admin_management');
+    if (error) throw error;
+    return data || null;
+}
+
+export async function setMyOrganizationAdminRole(memberId, isAdmin) {
+    const { data, error } = await supabase.rpc('set_my_organization_admin_role', {
+        p_member_id: memberId,
+        p_make_admin: Boolean(isAdmin)
+    });
+
+    if (error) throw error;
+    return data;
 }
