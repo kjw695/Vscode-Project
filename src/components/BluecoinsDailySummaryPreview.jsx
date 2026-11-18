@@ -6,8 +6,7 @@ import {
     ChevronLeft,
     ChevronRight,
     Layers,
-    ListFilter,
-    Plus
+    ListFilter
 } from 'lucide-react';
 import { calculateData } from '../utils/calculator';
 import GoalProgressBar from './GoalProgressBar';
@@ -1139,7 +1138,6 @@ const BluecoinsDailySummaryPreview = ({
                     >선택 날짜 내역 보기 <ArrowUpRight size={12} /></button>
                 </div>
             </section>
-        </div>
         </div>
     );
 };
