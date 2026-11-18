@@ -546,12 +546,21 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                 <div className="flex items-center justify-between gap-2 px-3 py-3">
                                     <div className="min-w-0">
                                         <h3 className="font-black">
-                                            {selectionMode === 'month' ? '정산 기간 장부 상세' : '선택 장부 상세'}
+                                            {selectionMode === 'individual' || selectionMode === 'month'
+                                                ? '정산 기간 장부 상세'
+                                                : selectionMode === 'year'
+                                                    ? selectedYear + '년 장부 상세'
+                                                    : '전체 장부 상세'}
                                         </h3>
                                         <p className={'mt-0.5 text-[11px] ' + (dark ? 'text-slate-400' : 'text-slate-500')}>
-                                            {selectionMode === 'month'
+                                            {selectionMode === 'individual' || selectionMode === 'month'
                                                 ? monthlyPeriod.startDate + ' ~ ' + monthlyPeriod.endDate
-                                                : '장부에 실제 입력된 항목을 열로 표시합니다.'}
+                                                : selectionMode === 'year'
+                                                    ? (() => {
+                                                        const range = getGuestImportYearlyPeriodRange(selectedYear, periodSettings.startDay, periodSettings.endDay);
+                                                        return range.startDate + ' ~ ' + range.endDate;
+                                                    })()
+                                                    : '기기에 남아 있는 모든 게스트 장부입니다.'}
                                         </p>
                                     </div>
                                     <span className={'shrink-0 text-xs font-bold ' + (dark ? 'text-slate-300' : 'text-slate-600')}>
@@ -632,7 +641,7 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                     </table>
                                 </div>
                                 <div className={'border-t px-3 py-2 text-[10px] ' + (dark ? 'border-slate-700 text-slate-500' : 'border-slate-200 text-slate-400')}>
-                                    항목 열은 현재 표시된 장부에 실제 존재하는 데이터만 자동으로 구성됩니다. 표는 좌우로 밀어 더 많은 항목을 확인할 수 있습니다.
+                                    행을 누르면 선택·해제됩니다. 항목 열은 현재 표시된 장부에 실제 존재하는 데이터만 자동으로 구성되며, 표는 좌우로 밀어 확인할 수 있습니다.
                                 </div>
                             </section>
                         )}
