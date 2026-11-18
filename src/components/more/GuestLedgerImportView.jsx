@@ -10,7 +10,11 @@ import {
 import { useDelivery } from '../../contexts/DeliveryContext';
 import { calculateData } from '../../utils/calculator';
 import { getAppSettingsStorageKey } from '../../utils/accountDataStorage';
-import { getAvailableGuestEntries } from '../../utils/guestLedgerImport';
+import {
+    getAvailableGuestEntries,
+    getGuestImportMonthlyPeriodRange,
+    getGuestImportYearlyPeriodRange
+} from '../../utils/guestLedgerImport';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -28,16 +32,6 @@ const parseDateKey = (dateKey) => {
 
 const formatWon = (value) => (Number(value) || 0).toLocaleString('ko-KR') + '원';
 
-const getPeriodRange = (calendarDate, startDay, endDay) => {
-    const year = calendarDate.getFullYear();
-    const month = calendarDate.getMonth();
-    const start = startDay > endDay
-        ? new Date(year, month - 1, startDay)
-        : new Date(year, month, startDay);
-    const end = new Date(year, month, endDay);
-    return { startDate: toDateKey(start), endDate: toDateKey(end) };
-};
-
 const getEntriesInRange = (entries, startDate, endDate) => entries.filter((entry) => (
     entry.date >= startDate && entry.date <= endDate
 ));
@@ -54,18 +48,28 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
     const [isImporting, setIsImporting] = useState(false);
     const [notice, setNotice] = useState('');
 
-    const [periodSettings] = useState(() => {
+    const readAccountPeriodSettings = (accountId) => {
         try {
-            const settings = JSON.parse(localStorage.getItem(getAppSettingsStorageKey(null)) || '{}');
+            const settings = JSON.parse(localStorage.getItem(getAppSettingsStorageKey(accountId)) || '{}');
+            const configuredStartDay = Number(settings.monthlyPeriod?.startDay);
+            const configuredEndDay = Number(settings.monthlyPeriod?.endDay);
             return {
-                startDay: Number(settings.monthlyPeriod?.startDay) || 26,
-                endDay: Number(settings.monthlyPeriod?.endDay) || 25
+                startDay: Number.isInteger(configuredStartDay) && configuredStartDay >= 1 && configuredStartDay <= 31
+                    ? configuredStartDay : 26,
+                endDay: Number.isInteger(configuredEndDay) && configuredEndDay >= 1 && configuredEndDay <= 31
+                    ? configuredEndDay : 25
             };
         } catch (error) {
-            console.warn('[GuestImport] 게스트 장부 기간 설정을 읽지 못했습니다.', error);
+            console.warn('[GuestImport] 현재 계정의 집계일 기준을 읽지 못했습니다.', error);
             return { startDay: 26, endDay: 25 };
         }
-    });
+    };
+
+    const [periodSettings, setPeriodSettings] = useState(() => readAccountPeriodSettings(userId));
+
+    useEffect(() => {
+        setPeriodSettings(readAccountPeriodSettings(userId));
+    }, [userId]);
 
     const refreshGuestEntries = () => {
         setGuestEntries(getAvailableGuestEntries(userId));
@@ -104,7 +108,7 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
     const selectedDateCount = new Set(selectedEntries.map((entry) => entry.date)).size;
 
     const monthlyPeriod = useMemo(
-        () => getPeriodRange(currentCalendarDate, periodSettings.startDay, periodSettings.endDay),
+        () => getGuestImportMonthlyPeriodRange(currentCalendarDate, periodSettings.startDay, periodSettings.endDay),
         [currentCalendarDate, periodSettings]
     );
 
@@ -150,7 +154,7 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
         setSelectedDate('');
         setNotice('');
         if (selectionMode === 'month') {
-            const range = getPeriodRange(nextMonth, periodSettings.startDay, periodSettings.endDay);
+            const range = getGuestImportMonthlyPeriodRange(nextMonth, periodSettings.startDay, periodSettings.endDay);
             setSelectedEntryIds(
                 getEntriesInRange(guestEntries, range.startDate, range.endDate).map((entry) => String(entry.id))
             );
@@ -166,14 +170,13 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
             return;
         }
         if (mode === 'month') {
-            const range = getPeriodRange(currentCalendarDate, periodSettings.startDay, periodSettings.endDay);
+            const range = getGuestImportMonthlyPeriodRange(currentCalendarDate, periodSettings.startDay, periodSettings.endDay);
             setSelectedForRange(range.startDate, range.endDate);
             return;
         }
         if (mode === 'year') {
-            const start = selectedYear + '-01-01';
-            const end = selectedYear + '-12-31';
-            setSelectedForRange(start, end);
+            const range = getGuestImportYearlyPeriodRange(selectedYear, periodSettings.startDay, periodSettings.endDay);
+            setSelectedForRange(range.startDate, range.endDate);
             return;
         }
         if (mode === 'all') {
@@ -246,13 +249,14 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
         : selectionMode === 'month'
             ? '현재 달력의 정산 기간에 해당하는 게스트 장부를 모두 선택합니다.'
             : selectionMode === 'year'
-                ? '선택한 연도에 저장된 게스트 장부를 모두 선택합니다.'
+                ? '설정된 집계일 기준으로 계산한 해당 연도의 게스트 장부를 모두 선택합니다.'
                 : '기기에 남아 있는 모든 게스트 장부를 선택합니다.';
 
     const handleYearChange = (delta) => {
         const nextYear = selectedYear + delta;
         setSelectedYear(nextYear);
-        setSelectedForRange(nextYear + '-01-01', nextYear + '-12-31');
+        const range = getGuestImportYearlyPeriodRange(nextYear, periodSettings.startDay, periodSettings.endDay);
+        setSelectedForRange(range.startDate, range.endDate);
     };
 
     const detailTitle = selectedDate
@@ -332,7 +336,7 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                                 setCurrentCalendarDate(todayMonth);
                                                 setSelectedDate(toDateKey(today));
                                                 if (selectionMode === 'month') {
-                                                    const range = getPeriodRange(todayMonth, periodSettings.startDay, periodSettings.endDay);
+                                                    const range = getGuestImportMonthlyPeriodRange(todayMonth, periodSettings.startDay, periodSettings.endDay);
                                                     setSelectedForRange(range.startDate, range.endDate);
                                                 }
                                             }}
@@ -413,14 +417,21 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                     <strong className="text-lg">{selectedYear}년</strong>
                                     <button type="button" onClick={() => handleYearChange(1)} aria-label="다음 연도"><ChevronRight size={20} /></button>
                                 </div>
-                                <button type="button" onClick={() => setSelectedForRange(selectedYear + '-01-01', selectedYear + '-12-31')} className="mt-3 w-full rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-bold text-white">
+                                <button type="button" onClick={() => {
+                                    const range = getGuestImportYearlyPeriodRange(selectedYear, periodSettings.startDay, periodSettings.endDay);
+                                    setSelectedForRange(range.startDate, range.endDate);
+                                }} className="mt-3 w-full rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-bold text-white">
                                     {selectedYear}년 장부 전체 선택
                                 </button>
                                 <div className="mt-3 grid grid-cols-3 gap-2">
                                     {Array.from({ length: 12 }, (_, index) => {
                                         const month = String(index + 1).padStart(2, '0');
-                                        const prefix = selectedYear + '-' + month;
-                                        const count = guestEntries.filter((entry) => entry.date?.startsWith(prefix)).length;
+                                        const monthRange = getGuestImportMonthlyPeriodRange(
+                                            new Date(Number(selectedYear), index, 1),
+                                            periodSettings.startDay,
+                                            periodSettings.endDay
+                                        );
+                                        const count = getEntriesInRange(guestEntries, monthRange.startDate, monthRange.endDate).length;
                                         return (
                                             <div key={month} className={'rounded-lg px-2 py-2 text-center ' + (dark ? 'bg-slate-800' : 'bg-slate-50')}>
                                                 <div className="text-sm font-bold">{index + 1}월</div>
