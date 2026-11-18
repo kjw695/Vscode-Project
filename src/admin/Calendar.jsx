@@ -440,7 +440,8 @@ export default function Calendar({ onBack }) {
         selectedTeam,
         weekStartKey,
         scheduleKey,
-        savedRecord?.version
+        weekDates,
+        savedRecord
     ]);
 
     const activeTeamEmployees = useMemo(function () {
@@ -509,7 +510,7 @@ export default function Calendar({ onBack }) {
         // 현재 보고 있는 주의 미저장 초안도 월간 달력에 바로 반영합니다.
         Object.assign(combined, generatedSchedule || {});
         return combined;
-    }, [selectedTeam, year, month, monthKey, generatedSchedule, scheduleStatus, savedRecord]);
+    }, [selectedTeam, year, month, generatedSchedule]);
 
     const currentRecord = getDayRecord(generatedSchedule, currentDate, year, month);
     const selectedDate = new Date(year, month - 1, Math.min(selectedDay, new Date(year, month, 0).getDate()));
@@ -532,8 +533,6 @@ export default function Calendar({ onBack }) {
         return isOffRecord(selectedRecord, employee);
     });
 
-    const selectedAssignments = selectedRecord && Array.isArray(selectedRecord.subs) ? selectedRecord.subs : [];
-    const selectedAssignmentNames = selectedAssignments.map(function (assignment) { return assignment.targetBaseName || assignment.routeName || assignment.subName; }).filter(Boolean);
 
     const handleMonthChange = function (offset) {
         const nextDate = new Date(year, currentDate.getMonth() + offset, 1);
@@ -1079,7 +1078,6 @@ export default function Calendar({ onBack }) {
                     ? ((info.assignment && info.assignment.targetBaseName) || '백업')
                     : '근무';
         const title = info.status === 'off' ? '누르면 근무로 변경' : '누르면 휴무 지정';
-        const isBackupEmployee = !routes.some(function (route) { return String(route.assigned_emp_id) === String(employee.id); });
         const colorClass = info.status === 'off'
             ? 'border-rose-200 bg-rose-50 text-rose-700'
             : info.status === 'backup'
