@@ -193,3 +193,49 @@ export function getGuestImportYearMonthRange(yearValue, monthIndex, startDay, en
         endDate: toLocalDateKey(new Date(year, month + 1, 0))
     };
 }
+
+
+const LEGACY_GUEST_ENTRY_COLUMNS = [
+    { key: 'deliveryCount', label: '배송', kind: 'quantity' },
+    { key: 'deliveryInterruptionAmount', label: '중단', kind: 'quantity' },
+    { key: 'returnCount', label: '반품', kind: 'quantity' },
+    { key: 'freshBagCount', label: '프레시백', kind: 'quantity' },
+    { key: 'penaltyAmount', label: '패널티', kind: 'amount' },
+    { key: 'industrialAccidentCost', label: '산재비', kind: 'amount' },
+    { key: 'fuelCost', label: '유류비', kind: 'amount' },
+    { key: 'maintenanceCost', label: '정비비', kind: 'amount' },
+    { key: 'vatAmount', label: '부가세', kind: 'amount' },
+    { key: 'incomeTaxAmount', label: '소득세', kind: 'amount' },
+    { key: 'taxAccountantFee', label: '세무사 비용', kind: 'amount' }
+];
+
+// The spreadsheet columns are inferred from fields that actually occur in
+// the currently displayed guest entries. Custom item labels remain dynamic.
+export function getGuestEntryTableColumns(entries) {
+    const columns = new Map();
+
+    (Array.isArray(entries) ? entries : []).forEach((entry) => {
+        const customItems = Array.isArray(entry?.customItems) ? entry.customItems : [];
+        customItems.forEach((item) => {
+            if (!item?.key) return;
+            const key = String(item.key);
+            if (!columns.has(key)) {
+                columns.set(key, {
+                    key,
+                    label: item.name || key,
+                    kind: item.type === 'expense' || (Number(item.count) <= 0 && Number(item.amount) > 0)
+                        ? 'amount'
+                        : 'quantity'
+                });
+            }
+        });
+
+        LEGACY_GUEST_ENTRY_COLUMNS.forEach((column) => {
+            if (Number(entry?.[column.key]) > 0 && !columns.has(column.key)) {
+                columns.set(column.key, column);
+            }
+        });
+    });
+
+    return Array.from(columns.values());
+}

@@ -10,7 +10,8 @@ import {
     addGuestEntrySelection,
     removeGuestEntrySelection,
     toggleGuestEntrySelection,
-    getGuestImportYearMonthRange
+    getGuestImportYearMonthRange,
+    getGuestEntryTableColumns
 } from './guestLedgerImport';
 
 describe('guest ledger import', () => {
@@ -192,5 +193,37 @@ describe('guest import selection helpers', () => {
             startDate: '2025-12-26',
             endDate: '2026-01-25'
         });
+    });
+});
+
+
+describe('guest ledger spreadsheet columns', () => {
+    test('uses custom item names as dynamic columns and only includes legacy fields with values', () => {
+        const columns = getGuestEntryTableColumns([
+            {
+                customItems: [
+                    { key: 'deliveryCount', name: '배송', type: 'income', count: 12, unitPrice: 1000 },
+                    { key: 'deliveryInterruptionAmount', name: '중단', type: 'income', count: 2, unitPrice: 700 }
+                ]
+            },
+            {
+                penaltyAmount: 5000,
+                fuelCost: 0
+            }
+        ]);
+
+        expect(columns).toEqual([
+            { key: 'deliveryCount', label: '배송', kind: 'quantity' },
+            { key: 'deliveryInterruptionAmount', label: '중단', kind: 'quantity' },
+            { key: 'penaltyAmount', label: '패널티', kind: 'amount' }
+        ]);
+    });
+
+    test('shows amount-only custom items as amount columns', () => {
+        expect(getGuestEntryTableColumns([{
+            customItems: [{ key: 'fuel', name: '주유비', type: 'expense', amount: 35000 }]
+        }])).toEqual([
+            { key: 'fuel', label: '주유비', kind: 'amount' }
+        ]);
     });
 });
