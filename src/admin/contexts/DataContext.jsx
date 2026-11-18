@@ -227,7 +227,7 @@ export function DataProvider({ children }) {
                 currentOrganizationRef.current = orgId;
                 setScope('shared');
 
-                if (role !== 'owner' && role !== 'admin') {
+                if (role !== 'owner') {
                     setStatus('unauthorized');
                     return;
                 }
@@ -394,7 +394,7 @@ export function DataProvider({ children }) {
 
     // Sync employee accounts into the shared roster. Existing manual employee settings are retained.
     useEffect(() => {
-        if (scope !== 'shared' || (organizationRole !== 'owner' && organizationRole !== 'admin')) {
+        if (scope !== 'shared' || organizationRole !== 'owner') {
             setMemberSyncStatus('idle');
             return undefined;
         }
@@ -514,7 +514,7 @@ export function DataProvider({ children }) {
 
     const initializeSharedState = useCallback(async (importLegacy) => {
         if (organizationRole !== 'owner' || scope !== 'shared') {
-            throw new Error('회사 대표 관리자만 최초 공용 데이터를 연결할 수 있습니다.');
+            throw new Error('현재 회사 관리자 계정에서만 최초 공용 데이터를 연결할 수 있습니다.');
         }
         const source = importLegacy ? {
             regions,
@@ -610,8 +610,7 @@ export function DataProvider({ children }) {
         hasLegacyLocalData,
         initializeSharedState,
         reloadSharedState,
-        isCompanyAdmin: organizationRole === 'owner' || organizationRole === 'admin',
-        canManageAdminSeats: organizationRole === 'owner'
+        isCompanyAdmin: organizationRole === 'owner'
     };
 
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
