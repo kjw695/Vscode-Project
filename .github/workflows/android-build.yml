@@ -5,9 +5,11 @@ on:
     branches:
       - security-audit
       - feature/account-data-isolation
+      - feature/shared-company-admin-data
   pull_request:
     branches:
       - security-audit
+      - feature/account-data-isolation
   workflow_dispatch:
 
 permissions:
