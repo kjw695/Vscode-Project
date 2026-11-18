@@ -222,7 +222,7 @@ const handleEditClick = () => {
   const completeLogout = async (syncFirst) => {
       // 장부 로딩이 끝나기 전에는 미전송 건수를 알 수 없으므로 로그아웃을 막습니다.
       if (!isDataLoaded) {
-          setLogoutError('현재 계정의 장부를 확인하고 있습니다. 확인이 끝난 뒤 다시 시도해주세요.');
+          setLogoutError('');
           setShowLogoutOptions(true);
           return;
       }
@@ -638,16 +638,18 @@ const handleEditClick = () => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
           <div className={`w-full max-w-sm rounded-2xl p-4 shadow-xl ${isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}>
             <h3 className="font-bold text-lg mb-2">
-              {isDataLoaded ? `미전송 장부 ${pendingSyncCount}건` : '계정 장부 확인 중'}
+              {!isDataLoaded ? '계정 장부 확인 중' : pendingSyncCount > 0 ? `미전송 장부 ${pendingSyncCount}건` : '장부 확인 완료'}
             </h3>
             <p className="text-sm text-gray-500 mb-4">
-              {isDataLoaded
-                ? '로그아웃해도 미전송 장부는 이 계정의 기기 저장소에 보관됩니다. 다른 계정에서는 보이지 않습니다.'
-                : '현재 계정의 장부를 불러오고 있습니다. 장부 확인이 끝날 때까지 로그아웃할 수 없습니다.'}
+              {!isDataLoaded
+                ? '현재 계정의 장부를 불러오고 있습니다. 장부 확인이 끝날 때까지 로그아웃할 수 없습니다.'
+                : pendingSyncCount > 0
+                  ? '로그아웃해도 미전송 장부는 이 계정의 기기 저장소에 보관됩니다. 다른 계정에서는 보이지 않습니다.'
+                  : '미전송 장부가 없습니다. 로그아웃할 수 있습니다.'}
             </p>
             {logoutError && <p className="text-sm text-red-500 mb-3">{logoutError}</p>}
             <div className="flex flex-col gap-2">
-              {isDataLoaded ? (
+              {isDataLoaded && pendingSyncCount > 0 ? (
                 <>
                   <button disabled={isLoggingOut} onClick={() => completeLogout(true)} className="w-full rounded-lg bg-blue-600 text-white py-3 font-semibold disabled:opacity-50">
                     {isLoggingOut ? '처리 중...' : '동기화 후 로그아웃'}
@@ -656,6 +658,10 @@ const handleEditClick = () => {
                     나중에 동기화하고 로그아웃
                   </button>
                 </>
+              ) : isDataLoaded ? (
+                <button disabled={isLoggingOut} onClick={() => completeLogout(false)} className="w-full rounded-lg bg-blue-600 text-white py-3 font-semibold disabled:opacity-50">
+                  로그아웃
+                </button>
               ) : null}
               <button disabled={isLoggingOut} onClick={() => { setShowLogoutOptions(false); setLogoutError(''); }} className="w-full py-2 text-sm text-gray-500">
                 {isDataLoaded ? '취소' : '확인'}
