@@ -34,7 +34,7 @@ const maskVehicle = (vehicle) => {
 function AccountView({ onBack, isDarkMode, autoEdit = false }) {
   const [showLogin, setShowLogin] = useState(false);
   const { isLoggedIn, user, profile, signOut, isAuthLoading } = useAuth();
-  const { pendingSyncCount, syncPendingData } = useDelivery();
+  const { pendingSyncCount, syncPendingData, isDataLoaded } = useDelivery();
   const [unclassifiedCount, setUnclassifiedCount] = useState(0);
   const [hasUnclassifiedSettings, setHasUnclassifiedSettings] = useState(false);
   const [showLogoutOptions, setShowLogoutOptions] = useState(false);
@@ -220,6 +220,12 @@ const handleEditClick = () => {
   };
 
   const completeLogout = async (syncFirst) => {
+      // 장부 로딩이 끝나기 전에는 미전송 건수를 알 수 없으므로 로그아웃을 막습니다.
+      if (!isDataLoaded) {
+          setLogoutError('현재 계정의 장부를 확인하고 있습니다. 확인이 끝난 뒤 다시 시도해주세요.');
+          setShowLogoutOptions(true);
+          return;
+      }
       setIsLoggingOut(true);
       setLogoutError('');
       try {
@@ -241,6 +247,12 @@ const handleEditClick = () => {
   };
 
   const handleLogoutClick = async () => {
+      // 로컬 큐를 읽기 전에 로그아웃하면 미전송 건수 확인을 건너뛸 수 있습니다.
+      if (!isDataLoaded) {
+          setLogoutError('현재 계정의 장부를 확인하고 있습니다. 확인이 끝난 뒤 다시 시도해주세요.');
+          setShowLogoutOptions(true);
+          return;
+      }
       if (pendingSyncCount > 0) {
           setShowLogoutOptions(true);
           return;
@@ -625,20 +637,28 @@ const handleEditClick = () => {
       {showLogoutOptions && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
           <div className={`w-full max-w-sm rounded-2xl p-4 shadow-xl ${isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}>
-            <h3 className="font-bold text-lg mb-2">미전송 장부 {pendingSyncCount}건</h3>
+            <h3 className="font-bold text-lg mb-2">
+              {isDataLoaded ? `미전송 장부 ${pendingSyncCount}건` : '계정 장부 확인 중'}
+            </h3>
             <p className="text-sm text-gray-500 mb-4">
-              로그아웃해도 미전송 장부는 이 계정의 기기 저장소에 보관됩니다. 다른 계정에서는 보이지 않습니다.
+              {isDataLoaded
+                ? '로그아웃해도 미전송 장부는 이 계정의 기기 저장소에 보관됩니다. 다른 계정에서는 보이지 않습니다.'
+                : '현재 계정의 장부를 불러오고 있습니다. 장부 확인이 끝날 때까지 로그아웃할 수 없습니다.'}
             </p>
             {logoutError && <p className="text-sm text-red-500 mb-3">{logoutError}</p>}
             <div className="flex flex-col gap-2">
-              <button disabled={isLoggingOut} onClick={() => completeLogout(true)} className="w-full rounded-lg bg-blue-600 text-white py-3 font-semibold disabled:opacity-50">
-                {isLoggingOut ? '처리 중...' : '동기화 후 로그아웃'}
-              </button>
-              <button disabled={isLoggingOut} onClick={() => completeLogout(false)} className={`w-full rounded-lg py-3 font-semibold disabled:opacity-50 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                나중에 동기화하고 로그아웃
-              </button>
-              <button disabled={isLoggingOut} onClick={() => setShowLogoutOptions(false)} className="w-full py-2 text-sm text-gray-500">
-                취소
+              {isDataLoaded ? (
+                <>
+                  <button disabled={isLoggingOut} onClick={() => completeLogout(true)} className="w-full rounded-lg bg-blue-600 text-white py-3 font-semibold disabled:opacity-50">
+                    {isLoggingOut ? '처리 중...' : '동기화 후 로그아웃'}
+                  </button>
+                  <button disabled={isLoggingOut} onClick={() => completeLogout(false)} className={`w-full rounded-lg py-3 font-semibold disabled:opacity-50 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                    나중에 동기화하고 로그아웃
+                  </button>
+                </>
+              ) : null}
+              <button disabled={isLoggingOut} onClick={() => { setShowLogoutOptions(false); setLogoutError(''); }} className="w-full py-2 text-sm text-gray-500">
+                {isDataLoaded ? '취소' : '확인'}
               </button>
             </div>
           </div>
