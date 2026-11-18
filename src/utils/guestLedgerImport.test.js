@@ -2,7 +2,9 @@ import {
     buildGuestImportBatch,
     getAvailableGuestEntries,
     GUEST_ENTRIES_STORAGE_KEY,
-    GUEST_ENTRIES_IMPORT_BACKUP_KEY
+    GUEST_ENTRIES_IMPORT_BACKUP_KEY,
+    getGuestImportMonthlyPeriodRange,
+    getGuestImportYearlyPeriodRange
 } from './guestLedgerImport';
 
 describe('guest ledger import', () => {
@@ -102,3 +104,34 @@ describe('guest ledger import', () => {
         expect(result.importedEntries[0].id).toMatch(/^zguest_12345_0_/);
     });
 });
+
+describe('guest import aggregation period helpers', () => {
+    test('uses the configured cross-month aggregation dates for monthly selection', () => {
+        expect(getGuestImportMonthlyPeriodRange(new Date(2026, 10, 1), 26, 25)).toEqual({
+            startDate: '2026-10-26',
+            endDate: '2026-11-25'
+        });
+    });
+
+    test('uses same-month boundaries when aggregation start is not later than end', () => {
+        expect(getGuestImportMonthlyPeriodRange(new Date(2026, 10, 1), 1, 30)).toEqual({
+            startDate: '2026-11-01',
+            endDate: '2026-11-30'
+        });
+    });
+
+    test('matches the app yearly aggregation period for a cross-month setting', () => {
+        expect(getGuestImportYearlyPeriodRange(2026, 26, 25)).toEqual({
+            startDate: '2025-12-26',
+            endDate: '2026-12-25'
+        });
+    });
+
+    test('uses the calendar year when aggregation start is not later than end', () => {
+        expect(getGuestImportYearlyPeriodRange(2026, 1, 31)).toEqual({
+            startDate: '2026-01-01',
+            endDate: '2026-12-31'
+        });
+    });
+});
+
