@@ -664,7 +664,8 @@ const BluecoinsDailySummaryPreview = ({
                         </span>
                     </div>
                 </div>
-
+                <div className="mt-2 min-w-0">
+                    <div className="whitespace-nowrap text-[clamp(2rem,11.5vw,3.6rem)] font-black leading-none tracking-tight tabular-nums">
                         {formatLargeManWon(currentRevenue)}
                     </div>
                 </div>
