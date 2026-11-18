@@ -659,7 +659,7 @@ const BluecoinsDailySummaryPreview = ({
                     <h2 className={'shrink-0 whitespace-nowrap text-[clamp(12px,3.5vw,15px)] font-black ' + mutedClass}>이번 달 총 금액</h2>
                     <div className="flex min-w-0 items-center justify-end gap-1.5">
                         {previousWorkingDays > 0 ? (
-                            <span className={'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[clamp(8px,2.5vw,11px)] font-black tabular-nums ' + (
+                            <span className={'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0 text-[clamp(12px,3.2vw,14px)] font-black tabular-nums ' + (
                                 incomeDiff > 0
                                     ? 'bg-emerald-500/15 text-emerald-500'
                                     : incomeDiff < 0
@@ -792,7 +792,7 @@ const BluecoinsDailySummaryPreview = ({
             )}
 
             <section
-                className={'mt-2 overflow-hidden rounded-2xl border shadow-sm ' + panelClass}
+                className={'mt-0 overflow-hidden rounded-2xl border shadow-sm ' + panelClass}
                 onTouchStart={handleCalendarTouchStart}
                 onTouchEnd={handleCalendarTouchEnd}
                 onTouchCancel={handleCalendarTouchCancel}
