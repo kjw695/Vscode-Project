@@ -28,6 +28,49 @@ const stableJson = (value) => {
 const sameValue = (a, b) =>
     JSON.stringify(stableJson(a ?? null)) === JSON.stringify(stableJson(b ?? null));
 
+function getPreparedMigrationUserIds() {
+    const prefix = 'migration_state:v2:';
+    const userIds = [];
+    try {
+        for (let index = 0; index < localStorage.length; index += 1) {
+            const key = localStorage.key(index);
+            if (!key || !key.startsWith(prefix)) continue;
+            const state = readJsonStorage(key, null);
+            if (state?.prepared === true) userIds.push(key.slice(prefix.length));
+        }
+    } catch (error) {
+        console.warn('[Migration] 계정별 이관 상태 확인 실패:', error);
+    }
+    return userIds;
+}
+
+function hasPreparedMigrationForAnotherAccount(userId) {
+    return getPreparedMigrationUserIds().some((preparedUserId) => preparedUserId !== userId);
+}
+
+function legacyEntryFingerprint(entry) {
+    return JSON.stringify(stableJson({
+        id: entry?.id ?? null,
+        date: entry?.date ?? null,
+        type: entry?.type ?? null,
+        unitPrice: Number(entry?.unitPrice ?? entry?.unit_price ?? 0),
+        round: Number(entry?.round ?? 0),
+        memo: entry?.memo ?? null,
+        customItems: entry?.customItems ?? entry?.custom_items ?? [],
+        timestamp: entry?.timestamp ?? null,
+    }));
+}
+
+function mergeLegacyEntries(...entryLists) {
+    const merged = new Map();
+    entryLists.flat().forEach((entry) => {
+        if (!entry || typeof entry !== 'object') return;
+        const fingerprint = legacyEntryFingerprint(entry);
+        if (!merged.has(fingerprint)) merged.set(fingerprint, entry);
+    });
+    return [...merged.values()];
+}
+
 function matchesServerRecord(localEntry, serverRow) {
     // A server ID alone is not sufficient: compare the record contents as well.
     return String(localEntry.id) === String(serverRow.id) &&
@@ -75,14 +118,19 @@ export async function migrateLocalDataToServer(userId) {
 
     const stateKey = getMigrationStateStorageKey(userId);
     const previousState = readJsonStorage(stateKey, null);
-    if (previousState?.prepared === true) {
-        const bucket = readJsonStorage(UNCLASSIFIED_KEY, null);
+    const bucketAtStart = readJsonStorage(UNCLASSIFIED_KEY, null);
+    const hasPendingBucketForThisAccount = bucketAtStart?.status === 'pending' &&
+        (bucketAtStart.reviewUserId === userId || bucketAtStart.reviewUserId === 'device');
+
+    // 이미 처리한 계정이라도 검토 대기 장부가 남아 있으면 서버 소유권을 다시 확인해
+    // 실제 해당 계정의 기록만 미분류 목록에서 제거합니다.
+    if (previousState?.prepared === true && !hasPendingBucketForThisAccount) {
         return {
             success: true,
             prepared: true,
             alreadyPrepared: true,
-            unclassifiedCount: bucket?.reviewUserId === userId && bucket.status === 'pending'
-                ? (bucket.entries || []).length : 0,
+            unclassifiedCount: bucketAtStart?.reviewUserId === userId && bucketAtStart.status === 'pending'
+                ? (bucketAtStart.entries || []).length : 0,
         };
     }
 
@@ -101,10 +149,14 @@ export async function migrateLocalDataToServer(userId) {
 
         const accountKey = getDeliveryEntriesStorageKey(userId);
         const accountEntries = readJsonStorage(accountKey, []);
+        const existingBucket = readJsonStorage(UNCLASSIFIED_KEY, null);
+        const existingBucketEntries = existingBucket?.status === 'pending' && Array.isArray(existingBucket.entries)
+            ? existingBucket.entries : [];
+        const candidateEntries = mergeLegacyEntries(safeLegacyEntries, existingBucketEntries);
         const confirmed = [];
         const unclassified = [];
 
-        safeLegacyEntries.forEach((entry) => {
+        candidateEntries.forEach((entry) => {
             const matchingServerRow = (serverRows || []).find((row) =>
                 matchesServerRecord(entry, row)
             );
@@ -133,26 +185,76 @@ export async function migrateLocalDataToServer(userId) {
 
         const legacySettings = readJsonStorage(LEGACY_SETTINGS_KEY, null);
         const hasLegacySettings = !!(legacySettings && typeof legacySettings === 'object' && Object.keys(legacySettings).length);
-        if (unclassified.length > 0 || hasLegacySettings) {
-            const existingBucket = readJsonStorage(UNCLASSIFIED_KEY, null);
-            if (!existingBucket) {
+        const hasOtherPreparedAccount = hasPreparedMigrationForAnotherAccount(userId);
+        const canManageReviewBucket = !existingBucket
+            ? !hasOtherPreparedAccount
+            : existingBucket.status === 'pending' && (
+                existingBucket.reviewUserId === userId ||
+                (existingBucket.reviewUserId === 'device' && !hasOtherPreparedAccount)
+            );
+        const hasLegacySource = candidateEntries.length > 0 || hasLegacySettings || !!existingBucket;
+
+        if (canManageReviewBucket) {
+            const hasSettingsToReview = !!existingBucket?.hasSettings || hasLegacySettings;
+            if (unclassified.length > 0 || hasSettingsToReview) {
                 writeJsonStorage(UNCLASSIFIED_KEY, {
-                    reviewUserId: 'device',
+                    ...(existingBucket || {}),
+                    // 'device'는 검토 대기 상태일 뿐 소유권이 아닙니다.
+                    // 실제 계정 소유권은 사용자 확인 버튼을 눌렀을 때만 지정합니다.
+                    reviewUserId: existingBucket?.reviewUserId === userId ? userId : 'device',
                     status: 'pending',
-                    createdAt: new Date().toISOString(),
-                    snapshotKey,
+                    createdAt: existingBucket?.createdAt || new Date().toISOString(),
+                    snapshotKey: existingBucket?.snapshotKey || snapshotKey,
                     entries: unclassified,
-                    hasSettings: hasLegacySettings,
+                    hasSettings: hasSettingsToReview,
+                });
+            } else if (hasLegacySource) {
+                // 모든 기존 장부가 현재 계정의 서버 기록과 일치한 경우에도
+                // 원본 legacy 키를 나중에 게스트 데이터로 다시 포장하지 않도록 완료 표시를 남깁니다.
+                writeJsonStorage(UNCLASSIFIED_KEY, {
+                    ...(existingBucket || {}),
+                    reviewUserId: userId,
+                    status: 'classified',
+                    createdAt: existingBucket?.createdAt || new Date().toISOString(),
+                    snapshotKey: existingBucket?.snapshotKey || snapshotKey,
+                    entries: [],
+                    hasSettings: false,
+                    resolvedAt: new Date().toISOString(),
+                });
+            }
+        } else if (existingBucket?.status === 'pending' && existingBucketEntries.length > 0) {
+            // 다른 계정의 검토 대기함에 현재 계정 서버 소유로 확인된 항목이 섞여 있으면
+            // 그 항목만 현재 계정 저장소로 옮기고 원래 검토 대기함에서는 제외합니다.
+            const verifiedFingerprints = new Set(
+                existingBucketEntries
+                    .filter((entry) => (serverRows || []).some((row) => matchesServerRecord(entry, row)))
+                    .map(legacyEntryFingerprint)
+            );
+            if (verifiedFingerprints.size > 0) {
+                const remainingEntries = existingBucketEntries.filter(
+                    (entry) => !verifiedFingerprints.has(legacyEntryFingerprint(entry))
+                );
+                writeJsonStorage(UNCLASSIFIED_KEY, {
+                    ...existingBucket,
+                    status: remainingEntries.length > 0 || existingBucket.hasSettings ? 'pending' : 'classified',
+                    entries: remainingEntries,
+                    resolvedAt: remainingEntries.length === 0 && !existingBucket.hasSettings
+                        ? new Date().toISOString()
+                        : existingBucket.resolvedAt,
                 });
             }
         }
+
+        const savedBucket = readJsonStorage(UNCLASSIFIED_KEY, null);
+        const savedUnclassifiedCount = savedBucket?.reviewUserId === userId && savedBucket.status === 'pending'
+            ? (savedBucket.entries || []).length : 0;
 
         writeJsonStorage(stateKey, {
             prepared: true,
             preparedAt: new Date().toISOString(),
             snapshotKey,
             confirmedCount: confirmed.length,
-            unclassifiedCount: unclassified.length,
+            unclassifiedCount: savedUnclassifiedCount,
         });
 
         return {
@@ -160,7 +262,7 @@ export async function migrateLocalDataToServer(userId) {
             prepared: true,
             snapshotKey,
             confirmedCount: confirmed.length,
-            unclassifiedCount: unclassified.length,
+            unclassifiedCount: savedUnclassifiedCount,
         };
     } catch (error) {
         console.error('[Migration] 안전한 로컬 분류 준비 실패:', error);
@@ -182,6 +284,12 @@ export function prepareLegacyDataForGuest() {
             unclassifiedCount: existingBucket.reviewUserId === 'device' && existingBucket.status === 'pending'
                 ? (existingBucket.entries || []).length : 0,
         };
+    }
+
+    // 계정 이관이 한 번이라도 완료됐다면, 남아 있는 구버전 전역 키는
+    // 이미 계정 소유권 확인에 사용된 원본입니다. 로그아웃 후 게스트 데이터로 재분류하지 않습니다.
+    if (getPreparedMigrationUserIds().length > 0) {
+        return { prepared: true, unclassifiedCount: 0, alreadyAccountScoped: true };
     }
 
     try {
@@ -217,6 +325,8 @@ export function reserveUnclassifiedLegacyDataForAccount(userId) {
     const bucket = readJsonStorage(UNCLASSIFIED_KEY, null);
     if (!bucket || bucket.status !== 'pending') return false;
     if (bucket.reviewUserId === 'device') {
+        // 다른 계정의 이관이 이미 완료됐다면 새 계정에 검토 권한을 넘기지 않습니다.
+        if (hasPreparedMigrationForAnotherAccount(userId)) return false;
         writeJsonStorage(UNCLASSIFIED_KEY, {
             ...bucket,
             reviewUserId: userId,
