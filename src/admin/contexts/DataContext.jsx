@@ -371,7 +371,7 @@ export function DataProvider({ children }) {
                 setStatus('ready');
             } catch (error) {
                 const message = String(error?.message || '');
-                if (error?.code === '40001' || message.includes('다른 관리자에 의해 변경')) {
+                if (error?.code === '40001' || message.includes('다른 기기에서 변경')) {
                     writeEnabledRef.current = false;
                     setStatus('conflict');
                 } else {
