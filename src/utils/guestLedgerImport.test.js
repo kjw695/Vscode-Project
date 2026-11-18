@@ -4,7 +4,9 @@ import {
     GUEST_ENTRIES_STORAGE_KEY,
     GUEST_ENTRIES_IMPORT_BACKUP_KEY,
     getGuestImportMonthlyPeriodRange,
-    getGuestImportYearlyPeriodRange
+    getGuestImportYearlyPeriodRange,
+    getGuestEntryDateKey,
+    getGuestEntriesInRange
 } from './guestLedgerImport';
 
 describe('guest ledger import', () => {
@@ -135,3 +137,25 @@ describe('guest import aggregation period helpers', () => {
     });
 });
 
+
+
+describe('guest import entry date matching', () => {
+    test('normalizes date-only values and ISO timestamps to the same calendar date', () => {
+        expect(getGuestEntryDateKey('2026-11-02')).toBe('2026-11-02');
+        expect(getGuestEntryDateKey('2026-11-02T00:00:00.000Z')).toBe('2026-11-02');
+        expect(getGuestEntryDateKey('2026. 11. 2.')).toBe('2026-11-02');
+    });
+
+    test('includes all entries within a cross-month accounting period', () => {
+        const entries = [
+            { id: 'before', date: '2026-10-25' },
+            { id: 'start', date: '2026-10-26T00:00:00.000Z' },
+            { id: 'middle', date: '2026-11-02' },
+            { id: 'end', date: '2026-11-25' },
+            { id: 'after', date: '2026-11-26' }
+        ];
+
+        expect(getGuestEntriesInRange(entries, '2026-10-26', '2026-11-25').map((entry) => entry.id))
+            .toEqual(['start', 'middle', 'end']);
+    });
+});
