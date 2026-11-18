@@ -196,7 +196,7 @@ BEGIN
 
     IF pg_column_size(p_regions) + pg_column_size(p_teams)
        + pg_column_size(p_employees) + pg_column_size(p_routes) > 800000 THEN
-        RAISE EXCEPTION '회사 운영 데이터가 허용 크기(약 4MB)를 초과했습니다.';
+        RAISE EXCEPTION '회사 운영 데이터가 허용 크기(약 800KB)를 초과했습니다.';
     END IF;
 
     SELECT p.organization_id
