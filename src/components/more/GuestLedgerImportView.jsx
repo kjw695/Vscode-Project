@@ -321,7 +321,7 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                 type="button"
                                 key={option.value}
                                 onClick={() => handleModeChange(option.value)}
-                                className={'rounded-lg px-0.5 py-2 text-sm font-bold transition-colors ' + (
+                                className={'rounded-lg px-1 py-2 text-sm font-bold transition-colors ' + (
                                     selectionMode === option.value
                                         ? 'bg-blue-600 text-white shadow-sm'
                                         : (dark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-white')
