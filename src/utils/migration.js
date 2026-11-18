@@ -28,24 +28,34 @@ const stableJson = (value) => {
 const sameValue = (a, b) =>
     JSON.stringify(stableJson(a ?? null)) === JSON.stringify(stableJson(b ?? null));
 
-function getPreparedMigrationUserIds() {
+function getPreparedMigrationStates() {
     const prefix = 'migration_state:v2:';
-    const userIds = [];
+    const states = [];
     try {
         for (let index = 0; index < localStorage.length; index += 1) {
             const key = localStorage.key(index);
             if (!key || !key.startsWith(prefix)) continue;
             const state = readJsonStorage(key, null);
-            if (state?.prepared === true) userIds.push(key.slice(prefix.length));
+            if (state?.prepared === true) {
+                states.push({
+                    userId: key.slice(prefix.length),
+                    preparedAt: state.preparedAt || '1970-01-01T00:00:00.000Z',
+                });
+            }
         }
     } catch (error) {
         console.warn('[Migration] 계정별 이관 상태 확인 실패:', error);
     }
-    return userIds;
+    return states.sort((a, b) => String(a.preparedAt).localeCompare(String(b.preparedAt)));
 }
 
-function hasPreparedMigrationForAnotherAccount(userId) {
-    return getPreparedMigrationUserIds().some((preparedUserId) => preparedUserId !== userId);
+function getPreparedMigrationUserIds() {
+    return getPreparedMigrationStates().map((state) => state.userId);
+}
+
+function isFirstPreparedMigrationAccount(userId) {
+    const preparedStates = getPreparedMigrationStates();
+    return preparedStates.length === 0 || preparedStates[0].userId === userId;
 }
 
 function legacyEntryFingerprint(entry) {
@@ -185,9 +195,9 @@ export async function migrateLocalDataToServer(userId) {
 
         const legacySettings = readJsonStorage(LEGACY_SETTINGS_KEY, null);
         const hasLegacySettings = !!(legacySettings && typeof legacySettings === 'object' && Object.keys(legacySettings).length);
-        const hasOtherPreparedAccount = hasPreparedMigrationForAnotherAccount(userId);
+        const isFirstPreparedAccount = isFirstPreparedMigrationAccount(userId);
         const canManageReviewBucket = !existingBucket
-            ? !hasOtherPreparedAccount
+            ? isFirstPreparedAccount
             : existingBucket.status === 'pending' && (
                 existingBucket.reviewUserId === userId ||
                 (existingBucket.reviewUserId === 'device' && !hasOtherPreparedAccount)
@@ -326,7 +336,7 @@ export function reserveUnclassifiedLegacyDataForAccount(userId) {
     if (!bucket || bucket.status !== 'pending') return false;
     if (bucket.reviewUserId === 'device') {
         // 다른 계정의 이관이 이미 완료됐다면 새 계정에 검토 권한을 넘기지 않습니다.
-        if (hasPreparedMigrationForAnotherAccount(userId)) return false;
+        if (!isFirstPreparedMigrationAccount(userId)) return false;
         writeJsonStorage(UNCLASSIFIED_KEY, {
             ...bucket,
             reviewUserId: userId,
