@@ -118,8 +118,21 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
         [guestEntries, monthlyPeriod]
     );
 
-    // 월별은 집계 기간의 전체 기록을, 나머지 모드는 현재 선택 기록을 표로 표시합니다.
-    const tableEntries = selectionMode === 'month' ? monthlyEntries : selectedEntries;
+    // 표에는 현재 모드의 전체 대상 기록을 계속 표시해 행을 해제해도 다시 선택할 수 있게 합니다.
+    const tableEntries = useMemo(() => {
+        if (selectionMode === 'individual' || selectionMode === 'month') {
+            return monthlyEntries;
+        }
+        if (selectionMode === 'year') {
+            const range = getGuestImportYearlyPeriodRange(
+                selectedYear,
+                periodSettings.startDay,
+                periodSettings.endDay
+            );
+            return getEntriesInRange(guestEntries, range.startDate, range.endDate);
+        }
+        return guestEntries;
+    }, [selectionMode, monthlyEntries, guestEntries, selectedYear, periodSettings]);
     const tableColumns = useMemo(
         () => getGuestEntryTableColumns(tableEntries),
         [tableEntries]
@@ -542,16 +555,13 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                         </p>
                                     </div>
                                     <span className={'shrink-0 text-xs font-bold ' + (dark ? 'text-slate-300' : 'text-slate-600')}>
-                                        {selectionMode === 'month'
-                                            ? selectedEntries.filter((entry) => monthlyEntries.some((item) => String(item.id) === String(entry.id))).length + '/' + monthlyEntries.length + '건 선택'
-                                            : tableEntries.length + '건'}
+                                        {tableEntries.filter((entry) => selectedIds.has(String(entry.id))).length + '/' + tableEntries.length + '건 선택'}
                                     </span>
                                 </div>
                                 <div className="w-full overflow-x-auto">
                                     <table className="min-w-max w-full border-collapse text-left text-xs">
                                         <thead>
                                             <tr className={dark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}>
-                                                <th className="sticky left-0 z-10 border-y px-2 py-2 text-center font-bold bg-inherit">선택</th>
                                                 <th className="border-y px-3 py-2 font-bold">날짜</th>
                                                 <th className="border-y px-3 py-2 font-bold">회전</th>
                                                 {tableColumns.map((column) => (
@@ -570,20 +580,24 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                                 return (
                                                     <tr
                                                         key={entry.id}
-                                                        className={(rowIndex % 2 === 0
-                                                            ? (dark ? 'bg-slate-900' : 'bg-white')
-                                                            : (dark ? 'bg-slate-800/60' : 'bg-slate-50')) +
-                                                            (checked ? (dark ? ' ring-1 ring-inset ring-blue-500' : ' ring-1 ring-inset ring-blue-400') : '')}
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        aria-pressed={checked}
+                                                        aria-label={dateKey + ' 장부 ' + (checked ? '선택됨, 다시 누르면 해제' : '선택하려면 누르기')}
+                                                        onClick={() => handleEntryToggle(entry.id)}
+                                                        onKeyDown={(event) => {
+                                                            if (event.key === 'Enter' || event.key === ' ') {
+                                                                event.preventDefault();
+                                                                handleEntryToggle(entry.id);
+                                                            }
+                                                        }}
+                                                        className={'cursor-pointer transition-colors ' +
+                                                            (checked
+                                                                ? (dark ? 'bg-blue-900/40 ring-1 ring-inset ring-blue-500 hover:bg-blue-900/55' : 'bg-blue-50 ring-1 ring-inset ring-blue-400 hover:bg-blue-100')
+                                                                : (rowIndex % 2 === 0
+                                                                    ? (dark ? 'bg-slate-900 hover:bg-slate-800' : 'bg-white hover:bg-blue-50/60')
+                                                                    : (dark ? 'bg-slate-800/60 hover:bg-slate-800' : 'bg-slate-50 hover:bg-blue-50/60')))}
                                                     >
-                                                        <td className={'sticky left-0 z-[1] border-b px-2 py-2 text-center ' + (dark ? 'bg-slate-900' : 'bg-white')}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={checked}
-                                                                onChange={() => handleEntryToggle(entry.id)}
-                                                                aria-label={dateKey + ' 장부 선택'}
-                                                                className="h-4 w-4 accent-blue-600"
-                                                            />
-                                                        </td>
                                                         <td className="border-b px-3 py-2 whitespace-nowrap font-medium">
                                                             {dateKey || entry.date || '-'}
                                                         </td>
