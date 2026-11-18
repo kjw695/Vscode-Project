@@ -3,7 +3,6 @@ import { Edit, Trash2, ChevronDown, ChevronUp, AlertCircle, Clock, Calendar } fr
 
 const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, onOpenFilter, filterType }) => {
     const [expandedDate, setExpandedDate] = useState(null);
-    const [expandedId, setExpandedId] = useState(null);
     const [collapsedMonths, setCollapsedMonths] = useState({});
 
     const toggleDateExpand = (date) => setExpandedDate(expandedDate === date ? null : date);
