@@ -129,12 +129,6 @@ export default function EmployeeManager({ onBack }) {
     const selectedTeamRoutes = useMemo(() => teamRoutes.filter((route) =>
         editRouteIds.includes(String(route.id))
     ), [teamRoutes, editRouteIds]);
-    const teamsByRegion = useMemo(() => teams.reduce((groups, team) => {
-        const region = getTeamRegion(team);
-        groups[region] = groups[region] || [];
-        groups[region].push(team);
-        return groups;
-    }, {}), [teams]);
 
     const handleOpenModal = (employee) => {
         const safeEmployee = {
