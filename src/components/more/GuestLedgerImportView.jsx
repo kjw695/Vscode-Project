@@ -568,17 +568,17 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                     </span>
                                 </div>
                                 <div className="w-full overflow-x-auto">
-                                    <table className="min-w-max w-full border-collapse text-left text-xs">
+                                    <table className="min-w-max w-full border-collapse text-center text-xs">
                                         <thead>
                                             <tr className={dark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}>
-                                                <th className="border-y px-3 py-2 font-bold">날짜</th>
-                                                <th className="border-y px-3 py-2 font-bold">회전</th>
+                                                <th className="border-y px-1 py-2 font-bold whitespace-nowrap">날짜</th>
+                                                <th className="border-y px-1 py-2 font-bold whitespace-nowrap">회전</th>
                                                 {tableColumns.map((column) => (
-                                                    <th key={column.key} className="border-y px-3 py-2 text-right font-bold whitespace-nowrap">
+                                                    <th key={column.key} className="border-y px-2 py-2 text-center font-bold whitespace-nowrap">
                                                         {column.label}
                                                     </th>
                                                 ))}
-                                                <th className="border-y px-3 py-2 text-right font-black whitespace-nowrap">금액</th>
+                                                <th className="border-y px-2 py-2 text-center font-black whitespace-nowrap">금액</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -607,16 +607,16 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                                                     ? (dark ? 'bg-slate-900 hover:bg-slate-800' : 'bg-white hover:bg-blue-50/60')
                                                                     : (dark ? 'bg-slate-800/60 hover:bg-slate-800' : 'bg-slate-50 hover:bg-blue-50/60')))}
                                                     >
-                                                        <td className="border-b px-3 py-2 whitespace-nowrap font-medium">
+                                                        <td className="border-b px-1 py-2 whitespace-nowrap text-center font-medium tabular-nums">
                                                             {dateKey || entry.date || '-'}
                                                         </td>
-                                                        <td className="border-b px-3 py-2 whitespace-nowrap">
+                                                        <td className="border-b px-1 py-2 whitespace-nowrap text-center">
                                                             {entry.round ? entry.round + '회전' : '기존'}
                                                         </td>
                                                         {tableColumns.map((column) => {
                                                             const cell = getEntryColumnValue(entry, column);
                                                             return (
-                                                                <td key={column.key} className="border-b px-3 py-2 text-right whitespace-nowrap">
+                                                                <td key={column.key} className="border-b px-2 py-2 text-center whitespace-nowrap">
                                                                     <div className="font-semibold">{cell.primary}</div>
                                                                     {cell.secondary && (
                                                                         <div className={'mt-0.5 text-[10px] ' + (dark ? 'text-slate-400' : 'text-slate-500')}>
@@ -626,7 +626,7 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                                                 </td>
                                                             );
                                                         })}
-                                                        <td className="border-b px-3 py-2 text-right whitespace-nowrap">
+                                                        <td className="border-b px-2 py-2 text-center whitespace-nowrap">
                                                             <div className={'font-black ' + (entry.type === 'expense' ? 'text-blue-500' : 'text-rose-500')}>
                                                                 {formatWon(amount)}
                                                             </div>
