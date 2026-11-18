@@ -15,7 +15,11 @@ import {
     getGuestEntryDateKey,
     getGuestEntriesInRange,
     getGuestImportMonthlyPeriodRange,
-    getGuestImportYearlyPeriodRange
+    getGuestImportYearlyPeriodRange,
+    getGuestImportYearMonthRange,
+    addGuestEntrySelection,
+    removeGuestEntrySelection,
+    toggleGuestEntrySelection
 } from '../../utils/guestLedgerImport';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -43,7 +47,6 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
     const [selectionMode, setSelectionMode] = useState('individual');
     const [currentCalendarDate, setCurrentCalendarDate] = useState(() => new Date());
     const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
-    const [selectedDate, setSelectedDate] = useState('');
     const [selectedEntryIds, setSelectedEntryIds] = useState([]);
     const [isImporting, setIsImporting] = useState(false);
     const [notice, setNotice] = useState('');
@@ -91,6 +94,18 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
         [guestEntries, selectedIds]
     );
 
+    // 개별 모드에서 선택한 날짜를 모두 모아 날짜별 상세 목록으로 보여줍니다.
+    const individualEntryGroups = useMemo(() => {
+        const selectedDateKeys = Array.from(new Set(
+            selectedEntries.map((entry) => getGuestEntryDateKey(entry?.date)).filter(Boolean)
+        )).sort((a, b) => b.localeCompare(a));
+
+        return selectedDateKeys.map((dateKey) => [
+            dateKey,
+            guestEntries.filter((entry) => getGuestEntryDateKey(entry?.date) === dateKey)
+        ]);
+    }, [selectedEntries, guestEntries]);
+
     const availableDates = useMemo(() => {
         const counts = {};
         guestEntries.forEach((entry) => {
@@ -99,11 +114,6 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
         });
         return counts;
     }, [guestEntries]);
-
-    const selectedDateEntries = useMemo(
-        () => guestEntries.filter((entry) => getGuestEntryDateKey(entry?.date) === selectedDate),
-        [guestEntries, selectedDate]
-    );
 
     // Declare the selected accounting period before deriving its entry list.
     // Referencing a later const here throws at render time and blanks the screen.
@@ -165,21 +175,31 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
     const setSelectedForRange = (startDate, endDate) => {
         const ids = getEntriesInRange(guestEntries, startDate, endDate).map((entry) => String(entry.id));
         setSelectedEntryIds(ids);
-        setSelectedDate('');
+        setNotice('');
+    };
+
+    const addEntriesForRange = (startDate, endDate) => {
+        const ids = getEntriesInRange(guestEntries, startDate, endDate).map((entry) => String(entry.id));
+        setSelectedEntryIds((current) => addGuestEntrySelection(current, ids));
+        setNotice('');
+    };
+
+    const removeEntriesForRange = (startDate, endDate) => {
+        const ids = getEntriesInRange(guestEntries, startDate, endDate).map((entry) => String(entry.id));
+        setSelectedEntryIds((current) => removeGuestEntrySelection(current, ids));
+        setNotice('');
+    };
+
+    const toggleEntriesForRange = (startDate, endDate) => {
+        const ids = getEntriesInRange(guestEntries, startDate, endDate).map((entry) => String(entry.id));
+        setSelectedEntryIds((current) => toggleGuestEntrySelection(current, ids));
         setNotice('');
     };
 
     const changeMonth = (delta) => {
         const nextMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + delta, 1);
         setCurrentCalendarDate(nextMonth);
-        setSelectedDate('');
         setNotice('');
-        if (selectionMode === 'month') {
-            const range = getGuestImportMonthlyPeriodRange(nextMonth, periodSettings.startDay, periodSettings.endDay);
-            setSelectedEntryIds(
-                getEntriesInRange(guestEntries, range.startDate, range.endDate).map((entry) => String(entry.id))
-            );
-        }
     };
 
     const handleModeChange = (mode) => {
@@ -187,8 +207,7 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
         setNotice('');
         if (mode === 'individual') {
             setSelectedEntryIds([]);
-            setSelectedDate('');
-            return;
+                return;
         }
         if (mode === 'month') {
             const range = getGuestImportMonthlyPeriodRange(currentCalendarDate, periodSettings.startDay, periodSettings.endDay);
@@ -202,50 +221,40 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
         }
         if (mode === 'all') {
             setSelectedEntryIds(guestEntries.map((entry) => String(entry.id)));
-            setSelectedDate('');
-        }
+            }
     };
 
     const handleCalendarDayClick = (date) => {
         const dayEntries = guestEntries.filter((entry) => getGuestEntryDateKey(entry.date) === date);
         if (dayEntries.length === 0) return;
 
-        setSelectedDate(date);
-        setNotice('');
         const dayIds = dayEntries.map((entry) => String(entry.id));
-        const allSelected = dayIds.every((id) => selectedIds.has(id));
-
-        setSelectedEntryIds((current) => {
-            const next = new Set(current.map(String));
-            if (allSelected) dayIds.forEach((id) => next.delete(id));
-            else dayIds.forEach((id) => next.add(id));
-            return Array.from(next);
-        });
+        setSelectedEntryIds((current) => toggleGuestEntrySelection(current, dayIds));
+        setNotice('');
     };
 
     const handleEntryToggle = (entryId) => {
-        setSelectedEntryIds((current) => {
-            const next = new Set(current.map(String));
-            const key = String(entryId);
-            if (next.has(key)) next.delete(key);
-            else next.add(key);
-            return Array.from(next);
-        });
+        setSelectedEntryIds((current) => toggleGuestEntrySelection(current, [entryId]));
+        setNotice('');
     };
 
     const handleImport = async () => {
-        if (!userId || selectedEntryIds.length === 0 || isImporting) return;
+        const idsToImport = selectedEntries.map((entry) => String(entry.id));
+        if (!userId || idsToImport.length === 0 || isImporting) return;
+
+        const confirmed = window.confirm(`선택한 게스트 장부 ${idsToImport.length.toLocaleString()}건을 현재 계정으로 가져오시겠습니까?`);
+        if (!confirmed) return;
+
         setIsImporting(true);
         setNotice('');
         try {
-            const result = await importGuestEntries(selectedEntryIds);
+            const result = await importGuestEntries(idsToImport);
             if (!result?.success) {
                 setNotice(result?.message || '게스트 장부를 가져오지 못했습니다.');
                 return;
             }
             refreshGuestEntries();
             setSelectedEntryIds([]);
-            setSelectedDate('');
             setNotice(
                 result.importedCount > 0
                     ? `장부 ${result.importedCount}건을 현재 계정에 저장했습니다. 서버 동기화는 백그라운드에서 진행되며, 실패한 기록은 미전송 상태로 보관됩니다.`
@@ -279,10 +288,6 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
         const range = getGuestImportYearlyPeriodRange(nextYear, periodSettings.startDay, periodSettings.endDay);
         setSelectedForRange(range.startDate, range.endDate);
     };
-
-    const detailTitle = selectedDate
-        ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })
-        : '날짜를 선택하면 장부가 표시됩니다.';
 
     const renderEntryItem = (entry) => {
         const checked = selectedIds.has(String(entry.id));
@@ -357,13 +362,24 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1 px-2 py-2">
                                     <div className="justify-self-start">
                                         {selectionMode === 'month' && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setSelectedForRange(monthlyPeriod.startDate, monthlyPeriod.endDate)}
-                                                className="rounded-lg border border-blue-300 px-2 py-1 text-xs font-bold text-blue-600"
-                                            >
-                                                이 기간 선택
-                                            </button>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    disabled={monthlyEntries.length === 0}
+                                                    onClick={() => addEntriesForRange(monthlyPeriod.startDate, monthlyPeriod.endDate)}
+                                                    className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-bold text-blue-600 disabled:opacity-40"
+                                                >
+                                                    전체
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    disabled={!monthlyEntries.some((entry) => selectedIds.has(String(entry.id)))}
+                                                    onClick={() => removeEntriesForRange(monthlyPeriod.startDate, monthlyPeriod.endDate)}
+                                                    className={'rounded-lg border px-3 py-1.5 text-xs font-bold disabled:opacity-40 ' + (dark ? 'border-slate-600 text-slate-300' : 'border-slate-300 text-slate-600')}
+                                                >
+                                                    해지
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
                                     <div className="flex items-center justify-self-center gap-1">
@@ -378,11 +394,6 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                                 const today = new Date();
                                                 const todayMonth = new Date(today.getFullYear(), today.getMonth(), 1);
                                                 setCurrentCalendarDate(todayMonth);
-                                                setSelectedDate(toDateKey(today));
-                                                if (selectionMode === 'month') {
-                                                    const range = getGuestImportMonthlyPeriodRange(todayMonth, periodSettings.startDay, periodSettings.endDay);
-                                                    setSelectedForRange(range.startDate, range.endDate);
-                                                }
                                             }}
                                             className="rounded-lg border border-amber-300 px-2 py-1 text-xs font-bold text-amber-500"
                                         >
@@ -405,10 +416,7 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                                 type="button"
                                                 key={dayInfo.date}
                                                 disabled={dayInfo.count === 0}
-                                                onClick={() => {
-                                                    if (selectionMode === 'individual') handleCalendarDayClick(dayInfo.date);
-                                                    else setSelectedDate(dayInfo.date);
-                                                }}
+                                                onClick={() => handleCalendarDayClick(dayInfo.date)}
                                                 className={'relative flex h-20 min-w-0 flex-col items-center justify-start border-b border-r p-1 text-left transition-colors ' +
                                                     (dark ? 'border-slate-700 ' : 'border-slate-200 ') +
                                                     (isSelected
@@ -470,17 +478,41 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                                 <div className="mt-3 grid grid-cols-3 gap-2">
                                     {Array.from({ length: 12 }, (_, index) => {
                                         const month = String(index + 1).padStart(2, '0');
-                                        const monthRange = getGuestImportMonthlyPeriodRange(
-                                            new Date(Number(selectedYear), index, 1),
+                                        const monthRange = getGuestImportYearMonthRange(
+                                            selectedYear,
+                                            index,
                                             periodSettings.startDay,
                                             periodSettings.endDay
                                         );
-                                        const count = getEntriesInRange(guestEntries, monthRange.startDate, monthRange.endDate).length;
+                                        const monthEntries = getEntriesInRange(guestEntries, monthRange.startDate, monthRange.endDate);
+                                        const count = monthEntries.length;
+                                        const selectedCount = monthEntries.filter((entry) => selectedIds.has(String(entry.id))).length;
+                                        const isFullySelected = count > 0 && selectedCount === count;
+                                        const isPartiallySelected = selectedCount > 0 && !isFullySelected;
+                                        const monthCardClass = isFullySelected
+                                            ? (dark ? 'border-blue-500 bg-blue-950/50 text-blue-200' : 'border-blue-400 bg-blue-50 text-blue-800')
+                                            : isPartiallySelected
+                                                ? (dark ? 'border-blue-700 bg-blue-950/25 text-blue-200' : 'border-blue-300 bg-blue-50/50 text-blue-700')
+                                                : (dark ? 'border-slate-700 bg-slate-800 text-slate-100' : 'border-slate-200 bg-slate-50 text-slate-800');
                                         return (
-                                            <div key={month} className={'rounded-lg px-2 py-2 text-center ' + (dark ? 'bg-slate-800' : 'bg-slate-50')}>
+                                            <button
+                                                type="button"
+                                                key={month}
+                                                disabled={count === 0}
+                                                onClick={() => toggleEntriesForRange(monthRange.startDate, monthRange.endDate)}
+                                                aria-pressed={isFullySelected}
+                                                className={'min-w-0 rounded-lg border px-2 py-2 text-center transition-colors disabled:cursor-default disabled:opacity-50 ' + monthCardClass}
+                                            >
                                                 <div className="text-sm font-bold">{index + 1}월</div>
-                                                <div className={'text-xs ' + (dark ? 'text-slate-400' : 'text-slate-500')}>{count}건</div>
-                                            </div>
+                                                <div className={'text-xs ' + (isFullySelected ? (dark ? 'text-blue-300' : 'text-blue-600') : (dark ? 'text-slate-400' : 'text-slate-500'))}>
+                                                    {count}건
+                                                </div>
+                                                {selectedCount > 0 && (
+                                                    <div className={'mt-0.5 text-[10px] font-bold ' + (isFullySelected ? 'text-blue-500' : (dark ? 'text-blue-300' : 'text-blue-600'))}>
+                                                        선택 {selectedCount}건
+                                                    </div>
+                                                )}
+                                            </button>
                                         );
                                     })}
                                 </div>
@@ -527,13 +559,25 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                             </section>
                         )}
 
-                        {selectionMode === 'individual' && selectedDate && selectedDateEntries.length > 0 && (
+                        {selectionMode === 'individual' && individualEntryGroups.length > 0 && (
                             <section className={'rounded-2xl border p-3 ' + (dark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-white')}>
-                                <div className="mb-2 flex items-center justify-between gap-2">
-                                    <h3 className="font-black">{detailTitle}</h3>
-                                    <span className={'text-xs ' + (dark ? 'text-slate-400' : 'text-slate-500')}>{selectedDateEntries.filter((entry) => selectedIds.has(String(entry.id))).length}/{selectedDateEntries.length}건 선택</span>
+                                <div className="mb-3 flex items-center justify-between gap-2">
+                                    <h3 className="font-black">선택한 날짜의 장부</h3>
+                                    <span className={'text-xs ' + (dark ? 'text-slate-400' : 'text-slate-500')}>
+                                        {selectedDateCount}일 · {selectedEntries.length}건 선택
+                                    </span>
                                 </div>
-                                <div className="space-y-2">{selectedDateEntries.map(renderEntryItem)}</div>
+                                <div className="space-y-4">
+                                    {individualEntryGroups.map(([dateKey, entriesForDate]) => (
+                                        <div key={dateKey}>
+                                            <div className={'mb-2 flex items-center justify-between border-b pb-1 text-xs font-bold ' + (dark ? 'border-slate-700 text-slate-300' : 'border-slate-200 text-slate-600')}>
+                                                <span>{new Date(dateKey + 'T00:00:00').toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}</span>
+                                                <span>{entriesForDate.filter((entry) => selectedIds.has(String(entry.id))).length}/{entriesForDate.length}건 선택</span>
+                                            </div>
+                                            <div className="space-y-2">{entriesForDate.map(renderEntryItem)}</div>
+                                        </div>
+                                    ))}
+                                </div>
                             </section>
                         )}
                     </>
@@ -564,12 +608,12 @@ function GuestLedgerImportView({ userId, isDarkMode, onBack }) {
                 )}
                 <button
                     type="button"
-                    disabled={!userId || selectedEntryIds.length === 0 || isImporting || !isDataLoaded}
+                    disabled={!userId || selectedEntries.length === 0 || isImporting || !isDataLoaded}
                     onClick={handleImport}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
                 >
                     {isImporting ? <Loader2 className="animate-spin" size={18} /> : <Check size={18} />}
-                    {isImporting ? '가져오는 중...' : `선택한 게스트 장부 ${selectedEntryIds.length.toLocaleString()}건 가져오기`}
+                    {isImporting ? '가져오는 중...' : `선택한 게스트 장부 ${selectedEntries.length.toLocaleString()}건 가져오기`}
                 </button>
                 {!isDataLoaded && <p className={'mt-2 text-center text-[11px] ' + (dark ? 'text-slate-500' : 'text-slate-400')}>계정 장부를 불러오는 중입니다.</p>}
             </div>
