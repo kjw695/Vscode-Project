@@ -2,7 +2,7 @@
 // Legacy records are classified locally only; this hook never uploads them.
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getUnclassifiedLegacyData, getUnclassifiedLegacySettings, importUnclassifiedLegacyDataToAccount, migrateLocalDataToServer, prepareLegacyDataForGuest } from '../utils/migration';
+import { getUnclassifiedLegacyData, getUnclassifiedLegacySettings, importUnclassifiedLegacyDataToAccount, migrateLocalDataToServer, reserveUnclassifiedLegacyDataForAccount, prepareLegacyDataForGuest } from '../utils/migration';
 
 export function useMigrationOnLogin() {
     const { user, isLoggedIn, isAuthLoading } = useAuth();
@@ -34,6 +34,7 @@ export function useMigrationOnLogin() {
 
                 // 첫 로그인 시 기기 공용 미분류 데이터의 소유권을 사용자가 직접 결정합니다.
                 // 이 단계는 로컬 저장소 귀속만 수행하며 Supabase 업로드는 하지 않습니다.
+                reserveUnclassifiedLegacyDataForAccount(user.id);
                 const promptKey = `guest_attribution_prompted:v2:${user.id}`;
                 const legacyEntries = getUnclassifiedLegacyData(user.id);
                 const legacySettings = getUnclassifiedLegacySettings(user.id);
