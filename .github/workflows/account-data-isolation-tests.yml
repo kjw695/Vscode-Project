@@ -38,3 +38,9 @@ jobs:
         env:
           CI: 'true'
         run: npm test -- --watchAll=false --runInBand src/utils/migration.test.js
+
+      - name: Build React production bundle
+        env:
+          NODE_OPTIONS: --openssl-legacy-provider
+          CI: 'false'
+        run: npm run build
