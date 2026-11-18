@@ -232,7 +232,7 @@ export function DataProvider({ children }) {
                     return;
                 }
 
-                // Subscribe before the first read so another admin's first initialization
+                // Subscribe before the first read so another device's first initialization
                 // cannot be missed between fetching and subscribing.
                 subscriptionCleanupRef.current = subscribeToOrganizationAdminState(orgId, async () => {
                     if (!active || savingRef.current) return;
