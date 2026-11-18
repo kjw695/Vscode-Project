@@ -83,3 +83,44 @@ export function buildGuestImportBatch({
         skippedCount: selectedSourceEntries.length - importedEntries.length
     };
 }
+
+
+const toLocalDateKey = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+// Match the application's Settings > Aggregation Period calendar exactly.
+// When startDay is later than endDay, the settlement period crosses months.
+export function getGuestImportMonthlyPeriodRange(calendarDate, startDay, endDay) {
+    const year = calendarDate.getFullYear();
+    const month = calendarDate.getMonth();
+    const start = Number(startDay) > Number(endDay)
+        ? new Date(year, month - 1, Number(startDay))
+        : new Date(year, month, Number(startDay));
+    const end = new Date(year, month, Number(endDay));
+
+    return {
+        startDate: toLocalDateKey(start),
+        endDate: toLocalDateKey(end)
+    };
+}
+
+// Match App.js yearlyPeriod: a cross-month setting is treated as one
+// accounting year from the prior December's start day to this December's end day.
+export function getGuestImportYearlyPeriodRange(yearValue, startDay, endDay) {
+    const year = Number(yearValue);
+    const start = Number(startDay) > Number(endDay)
+        ? new Date(year - 1, 11, Number(startDay))
+        : new Date(year, 0, 1);
+    const end = Number(startDay) > Number(endDay)
+        ? new Date(year, 11, Number(endDay))
+        : new Date(year, 11, 31);
+
+    return {
+        startDate: toLocalDateKey(start),
+        endDate: toLocalDateKey(end)
+    };
+}
