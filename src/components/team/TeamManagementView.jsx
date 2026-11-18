@@ -618,15 +618,15 @@ const handleCopyCode = async (code) => {
                                                 <>
                                                     <div className="mb-3 grid grid-cols-3 gap-2 text-center">
                                                         <div className="rounded-lg bg-slate-50 p-2 dark:bg-gray-800">
-                                                            <p className="text-[10px] text-gray-500">기본 제공</p>
-                                                            <p className="text-sm font-black">{adminManagement.included_admin_seats || 0}명</p>
+                                                            <p className="text-[10px] text-gray-500">대표 관리자</p>
+                                                            <p className="text-sm font-black">기본 제공</p>
                                                         </div>
                                                         <div className="rounded-lg bg-slate-50 p-2 dark:bg-gray-800">
-                                                            <p className="text-[10px] text-gray-500">구매 추가</p>
+                                                            <p className="text-[10px] text-gray-500">구매한 일반 관리자</p>
                                                             <p className="text-sm font-black">{adminManagement.purchased_admin_seats || 0}명</p>
                                                         </div>
                                                         <div className="rounded-lg bg-slate-50 p-2 dark:bg-gray-800">
-                                                            <p className="text-[10px] text-gray-500">남은 정원</p>
+                                                            <p className="text-[10px] text-gray-500">남은 관리자 정원</p>
                                                             <p className="text-sm font-black">{adminManagement.remaining_admin_seats || 0}명</p>
                                                         </div>
                                                     </div>
@@ -657,7 +657,7 @@ const handleCopyCode = async (code) => {
                                                         })}
                                                     </div>
                                                     <p className="mt-3 text-[10px] leading-5 text-gray-400">
-                                                        대표 관리자는 관리자 정원에 포함되지 않습니다. 현재 기본 제공 일반 관리자 정원은 1명이며, 추가 정원 구매와 스토어 결제 검증은 다음 단계에서 연결합니다.
+                                                        대표 관리자 계정은 기본 제공됩니다. 일반 관리자는 무료 제공 인원 없이 1명씩 추가 구매하는 방식이며, 현재는 구매 좌석 기록 구조만 준비되어 있습니다. 실제 결제와 구매 검증은 별도 연결이 필요합니다.
                                                     </p>
                                                 </>
                                             ) : (
