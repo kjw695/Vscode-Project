@@ -363,10 +363,16 @@ export default function Calendar({ onBack }) {
 
             if (useSharedRecord) {
                 applyRecord(sharedRecord, sharedRecord.status === 'confirmed' ? 'confirmed' : 'saved');
-            } else if (localRecord) {
-                applyRecord(localRecord, localRecord.status === 'confirmed' ? 'confirmed' : 'saved');
-            } else if (legacyDraft) {
-                applyRecord(legacyDraft, 'generated');
+            } else if (localCandidate) {
+                // Keep a newer local draft, but carry the server row ID/version so the next save
+                // can safely migrate that draft without overwriting a concurrent change.
+                const candidate = sharedRecord
+                    ? Object.assign({}, localCandidate, {
+                        version: Number(sharedRecord.version || 0),
+                        sharedScheduleId: sharedRecord.sharedScheduleId
+                    })
+                    : localCandidate;
+                applyRecord(candidate, candidate.status === 'confirmed' ? 'confirmed' : (localRecord ? 'saved' : 'generated'));
             } else {
                 applyRecord(null, 'ready');
             }
@@ -398,7 +404,7 @@ export default function Calendar({ onBack }) {
                         item.status === 'confirmed';
                 });
                 if (!isActive || !remote ||
-                    Number(remote.version || 0) <= Number(savedRecord?.version || 0)) return;
+                    Number(remote.version || 0) <= (savedRecord?.sharedScheduleId ? Number(savedRecord.version || 0) : 0)) return;
 
                 const updatedRecord = {
                     ...(savedRecord || {}),
@@ -663,7 +669,7 @@ export default function Calendar({ onBack }) {
     };
 
     const handleRestoreScheduleHistory = async function (historyRecord) {
-        if (!historyRecord?.id || !savedRecord?.version) {
+        if (!historyRecord?.id || !savedRecord?.sharedScheduleId || !savedRecord?.version) {
             throw new Error('현재 근무표 버전을 확인할 수 없습니다. 최신 근무표를 다시 불러와주세요.');
         }
         if (!window.confirm('선택한 버전으로 복구할까요? 현재 근무표도 새 이력으로 보관됩니다.')) {
@@ -730,7 +736,7 @@ export default function Calendar({ onBack }) {
 
     const handleSaveDraft = async function () {
         if (!selectedTeam || !isScheduleGenerated) { window.alert('팀을 선택하고 근무표 초안을 먼저 생성해주세요.'); return; }
-        const expectedVersion = Number(savedRecord?.version || 0);
+        const expectedVersion = (savedRecord?.sharedScheduleId ? Number(savedRecord.version || 0) : 0);
         const now = new Date().toISOString();
         const draftEmployeeDetails = organizationId ? buildEmployeeDetails() : {};
         const record = {
@@ -862,7 +868,7 @@ export default function Calendar({ onBack }) {
                     schedule: generatedSchedule,
                     employeeDetails: employeeDetails,
                     warnings: warnings,
-                    expectedVersion: Number(savedRecord?.version || 0)
+                    expectedVersion: (savedRecord?.sharedScheduleId ? Number(savedRecord.version || 0) : 0)
                 });
                 record.version = Number(shared?.version || record.version);
                 record.sharedScheduleId = shared?.id || null;
@@ -928,7 +934,7 @@ export default function Calendar({ onBack }) {
                     schedule: generatedSchedule,
                     employeeDetails: employeeDetails,
                     warnings: warnings,
-                    expectedVersion: Number(savedRecord?.version || 0)
+                    expectedVersion: (savedRecord?.sharedScheduleId ? Number(savedRecord.version || 0) : 0)
                 });
                 record.version = Number(shared?.version || record.version);
                 record.sharedScheduleId = shared?.id || null;
