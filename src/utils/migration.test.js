@@ -94,7 +94,7 @@ describe('legacy data classification and account isolation', () => {
             unitPrice: 2400,
         });
         setLegacyData([ownedEntry, unrelatedEntry]);
-        mockServerRows([makeServerRow(ownedEntry)]);
+        const query = mockServerRows([makeServerRow(ownedEntry)]);
 
         const result = await migrateLocalDataToServer('account-a');
 
@@ -110,7 +110,7 @@ describe('legacy data classification and account isolation', () => {
             entries: [unrelatedEntry],
         }));
         expect(supabase.from).toHaveBeenCalledWith('entries');
-        expect(mockServerRows).toBeDefined();
+        expect(query.eq).toHaveBeenCalledWith('user_id', 'account-a');
     });
 
     test('does not treat a reused server ID as ownership when record contents differ', async () => {
@@ -217,8 +217,11 @@ describe('legacy data classification and account isolation', () => {
         setLegacyData([legacyEntry], { goalAmount: 5000000 });
         mockServerRows([], { message: 'network unavailable' });
 
+        const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
         const result = await migrateLocalDataToServer('account-a');
 
+        expect(consoleError).toHaveBeenCalled();
+        consoleError.mockRestore();
         expect(result.success).toBe(false);
         expect(result.prepared).toBe(false);
         expect(localStorage.getItem(LEGACY_ENTRIES_KEY)).toBe(JSON.stringify([legacyEntry]));
