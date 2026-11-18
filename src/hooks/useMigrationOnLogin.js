@@ -56,7 +56,7 @@ export function useMigrationOnLogin() {
                         legacySettings ? '앱 설정' : '',
                     ].filter(Boolean).join(' 및 ');
                     const accepted = window.confirm(
-                        `이 기기에 이전 버전의 기존 데이터(${detail})가 있습니다.\\n\\n현재 로그인한 계정에 귀속하시겠습니까?\\n귀속은 이 기기의 계정별 저장소에만 적용되며 서버로 전송되지 않습니다. 기존 계정 설정은 덮어쓰지 않습니다.`
+                        `이 기기에 이전 버전의 기존 데이터(${detail})가 있습니다.\n\n현재 로그인한 계정에 귀속하시겠습니까?\n귀속은 이 기기의 계정별 저장소에만 적용되며 서버로 전송되지 않습니다. 기존 계정 설정은 덮어쓰지 않습니다.`
                     );
 
                     if (accepted) {
