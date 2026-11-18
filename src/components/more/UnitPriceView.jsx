@@ -315,15 +315,18 @@ const UnitPriceView = ({
     };
 
     useEffect(() => {
-        if (targetItemKey && targetRef.current) {
-            if (!isIndividualExpanded) {
-                setIsIndividualExpanded(true);
-                localStorage.setItem('unitPrice_individualExpanded', JSON.stringify(true));
-            }
-            setTimeout(() => {
-                targetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 300);
+        if (!targetItemKey || !targetRef.current) return undefined;
+
+        if (!isIndividualExpanded) {
+            setIsIndividualExpanded(true);
+            localStorage.setItem('unitPrice_individualExpanded', JSON.stringify(true));
         }
+
+        const scrollTimer = setTimeout(() => {
+            targetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+
+        return () => clearTimeout(scrollTimer);
     }, [targetItemKey, isIndividualExpanded]);
 
     const isCommonActive = activeCardKey === 'common';
