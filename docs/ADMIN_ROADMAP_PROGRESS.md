@@ -57,6 +57,10 @@
   - Capacitor Android 동기화
   - Android Debug APK 생성 및 아티팩트 업로드
 
+## 운영 DB migration 점검
+
+운영 DB는 migration 이력과 실제 스키마가 일치하지 않는다. 구버전 파일 중 일부는 운영 DB에서 기능이 이미 확인되지만 migration history에는 빠져 있다. 구버전 SQL에는 public 전체 권한 회수와 직원 휴무 기록 DELETE가 포함되어 있어 재실행하면 안 된다. 파일 timestamp 정리 및 안전 적용 절차는 docs/SUPABASE_PRODUCTION_MIGRATION_RUNBOOK.md를 따른다.
+
 ## 배포 상태 및 미완료 항목
 
 - PR #24는 feature/shared-company-admin-data에서 feature/account-data-isolation으로 열린 Draft PR 상태이며 아직 병합하지 않았다.
