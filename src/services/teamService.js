@@ -197,3 +197,36 @@ export function subscribeToOrganizationAdminState(organizationId, onChange) {
     };
 }
 
+// Administrator workspace backup history. The database RPCs verify the current
+// organization owner and never expose backup table writes to the client.
+export async function fetchMyOrganizationAdminBackups() {
+    const { data, error } = await supabase.rpc('list_my_organization_admin_backups');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+}
+
+export async function fetchMyOrganizationAdminBackup(backupId) {
+    if (!backupId) throw new Error('백업 항목을 선택해주세요.');
+    const { data, error } = await supabase.rpc('get_my_organization_admin_backup', {
+        p_backup_id: backupId
+    });
+    if (error) throw error;
+    return data || null;
+}
+
+export async function createMyOrganizationAdminBackup(description = null) {
+    const { data, error } = await supabase.rpc('create_my_organization_admin_backup', {
+        p_description: description
+    });
+    if (error) throw error;
+    return data;
+}
+
+export async function restoreMyOrganizationAdminBackup(backupId) {
+    if (!backupId) throw new Error('복구할 백업을 선택해주세요.');
+    const { data, error } = await supabase.rpc('restore_my_organization_admin_backup', {
+        p_backup_id: backupId
+    });
+    if (error) throw error;
+    return data;
+}
