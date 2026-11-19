@@ -49,6 +49,11 @@ jobs:
           CI: 'true'
         run: npm test -- --watchAll=false --runInBand src/utils/guestLedgerImport.test.js
 
+      - name: Run weekly schedule and backup validation tests
+        env:
+          CI: 'true'
+        run: npm test -- --watchAll=false --runInBand src/admin/utils/schedulingEngine.test.js
+
       - name: Build React production bundle
         env:
           NODE_OPTIONS: --openssl-legacy-provider
