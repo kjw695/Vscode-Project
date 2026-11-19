@@ -10,6 +10,7 @@ on:
       - feature/account-data-isolation
       - feature/shared-company-admin-data
       - feature/admin-data-backup-restore
+      - feature/schedule-workflow-tools
 
 permissions:
   contents: read
