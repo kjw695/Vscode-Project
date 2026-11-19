@@ -5,6 +5,7 @@ on:
     branches:
       - feature/account-data-isolation-tests
       - feature/schedule-workflow-tools
+      - feature/confirmed-schedule-change-audit
   pull_request:
     branches:
       - feature/account-data-isolation
