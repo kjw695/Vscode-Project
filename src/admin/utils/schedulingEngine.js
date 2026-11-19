@@ -696,3 +696,110 @@ export function validateWeeklySchedule(options = {}) {
 function dateKeyForWeek(sunday) {
     return formatDate(sunday.getFullYear(), sunday.getMonth() + 1, sunday.getDate());
 }
+
+/**
+ * Sanitizes a copied weekly schedule against the current active roster.
+ * Stale employee IDs are removed and backup assignments are rebalanced
+ * before a previous week or a saved template is used as a new draft.
+ */
+export function prepareCopiedWeeklySchedule(options = {}) {
+    const employees = (options.employees || []).filter(function (employee) {
+        return employee && employee.active !== false;
+    });
+    const activeById = new Map(employees.map(function (employee) {
+        return [String(employee.id), employee];
+    }));
+    const permissions = options.substitutePermissions || [];
+    const history = options.substituteWorkHistory || [];
+    const sourceSchedule = options.schedule || {};
+    const schedule = {};
+    const allocationWarnings = [];
+
+    Object.entries(sourceSchedule).forEach(function ([dateKey, dayRecord]) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey) || !dayRecord || typeof dayRecord !== 'object') {
+            return;
+        }
+
+        let sourceOffIds = [];
+        if (Array.isArray(dayRecord.offEmployeeIds)) {
+            sourceOffIds = dayRecord.offEmployeeIds.map(function (item) {
+                return item && typeof item === 'object'
+                    ? (item.employeeId || item.employee_id || item.id)
+                    : item;
+            });
+        } else {
+            const offNames = []
+                .concat(Array.isArray(dayRecord.offs) ? dayRecord.offs : [])
+                .concat(Array.isArray(dayRecord.subOffs) ? dayRecord.subOffs : []);
+            sourceOffIds = employees
+                .filter(function (employee) {
+                    return offNames.some(function (item) {
+                        const name = item && typeof item === 'object'
+                            ? (item.name || item.employeeName)
+                            : item;
+                        return name != null && String(name) === String(employee.name);
+                    });
+                })
+                .map(function (employee) { return employee.id; });
+        }
+
+        const validOffIds = Array.from(new Set(
+            sourceOffIds
+                .filter(function (id) {
+                    return id != null && activeById.has(String(id));
+                })
+                .map(function (id) {
+                    return activeById.get(String(id)).id;
+                })
+        ));
+
+        const result = rebalanceWeeklyScheduleDay({
+            dateKey: dateKey,
+            employees: employees,
+            offEmployeeIds: validOffIds,
+            existingRecord: dayRecord,
+            substitutePermissions: permissions,
+            substituteWorkHistory: history
+        });
+
+        schedule[dateKey] = result.record;
+        allocationWarnings.push.apply(allocationWarnings, result.warnings);
+    });
+
+    const staleWarningPrefixes = [
+        '[백업 인원 확인 필요]',
+        '[백업 배정 오류]',
+        '[백업 배정 충돌]',
+        '[백업 중복 배정]',
+        '[백업 배정 대상 오류]',
+        '[백업 노선 권한 오류]',
+        '[격주 근무 검증]',
+        '[주간 일정 누락]'
+    ];
+    const retainedWarnings = (Array.isArray(options.warnings) ? options.warnings : [])
+        .filter(function (warning) {
+            const value = String(warning);
+            return !staleWarningPrefixes.some(function (prefix) {
+                return value.startsWith(prefix);
+            });
+        });
+
+    const weekStart = options.weekStart ||
+        Object.keys(schedule).filter(function (date) {
+            return /^\d{4}-\d{2}-\d{2}$/.test(date);
+        }).sort()[0];
+
+    const validationWarnings = validateWeeklySchedule({
+        weekStart: weekStart,
+        schedule: schedule,
+        employees: employees,
+        substitutePermissions: permissions
+    });
+
+    return {
+        schedule: schedule,
+        warnings: Array.from(new Set(
+            retainedWarnings.concat(allocationWarnings, validationWarnings)
+        ))
+    };
+}
