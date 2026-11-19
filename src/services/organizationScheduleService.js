@@ -26,14 +26,15 @@ export async function saveMyOrganizationWeeklySchedule({
     schedule,
     employeeDetails,
     warnings,
-    expectedVersion = 0
+    expectedVersion = 0,
+    changeReason = null
 }) {
     if (!teamId || !weekStart || !weekEnd) {
         throw new Error('팀과 근무표 기간을 확인해주세요.');
     }
 
     const { data, error } = await supabase.rpc(
-        'save_my_organization_weekly_schedule_v2',
+        'save_my_organization_weekly_schedule_v3',
         {
             p_team_id: String(teamId),
             p_team_label: teamLabel || String(teamId),
@@ -43,12 +44,23 @@ export async function saveMyOrganizationWeeklySchedule({
             p_schedule: schedule || {},
             p_employee_details: employeeDetails || {},
             p_warnings: Array.isArray(warnings) ? warnings : [],
-            p_expected_version: Number.isInteger(expectedVersion) ? expectedVersion : 0
+            p_expected_version: Number.isInteger(expectedVersion) ? expectedVersion : 0,
+            p_change_reason: changeReason ? String(changeReason).trim().slice(0, 300) : null
         }
     );
 
     if (error) throw error;
     return data;
+}
+
+export async function fetchMyOrganizationWeeklyScheduleChangeNotices(startDate, endDate) {
+    if (!startDate || !endDate) throw new Error('변경 알림 조회 기간이 필요합니다.');
+    const { data, error } = await supabase.rpc('list_my_organization_weekly_schedule_change_notices', {
+        p_start_date: startDate,
+        p_end_date: endDate
+    });
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
 }
 
 export async function fetchMyOrganizationScheduleSyncFrom() {
@@ -75,9 +87,13 @@ export async function fetchMyOrganizationWeeklyScheduleHistoryItem(historyId) {
     return data || null;
 }
 
-export async function restoreMyOrganizationWeeklyScheduleHistory(historyId, expectedVersion) {
-    const { data, error } = await supabase.rpc('restore_my_organization_weekly_schedule_history', {
-        p_history_id: historyId, p_expected_version: expectedVersion
+export async function restoreMyOrganizationWeeklyScheduleHistory(historyId, expectedVersion, changeReason) {
+    const reason = String(changeReason || '').trim().slice(0, 300);
+    if (!reason) throw new Error('이전 근무표를 복구하려면 변경 사유를 입력해주세요.');
+    const { data, error } = await supabase.rpc('restore_my_organization_weekly_schedule_history_v2', {
+        p_history_id: historyId,
+        p_expected_version: expectedVersion,
+        p_change_reason: reason
     });
     if (error) throw error;
     return data;
