@@ -136,3 +136,12 @@ export async function restoreMyOrganizationWeeklyScheduleRevision(revisionId) {
     if (error) throw error;
     return data;
 }
+
+export async function listMyOrganizationDayOffRequestHistory(teamId, limit = 50) {
+    const { data, error } = await supabase.rpc('list_my_organization_day_off_request_history', {
+        p_team_id: teamId ? String(teamId) : null,
+        p_limit: limit
+    });
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+}
