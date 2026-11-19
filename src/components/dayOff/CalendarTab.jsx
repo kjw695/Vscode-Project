@@ -18,7 +18,8 @@ import { useDelivery } from '../../contexts/DeliveryContext';
 import { supabase } from '../../lib/supabaseClient'; // 기존 휴무 교환 RPC
 import {
     fetchMyOrganizationWeeklySchedules,
-    fetchMyOrganizationScheduleSyncFrom
+    fetchMyOrganizationScheduleSyncFrom,
+    fetchMyOrganizationWeeklyScheduleChangeNotices
 } from '../../services/organizationScheduleService';
 import Holidays from 'date-holidays';
 
@@ -96,6 +97,8 @@ export default function CalendarTab({
     const [isLoadingPublishedSchedules, setIsLoadingPublishedSchedules] = useState(false);
     const [scheduleLoadError, setScheduleLoadError] = useState(false);
     const [scheduleSyncFrom, setScheduleSyncFrom] = useState(null);
+    const [scheduleChangeNotices, setScheduleChangeNotices] = useState([]);
+    const [pendingScheduleChangeNotices, setPendingScheduleChangeNotices] = useState([]);
 
     // 키보드가 화면을 덮는 모드에서는 그 높이만큼 신청창만 위로 올립니다.
     // Android adjustResize 모드에서는 WebView 자체가 줄어들기 때문에 추가 이동량은 0으로 둡니다.
@@ -280,6 +283,8 @@ export default function CalendarTab({
             setIsLoadingPublishedSchedules(false);
             setScheduleLoadError(false);
             setScheduleSyncFrom(null);
+            setScheduleChangeNotices([]);
+            setPendingScheduleChangeNotices([]);
             return undefined;
         }
 
@@ -298,6 +303,18 @@ export default function CalendarTab({
                     setPublishedSchedules(rows);
                     setScheduleSyncFrom(syncFrom);
                     setScheduleLoadError(false);
+                }
+
+                // A separate request keeps the employee schedule visible even before
+                // the new notification migration has been applied to the database.
+                try {
+                    const notices = await fetchMyOrganizationWeeklyScheduleChangeNotices(
+                        scheduleQueryStart,
+                        scheduleQueryEnd
+                    );
+                    if (isActive) setScheduleChangeNotices(notices);
+                } catch (noticeError) {
+                    console.warn('근무표 변경 안내를 불러오지 못했습니다.', noticeError);
                 }
             } catch (error) {
                 console.error('관리자 확정 근무표를 불러오지 못했습니다.', error);
@@ -401,6 +418,38 @@ export default function CalendarTab({
 
         return result;
     }, [publishedSchedules, currentUser?.id, teamId, scheduleSyncFrom]);
+
+    useEffect(() => {
+        if (!teamId || !currentUser?.id || scheduleChangeNotices.length === 0) {
+            setPendingScheduleChangeNotices([]);
+            return;
+        }
+
+        const unseen = scheduleChangeNotices.filter((notice) => {
+            const storageKey = 'dayoff_schedule_change_seen:' +
+                String(currentUser.id) + ':' + String(notice.schedule_id);
+            try {
+                const seenVersion = Number(localStorage.getItem(storageKey) || 0);
+                return Number(notice.version || 0) > seenVersion;
+            } catch (error) {
+                return true;
+            }
+        });
+        setPendingScheduleChangeNotices(unseen);
+    }, [scheduleChangeNotices, currentUser?.id, teamId]);
+
+    const dismissScheduleChangeNotices = useCallback(() => {
+        pendingScheduleChangeNotices.forEach((notice) => {
+            const storageKey = 'dayoff_schedule_change_seen:' +
+                String(currentUser?.id || '') + ':' + String(notice.schedule_id);
+            try {
+                localStorage.setItem(storageKey, String(notice.version || 0));
+            } catch (error) {
+                console.warn('근무표 변경 안내 확인 상태를 저장하지 못했습니다.', error);
+            }
+        });
+        setPendingScheduleChangeNotices([]);
+    }, [pendingScheduleChangeNotices, currentUser?.id]);
 
     // ✨ 특정 날짜가 myOffDate와 같은 주(일~토)인지 확인하는 함수
     const isSameWeek = (targetStr) => {
@@ -785,6 +834,33 @@ export default function CalendarTab({
 
     return (
         <div className="flex flex-col h-full pb-4">
+            {pendingScheduleChangeNotices.length > 0 && (
+                <section className={`mx-3 mb-2 rounded-xl border p-3 shadow-sm ${isDarkMode ? 'border-amber-800 bg-amber-950/50 text-amber-100' : 'border-amber-200 bg-amber-50 text-amber-950'}`} role="status" aria-live="polite">
+                    <div className="flex items-center justify-between gap-2">
+                        <h3 className="text-sm font-black">확정 근무표 변경 안내</h3>
+                        <button type="button" onClick={dismissScheduleChangeNotices} className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold ${isDarkMode ? 'bg-amber-800 text-amber-50' : 'bg-amber-100 text-amber-900'}`}>
+                            확인
+                        </button>
+                    </div>
+                    <div className="mt-2 space-y-2">
+                        {pendingScheduleChangeNotices.map((notice) => (
+                            <div key={notice.schedule_id + '-' + notice.version} className={`rounded-lg p-2 ${isDarkMode ? 'bg-gray-900/70' : 'bg-white/80'}`}>
+                                <p className="text-xs font-bold">{notice.team_label} · {notice.week_start} ~ {notice.week_end}</p>
+                                <p className="mt-1 text-xs leading-5">
+                                    {notice.change_type === 'reopened'
+                                        ? '관리자가 확정 근무표를 다시 열어 수정 중입니다.'
+                                        : notice.change_type === 'restored'
+                                            ? '관리자가 이전 근무표 버전으로 복구했습니다.'
+                                            : '관리자가 확정 근무표를 변경했습니다.'}
+                                </p>
+                                <p className="mt-1 text-xs leading-5">
+                                    변경 사유: {notice.change_reason || '관리자 변경 내역을 확인해주세요.'}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+            )}
             {/* 달력 헤더 (상단 여백 최소화) */}
             <div className="flex items-center justify-between mb-1 px-1 py-1">
                 <button 
