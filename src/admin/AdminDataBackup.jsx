@@ -15,7 +15,7 @@ import {
     fetchMyOrganizationAdminBackup,
     fetchMyOrganizationAdminBackups,
     restoreMyOrganizationAdminBackup
-} from '../../services/teamService';
+} from '../services/teamService';
 
 const CATEGORY_LABELS = [
     ['regions', '지역'],
