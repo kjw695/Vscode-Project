@@ -166,6 +166,33 @@ CREATE TRIGGER organization_weekly_schedule_revision_after_update
     FOR EACH ROW
     EXECUTE FUNCTION public.capture_organization_weekly_schedule_revision();
 
+-- Preserve the current active weekly schedules as the first known version.
+-- Earlier versions cannot be reconstructed retroactively.
+INSERT INTO public.organization_weekly_schedule_revisions (
+    schedule_id, organization_id, team_id, team_label, week_start, week_end,
+    source_version, status, snapshot_data, revision_type, captured_by, captured_at
+)
+SELECT
+    s.id,
+    s.organization_id,
+    s.team_id,
+    s.team_label,
+    s.week_start,
+    s.week_end,
+    s.version,
+    s.status,
+    jsonb_build_object(
+        'schedule', s.schedule,
+        'employee_details', s.employee_details,
+        'warnings', s.warnings,
+        'status', s.status,
+        'confirmed_at', s.confirmed_at
+    ),
+    'baseline',
+    s.updated_by,
+    now()
+FROM public.organization_weekly_schedules s;
+
 CREATE OR REPLACE FUNCTION public.list_my_organization_schedule_templates(p_team_id text)
 RETURNS jsonb
 LANGUAGE plpgsql
