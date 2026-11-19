@@ -107,6 +107,7 @@ export default function ScheduleWorkflowTools({
     const [templateNotice, setTemplateNotice] = useState('');
     const [templateError, setTemplateError] = useState('');
 
+    const [previewOpen, setPreviewOpen] = useState(false);
     const [historyOpen, setHistoryOpen] = useState(false);
     const [revisions, setRevisions] = useState([]);
     const [historyLoading, setHistoryLoading] = useState(false);
@@ -274,6 +275,18 @@ export default function ScheduleWorkflowTools({
 
     const currentStats = getScheduleStats({ schedule, employee_details: employeeDetails });
     const revisionStats = getScheduleStats(selectedRevision?.snapshot);
+    const previewRows = Object.entries(schedule || {})
+        .filter(([date]) => /^\d{4}-\d{2}-\d{2}$/.test(date))
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, day]) => ({
+            date,
+            weekday: ['일', '월', '화', '수', '목', '금', '토'][new Date(date + 'T12:00:00').getDay()],
+            offCount: Array.isArray(day?.offEmployeeIds)
+                ? day.offEmployeeIds.length
+                : (Array.isArray(day?.offs) ? day.offs.length : 0) +
+                    (Array.isArray(day?.subOffs) ? day.subOffs.length : 0),
+            backupCount: Array.isArray(day?.subs) ? day.subs.length : 0
+        }));
 
     if (!organizationId) {
         return (
@@ -370,6 +383,22 @@ export default function ScheduleWorkflowTools({
                 </button>
             </div>
 
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                    type="button"
+                    onClick={() => setPreviewOpen(true)}
+                    disabled={previewRows.length === 0}
+                    className="inline-flex items-center gap-2 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 disabled:opacity-40"
+                >
+                    <Eye size={14} />
+                    임시 근무표 미리보기
+                </button>
+                <span className="text-[10px] text-slate-400">
+                    {status === 'confirmed' ? '현재 확정본' : status === 'saved' ? '저장된 임시본' : '편집 중 초안'}
+                    {' · '}{previewRows.length}일 표시
+                </span>
+            </div>
+
             <button
                 type="button"
                 onClick={onCopyPreviousWeek}
@@ -384,6 +413,53 @@ export default function ScheduleWorkflowTools({
                 <p className={'mt-2 rounded-lg p-2 text-xs leading-5 ' + (templateError ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700')}>
                     {templateError || templateNotice}
                 </p>
+            )}
+
+            {previewOpen && (
+                <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/45 p-3 sm:items-center">
+                    <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-4 shadow-2xl">
+                        <div className="flex items-center justify-between gap-2">
+                            <div>
+                                <h4 className="text-sm font-black text-slate-900">주간 근무표 미리보기</h4>
+                                <p className="mt-1 text-[11px] text-slate-500">{weekStart} ~ {weekEnd}</p>
+                            </div>
+                            <button type="button" onClick={() => setPreviewOpen(false)} className="rounded-lg px-2 py-1 text-xs font-bold text-slate-500">닫기</button>
+                        </div>
+                        <div className="mt-3 grid grid-cols-3 gap-2">
+                            <div className="rounded-lg bg-slate-50 p-2 text-center">
+                                <p className="text-[10px] text-slate-400">직원</p>
+                                <p className="mt-1 text-base font-black text-slate-800">{currentStats.employees}명</p>
+                            </div>
+                            <div className="rounded-lg bg-slate-50 p-2 text-center">
+                                <p className="text-[10px] text-slate-400">휴무 지정</p>
+                                <p className="mt-1 text-base font-black text-slate-800">{currentStats.offCount}건</p>
+                            </div>
+                            <div className="rounded-lg bg-slate-50 p-2 text-center">
+                                <p className="text-[10px] text-slate-400">백업 배정</p>
+                                <p className="mt-1 text-base font-black text-slate-800">{currentStats.backupCount}건</p>
+                            </div>
+                        </div>
+                        <div className="mt-3 divide-y divide-slate-100 rounded-xl border border-slate-100">
+                            {previewRows.map((row) => (
+                                <div key={row.date} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                                    <div>
+                                        <p className="text-xs font-bold text-slate-800">{row.date} ({row.weekday})</p>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-[11px]">
+                                        <span className="text-rose-600">휴무 {row.offCount}명</span>
+                                        <span className="text-indigo-600">백업 {row.backupCount}건</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        {(Array.isArray(warnings) && warnings.length > 0) && (
+                            <div className="mt-3 rounded-lg bg-amber-50 p-3">
+                                <p className="text-xs font-bold text-amber-800">확인할 경고 {warnings.length}건</p>
+                                <p className="mt-1 text-[11px] leading-5 text-amber-700">{warnings.slice(0, 3).join(' / ')}</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
             )}
 
             {historyOpen && (
