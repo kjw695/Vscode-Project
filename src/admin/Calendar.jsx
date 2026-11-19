@@ -623,7 +623,7 @@ export default function Calendar({ onBack }) {
                 }
             }
 
-            if (!source) {
+            if (!source && !organizationId) {
                 const raw = localStorage.getItem(previousKey);
                 if (raw) {
                     const local = JSON.parse(raw);
