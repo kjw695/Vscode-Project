@@ -3,6 +3,8 @@ const path = require('path');
 
 const read = (file) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
 const sql = read('supabase/migrations/20261120_organization_schedule_tools.sql').toLowerCase();
+const auditSql = read('supabase/migrations/20261120_z_confirmed_schedule_change_audit.sql').toLowerCase();
+
 const calendar = read('src/admin/Calendar.jsx');
 const service = read('src/services/organizationScheduleService.js');
 
@@ -35,7 +37,14 @@ const checks = [
     ['previous-week copy generates a draft only', calendar.includes('handleCopyPreviousWeek') && calendar.includes('setScheduleStatus(\'generated\')') && calendar.includes('아직 저장·확정되지 않았습니다.')],
     ['template and history UI is mounted', calendar.includes('<ScheduleToolsPanel') && calendar.includes('handleApplyScheduleTemplate') && calendar.includes('handleRestoreScheduleHistory')],
     ['organization drafts are stored through versioned save', calendar.includes('saveMyOrganizationWeeklySchedule({') && calendar.includes('expectedVersion: expectedVersion') && calendar.includes('employeeDetails: draftEmployeeDetails')],
-    ['service calls the v2 save RPC and exposes history/template actions', service.includes('save_my_organization_weekly_schedule_v2') && service.includes('restore_my_organization_weekly_schedule_history') && service.includes('save_my_organization_schedule_template')]
+    ['service calls the reason-protected RPCs and exposes history/template actions', service.includes('save_my_organization_weekly_schedule_v3') && service.includes('restore_my_organization_weekly_schedule_history_v2') && service.includes('save_my_organization_schedule_template')],
+    ['confirmed schedule changes require a non-empty reason', auditSql.includes('v_changes_confirmed and v_reason is null') && auditSql.includes('확정된 근무표를 변경하려면 변경 사유를 입력해주세요.')],
+    ['reason and actor are saved in schedule history', auditSql.includes('change_reason text') && auditSql.includes('v_reason')],
+    ['legacy schedule save RPCs cannot bypass the reason guard', auditSql.includes('save_my_organization_weekly_schedule_v2') && auditSql.includes('save_my_organization_weekly_schedule(') && auditSql.includes('save_my_organization_weekly_schedule_v3')],
+    ['legacy restore RPC is disabled and reason-protected restore is granted', auditSql.includes('revoke all on function public.restore_my_organization_weekly_schedule_history(uuid,integer) from public, anon, authenticated') && auditSql.includes('grant execute on function public.restore_my_organization_weekly_schedule_history_v2(uuid,integer,text) to authenticated')],
+    ['employee change notices are scoped to employee schedule history', auditSql.includes('list_my_organization_weekly_schedule_change_notices') && auditSql.includes('h.employee_details ? v_user::text') && auditSql.includes('h.change_type in (\'reopened\', \'admin_changed\', \'restored\')')],
+    ['admin and employee UIs ask for and display change reasons', calendar.includes('확정된 근무표를 변경합니다.') && calendar.includes('changeReason: pendingChangeReason') && read('src/components/dayOff/CalendarTab.jsx').includes('확정 근무표 변경 안내')]
+
 ];
 
 const failures = checks.filter(([, passed]) => !passed);
