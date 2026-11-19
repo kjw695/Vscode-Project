@@ -23,7 +23,7 @@ import {
     Download,
     Images
 } from 'lucide-react';
-import { generateWeeklySchedule } from './utils/schedulingEngine';
+import { generateWeeklySchedule, rebalanceWeeklyScheduleDay, validateWeeklySchedule } from './utils/schedulingEngine';
 import { useAdminData } from './contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -849,6 +849,23 @@ export default function Calendar({ onBack }) {
             window.alert('근무표를 먼저 생성한 뒤 임시 저장해주세요.');
             return;
         }
+        const preflightWarnings = validateWeeklySchedule({
+            weekStart: formatDate(weekDates[0]),
+            schedule: generatedSchedule,
+            employees: activeTeamEmployees,
+            substitutePermissions: substitutePermissions || []
+        });
+        const missingPreflightWarnings = preflightWarnings.filter(function (warning) {
+            return !warnings.includes(warning);
+        });
+        if (missingPreflightWarnings.length > 0) {
+            setWarnings(function (current) {
+                return Array.from(new Set(current.concat(missingPreflightWarnings)));
+            });
+            setWarningsAcknowledged(false);
+            window.alert('확정 직전 검증에서 확인할 항목이 발견됐습니다. 경고를 확인한 뒤 다시 확정해주세요.');
+            return;
+        }
         if (warnings.length > 0 && !warningsAcknowledged) {
             window.alert('경고 내용을 확인하고 아래 확인란에 체크한 뒤 근무표를 확정해주세요.');
             return;
@@ -998,111 +1015,40 @@ export default function Calendar({ onBack }) {
             ? oldOffIds.filter(function (id) { return String(id) !== String(employee.id); })
             : oldOffIds.concat([employee.id]);
 
-        const baseOffEmployees = activeTeamEmployees.filter(function (item) {
-            return getEmployeeType(item) === 'base' && nextOffIds.some(function (id) { return String(id) === String(item.id); });
-        });
-        const backupEmployees = activeTeamEmployees.filter(function (item) {
-            return getEmployeeType(item) === 'sub';
-        });
-        const nextAssignments = [];
-        const coverageWarnings = [];
-
-        baseOffEmployees.forEach(function (baseEmployee) {
-            const existing = (oldRecord.subs || []).find(function (assignment) {
-                return String(assignment.targetBaseId) === String(baseEmployee.id);
-            });
-            const existingBackup = existing && backupEmployees.find(function (backup) {
-                return String(backup.id) === String(existing.subId);
-            });
-            const existingBackupUsable = existingBackup &&
-                !nextOffIds.some(function (id) { return String(id) === String(existingBackup.id); }) &&
-                !nextAssignments.some(function (assignment) { return String(assignment.subId) === String(existingBackup.id); });
-
-            if (existingBackupUsable) {
-                nextAssignments.push(existing);
-                return;
-            }
-
-            const candidates = backupEmployees.filter(function (backup) {
-                if (nextOffIds.some(function (id) { return String(id) === String(backup.id); })) return false;
-                if (nextAssignments.some(function (assignment) { return String(assignment.subId) === String(backup.id); })) return false;
-
-                const rulesForBackup = substitutePermissions.filter(function (permission) {
-                    return String(permission.substitute_employee_id) === String(backup.id);
-                });
-                if (rulesForBackup.length > 0) {
-                    return rulesForBackup.some(function (permission) {
-                        return String(permission.base_employee_id) === String(baseEmployee.id);
-                    });
-                }
-
-                const target = String(backup.target || '').trim().toLowerCase();
-                if (!target) return true;
-                if (['전지역', '전체', '모든', '백업', '대체', '팀 전체', 'all'].some(function (word) { return target.includes(word); })) return true;
-                const routeName = getEmployeeRoute(baseEmployee, routes).toLowerCase();
-                return target.includes(String(baseEmployee.name || '').toLowerCase()) ||
-                    (routeName && routeName !== '미지정' && target.includes(routeName));
-            });
-
-            if (candidates.length > 0) {
-                const chosen = candidates[0];
-                nextAssignments.push({
-                    subId: chosen.id,
-                    subName: chosen.name,
-                    targetBaseId: baseEmployee.id,
-                    targetBaseName: baseEmployee.name,
-                    routeName: getEmployeeRoute(baseEmployee, routes)
-                });
-            } else {
-                coverageWarnings.push(
-                    '[백업 인원 확인 필요] ' + dateKey + ': ' + baseEmployee.name +
-                    ' 휴무가 지정됐지만 근무 가능한 백업이 없습니다. 백업 인원을 확인하거나 휴무일을 변경하세요.'
-                );
-            }
-        });
-
-        const updatedRecord = {
-            ...oldRecord,
-            date: dateKey,
+        const rebalanced = rebalanceWeeklyScheduleDay({
+            dateKey: dateKey,
+            employees: activeTeamEmployees,
             offEmployeeIds: nextOffIds,
-            offs: activeTeamEmployees.filter(function (item) {
-                return getEmployeeType(item) === 'base' && nextOffIds.some(function (id) { return String(id) === String(item.id); });
-            }).map(function (item) { return item.name; }),
-            subOffs: backupEmployees.filter(function (item) {
-                return nextOffIds.some(function (id) { return String(id) === String(item.id); });
-            }).map(function (item) { return item.name; }),
-            subs: nextAssignments,
-            status: coverageWarnings.length > 0 ? 'error' : 'ok'
-        };
-
+            existingRecord: oldRecord,
+            substitutePermissions: substitutePermissions || [],
+            substituteWorkHistory: substituteWorkHistory || []
+        });
+        const updatedRecord = rebalanced.record;
         const nextSchedule = { ...generatedSchedule, [dateKey]: updatedRecord };
         setWarningsAcknowledged(false);
         setGeneratedSchedule(nextSchedule);
-        const allCoverageWarnings = [];
-        Object.keys(nextSchedule).forEach(function (scheduledDate) {
-            const scheduledRecord = nextSchedule[scheduledDate];
-            const scheduledOffIds = Array.isArray(scheduledRecord.offEmployeeIds) ? scheduledRecord.offEmployeeIds : [];
-            activeTeamEmployees.filter(function (item) {
-                return getEmployeeType(item) === 'base' &&
-                    scheduledOffIds.some(function (id) { return String(id) === String(item.id); });
-            }).forEach(function (baseEmployee) {
-                const hasBackup = (scheduledRecord.subs || []).some(function (assignment) {
-                    return String(assignment.targetBaseId) === String(baseEmployee.id);
-                });
-                if (!hasBackup) {
-                    allCoverageWarnings.push(
-                        '[백업 인원 확인 필요] ' + scheduledDate + ': ' + baseEmployee.name +
-                        ' 휴무가 지정됐지만 근무 가능한 백업이 없습니다. 백업 인원을 확인하거나 휴무일을 변경하세요.'
-                    );
-                }
-            });
+        const validationWarnings = validateWeeklySchedule({
+            weekStart: formatDate(weekDates[0]),
+            schedule: nextSchedule,
+            employees: activeTeamEmployees,
+            substitutePermissions: substitutePermissions || []
         });
         setWarnings(function (previousWarnings) {
-            const otherWarnings = previousWarnings.filter(function (warning) {
-                return !String(warning).startsWith('[인력 부족]') &&
-                    !String(warning).startsWith('[백업 인원 확인 필요]');
+            const retainedWarnings = previousWarnings.filter(function (warning) {
+                const value = String(warning);
+                return !value.startsWith('[인력 부족]') &&
+                    !value.startsWith('[백업 인원 확인 필요]') &&
+                    !value.startsWith('[백업 배정 오류]') &&
+                    !value.startsWith('[백업 배정 충돌]') &&
+                    !value.startsWith('[백업 중복 배정]') &&
+                    !value.startsWith('[백업 배정 대상 오류]') &&
+                    !value.startsWith('[백업 노선 권한 오류]') &&
+                    !value.startsWith('[격주 근무 검증]') &&
+                    !value.startsWith('[주간 일정 누락]');
             });
-            return Array.from(new Set(otherWarnings.concat(allCoverageWarnings)));
+            return Array.from(new Set(
+                retainedWarnings.concat(rebalanced.warnings, validationWarnings)
+            ));
         });
         setScheduleStatus('generated');
         setSavedRecord(null);
