@@ -163,7 +163,7 @@ function getRecordOffCount(record) {
 function shiftWeeklySchedule(schedule, offsetDays) {
     const next = {};
     Object.entries(schedule || {}).forEach(function ([key, record]) {
-        const match = String(key).match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
+        const match = String(key).match(/^(\d{4})-(\d{2})-(\d{2})$/);
         if (!match) {
             next[key] = record;
             return;
@@ -173,7 +173,7 @@ function shiftWeeklySchedule(schedule, offsetDays) {
         const nextKey = formatDate(date);
         next[nextKey] = record && typeof record === 'object'
             ? Object.assign({}, record, {
-                date: record.date && /^\\d{4}-\\d{2}-\\d{2}$/.test(record.date)
+                date: record.date && /^\d{4}-\d{2}-\d{2}$/.test(record.date)
                     ? formatDate(new Date(date))
                     : record.date
             })
@@ -184,7 +184,7 @@ function shiftWeeklySchedule(schedule, offsetDays) {
 
 function shiftScheduleWarnings(warnings, offsetDays) {
     return (Array.isArray(warnings) ? warnings : []).map(function (warning) {
-        return String(warning).replace(/\\b\\d{4}-\\d{2}-\\d{2}\\b/g, function (value) {
+        return String(warning).replace(/\b\d{4}-\d{2}-\d{2}\b/g, function (value) {
             const date = new Date(Number(value.slice(0, 4)), Number(value.slice(5, 7)) - 1, Number(value.slice(8, 10)));
             date.setDate(date.getDate() + offsetDays);
             return formatDate(date);
