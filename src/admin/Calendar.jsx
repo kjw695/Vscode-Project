@@ -225,6 +225,7 @@ export default function Calendar({ onBack }) {
     const [savedRecord, setSavedRecord] = useState(null);
     const [warningsAcknowledged, setWarningsAcknowledged] = useState(false);
     const [showScheduleTools, setShowScheduleTools] = useState(false);
+    const [pendingChangeReasonBySchedule, setPendingChangeReasonBySchedule] = useState({});
     const [isScheduleSectionCollapsed, setIsScheduleSectionCollapsed] = useState(function () {
         try {
             const saved = localStorage.getItem('admin_schedule_section_collapsed');
@@ -247,6 +248,21 @@ export default function Calendar({ onBack }) {
         return getWeekDates(new Date(parts[0], parts[1] - 1, parts[2]));
     }, [weekStartKey]);
     const scheduleKey = 'my_schedule_' + String(selectedTeam) + '_' + weekStartKey;
+    const pendingChangeReasonKey = scheduleKey + ':change-reason:' + String(organizationId || 'personal');
+    const pendingChangeReason = pendingChangeReasonBySchedule[pendingChangeReasonKey] || '';
+
+    useEffect(function () {
+        try {
+            const storedReason = localStorage.getItem(pendingChangeReasonKey);
+            if (storedReason) {
+                setPendingChangeReasonBySchedule(function (previous) {
+                    return Object.assign({}, previous, { [pendingChangeReasonKey]: storedReason });
+                });
+            }
+        } catch (error) {
+            console.warn('근무표 변경 사유를 복원하지 못했습니다.', error);
+        }
+    }, [pendingChangeReasonKey]);
     const isSelectedTeamCollapsed = isScheduleSectionCollapsed;
     const toggleSelectedTeamSchedule = function () {
         setIsScheduleSectionCollapsed(function (previous) {
@@ -672,10 +688,17 @@ export default function Calendar({ onBack }) {
         if (!historyRecord?.id || !savedRecord?.sharedScheduleId || !savedRecord?.version) {
             throw new Error('현재 근무표 버전을 확인할 수 없습니다. 최신 근무표를 다시 불러와주세요.');
         }
+        const reasonInput = window.prompt('이전 근무표를 복구하는 사유를 입력해주세요. 직원에게도 안내됩니다.');
+        const changeReason = String(reasonInput || '').trim().slice(0, 300);
+        if (!changeReason) throw new Error('복구하려면 변경 사유를 입력해야 합니다.');
         if (!window.confirm('선택한 버전으로 복구할까요? 현재 근무표도 새 이력으로 보관됩니다.')) {
             throw new Error('복구를 취소했습니다.');
         }
-        const restored = await restoreMyOrganizationWeeklyScheduleHistory(historyRecord.id, Number(savedRecord.version));
+        const restored = await restoreMyOrganizationWeeklyScheduleHistory(
+            historyRecord.id,
+            Number(savedRecord.version),
+            changeReason
+        );
         const record = {
             teamId: restored.team_id, teamLabel: restored.team_label,
             year: Number(String(restored.week_start).slice(0, 4)),
@@ -692,6 +715,12 @@ export default function Calendar({ onBack }) {
         setScheduleStatus(record.status === 'confirmed' ? 'confirmed' : 'saved');
         setWarningsAcknowledged(true);
         localStorage.setItem(scheduleKey, JSON.stringify(record));
+        if (record.status !== 'confirmed') {
+            setPendingChangeReasonBySchedule(function (previous) {
+                return Object.assign({}, previous, { [pendingChangeReasonKey]: changeReason });
+            });
+            localStorage.setItem(pendingChangeReasonKey, changeReason);
+        }
     };
 
     const handleStartAutoSchedule = function () {
@@ -736,6 +765,16 @@ export default function Calendar({ onBack }) {
 
     const handleSaveDraft = async function () {
         if (!selectedTeam || !isScheduleGenerated) { window.alert('팀을 선택하고 근무표 초안을 먼저 생성해주세요.'); return; }
+        let changeReason = pendingChangeReason;
+        if (organizationId && savedRecord?.status === 'confirmed' && !changeReason) {
+            const reasonInput = window.prompt('확정된 근무표를 변경합니다. 직원에게도 안내될 변경 사유를 입력해주세요.');
+            changeReason = String(reasonInput || '').trim().slice(0, 300);
+            if (!changeReason) {
+                window.alert('확정된 근무표를 변경하려면 사유를 입력해야 합니다.');
+                return;
+            }
+        }
+
         const expectedVersion = (savedRecord?.sharedScheduleId ? Number(savedRecord.version || 0) : 0);
         const now = new Date().toISOString();
         const draftEmployeeDetails = organizationId ? buildEmployeeDetails() : {};
@@ -751,7 +790,8 @@ export default function Calendar({ onBack }) {
                     teamId: selectedTeam, teamLabel: getTeamDisplayName(selectedTeamRecord),
                     weekStart: record.weekStart, weekEnd: record.weekEnd,
                     status: 'draft', schedule: generatedSchedule, employeeDetails: draftEmployeeDetails,
-                    warnings: warnings, expectedVersion: expectedVersion
+                    warnings: warnings, expectedVersion: expectedVersion,
+                    changeReason: changeReason || null
                 });
                 record.version = Number(shared?.version || record.version);
                 record.sharedScheduleId = shared?.id || null;
@@ -760,6 +800,12 @@ export default function Calendar({ onBack }) {
             localStorage.setItem(scheduleKey, JSON.stringify(record));
             setSavedRecord(record);
             setScheduleStatus('saved');
+            if (organizationId && changeReason) {
+                setPendingChangeReasonBySchedule(function (previous) {
+                    return Object.assign({}, previous, { [pendingChangeReasonKey]: changeReason });
+                });
+                localStorage.setItem(pendingChangeReasonKey, changeReason);
+            }
             window.alert(organizationId
                 ? '근무표 초안을 회사 서버에 저장했습니다. 직원 앱에는 확정 일정으로 공유되지 않습니다.'
                 : '근무표 초안을 이 기기의 브라우저 저장소에 저장했습니다.');
@@ -868,7 +914,8 @@ export default function Calendar({ onBack }) {
                     schedule: generatedSchedule,
                     employeeDetails: employeeDetails,
                     warnings: warnings,
-                    expectedVersion: (savedRecord?.sharedScheduleId ? Number(savedRecord.version || 0) : 0)
+                    expectedVersion: (savedRecord?.sharedScheduleId ? Number(savedRecord.version || 0) : 0),
+                    changeReason: pendingChangeReason || null
                 });
                 record.version = Number(shared?.version || record.version);
                 record.sharedScheduleId = shared?.id || null;
@@ -890,6 +937,14 @@ export default function Calendar({ onBack }) {
 
         setSavedRecord(record);
         setScheduleStatus('confirmed');
+        if (pendingChangeReason) {
+            try { localStorage.removeItem(pendingChangeReasonKey); } catch (error) { console.warn('변경 사유 임시 기록을 정리하지 못했습니다.', error); }
+            setPendingChangeReasonBySchedule(function (previous) {
+                const next = Object.assign({}, previous);
+                delete next[pendingChangeReasonKey];
+                return next;
+            });
+        }
         window.alert(organizationId
             ? '근무표를 확정했고 회사 직원용 앱에 공유했습니다.'
             : '근무표를 확정했습니다. 회사에 소속되지 않은 계정이므로 이 기기에만 저장됩니다.');
@@ -900,11 +955,21 @@ export default function Calendar({ onBack }) {
             window.alert('먼저 근무조에 속한 팀을 선택해주세요.');
             return;
         }
-        if (!window.confirm('확정 상태를 해제하고 다시 초안으로 편집할 수 있도록 변경할까요?')) return;
         if (user?.id && organizationLookupStatus !== 'ready') {
             window.alert('회사 소속 정보를 확인하고 있습니다. 잠시 후 다시 시도해주세요.');
             return;
         }
+
+        let changeReason = pendingChangeReason;
+        if (organizationId && savedRecord?.status === 'confirmed' && !changeReason) {
+            const reasonInput = window.prompt('확정된 근무표를 다시 열어 수정하는 사유를 입력해주세요.');
+            changeReason = String(reasonInput || '').trim().slice(0, 300);
+            if (!changeReason) {
+                window.alert('확정 해제 사유를 입력해야 합니다.');
+                return;
+            }
+        }
+        if (!window.confirm('확정 상태를 해제하고 다시 초안으로 편집할까요? 변경 사유는 직원에게도 안내됩니다.')) return;
 
         const now = new Date().toISOString();
         const employeeDetails = buildEmployeeDetails();
@@ -934,7 +999,8 @@ export default function Calendar({ onBack }) {
                     schedule: generatedSchedule,
                     employeeDetails: employeeDetails,
                     warnings: warnings,
-                    expectedVersion: (savedRecord?.sharedScheduleId ? Number(savedRecord.version || 0) : 0)
+                    expectedVersion: (savedRecord?.sharedScheduleId ? Number(savedRecord.version || 0) : 0),
+                    changeReason: changeReason || null
                 });
                 record.version = Number(shared?.version || record.version);
                 record.sharedScheduleId = shared?.id || null;
@@ -948,13 +1014,19 @@ export default function Calendar({ onBack }) {
 
         try {
             localStorage.setItem(scheduleKey, JSON.stringify(record));
+            if (organizationId && changeReason) localStorage.setItem(pendingChangeReasonKey, changeReason);
         } catch (error) {
             console.warn('기기 저장소에 근무표 사본을 저장하지 못했습니다.', error);
+        }
+        if (organizationId && changeReason) {
+            setPendingChangeReasonBySchedule(function (previous) {
+                return Object.assign({}, previous, { [pendingChangeReasonKey]: changeReason });
+            });
         }
         setSavedRecord(record);
         setScheduleStatus('saved');
         window.alert(profile?.organization_id
-            ? '확정을 해제했습니다. 직원 앱에는 확정되지 않은 일정으로 표시됩니다.'
+            ? '확정을 해제했습니다. 직원 앱에 변경 사유와 함께 안내됩니다.'
             : '확정을 해제했습니다.');
     };
 
@@ -1087,7 +1159,7 @@ export default function Calendar({ onBack }) {
             return Array.from(new Set(otherWarnings.concat(allCoverageWarnings)));
         });
         setScheduleStatus('generated');
-        setSavedRecord(null);
+        // Keep the confirmed server row ID/version so the reason-protected save updates this row.
     };
 
     const handleDownloadScheduleImage = async function () {
