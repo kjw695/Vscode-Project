@@ -8,6 +8,7 @@ on:
       - feature/shared-company-admin-data
       - feature/admin-data-backup-restore
       - feature/schedule-workflow-tools
+      - feature/confirmed-schedule-change-audit
   pull_request:
     branches:
       - security-audit
