@@ -199,6 +199,18 @@ BEGIN
       RAISE EXCEPTION '확정된 근무표를 변경하려면 변경 사유를 입력해주세요.';
     END IF;
 
+    -- If a confirmed schedule was reopened for editing, carry its recorded reason
+    -- forward when another administrator completes confirmation from a different device.
+    IF v_row.status = 'draft' AND p_status = 'confirmed' AND v_reason IS NULL THEN
+      SELECT h.change_reason INTO v_reason
+      FROM public.organization_weekly_schedule_history h
+      WHERE h.schedule_id = v_row.id
+        AND h.change_type IN ('reopened', 'admin_changed', 'restored')
+        AND h.change_reason IS NOT NULL
+      ORDER BY h.version DESC, h.created_at DESC
+      LIMIT 1;
+    END IF;
+
     PERFORM set_config('app.schedule_change_reason', COALESCE(v_reason, ''), true);
 
     UPDATE public.organization_weekly_schedules
