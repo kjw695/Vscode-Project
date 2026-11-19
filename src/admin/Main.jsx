@@ -2,13 +2,14 @@
 import React, { useEffect, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { useAuth } from '../contexts/AuthContext';
-import { Users, Calendar as CalendarIcon, Settings, LogOut, ShieldCheck, AlertCircle, Map, CalendarDays, BarChart3 } from 'lucide-react';
+import { Users, Calendar as CalendarIcon, Settings, LogOut, ShieldCheck, AlertCircle, Map, CalendarDays, BarChart3, Database } from 'lucide-react';
 import EmployeeManager from './EmployeeManager'; 
 import Calendar from './Calendar'; 
 import AdminSettings from './Settings';
 import RouteManager from './RouteManager';
 import FixedOffStatus from './FixedOffStatus';
 import BackupDemandAnalysis from './BackupDemandAnalysis';
+import AdminDataBackup from './AdminDataBackup';
 import { DataProvider, useAdminData } from './contexts/DataContext';
 
 // 👑 자식 컴포넌트들을 감싸는 메인 대시보드 껍데기 (✨ onBack 추가)
@@ -221,6 +222,7 @@ function AdminDashboard({ onBack }) {
     if (currentView === 'settings') return <AdminSettings onBack={() => setCurrentView('main')} />;
     if (currentView === 'fixedOff') return <FixedOffStatus onBack={() => setCurrentView('main')} />;
     if (currentView === 'backupDemand') return <BackupDemandAnalysis onBack={() => setCurrentView('main')} />;
+    if (currentView === 'adminBackup') return <AdminDataBackup onBack={() => setCurrentView('main')} currentData={{ regions, teams, employees, routes }} onRestored={reloadSharedState} />;
 
     return (
         <div className="admin-safe-top w-full h-full min-h-screen bg-gray-100 p-5 flex flex-col font-sans">
@@ -313,6 +315,18 @@ function AdminDashboard({ onBack }) {
                         </div>
                     </div>
                 </button>
+
+                {scope === 'shared' && organizationRole === 'owner' && (
+                    <button onClick={() => setCurrentView('adminBackup')} className="h-full min-w-0 w-full p-3 sm:p-4 bg-white text-gray-800 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-emerald-300 transition-colors">
+                        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                            <div className="shrink-0 p-2 sm:p-3 bg-emerald-50 text-emerald-700 rounded-xl"><Database size={24} /></div>
+                            <div className="min-w-0 flex-1 text-left">
+                                <h2 className="break-words text-sm font-bold leading-tight sm:text-base lg:text-lg">데이터 백업·복구</h2>
+                                <p className="mt-1 whitespace-nowrap text-[clamp(7px,2.2vw,10px)] leading-4 text-gray-500 sm:text-xs">백업 이력 및 복원</p>
+                            </div>
+                        </div>
+                    </button>
+                )}
 
                 <button onClick={() => setCurrentView('settings')} className="h-full min-w-0 w-full p-3 sm:p-4 bg-white text-gray-800 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-indigo-300 transition-colors">
                     <div className="flex min-w-0 items-center gap-2 sm:gap-3">
