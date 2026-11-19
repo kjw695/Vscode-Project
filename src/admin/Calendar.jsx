@@ -23,7 +23,7 @@ import {
     Download,
     Images
 } from 'lucide-react';
-import { generateWeeklySchedule, rebalanceWeeklyScheduleDay, validateWeeklySchedule } from './utils/schedulingEngine';
+import { generateWeeklySchedule, rebalanceWeeklyScheduleDay, validateWeeklySchedule, prepareCopiedWeeklySchedule } from './utils/schedulingEngine';
 import { useAdminData } from './contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -646,11 +646,19 @@ export default function Calendar({ onBack }) {
             const currentStart = new Date(weekDates[0]);
             const sourceStart = new Date(previousStart);
             const offsetDays = Math.round((currentStart.getTime() - sourceStart.getTime()) / 86400000);
-            const nextSchedule = shiftWeeklySchedule(source.schedule, offsetDays);
-            const nextWarnings = shiftScheduleWarnings(source.warnings, offsetDays);
+            const shiftedSchedule = shiftWeeklySchedule(source.schedule, offsetDays);
+            const shiftedWarnings = shiftScheduleWarnings(source.warnings, offsetDays);
+            const prepared = prepareCopiedWeeklySchedule({
+                weekStart: weekStartKey,
+                schedule: shiftedSchedule,
+                warnings: shiftedWarnings,
+                employees: activeTeamEmployees,
+                substitutePermissions: substitutePermissions || [],
+                substituteWorkHistory: substituteWorkHistory || []
+            });
 
-            setGeneratedSchedule(nextSchedule);
-            setWarnings(nextWarnings);
+            setGeneratedSchedule(prepared.schedule);
+            setWarnings(prepared.warnings);
             setSavedRecord(null);
             setScheduleStatus('generated');
             setWarningsAcknowledged(false);
@@ -1290,8 +1298,16 @@ export default function Calendar({ onBack }) {
                     warnings={warnings}
                     status={scheduleStatus}
                     onApplySchedule={function (result) {
-                        setGeneratedSchedule(result.schedule || {});
-                        setWarnings(result.warnings || []);
+                        const prepared = prepareCopiedWeeklySchedule({
+                            weekStart: weekStartKey,
+                            schedule: result.schedule || {},
+                            warnings: result.warnings || [],
+                            employees: activeTeamEmployees,
+                            substitutePermissions: substitutePermissions || [],
+                            substituteWorkHistory: substituteWorkHistory || []
+                        });
+                        setGeneratedSchedule(prepared.schedule);
+                        setWarnings(prepared.warnings);
                         setSavedRecord(null);
                         setScheduleStatus('generated');
                         setWarningsAcknowledged(false);
