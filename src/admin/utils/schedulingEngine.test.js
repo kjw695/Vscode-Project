@@ -1,4 +1,4 @@
-import { generateMonthlySchedule, generateWeeklySchedule, rebalanceWeeklyScheduleDay, validateWeeklySchedule } from './schedulingEngine';
+import { generateMonthlySchedule, generateWeeklySchedule, rebalanceWeeklyScheduleDay, validateWeeklySchedule, prepareCopiedWeeklySchedule } from './schedulingEngine';
 
 const createEmployee = (id, name, type, pattern, target) => ({
     id,
@@ -300,5 +300,79 @@ describe('validateWeeklySchedule', () => {
         });
 
         expect(warnings.join(' ')).toMatch(/격주 근무 검증/);
+    });
+});
+
+describe('prepareCopiedWeeklySchedule', () => {
+    test('removes employees no longer in the active roster and reassigns eligible backups', () => {
+        const employees = [
+            createEmployee(1, '현재 고정 기사', 'base', '주 5일'),
+            createEmployee(2, '현재 백업 기사', 'sub', '주 6일', '전지역 백업')
+        ];
+        const sourceSchedule = {};
+        ['2026-10-18', '2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24']
+            .forEach((date) => {
+                sourceSchedule[date] = {
+                    date,
+                    offEmployeeIds: [1, 99],
+                    offs: ['현재 고정 기사', '퇴사한 직원'],
+                    subs: [{
+                        subId: 98,
+                        subName: '이전 백업 직원',
+                        targetBaseId: 1,
+                        targetBaseName: '현재 고정 기사'
+                    }]
+                };
+            });
+
+        const result = prepareCopiedWeeklySchedule({
+            weekStart: '2026-10-25',
+            schedule: sourceSchedule,
+            warnings: ['[백업 인원 확인 필요] 2026-10-18: 이전 백업 경고'],
+            employees,
+            substitutePermissions: [],
+            substituteWorkHistory: []
+        });
+
+        expect(Object.keys(result.schedule)).toHaveLength(7);
+        Object.values(result.schedule).forEach((day) => {
+            expect(day.offEmployeeIds.map(String)).toEqual(['1']);
+            expect(day.subs).toHaveLength(1);
+            expect(String(day.subs[0].subId)).toBe('2');
+            expect(day.offEmployeeIds.map(String)).not.toContain('99');
+        });
+        expect(result.warnings.join(' ')).not.toMatch(/2026-10-18: 이전 백업 경고/);
+    });
+
+    test('rebuilds legacy name-only off lists using active employee names', () => {
+        const employees = [
+            createEmployee(1, '고정 기사', 'base', '주 5일'),
+            createEmployee(2, '백업 기사', 'sub', '주 6일', '전지역 백업')
+        ];
+        const sourceSchedule = {};
+        ['2026-10-18', '2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24']
+            .forEach((date) => {
+                sourceSchedule[date] = {
+                    date,
+                    offs: ['고정 기사'],
+                    subOffs: [],
+                    subs: []
+                };
+            });
+
+        const result = prepareCopiedWeeklySchedule({
+            weekStart: '2026-10-25',
+            schedule: sourceSchedule,
+            warnings: [],
+            employees,
+            substitutePermissions: [],
+            substituteWorkHistory: []
+        });
+
+        Object.values(result.schedule).forEach((day) => {
+            expect(day.offEmployeeIds.map(String)).toContain('1');
+            expect(day.subs).toHaveLength(1);
+            expect(String(day.subs[0].subId)).toBe('2');
+        });
     });
 });
