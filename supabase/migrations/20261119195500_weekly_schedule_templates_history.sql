@@ -144,7 +144,7 @@ BEGIN
           )
       );
 
-    RETURN COALESCE(NEW, OLD);
+    RETURN NEW;
 END;
 $function$;
 
