@@ -78,20 +78,20 @@ BEGIN
     SELECT COALESCE(
         jsonb_agg(
             jsonb_build_object(
-                'id', row.id,
-                'request_type', row.request_type,
-                'team_id', row.team_id,
-                'team_label', row.team_label,
-                'requester_name', row.requester_name,
-                'receiver_name', row.receiver_name,
-                'source_date', row.source_date,
-                'target_date', row.target_date,
-                'note', row.note,
-                'status', row.status,
-                'created_at', row.created_at,
-                'responded_at', row.responded_at
+                'id', entry.id,
+                'request_type', entry.request_type,
+                'team_id', entry.team_id,
+                'team_label', entry.team_label,
+                'requester_name', entry.requester_name,
+                'receiver_name', entry.receiver_name,
+                'source_date', entry.source_date,
+                'target_date', entry.target_date,
+                'note', entry.note,
+                'status', entry.status,
+                'created_at', entry.created_at,
+                'responded_at', entry.responded_at
             )
-            ORDER BY row.created_at DESC, row.id DESC
+            ORDER BY entry.created_at DESC, entry.id DESC
         ),
         '[]'::jsonb
     )
@@ -101,7 +101,7 @@ BEGIN
         FROM request_rows
         ORDER BY created_at DESC, id DESC
         LIMIT v_limit
-    ) row;
+    ) entry;
 
     RETURN v_result;
 END;
