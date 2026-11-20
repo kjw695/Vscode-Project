@@ -22,6 +22,9 @@ const OFFICIAL_ITEMS = [
     ['warningTriangle', '기타', '안전삼각대 등 비치 여부']
 ];
 
+// 원본 서식의 날짜 열은 1~20일, 22~31일이며 21일 칸은 없습니다.
+const FORM_DAYS = [...Array.from({ length: 20 }, (_, index) => index + 1), ...Array.from({ length: 10 }, (_, index) => index + 22)];
+
 const dateLabel = (date) => {
     const [year, month, day] = String(date).split('-').map(Number);
     return `${year}년 ${month}월 ${day}일`;
@@ -36,34 +39,38 @@ export const printDailyInspectionMonth = (records, year, month) => {
     const latestByDay = new Map();
     monthRecords.forEach((record) => latestByDay.set(Number(String(record.date).slice(8, 10)), record));
     const first = monthRecords[0] || {};
-    const dateHeaders = Array.from({ length: 31 }, (_, index) => `<th>${index + 1}</th>`).join('');
+    const companyName = first.companyName || first.organizationName || first.vendorName || '';
+    const dateHeaders = FORM_DAYS.map((day) => `<th class="day-header">${day}</th>`).join('');
     const itemGroups = [
         { category: '외관점검', items: OFFICIAL_ITEMS.slice(0, 4) },
         { category: '상태점검', items: OFFICIAL_ITEMS.slice(4, 7) },
         { category: '기타', items: OFFICIAL_ITEMS.slice(7, 11) }
     ];
     const officialRows = itemGroups.map(({ category, items }) => items.map(([id, , label], itemIndex) => {
-        const cells = Array.from({ length: 31 }, (_, dayIndex) => {
-            const record = latestByDay.get(dayIndex + 1);
+        const cells = FORM_DAYS.map((day) => {
+            const record = latestByDay.get(day);
             const answer = record?.answers?.[id];
-            return `<td>${answer === 'good' ? '○' : answer === 'bad' ? '×' : record?.isNotOperated ? '미' : ''}</td>`;
+            const result = answer === 'good' ? '○' : answer === 'bad' ? '×' : record?.isNotOperated ? '미' : '';
+            return `<td class="result-cell">${result}</td>`;
         }).join('');
         const categoryCell = itemIndex === 0
-            ? `<th class="category" rowspan="${items.length}">${category}</th>`
+            ? `<td class="category" rowspan="${items.length}">${category}</td>`
             : '';
-        return `<tr>${categoryCell}<th class="item">${escapeHtml(label)}</th>${cells}</tr>`;
+        return `<tr class="inspection-row">${categoryCell}<td class="item">${escapeHtml(label)}</td>${cells}</tr>`;
     }).join('')).join('');
 
-    const signatureCells = Array.from({ length: 31 }, (_, dayIndex) => {
-        const record = latestByDay.get(dayIndex + 1);
+    const signatureCells = FORM_DAYS.map((day) => {
+        const record = latestByDay.get(day);
         const signature = safeSignatureImage(record?.driverSignature);
-        return `<td>${signature ? `<img class="signature-cell" src="${signature}" alt="점검자 서명" />` : ''}</td>`;
+        return `<td class="signature-cell">${signature ? `<img src="${signature}" alt="점검자 서명" />` : ''}</td>`;
     }).join('');
 
     const actionEntries = monthRecords
         .filter((record) => String(record.actionNotes || '').trim())
         .map((record) => `${Number(String(record.date).slice(8, 10))}일: ${String(record.actionNotes).trim()}`);
-    const actionNotes = actionEntries.length ? actionEntries.join(' / ') : '해당 없음';
+    const actionNotes = actionEntries.length
+        ? escapeHtml(actionEntries.join(' / '))
+        : '<span class="example-text">(예시) 00일 창닦이기 불량 - 00일 창닦이기 교체</span>';
 
         const detailPages = monthRecords.map((record) => {
         const rows = OFFICIAL_ITEMS.map(([id, , label], index) => {
@@ -118,48 +125,46 @@ export const printDailyInspectionMonth = (records, year, month) => {
     :root { color-scheme: light; }
     * { box-sizing: border-box; }
     html, body { background: #fff !important; color: #111 !important; }
-    body { font-family: Arial, 'Malgun Gothic', sans-serif; font-size: 9px; margin: 0; padding: 16px; }
-    .toolbar { position: sticky; top: 0; z-index: 5; display: flex; justify-content: flex-end; gap: 8px; padding: 10px; margin: -16px -16px 16px; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; }
+    body { margin: 0; padding: 10mm; background: #fff; color: #111; font-family: Arial, 'Malgun Gothic', sans-serif; font-size: 9pt; }
+    .toolbar { position: sticky; top: 0; z-index: 5; display: flex; justify-content: flex-end; gap: 8px; padding: 10px; margin: -10mm -10mm 8mm; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; }
     .toolbar button { border: 0; border-radius: 8px; padding: 10px 14px; background: #1d4ed8; color: #fff; font-size: 14px; font-weight: 700; }
     .toolbar button.secondary { background: #475569; }
-    h1 { text-align: center; font-size: 17px; margin: 0 0 8px; }
-    h2 { font-size: 15px; margin: 0 0 8px; }
-    h3 { font-size: 11px; margin: 12px 0 5px; }
-    .summary { display: flex; gap: 18px; margin: 8px 0; flex-wrap: wrap; }
-    .summary span { border-bottom: 1px solid #333; padding: 3px 5px; min-width: 130px; }
+    .form-caption { min-height: 5mm; margin: 0 0 1mm 1mm; font-family: 'Malgun Gothic', sans-serif; font-size: 8.5pt; line-height: 1.2; white-space: nowrap; }
+    .form-caption .new-date { color: #0645ad; }
+    h1 { margin: 0 0 3mm; text-align: center; font-size: 12pt; line-height: 1.25; font-weight: 400; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; background: #fff; }
-    th, td { border: 1px solid #555; padding: 3px 1px; text-align: center; overflow-wrap: anywhere; color: #111; background: #fff; }
-    .summary { display: grid; grid-template-columns: 1fr 1.2fr 1fr 1fr; gap: 8px; margin: 8px 0; }
-    .summary span { border-bottom: 1px solid #333; padding: 3px 4px; min-width: 0; white-space: nowrap; }
-    .category { width: 18mm; font-weight: 700; }
-    .item { width: 77mm; text-align: left; padding: 3px 4px; font-weight: 400; }
-    .summary-table th, .summary-table td { border: 1px solid #333; }
-    .summary-table th:not(.item):not(.category), .summary-table td { font-size: 6.5pt; padding: 2px 0.5px; }
-    .summary-table .item, .summary-table .category { font-size: 7pt; }
-    .summary-table .signature-row td { height: 13mm; padding: 1px; }
-    .signature-cell { display: block; width: 100%; max-height: 10mm; object-fit: contain; }
-    .summary-table .action-row td { text-align: left; padding: 5px; font-size: 7pt; white-space: pre-wrap; }
-    .legend { text-align: right; margin: 5px 0; }
+    .identity-table { margin: 0 0 3mm; border: 0.45mm solid #111; font-family: 'Malgun Gothic', sans-serif; }
+    .identity-table td { height: 8mm; border: 0.25mm solid #333; padding: 1mm 1.2mm; text-align: center; vertical-align: middle; font-size: 9pt; white-space: nowrap; }
+    .inspection-table { border: 0.5mm solid #111; font-family: 'Malgun Gothic', sans-serif; font-size: 8.5pt; break-inside: avoid; page-break-inside: avoid; }
+    .inspection-table th, .inspection-table td { border: 0.2mm solid #777; color: #111; background: #fff; text-align: center; vertical-align: middle; padding: 0.8mm 0.3mm; font-weight: 400; }
+    .inspection-table .main-heading { font-size: 10pt; height: 8mm; }
+    .inspection-table .result-heading { height: 7mm; font-size: 9pt; }
+    .inspection-table .day-header { height: 7mm; font-size: 8.5pt; padding: 0; }
+    .inspection-table .category { width: 9mm; padding: 1mm 0.5mm; font-size: 9.5pt; line-height: 1.4; writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 1mm; }
+    .inspection-table .item { width: 53mm; text-align: left; padding: 1.2mm 1.8mm; line-height: 1.35; font-size: 8.5pt; overflow-wrap: anywhere; }
+    .inspection-row td.result-cell { height: 9.5mm; padding: 0; font-size: 9pt; }
+    .inspection-row.long-item td { height: 12mm; }
+    .inspection-table .signature-title { height: 10mm; font-size: 9pt; }
+    .inspection-table .signature-cell { height: 10mm; padding: 0.5mm; }
+    .signature-cell img { display: block; width: 100%; height: 8mm; object-fit: contain; background: #fff; }
+    .inspection-table .action-title { height: 15mm; font-size: 9pt; padding: 1.5mm; }
+    .inspection-table .action-content { height: 15mm; text-align: left; vertical-align: middle; padding: 2mm 3mm; font-size: 9pt; line-height: 1.4; overflow-wrap: anywhere; }
+    .example-text { color: #999; }
     .page-break { break-before: page; page-break-before: always; }
-    .detail { margin-top: 24px; padding-top: 12px; }
-    .detail table { margin: 7px 0; }
-    .detail th, .detail td { padding: 5px; font-size: 9px; }
+    .detail { margin: 0; padding: 0; font-family: Arial, 'Malgun Gothic', sans-serif; }
+    .detail h2 { font-size: 15px; margin: 0 0 8px; }
+    .detail h3 { font-size: 11px; margin: 12px 0 5px; }
+    .detail-table { margin: 7px 0; }
+    .detail-table th, .detail-table td { border: 1px solid #555; padding: 5px; text-align: center; font-size: 9px; }
     .meta { display: flex; gap: 18px; flex-wrap: wrap; margin: 8px 0; }
-    .notes { border: 1px solid #777; min-height: 35px; padding: 7px; white-space: pre-wrap; }
+    .notes { border: 1px solid #777; min-height: 35px; padding: 7px; white-space: pre-wrap; font-size: 9px; }
     .signatures { display: flex; gap: 20px; margin-top: 12px; }
     .signatures > div { width: 50%; border: 1px solid #777; padding: 6px; min-height: 95px; }
     .signatures img { display: block; width: 100%; max-width: 420px; height: 60px; object-fit: contain; background: #fff; }
     .footnote { font-size: 8px; color: #555; margin-top: 8px; }
-    @page { size: 297mm 210mm; margin: 10mm; }
-    @media screen { body { max-width: 1200px; margin: 0 auto; } .detail { border-top: 2px dashed #cbd5e1; } }
-    @media print {
-        html, body { background: #fff !important; color: #111 !important; padding: 0; }
-        .toolbar { display: none !important; }
-        .page-break { break-before: page; page-break-before: always; }
-        .detail { margin-top: 0; padding-top: 0; border: 0; }
-        table, tr, img { break-inside: avoid; page-break-inside: avoid; }
-        * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    }
+    @page { size: A4 landscape; margin: 0; }
+    @media screen { body { max-width: 1400px; margin: 0 auto; } .inspection-table { min-width: 1100px; } .detail { border-top: 2px dashed #cbd5e1; padding-top: 12px; margin-top: 24px; } }
+    @media print { html, body { width: 297mm; min-height: 210mm; padding: 10mm; margin: 0; background: #fff !important; color: #111 !important; } .toolbar { display: none !important; } .form-caption, h1, .identity-table, .inspection-table { break-inside: avoid; page-break-inside: avoid; } .page-break { break-before: page; page-break-before: always; } .detail { margin: 0; padding: 0; border: 0; } table, tr, img { break-inside: avoid; page-break-inside: avoid; } * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style>
 </head>
 <body>
@@ -167,23 +172,45 @@ export const printDailyInspectionMonth = (records, year, month) => {
         <button type="button" onclick="window.print()">PDF 저장 / 인쇄</button>
         <button type="button" class="secondary" onclick="window.parent.document.getElementById('daily-inspection-print-frame')?.remove()">닫기</button>
     </div>
+
+    <div class="form-caption">■ 화물자동차 운수사업법 시행규칙 [별지 제14호의5서식] <span class="new-date">&lt;신설 2025. 12. 29.&gt;</span></div>
     <h1>운수종사자 일상점검표</h1>
-    <div class="summary">
-        <span>점검연월: ${year}년 ${month}월</span>
-        <span>운송사업자명: __________________</span>
-        <span>차량번호: ${escapeHtml(first.vehicleNumber || '')}</span>
-        <span>운수종사자명: ${escapeHtml(first.driverName || '')}</span>
-    </div>
-    <div class="legend">점검결과: ○ 양호　× 불량　미 미운행</div>
-    <table class="summary-table">
-        <thead><tr><th class="category">점검 항목 구분</th><th class="item">점검 항목</th>${dateHeaders}</tr></thead>
+
+    <table class="identity-table">
+        <colgroup>
+            <col style="width:12%"><col style="width:13%">
+            <col style="width:12%"><col style="width:13%">
+            <col style="width:12%"><col style="width:13%">
+            <col style="width:12%"><col style="width:13%">
+        </colgroup>
+        <tbody><tr>
+            <td>점검연월</td><td>${year}년 ${month}월</td>
+            <td>운송사업자명</td><td>${escapeHtml(companyName)}</td>
+            <td>차량번호</td><td>${escapeHtml(first.vehicleNumber || '')}</td>
+            <td>운수종사자명</td><td>${escapeHtml(first.driverName || '')}</td>
+        </tr></tbody>
+    </table>
+
+    <table class="inspection-table">
+        <colgroup>
+            <col style="width:9mm" />
+            <col style="width:53mm" />
+            ${FORM_DAYS.map(() => '<col />').join('')}
+        </colgroup>
+        <thead>
+            <tr>
+                <th class="main-heading" rowspan="2" colspan="2">점검항목</th>
+                <th class="result-heading" colspan="30">점검결과(양호 ○, 불량 ×, 미운행시　“미”　기입)</th>
+            </tr>
+            <tr>${dateHeaders}</tr>
+        </thead>
         <tbody>
             ${officialRows}
-            <tr class="signature-row"><th colspan="2">점검자 확인(서명)</th>${signatureCells}</tr>
-            <tr class="action-row"><th colspan="2">불량상태 조치 기록</th><td colspan="31">${escapeHtml(actionNotes)}</td></tr>
+            <tr><td class="signature-title" colspan="2">점검자 확인(서명)</td>${signatureCells}</tr>
+            <tr><td class="action-title" colspan="2">불량상태 조치 기록</td><td class="action-content" colspan="30">${actionNotes}</td></tr>
         </tbody>
     </table>
-    <p class="footnote">국토교통부 서식에 따른 월간 점검표입니다. 앱의 추가 안전점검 3개 항목과 일별 상세 이력은 뒤쪽 상세 페이지에 별도로 표시합니다.</p>
+
     ${detailPages}
 </body>
 </html>`;
