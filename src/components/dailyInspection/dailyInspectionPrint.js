@@ -9,18 +9,20 @@ const safeSignatureImage = (value) => (
 );
 
 const OFFICIAL_ITEMS = [
-    ['cleanliness', '번호판·전면유리·후사경 등의 청결상태'],
-    ['lighting', '후미등·차폭등 등 등화장치 작동상태'],
-    ['wipers', '창닦이기(와이퍼) 작동상태'],
-    ['cargoBody', '적재함(보조지지대 포함)·측면보호대·후부반사판·트레일러 연결장치 부착 및 훼손 여부'],
-    ['tires', '타이어 손상 및 마모(1.6mm 이상) 여부'],
-    ['cargoFixing', '화물 및 적재함 지지대(판스프링) 등의 고정상태'],
-    ['wheelNuts', '바퀴 너트 등의 균열 여부'],
-    ['fluidsAndWarning', '냉각수·공기압·엔진오일 등 차량 이상 여부(계기판 확인)'],
-    ['seatBelt', '좌석 안전띠 상태'],
-    ['fireExtinguisher', '소화기 비치 여부'],
-    ['warningTriangle', '안전삼각대 등 비치 여부']
-];
+    ['cleanliness', '외관점검', '번호판, 전면유리, 후사경 등의 청결상태'],
+    ['lighting', '외관점검', '후미등, 차폭등 등 등화장치 작동상태'],
+    ['wipers', '외관점검', '창닦이기 작동상태'],
+    ['cargoBody', '외관점검', '적재함(보조지지대 포함), 측면 보호대, 후부반사판, 트레일러 연결장치의 부착 상태 및 훼손 여부'],
+    ['tires', '상태점검', '타이어 손상 및 마모(1.6mm 이상) 여부'],
+    ['cargoFixing', '상태점검', '화물, 적재함 지지대(판스프링) 등의 고정상태'],
+    ['wheelNuts', '상태점검', '바퀴 너트 등 균열 여부'],
+    ['fluidsAndWarning', '기타', '냉각수, 공기압, 엔진오일 등 차량 이상 여부(계기판 확인)'],
+    ['seatBelt', '기타', '좌석 안전띠 상태'],
+    ['fireExtinguisher', '기타', '소화기 비치 여부'],
+    ['warningTriangle', '기타', '안전삼각대 등 비치 여부']
+]; 
+
+const dateLabel];
 
 const dateLabel = (date) => {
     const [year, month, day] = String(date).split('-').map(Number);
@@ -36,20 +38,37 @@ export const printDailyInspectionMonth = (records, year, month) => {
     const latestByDay = new Map();
     monthRecords.forEach((record) => latestByDay.set(Number(String(record.date).slice(8, 10)), record));
     const first = monthRecords[0] || {};
-    const days = new Date(Number(year), Number(month), 0).getDate();
-    const headers = Array.from({ length: days }, (_, index) => `<th>${index + 1}</th>`).join('');
-
-    const officialRows = OFFICIAL_ITEMS.map(([id, label], index) => {
-        const cells = Array.from({ length: days }, (_, dayIndex) => {
+    const dateHeaders = Array.from({ length: 31 }, (_, index) => `<th>${index + 1}</th>`).join('');
+    const itemGroups = [
+        { category: '외관점검', items: OFFICIAL_ITEMS.slice(0, 4) },
+        { category: '상태점검', items: OFFICIAL_ITEMS.slice(4, 7) },
+        { category: '기타', items: OFFICIAL_ITEMS.slice(7, 11) }
+    ];
+    const officialRows = itemGroups.map(({ category, items }) => items.map(([id, , label], itemIndex) => {
+        const cells = Array.from({ length: 31 }, (_, dayIndex) => {
             const record = latestByDay.get(dayIndex + 1);
             const answer = record?.answers?.[id];
             return `<td>${answer === 'good' ? '○' : answer === 'bad' ? '×' : record?.isNotOperated ? '미' : ''}</td>`;
         }).join('');
-        return `<tr><th class="item">${index + 1}. ${escapeHtml(label)}</th>${cells}</tr>`;
+        const categoryCell = itemIndex === 0
+            ? `<th class="category" rowspan="${items.length}">${category}</th>`
+            : '';
+        return `<tr>${categoryCell}<th class="item">${escapeHtml(label)}</th>${cells}</tr>`;
+    }).join('')).join('');
+
+    const signatureCells = Array.from({ length: 31 }, (_, dayIndex) => {
+        const record = latestByDay.get(dayIndex + 1);
+        const signature = safeSignatureImage(record?.driverSignature);
+        return `<td>${signature ? `<img class="signature-cell" src="${signature}" alt="점검자 서명" />` : ''}</td>`;
     }).join('');
 
-    const detailPages = monthRecords.map((record) => {
-        const rows = OFFICIAL_ITEMS.map(([id, label], index) => {
+    const actionEntries = monthRecords
+        .filter((record) => String(record.actionNotes || '').trim())
+        .map((record) => `${Number(String(record.date).slice(8, 10))}일: ${String(record.actionNotes).trim()}`);
+    const actionNotes = actionEntries.length ? actionEntries.join(' / ') : '해당 없음';
+
+        const detailPages = monthRecords.map((record) => {
+        const rows = OFFICIAL_ITEMS.map(([id, , label], index) => {
             const answer = record.answers?.[id];
             const result = answer === 'good' ? '양호' : answer === 'bad' ? '불량(정비필요)' : '미기재';
             return `<tr><td>${index + 1}</td><td>${escapeHtml(label)}</td><td>${result}</td></tr>`;
@@ -112,9 +131,16 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .summary span { border-bottom: 1px solid #333; padding: 3px 5px; min-width: 130px; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; background: #fff; }
     th, td { border: 1px solid #555; padding: 3px 1px; text-align: center; overflow-wrap: anywhere; color: #111; background: #fff; }
-    .item { width: 220px; text-align: left; padding: 4px; }
-    .summary-table th:not(.item), .summary-table td { font-size: 7px; }
-    .summary-table .item { font-size: 8px; }
+    .summary { display: grid; grid-template-columns: 1fr 1.2fr 1fr 1fr; gap: 8px; margin: 8px 0; }
+    .summary span { border-bottom: 1px solid #333; padding: 3px 4px; min-width: 0; white-space: nowrap; }
+    .category { width: 18mm; font-weight: 700; }
+    .item { width: 77mm; text-align: left; padding: 3px 4px; font-weight: 400; }
+    .summary-table th, .summary-table td { border: 1px solid #333; }
+    .summary-table th:not(.item):not(.category), .summary-table td { font-size: 6.5pt; padding: 2px 0.5px; }
+    .summary-table .item, .summary-table .category { font-size: 7pt; }
+    .summary-table .signature-row td { height: 13mm; padding: 1px; }
+    .signature-cell { display: block; width: 100%; max-height: 10mm; object-fit: contain; }
+    .summary-table .action-row td { text-align: left; padding: 5px; font-size: 7pt; white-space: pre-wrap; }
     .legend { text-align: right; margin: 5px 0; }
     .page-break { break-before: page; page-break-before: always; }
     .detail { margin-top: 24px; padding-top: 12px; }
@@ -126,7 +152,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .signatures > div { width: 50%; border: 1px solid #777; padding: 6px; min-height: 95px; }
     .signatures img { display: block; width: 100%; max-width: 420px; height: 60px; object-fit: contain; background: #fff; }
     .footnote { font-size: 8px; color: #555; margin-top: 8px; }
-    @page { size: A4 landscape; margin: 10mm; }
+    @page { size: 297mm 210mm; margin: 10mm; }
     @media screen { body { max-width: 1200px; margin: 0 auto; } .detail { border-top: 2px dashed #cbd5e1; } }
     @media print {
         html, body { background: #fff !important; color: #111 !important; padding: 0; }
@@ -145,16 +171,21 @@ export const printDailyInspectionMonth = (records, year, month) => {
     </div>
     <h1>운수종사자 일상점검표</h1>
     <div class="summary">
-        <span>점검 연월: ${year}년 ${month}월</span>
+        <span>점검연월: ${year}년 ${month}월</span>
+        <span>운송사업자명: __________________</span>
         <span>차량번호: ${escapeHtml(first.vehicleNumber || '')}</span>
         <span>운수종사자명: ${escapeHtml(first.driverName || '')}</span>
     </div>
-    <div class="legend">○ 양호　× 불량　미 미운행</div>
+    <div class="legend">점검결과: ○ 양호　× 불량　미 미운행</div>
     <table class="summary-table">
-        <thead><tr><th class="item">점검 항목 / 일자</th>${headers}</tr></thead>
-        <tbody>${officialRows}</tbody>
+        <thead><tr><th class="category">점검 항목 구분</th><th class="item">점검 항목</th>${dateHeaders}</tr></thead>
+        <tbody>
+            ${officialRows}
+            <tr class="signature-row"><th colspan="2">점검자 확인(서명)</th>${signatureCells}</tr>
+            <tr class="action-row"><th colspan="2">불량상태 조치 기록</th><td colspan="31">${escapeHtml(actionNotes)}</td></tr>
+        </tbody>
     </table>
-    <p class="footnote">공식 월간 점검표 형식의 날짜별 요약입니다. 각 날짜의 상세 점검 결과와 운전자 서명은 뒤쪽 상세 페이지를 확인하세요.</p>
+    <p class="footnote">국토교통부 서식에 따른 월간 점검표입니다. 앱의 추가 안전점검 3개 항목과 일별 상세 이력은 뒤쪽 상세 페이지에 별도로 표시합니다.</p>
     ${detailPages}
 </body>
 </html>`;
