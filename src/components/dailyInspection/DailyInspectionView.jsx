@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CheckCircle2, ClipboardCheck, Printer, History } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ClipboardCheck, Printer, History, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import { listDailyInspectionRecords, readDailyInspectionRecord, saveDailyInspectionRecord, readSavedDriverSignature, saveSavedDriverSignature, readSavedTransportCompanyName, saveSavedTransportCompanyName } from '../../services/dailyInspectionService';
 import { printDailyInspectionMonth } from './dailyInspectionPrint';
 import SignaturePad from './DailyInspectionSignaturePad';
@@ -80,15 +80,20 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   setSignatureMessage('');
   setIsSaved(Boolean(latest?.completedAt||latest?.updatedAt));
   setCorrectionReason('');
-  const [year,month]=String(date).slice(0,7).split('-');
-  setMonthRecords(listDailyInspectionRecords(userId,year,month));
+  // 월별 기록 목록은 선택한 월을 기준으로 별도 갱신합니다.
  };
  useEffect(()=>{refreshRecords();setSaveError('');},[userId,date]);
  useEffect(()=>{setSelectedMonth(String(date||'').slice(0,7));},[date]);
+ useEffect(()=>{
+  if(!selectedMonth)return;
+  const [year,month]=selectedMonth.split('-');
+  setMonthRecords(listDailyInspectionRecords(userId,year,month));
+ },[userId,selectedMonth]);
 
  const answeredCount=useMemo(()=>ALL_ITEMS.filter(item=>['good','bad'].includes(answers[item.id])).length,[answers]);
  const badItems=useMemo(()=>ALL_ITEMS.filter(item=>answers[item.id]==='bad'),[answers]);
  const allAnswered=answeredCount===ALL_ITEMS.length;
+ const allGoodSelected=ALL_ITEMS.every(item=>answers[item.id]==='good');
  const profileName=profile?.full_name||profile?.display_name||'';
  const profileVehicleNumber=profile?.vehicle_number||'';
  const hasMissingIdentity=!profileName.trim()||!profileVehicleNumber.trim();
@@ -158,12 +163,19 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
    try{saveSavedTransportCompanyName(userId,normalizedCompanyName);}catch(storageError){console.warn("[DailyInspection] 운송사업자명 자동 저장 실패:",storageError);}
    setCurrentRecord(record);setIsSaved(true);setCorrectionReason('');
    const [year,month]=String(date).slice(0,7).split('-');
-   setMonthRecords(listDailyInspectionRecords(userId,year,month));
+   const [selectedYear,selectedMonthNumber]=selectedMonth.split('-');
+   setMonthRecords(listDailyInspectionRecords(userId,selectedYear,selectedMonthNumber));
    onSaved?.(record);
   }catch(error){console.error('[DailyInspection] 점검 기록 저장 실패:',error);setSaveError(error.message||'점검 기록을 저장하지 못했습니다.');}
   finally{setIsSavingProfile(false);}
  };
 
+ const changeSelectedMonth=(delta)=>{
+  if(!selectedMonth)return;
+  const [year,month]=selectedMonth.split('-').map(Number);
+  const next=new Date(year,month-1+delta,1);
+  setSelectedMonth(`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}`);
+ };
  const handlePrint=()=>{
   try{
    const [year,month]=selectedMonth.split('-');
@@ -234,13 +246,13 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
    })}
   </section>)}
 
-  <button type="button" onClick={markAllAsGood} className="w-full min-h-[50px] rounded-xl border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 px-4 py-3 mb-3 text-base font-black text-emerald-700 dark:text-emerald-300">
-   모두 양호로 선택
+  <button type="button" onClick={markAllAsGood} aria-pressed={allGoodSelected} className={`w-full min-h-[50px] rounded-xl border-2 px-4 py-3 mb-3 text-base font-black transition-colors ${allGoodSelected?'border-emerald-600 bg-emerald-600 text-white shadow-sm':'border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200'}`}>
+   {allGoodSelected?'✓ 모두 양호 선택됨':'모두 양호로 선택'}
   </button>
 
   <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
    <label htmlFor="daily-inspection-action-notes" className="block font-black text-sm">불량상태 조치 기록 <span className={`ml-1 text-xs font-medium ${mutedClass}`}>불량 항목이 있을 때 필수</span></label>
-   <textarea id="daily-inspection-action-notes" value={actionNotes} onChange={e=>{setActionNotes(e.target.value);setIsSaved(false);}} rows={3} placeholder="불량 항목, 조치 내용 및 정비 일시를 입력하세요." className={`mt-2 w-full rounded-lg border p-3 text-sm ${dark?'bg-slate-900 border-slate-600 text-white':'bg-white border-slate-300 text-slate-900'}`}/>
+   <textarea id="daily-inspection-action-notes" value={actionNotes} onChange={e=>{setActionNotes(e.target.value);setIsSaved(false);}} rows={3} placeholder="예: 00일 창닦이기 불량 - 00일 창닦이기 교체" className={`mt-2 w-full rounded-lg border p-3 text-sm ${dark?'bg-slate-900 border-slate-600 text-white':'bg-white border-slate-300 text-slate-900'}`}/>
    {badItems.length>0&&<p className="mt-2 text-xs text-red-500">불량 항목 {badItems.length}개가 있습니다. 조치 내용까지 입력해야 완료 처리됩니다.</p>}
   </section>
 
@@ -268,11 +280,20 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   {currentRecord&&<p className={`mt-2 text-center text-xs ${mutedClass}`}>최근 저장 시각(기기): {formatTimestamp(currentRecord.completedAt||currentRecord.updatedAt)} · 같은 날짜 기록은 최신본 1건만 보관</p>}
 
   <section className={`rounded-2xl border p-3 mt-5 ${panelClass}`}>
-   <div className="flex items-center gap-2 mb-2"><History size={17}/><h3 className="font-black text-sm">월별 기록 및 출력</h3></div>
-   <div className="flex gap-2"><input type="month" value={selectedMonth} onChange={e=>setSelectedMonth(e.target.value)} className={`min-w-0 flex-1 rounded-lg border px-2 py-2 text-sm ${dark?'bg-slate-900 border-slate-600 text-white':'bg-white border-slate-300'}`}/>
-    <button type="button" onClick={handlePrint} className="flex items-center gap-2 rounded-lg bg-slate-700 px-3 py-2 text-sm font-bold text-white"><Printer size={16}/> PDF·인쇄</button></div>
-   <p className={`mt-2 text-xs leading-5 ${mutedClass}`}>월간 공식 서식형 요약과 날짜별 상세 기록을 인쇄합니다. 인쇄 화면에서 ‘PDF로 저장’을 선택할 수 있습니다.</p>
-   <p className={`mt-1 text-xs leading-5 ${mutedClass}`}>저장된 기록 {monthRecords.length}건 · 오프라인에서도 이 기기에 저장된 기록을 열람할 수 있습니다.</p>
+   <div className="flex items-center justify-between gap-2 mb-3">
+    <div className="flex items-center gap-2"><History size={17}/><h3 className="font-black text-sm">월별 기록 및 출력</h3></div>
+    <span className={`rounded-full px-2.5 py-1 text-xs font-bold tabular-nums ${dark?'bg-slate-700 text-slate-200':'bg-slate-100 text-slate-600'}`}>{monthRecords.length}건</span>
+   </div>
+   <div className={`flex items-center gap-2 rounded-xl border p-2 ${dark?'border-slate-700 bg-slate-900/70':'border-slate-200 bg-slate-50'}`}>
+    <button type="button" onClick={()=>changeSelectedMonth(-1)} aria-label="이전 달" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${dark?'bg-slate-800 text-slate-200':'bg-white text-slate-700 shadow-sm'}`}><ChevronLeft size={19}/></button>
+    <label className="relative min-w-0 flex-1">
+     <CalendarDays size={16} className={`pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 ${mutedClass}`}/>
+     <input aria-label="출력할 월 선택" type="month" value={selectedMonth} onChange={e=>setSelectedMonth(e.target.value)} className={`h-10 w-full min-w-0 appearance-none rounded-lg border-0 bg-transparent pl-9 pr-1 text-center text-sm font-bold tabular-nums outline-none ${dark?'text-white':'text-slate-900'}`}/>
+    </label>
+    <button type="button" onClick={()=>changeSelectedMonth(1)} aria-label="다음 달" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${dark?'bg-slate-800 text-slate-200':'bg-white text-slate-700 shadow-sm'}`}><ChevronRight size={19}/></button>
+   </div>
+   <button type="button" onClick={handlePrint} disabled={!monthRecords.length} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-800 px-3 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40 dark:bg-blue-600"><Printer size={17}/> {selectedMonth.replace('-', '년 ')}월 저장/공유</button>
+   <p className={`mt-2 text-center text-xs leading-5 ${mutedClass}`}>선택한 월의 점검 기록 {monthRecords.length}건을 공식 서식 PDF로 저장하거나 공유합니다.</p>
   </section>
 
   <section className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950">
