@@ -130,6 +130,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .toolbar button { border: 0; border-radius: 8px; padding: 9px 13px; background: #1d4ed8; color: #fff; font-size: 14px; font-weight: 700; }
     .toolbar button.secondary { background: #475569; }
     .toolbar .zoom-label { min-width: 48px; text-align: center; color: #111; font: 700 13px Arial, sans-serif; }
+    .toolbar .zoom-hint { color: #475569; font-size: 11px; margin: 0 auto 0 4px; }
     #preview-content { transform-origin: top left; }
     .form-caption { min-height: 5mm; margin: 0 0 1mm 1mm; font-family: 'Malgun Gothic', sans-serif; font-size: 8.5pt; line-height: 1.2; white-space: nowrap; }
     .form-caption .new-date { color: #0645ad; }
@@ -177,6 +178,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
         <button type="button" onclick="window.printDailyInspectionPdf()">PDF 저장 / 인쇄</button>
         <button type="button" class="secondary" onclick="window.adjustDailyInspectionZoom(-0.1)">축소 −</button>
         <span id="preview-zoom-label" class="zoom-label">맞춤</span>
+        <span class="zoom-hint">두 손가락으로 벌리거나 모아 확대·축소</span>
         <button type="button" class="secondary" onclick="window.adjustDailyInspectionZoom(0.1)">확대 +</button>
         <button type="button" class="secondary" onclick="window.fitDailyInspectionPreview()">화면 맞춤</button>
         <button type="button" class="secondary" onclick="window.parent.document.getElementById('daily-inspection-print-frame')?.remove()">미리보기 닫기</button>
@@ -228,8 +230,37 @@ export const printDailyInspectionMonth = (records, year, month) => {
     <script>
         (function () {
             let zoom = 1;
+            let pinchStartDistance = 0;
+            let pinchStartZoom = 1;
+            let isPinching = false;
             const content = () => document.getElementById('preview-content');
             const label = () => document.getElementById('preview-zoom-label');
+            const getTouchDistance = (touches) => {
+                const dx = touches[0].clientX - touches[1].clientX;
+                const dy = touches[0].clientY - touches[1].clientY;
+                return Math.hypot(dx, dy);
+            };
+            const startPinchZoom = (event) => {
+                if (event.touches.length !== 2 || event.target.closest('.toolbar')) return;
+                pinchStartDistance = getTouchDistance(event.touches);
+                pinchStartZoom = zoom;
+                isPinching = pinchStartDistance > 0;
+                if (isPinching && event.cancelable) event.preventDefault();
+            };
+            const movePinchZoom = (event) => {
+                if (!isPinching || event.touches.length !== 2) return;
+                if (event.cancelable) event.preventDefault();
+                const currentDistance = getTouchDistance(event.touches);
+                if (!pinchStartDistance || !currentDistance) return;
+                zoom = Math.max(0.25, Math.min(2.5, pinchStartZoom * (currentDistance / pinchStartDistance)));
+                applyZoom();
+            };
+            const endPinchZoom = (event) => {
+                if (event.touches.length < 2) {
+                    isPinching = false;
+                    pinchStartDistance = 0;
+                }
+            };
             const applyZoom = () => {
                 const target = content();
                 if (!target) return;
@@ -248,7 +279,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
                 window.print();
             };
             window.adjustDailyInspectionZoom = (delta) => {
-                zoom = Math.max(0.25, Math.min(1.5, Math.round((zoom + delta) * 100) / 100));
+                zoom = Math.max(0.25, Math.min(2.5, Math.round((zoom + delta) * 100) / 100));
                 applyZoom();
             };
             window.fitDailyInspectionPreview = () => {
@@ -260,6 +291,10 @@ export const printDailyInspectionMonth = (records, year, month) => {
                 zoom = Math.max(0.25, Math.min(1, availableWidth / contentWidth));
                 applyZoom();
             };
+            document.addEventListener('touchstart', startPinchZoom, { passive: false });
+            document.addEventListener('touchmove', movePinchZoom, { passive: false });
+            document.addEventListener('touchend', endPinchZoom, { passive: false });
+            document.addEventListener('touchcancel', endPinchZoom, { passive: false });
             window.addEventListener('resize', window.fitDailyInspectionPreview);
             window.addEventListener('beforeprint', () => {
                 if (content()) content().style.zoom = '1';
