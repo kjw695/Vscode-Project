@@ -125,21 +125,21 @@ export const printDailyInspectionMonth = (records, year, month) => {
     :root { color-scheme: light; }
     * { box-sizing: border-box; }
     html, body { background: #fff !important; color: #111 !important; }
-    body { margin: 0; padding: 10mm; background: #fff; color: #111; font-family: Arial, 'Malgun Gothic', sans-serif; font-size: 9pt; }
-    .toolbar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; padding: 10px; margin: -10mm -10mm 8mm; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; }
+    body { width: 297mm; min-width: 297mm; max-width: none; margin: 0 auto; padding: 0; background: #fff; color: #111; font-family: Arial, 'Malgun Gothic', sans-serif; font-size: 9pt; }
+    .toolbar { position: sticky; top: 0; left: 0; z-index: 5; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; width: 100vw; max-width: 100vw; box-sizing: border-box; padding: 8px 10px; margin: 0 0 3mm; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; }
     .toolbar button { border: 0; border-radius: 8px; padding: 9px 13px; background: #1d4ed8; color: #fff; font-size: 14px; font-weight: 700; }
     .toolbar button.secondary { background: #475569; }
     .toolbar .zoom-label { min-width: 48px; text-align: center; color: #111; font: 700 13px Arial, sans-serif; }
     .toolbar .zoom-hint { color: #475569; font-size: 11px; margin: 0 auto 0 4px; }
-    #preview-content { transform-origin: top left; }
+    #preview-content { width: 297mm; min-width: 297mm; box-sizing: border-box; padding: 5mm; transform-origin: top left; }
     .form-caption { min-height: 5mm; margin: 0 0 1mm 1mm; font-family: 'Malgun Gothic', sans-serif; font-size: 8.5pt; line-height: 1.2; white-space: nowrap; }
     .form-caption .new-date { color: #0645ad; }
     h1 { margin: 0 0 3mm; text-align: center; font-size: 12pt; line-height: 1.25; font-weight: 400; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; background: #fff; }
-    .identity-table { margin: 0 0 3mm; border: 0.45mm solid #111; font-family: 'Malgun Gothic', sans-serif; }
-    .identity-table td { height: 9mm; border: 0.25mm solid #333; padding: 1.2mm 2mm; text-align: center; vertical-align: middle; font-size: 9pt; white-space: normal; overflow-wrap: anywhere; }
-    .identity-table .identity-label { width: 13%; background: #f7f7f7; font-weight: 700; }
-    .identity-table .identity-value { width: 37%; min-width: 0; }
+    .identity-table { width: 100%; margin: 0 0 3mm; border: 0.45mm solid #111; font-family: 'Malgun Gothic', sans-serif; }
+    .identity-table td { height: 8mm; border: 0.25mm solid #333; padding: 0.7mm 0.5mm; text-align: center; vertical-align: middle; font-size: 9pt; line-height: 1.2; white-space: nowrap; }
+    .identity-table .identity-label { width: 12.5%; background: #fff; font-weight: 400; }
+    .identity-table .identity-value { width: 12.5%; min-width: 0; }
     .inspection-table { border: 0.5mm solid #111; font-family: 'Malgun Gothic', sans-serif; font-size: 8.5pt; break-inside: avoid; page-break-inside: avoid; }
     .inspection-table th, .inspection-table td { border: 0.2mm solid #777; color: #111; background: #fff; text-align: center; vertical-align: middle; padding: 0.8mm 0.3mm; font-weight: 400; }
     .inspection-table .main-heading { font-size: 10pt; height: 8mm; }
@@ -156,7 +156,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .inspection-table .action-content { height: 15mm; text-align: left; vertical-align: middle; padding: 2mm 3mm; font-size: 9pt; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
     .example-text { color: #999; }
     .page-break { break-before: page; page-break-before: always; }
-    #preview-content { transform-origin: top left; }
+    #preview-content { width: 297mm; min-width: 297mm; box-sizing: border-box; padding: 5mm; transform-origin: top left; }
     .detail { margin: 0; padding: 0; font-family: Arial, 'Malgun Gothic', sans-serif; }
     .detail h2 { font-size: 15px; margin: 0 0 8px; }
     .detail h3 { font-size: 11px; margin: 12px 0 5px; }
@@ -169,8 +169,8 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .signature-detail-image { display: block; width: 100%; max-width: 700px; height: 145px; object-fit: contain; object-position: left center; background: #fff; margin-top: 8px; }
     .footnote { font-size: 8px; color: #555; margin-top: 8px; }
     @page { size: A4 landscape; margin: 0; }
-    @media screen { body { max-width: 1400px; margin: 0 auto; } .inspection-table { min-width: 1100px; } .detail { border-top: 2px dashed #cbd5e1; padding-top: 12px; margin-top: 24px; } }
-    @media print { html, body { width: 297mm; min-height: 210mm; padding: 10mm; margin: 0; background: #fff !important; color: #111 !important; } .toolbar { display: none !important; } #preview-content { zoom: 1 !important; } .form-caption, h1, .identity-table, .inspection-table { break-inside: avoid; page-break-inside: avoid; } .page-break { break-before: page; page-break-before: always; } .detail { margin: 0; padding: 0; border: 0; } table, tr, img { break-inside: avoid; page-break-inside: avoid; } * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    @media screen { body { width: 297mm; min-width: 297mm; max-width: none; margin: 0 auto; padding: 0; } .inspection-table { min-width: 0; } .detail { border-top: 2px dashed #cbd5e1; padding-top: 12px; margin-top: 24px; } }
+    @media print { html, body { width: 297mm; min-width: 297mm; min-height: 210mm; padding: 0; margin: 0; background: #fff !important; color: #111 !important; } #preview-content { width: 297mm; min-width: 297mm; padding: 5mm; zoom: 1 !important; } .toolbar { display: none !important; } .form-caption, h1, .identity-table, .inspection-table { break-inside: avoid; page-break-inside: avoid; } .page-break { break-before: page; page-break-before: always; } .detail { margin: 0; padding: 0; border: 0; } table, tr, img { break-inside: avoid; page-break-inside: avoid; } * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style>
 </head>
 <body>
@@ -190,19 +190,21 @@ export const printDailyInspectionMonth = (records, year, month) => {
 
     <table class="identity-table">
         <colgroup>
-            <col style="width:13%"><col style="width:37%">
-            <col style="width:13%"><col style="width:37%">
+            <col style="width:12.5%"><col style="width:12.5%">
+            <col style="width:12.5%"><col style="width:12.5%">
+            <col style="width:12.5%"><col style="width:12.5%">
+            <col style="width:12.5%"><col style="width:12.5%">
         </colgroup>
-        <tbody>
-            <tr>
-                <td class="identity-label">점검연월</td><td class="identity-value">${year}년 ${month}월</td>
-                <td class="identity-label">운송사업자명</td><td class="identity-value">${escapeHtml(companyName)}</td>
-            </tr>
-            <tr>
-                <td class="identity-label">차량번호</td><td class="identity-value">${escapeHtml(first.vehicleNumber || '')}</td>
-                <td class="identity-label">운수종사자명</td><td class="identity-value">${escapeHtml(first.driverName || '')}</td>
-            </tr>
-        </tbody>
+        <tbody><tr>
+            <td class="identity-label">점검연월</td>
+            <td class="identity-value">20　${String(year).slice(-2)}년　${month}월</td>
+            <td class="identity-label">운송사업자명</td>
+            <td class="identity-value">${escapeHtml(companyName)}</td>
+            <td class="identity-label">차량번호</td>
+            <td class="identity-value">${escapeHtml(first.vehicleNumber || '')}</td>
+            <td class="identity-label">운수종사자명</td>
+            <td class="identity-value">${escapeHtml(first.driverName || '')}</td>
+        </tr></tbody>
     </table>
 
     <table class="inspection-table">
@@ -286,8 +288,8 @@ export const printDailyInspectionMonth = (records, year, month) => {
                 const target = content();
                 if (!target) return;
                 target.style.zoom = '1';
-                const availableWidth = Math.max(240, window.innerWidth - 28);
-                const contentWidth = Math.max(target.scrollWidth, target.getBoundingClientRect().width);
+                const availableWidth = Math.max(240, window.innerWidth - 12);
+                const contentWidth = 297 * (96 / 25.4);
                 zoom = Math.max(0.25, Math.min(1, availableWidth / contentWidth));
                 applyZoom();
             };
