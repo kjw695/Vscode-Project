@@ -254,6 +254,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
             window.fitDailyInspectionPreview = () => {
                 const target = content();
                 if (!target) return;
+                target.style.zoom = '1';
                 const availableWidth = Math.max(240, window.innerWidth - 28);
                 const contentWidth = Math.max(target.scrollWidth, target.getBoundingClientRect().width);
                 zoom = Math.max(0.25, Math.min(1, availableWidth / contentWidth));
