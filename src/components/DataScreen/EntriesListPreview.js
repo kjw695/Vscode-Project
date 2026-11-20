@@ -77,6 +77,23 @@ const AmountPair = ({ stats, compact = false }) => {
 };
 
 // 휴무 일정은 별도 캘린더/휴무관리 영역의 정보이므로 이 데이터 목록에는 합치지 않습니다.
+const isStandaloneDayOffEntry = (entry) => {
+    const items = Array.isArray(entry?.customItems)
+        ? entry.customItems
+        : Array.isArray(entry?.custom_items)
+            ? entry.custom_items
+            : [];
+    const hasDayOffMarker = entry?.memo === '[휴무]' ||
+        items.some((item) => item?.key === 'dayOff');
+    const hasOnlyDayOffItems = items.every((item) => item?.key === 'dayOff');
+
+    return entry?.type === 'income' &&
+        safeNumber(entry?.unitPrice ?? entry?.unit_price) === 0 &&
+        safeNumber(entry?.round) === 0 &&
+        hasDayOffMarker &&
+        hasOnlyDayOffItems;
+};
+
 const EntriesListPreview = ({
     entries = [],
     summary,
@@ -92,16 +109,23 @@ const EntriesListPreview = ({
     const [collapsedMonths, setCollapsedMonths] = useState({});
     const [openActionGroup, setOpenActionGroup] = useState(null);
 
+    // DeliveryContext와 동일한 기준으로 독립 휴무 기록만 제외합니다.
+    // 배송/수익 항목이 함께 저장된 혼합 기록은 그대로 남깁니다.
+    const visibleEntries = useMemo(
+        () => (Array.isArray(entries) ? entries : []).filter((entry) => !isStandaloneDayOffEntry(entry)),
+        [entries]
+    );
+
     const groupedMonths = useMemo(() => {
         const result = {};
-        (Array.isArray(entries) ? entries : []).forEach((entry) => {
+        visibleEntries.forEach((entry) => {
             if (!entry || !entry.date) return;
             const monthKey = String(entry.date).slice(0, 7);
             if (!result[monthKey]) result[monthKey] = [];
             result[monthKey].push(entry);
         });
         return result;
-    }, [entries]);
+    }, [visibleEntries]);
 
     const sortedMonths = Object.keys(groupedMonths).sort((a, b) => b.localeCompare(a));
 
