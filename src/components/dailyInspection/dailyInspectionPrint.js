@@ -178,7 +178,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
 <body>
     <div class="toolbar">
         <div class="toolbar-controls">
-            <button id="daily-inspection-print-button" type="button" onclick="window.printDailyInspectionPdf()" disabled>저장/공유</button>
+            <button id="daily-inspection-print-button" type="button" onclick="window.printDailyInspectionPdf()" disabled>준비 중...</button>
             <button type="button" class="secondary" onclick="window.adjustDailyInspectionZoom(-0.1)">축소</button>
             <button type="button" class="secondary" onclick="window.adjustDailyInspectionZoom(0.1)">확대</button>
             <button type="button" class="secondary" onclick="window.parent.document.getElementById('daily-inspection-print-frame')?.remove()">미리보기 닫기</button>
@@ -333,7 +333,10 @@ export const printDailyInspectionMonth = (records, year, month) => {
                     await cropSignatureImage(image);
                 }));
                 printReady = true;
-                if (printButton()) printButton().disabled = false;
+                if (printButton()) {
+                    printButton().textContent = '저장/공유';
+                    printButton().disabled = false;
+                }
                 if (printStatus()) printStatus().textContent = '서명 준비 완료';
             };
             window.printDailyInspectionPdf = () => {
