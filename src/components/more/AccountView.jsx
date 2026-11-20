@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, UserX, AlertCircle, Cloud, LogOut, Eye, EyeOff, FileText, ArrowRight } from 'lucide-react';
 import LoginPage from '../auth/LoginPage';
 import GuestLedgerImportView from './GuestLedgerImportView';
+import { getDailyInspectionStoragePrefix } from '../../services/dailyInspectionService';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabaseClient'; 
 import RegionCampModal from '../common/RegionCampModal';
@@ -299,6 +300,12 @@ const handleEditClick = () => {
       localStorage.removeItem(`deliveryEntries:v2:user:${user.id}`);
       localStorage.removeItem(`appSettings:v2:user:${user.id}`);
       localStorage.removeItem(`migration_state:v2:${user.id}`);
+      const dailyInspectionPrefix = getDailyInspectionStoragePrefix(user.id);
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith(dailyInspectionPrefix)) {
+          localStorage.removeItem(key);
+        }
+      });
 
       await supabase.auth.signOut({ scope: 'local' });
       onBack?.();
