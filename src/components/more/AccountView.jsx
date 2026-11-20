@@ -741,14 +741,6 @@ const handleEditClick = () => {
             계정 관련 요청
           </p>
           <div className="flex flex-col items-start gap-2">
-            <a
-              href="/delete-account.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`text-xs underline underline-offset-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}
-            >
-              계정 및 개인정보 삭제 요청
-            </a>
             <button
               type="button"
               onClick={() => { setDeleteConfirmation(''); setDeleteAccountError(''); setShowDeleteAccount(true); }}
