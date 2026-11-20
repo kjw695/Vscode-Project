@@ -155,7 +155,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
     driverSignature,correctionReason:correctionReason.trim(),supersedesId:currentRecord?.id||null,
     isNotOperated:false,completed:true
    });
-   saveSavedTransportCompanyName(userId,normalizedCompanyName);
+   try{saveSavedTransportCompanyName(userId,normalizedCompanyName);}catch(storageError){console.warn("[DailyInspection] 운송사업자명 자동 저장 실패:",storageError);}
    setCurrentRecord(record);setIsSaved(true);setCorrectionReason('');
    const [year,month]=String(date).slice(0,7).split('-');
    setMonthRecords(listDailyInspectionRecords(userId,year,month));
@@ -200,6 +200,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
      <input value={vehicleNumber} onChange={e=>setVehicleNumber(e.target.value)} maxLength={30} placeholder="차량번호 입력" className={`${fieldClass} block w-full text-center`} style={{textAlign:"center"}}/>
     </label>
    </div>
+   <p className={`mt-2 text-xs ${mutedClass}`}>운송사업자명은 한 번 입력하면 이 기기에 저장되어 다음 점검에도 자동 입력됩니다.</p>
    {(hasMissingIdentity||identityChanged)&&<div className="mt-3">
     <p className={`mb-2 text-xs ${mutedClass}`}>점검 완료 저장 시 로그인 계정의 내정보에도 이름과 차량번호가 반영됩니다.</p>
     <button type="button" onClick={handleSaveIdentity} disabled={!authUser?.id||!driverName.trim()||!vehicleNumber.trim()||isSavingProfile} className="w-full rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-40">{isSavingProfile?'내정보 저장 중...':'입력한 정보를 내정보에 저장'}</button>
@@ -255,7 +256,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   </section>
 
   {currentRecord&&<section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
-   <h3 className="font-black text-sm">기존 완료 기록 정정</h3>
+   <h3 className="font-black text-sm">기존 완료 기록 수정</h3>
    <p className={`mt-1 text-xs ${mutedClass}`}>같은 날짜로 다시 저장하면 이전 점검 기록은 삭제되고 최신 기록 하나만 남습니다. 변경 사유를 입력해주세요.</p>
    <label className="block mt-2 text-xs">정정 사유(필수)<textarea value={correctionReason} onChange={e=>setCorrectionReason(e.target.value)} rows={2} placeholder="정정이 필요한 이유를 입력하세요." className={fieldClass}/></label>
   </section>}
@@ -263,7 +264,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   {saveError&&<p className="mb-3 rounded-lg bg-red-50 dark:bg-red-950/30 p-3 text-sm text-red-600">{saveError}</p>}
   {isSaved&&<p className="mb-3 flex items-center gap-2 text-sm font-semibold text-emerald-600"><CheckCircle2 size={17}/> 점검 기록이 기기에 저장되어 있습니다.</p>}
   <button type="button" onClick={handleSave} disabled={!canSave||isSavingProfile} className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-black text-white disabled:opacity-40">{isSavingProfile?'저장 중...':currentRecord?'기존 기록 덮어쓰기':'점검 완료 저장'}</button>
-  {!canSave&&<p className={`mt-2 text-center text-xs ${mutedClass}`}>모든 항목 선택, 운전자 서명 및 필수 조치·정정 내용을 입력해야 저장됩니다.</p>}
+  {!canSave&&<p className={`mt-2 text-center text-xs ${mutedClass}`}>운송사업자명, 모든 점검 항목, 운전자 서명 및 필수 조치·정정 내용을 입력해야 저장됩니다.</p>}
   {currentRecord&&<p className={`mt-2 text-center text-xs ${mutedClass}`}>최근 저장 시각(기기): {formatTimestamp(currentRecord.completedAt||currentRecord.updatedAt)} · 같은 날짜 기록은 최신본 1건만 보관</p>}
 
   <section className={`rounded-2xl border p-3 mt-5 ${panelClass}`}>
