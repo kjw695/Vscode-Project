@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const read = (file) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
-const migration = read('supabase/migrations/20261120123000_confirmed_schedule_change_guard.sql').toLowerCase();
+const migration = read('supabase/migrations/20261120122049_confirmed_schedule_change_guard.sql').toLowerCase();
 const service = read('src/services/organizationScheduleService.js');
 const adminCalendar = read('src/admin/Calendar.jsx');
 const workflowTools = read('src/admin/ScheduleWorkflowTools.jsx');
