@@ -13,7 +13,7 @@ const OFFICIAL_ITEMS = [
     ['lighting', '외관점검', '후미등, 차폭등 등 등화장치 작동상태'],
     ['wipers', '외관점검', '창닦이기 작동상태'],
     ['cargoBody', '외관점검', '적재함(보조지지대 포함), 측면 보호대, 후부반사판, 트레일러 연결장치의 부착 상태 및 훼손 여부'],
-    ['tires', '상태점검', '타이어 손상 및 마모(1.6mm 이상) 여부'],
+    ['tires', '상태점검', '타이어 손상 및 마모(1.6mm이상) 여부'],
     ['cargoFixing', '상태점검', '화물, 적재함 지지대(판스프링) 등의 고정상태'],
     ['wheelNuts', '상태점검', '바퀴 너트 등 균열 여부'],
     ['fluidsAndWarning', '기타', '냉각수, 공기압, 엔진오일 등 차량 이상 여부(계기판 확인)'],
@@ -56,7 +56,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
         const categoryCell = itemIndex === 0
             ? `<td class="category" rowspan="${items.length}">${category}</td>`
             : '';
-        return `<tr class="inspection-row">${categoryCell}<td class="item">${escapeHtml(label)}</td>${cells}</tr>`;
+        return `<tr class="inspection-row${['cargoBody','cargoFixing','fluidsAndWarning'].includes(id) ? ' long-item' : ''}">${categoryCell}<td class="item">${escapeHtml(label)}</td>${cells}</tr>`;
     }).join('')).join('');
 
     const signatureCells = FORM_DAYS.map((day) => {
@@ -200,7 +200,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
         <thead>
             <tr>
                 <th class="main-heading" rowspan="2" colspan="2">점검항목</th>
-                <th class="result-heading" colspan="30">점검결과(양호 ○, 불량 ×, 미운행시　“미”　기입)</th>
+                <th class="result-heading" colspan="30">점검결과(양호 ○, 불량 ×, 미운행시 “미” 기입)</th>
             </tr>
             <tr>${dateHeaders}</tr>
         </thead>
