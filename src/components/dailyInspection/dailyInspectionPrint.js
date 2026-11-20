@@ -39,7 +39,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
     const latestByDay = new Map();
     monthRecords.forEach((record) => latestByDay.set(Number(String(record.date).slice(8, 10)), record));
     const first = monthRecords[0] || {};
-    const companyName = first.companyName || first.organizationName || first.vendorName || '';
+    const companyName = first.transportCompanyName || first.companyName || first.organizationName || first.vendorName || '';
     const dateHeaders = FORM_DAYS.map((day) => `<th class="day-header">${day}</th>`).join('');
     const itemGroups = [
         { category: '외관점검', items: OFFICIAL_ITEMS.slice(0, 4) },
@@ -73,20 +73,23 @@ export const printDailyInspectionMonth = (records, year, month) => {
         : '<span class="example-text">(예시) 00일 창닦이기 불량 - 00일 창닦이기 교체</span>';
 
         const detailPages = monthRecords.map((record) => {
-        const rows = OFFICIAL_ITEMS.map(([id, , label], index) => {
-            const answer = record.answers?.[id];
-            const result = answer === 'good' ? '양호' : answer === 'bad' ? '불량(정비필요)' : '미기재';
-            return `<tr><td>${index + 1}</td><td>${escapeHtml(label)}</td><td>${result}</td></tr>`;
-        }).join('');
-        const extras = [
-            ['제동장치', 'brakes'],
-            ['원동기 누유·냉각계통 추가 확인', 'engineLeak'],
-            ['불법 부착물·개조 여부', 'illegalAttachments']
-        ].map(([label, key]) => {
-            const answer = record.answers?.[key];
-            const result = answer === 'good' ? '양호' : answer === 'bad' ? '불량(정비필요)' : '미기재';
-            return `<tr><td>${escapeHtml(label)}</td><td>${result}</td></tr>`;
-        }).join('');
+        const badItems = [
+            ...OFFICIAL_ITEMS.map(([id, , label]) => ({ id, label })),
+            { id: 'brakes', label: '제동장치' },
+            { id: 'engineLeak', label: '원동기 누유·냉각계통 추가 확인' },
+            { id: 'illegalAttachments', label: '불법 부착물·개조 여부' }
+        ].filter((item) => record.answers?.[item.id] === 'bad');
+
+        const badRows = badItems.map((item, index) =>
+            `<tr><td>${index + 1}</td><td>${escapeHtml(item.label)}</td><td>불량</td></tr>`
+        ).join('');
+        const badItemsContent = badItems.length
+            ? `<h3>불량 점검 항목</h3><table class="detail-table"><thead><tr><th>No.</th><th>불량 내용</th><th>점검 결과</th></tr></thead><tbody>${badRows}</tbody></table>`
+            : '<p class="no-defects">불량 항목 없음</p>';
+        const actionNotes = String(record.actionNotes || '').trim();
+        const actionContent = actionNotes
+            ? `<h3>조치 기록</h3><p class="notes">${escapeHtml(actionNotes)}</p>`
+            : '';
 
         return `
             <section class="detail page-break">
@@ -96,14 +99,8 @@ export const printDailyInspectionMonth = (records, year, month) => {
                     <span>운전자: ${escapeHtml(record.driverName)}</span>
                     <span>완료 시각(기기): ${escapeHtml(record.completedAt || '-')}</span>
                 </div>
-                <table>
-                    <thead><tr><th>No.</th><th>공식 점검 항목</th><th>점검 결과</th></tr></thead>
-                    <tbody>${rows}</tbody>
-                </table>
-                <h3>추가 안전점검 항목</h3>
-                <table><tbody>${extras}</tbody></table>
-                <h3>불량상태 조치 기록</h3>
-                <p class="notes">${escapeHtml(record.actionNotes || '해당 없음')}</p>
+                ${badItemsContent}
+                ${actionContent}
                 <div class="signatures">
                     <div>
                         <b>운전자(점검자) 서명</b>
@@ -161,7 +158,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .detail h2 { font-size: 15px; margin: 0 0 8px; }
     .detail h3 { font-size: 11px; margin: 12px 0 5px; }
     .detail-table { margin: 7px 0; }
-    .detail-table th, .detail-table td { border: 1px solid #555; padding: 5px; text-align: center; font-size: 9px; }
+    .detail-table th, .detail-table td { border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 10px; }\n    .no-defects { margin: 14px 0; padding: 12px; border: 1px solid #999; text-align: center; font-size: 11px; }
     .meta { display: flex; gap: 18px; flex-wrap: wrap; margin: 8px 0; }
     .notes { border: 1px solid #777; min-height: 35px; padding: 7px; white-space: pre-wrap; font-size: 9px; }
     .signatures { display: flex; gap: 20px; margin-top: 16px; }
