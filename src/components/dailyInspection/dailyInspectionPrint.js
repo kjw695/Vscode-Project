@@ -78,7 +78,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
             : '--:--';
         const dateTimeLabel = `${recordDate.slice(5).replace('-', '/')} ${timeLabel}`;
         const badItems = OFFICIAL_ITEMS.filter(([id]) => record.answers?.[id] === 'bad');
-        badItems.forEach(([id, , label]) => {
+        badItems.forEach(([, , label]) => {
             detailRows.push({
                 dateTimeLabel,
                 label,
@@ -109,7 +109,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
                     <col style="width:63mm" />
                     <col style="width:14mm" />
                     <col style="width:105mm" />
-                    <col style="width:55mm" />
+                    <col style="width:66mm" />
                 </colgroup>
                 <thead><tr>
                     <th>번호</th>
