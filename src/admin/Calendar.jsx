@@ -746,7 +746,7 @@ export default function Calendar({ onBack }) {
         }
 
         let changeReason = null;
-        if (organizationId && savedRecord?.status === 'confirmed') {
+        if (organizationId && (savedRecord?.status === 'confirmed' || scheduleStatus === 'confirmed')) {
             const reasonInput = window.prompt('확정된 근무표를 변경합니다. 직원에게도 안내될 변경 사유를 입력해주세요.');
             changeReason = String(reasonInput || '').trim().slice(0, 300);
             if (!changeReason) {
