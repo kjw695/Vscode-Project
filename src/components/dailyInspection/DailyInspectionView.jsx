@@ -247,7 +247,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
     <button type="button" onClick={handleEnableReminder} disabled={isSavingReminder} className="h-10 shrink-0 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white disabled:opacity-50">{isSavingReminder?'설정 중...':reminderEnabled?'시간 변경':'알림 켜기'}</button>
    </div>
    {reminderEnabled&&<button type="button" onClick={handleDisableReminder} disabled={isSavingReminder} className={`mt-2 text-xs font-semibold ${mutedClass} underline disabled:opacity-50`}>알림 끄기</button>}
-   <p className={`mt-2 text-xs leading-5 ${mutedClass}`}>설정한 시간에 매일 업무 전 차량 점검표 작성 알림을 보냅니다. 휴무일에도 알림이 울립니다.</p>
+   <p className={`mt-2 text-xs leading-5 ${mutedClass}`}>설정한 시간에 매일 알림을 보냅니다. Android에서는 첫 설정 시 알림 및 정확한 알람 권한을 허용해야 합니다. 휴무일에도 알림이 울립니다.</p>
    {reminderMessage&&<p className={`mt-2 text-xs font-semibold ${reminderMessage.includes('울립니다')||reminderMessage.includes('껐습니다')?'text-emerald-600 dark:text-emerald-400':'text-red-500'}`}>{reminderMessage}</p>}
   </section>
 
