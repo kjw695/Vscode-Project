@@ -31,7 +31,7 @@ ALTER TABLE public.organization_weekly_schedule_revisions
     ADD CONSTRAINT organization_weekly_schedule_revisions_change_type_check
     CHECK (change_type IN (
         'baseline', 'draft_saved', 'confirmed', 'reopened',
-        'admin_changed', 'restored', 'updated'
+        'admin_changed', 'request_approved', 'restored', 'updated'
     ));
 
 CREATE OR REPLACE FUNCTION public.guard_confirmed_organization_weekly_schedule_change()
@@ -53,6 +53,7 @@ BEGIN
            OR OLD.warnings IS DISTINCT FROM NEW.warnings
        ) THEN
         v_reason := NULLIF(left(btrim(current_setting('app.schedule_change_reason', true)), 300), '');
+    v_requested_change_type := NULLIF(current_setting('app.schedule_change_type', true), '');
         IF v_reason IS NULL THEN
             RAISE EXCEPTION '확정된 근무표를 변경하려면 변경 사유를 입력해주세요.';
         END IF;
@@ -84,6 +85,7 @@ DECLARE
     v_after_snapshot jsonb;
     v_revision_type text;
     v_change_type text;
+    v_requested_change_type text;
     v_reason text;
     v_restore_id uuid;
     v_schedule_id uuid;
@@ -162,6 +164,8 @@ BEGIN
 
         IF v_restore_id IS NOT NULL THEN
             v_change_type := 'restored';
+        ELSIF v_requested_change_type = 'request_approved' THEN
+            v_change_type := 'request_approved';
         ELSIF OLD.status = 'confirmed' AND NEW.status = 'draft' THEN
             v_change_type := 'reopened';
         ELSIF OLD.status = 'confirmed' AND v_reason IS NOT NULL THEN
@@ -648,6 +652,373 @@ REVOKE ALL ON FUNCTION public.list_my_organization_weekly_schedule_change_notice
     FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.list_my_organization_weekly_schedule_change_notices(date, date)
     TO authenticated;
+
+
+-- Preserve the existing employee-request approval workflows under the new guard.
+-- Their explicit request record supplies the audit reason; they are not free-form manager edits.
+CREATE OR REPLACE FUNCTION public.respond_to_shift_exchange(
+    p_exchange_id uuid,
+    p_response text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $function$
+DECLARE
+    v_user_id uuid := auth.uid();
+    v_response text := lower(btrim(COALESCE(p_response, '')));
+    v_exchange public.shift_exchanges%ROWTYPE;
+    v_organization_id uuid;
+    v_schedule public.organization_weekly_schedules%ROWTYPE;
+    v_previous_schedule jsonb;
+    v_next_schedule jsonb;
+    v_source_day jsonb;
+    v_target_day jsonb;
+    v_source_off_ids jsonb;
+    v_target_off_ids jsonb;
+    v_source_shortage boolean := false;
+    v_target_shortage boolean := false;
+    v_warnings jsonb;
+BEGIN
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION '로그인이 필요합니다.';
+    END IF;
+    IF v_response NOT IN ('accepted', 'declined') THEN
+        RAISE EXCEPTION '응답은 accepted 또는 declined만 허용됩니다.';
+    END IF;
+
+    SELECT x.* INTO v_exchange
+    FROM public.shift_exchanges x
+    WHERE x.id = p_exchange_id
+    FOR UPDATE;
+
+    IF NOT FOUND OR v_exchange.receiver_id <> v_user_id OR v_exchange.status <> 'pending' THEN
+        RAISE EXCEPTION '이 교환 신청에 응답할 권한이 없거나 이미 처리되었습니다.';
+    END IF;
+
+    SELECT p.organization_id INTO v_organization_id
+    FROM public.profiles p
+    WHERE p.id = v_user_id;
+
+    IF v_organization_id IS NULL OR v_organization_id <> v_exchange.team_id
+       OR NOT EXISTS (
+           SELECT 1 FROM public.profiles p
+           WHERE p.id = v_exchange.requester_id
+             AND p.organization_id = v_exchange.team_id
+       ) THEN
+        RAISE EXCEPTION '현재 같은 회사에 소속된 직원끼리의 신청만 처리할 수 있습니다.';
+    END IF;
+
+    IF v_response = 'declined' THEN
+        UPDATE public.shift_exchanges
+        SET status = 'declined', responded_at = now()
+        WHERE id = v_exchange.id;
+        RETURN jsonb_build_object('status', 'declined');
+    END IF;
+
+    IF v_exchange.schedule_id IS NULL THEN
+        RAISE EXCEPTION '이 신청은 이전 개인 휴무 방식으로 생성되어 관리자 근무표와 연결할 수 없습니다. 다시 신청해주세요.';
+    END IF;
+
+    SELECT s.* INTO v_schedule
+    FROM public.organization_weekly_schedules s
+    WHERE s.id = v_exchange.schedule_id
+      AND s.organization_id = v_organization_id
+    FOR UPDATE;
+
+    IF NOT FOUND OR v_schedule.status <> 'confirmed' THEN
+        RAISE EXCEPTION '관리자 확정 근무표가 변경되었거나 확정 해제되었습니다. 최신 근무표에서 다시 신청해주세요.';
+    END IF;
+
+    v_source_day := v_schedule.schedule -> v_exchange.source_date::text;
+    v_target_day := v_schedule.schedule -> v_exchange.target_date::text;
+
+    IF v_source_day IS NULL OR v_target_day IS NULL
+       OR NOT COALESCE(v_source_day -> 'offEmployeeIds', '[]'::jsonb)
+          @> jsonb_build_array(v_exchange.requester_id::text)
+       OR NOT COALESCE(v_target_day -> 'offEmployeeIds', '[]'::jsonb)
+          @> jsonb_build_array(v_exchange.receiver_id::text)
+       OR COALESCE(v_target_day -> 'offEmployeeIds', '[]'::jsonb)
+          @> jsonb_build_array(v_exchange.requester_id::text)
+       OR COALESCE(v_source_day -> 'offEmployeeIds', '[]'::jsonb)
+          @> jsonb_build_array(v_exchange.receiver_id::text) THEN
+        RAISE EXCEPTION '신청 이후 휴무 배정이 변경되었습니다. 최신 달력에서 다시 신청해주세요.';
+    END IF;
+
+    SELECT COALESCE(jsonb_agg(to_jsonb(employee_id) ORDER BY employee_id), '[]'::jsonb)
+    INTO v_source_off_ids
+    FROM (
+        SELECT DISTINCT item AS employee_id
+        FROM jsonb_array_elements_text(COALESCE(v_source_day -> 'offEmployeeIds', '[]'::jsonb)) AS x(item)
+        WHERE item <> v_exchange.requester_id::text
+        UNION
+        SELECT v_exchange.receiver_id::text
+    ) AS ids;
+
+    SELECT COALESCE(jsonb_agg(to_jsonb(employee_id) ORDER BY employee_id), '[]'::jsonb)
+    INTO v_target_off_ids
+    FROM (
+        SELECT DISTINCT item AS employee_id
+        FROM jsonb_array_elements_text(COALESCE(v_target_day -> 'offEmployeeIds', '[]'::jsonb)) AS x(item)
+        WHERE item <> v_exchange.receiver_id::text
+        UNION
+        SELECT v_exchange.requester_id::text
+    ) AS ids;
+
+    v_previous_schedule := v_schedule.schedule;
+    v_next_schedule := private.rebuild_organization_schedule_day(
+        v_schedule.schedule, v_schedule.employee_details, v_exchange.source_date, v_source_off_ids
+    );
+    v_next_schedule := private.rebuild_organization_schedule_day(
+        v_next_schedule, v_schedule.employee_details, v_exchange.target_date, v_target_off_ids
+    );
+
+    v_source_shortage := (v_next_schedule -> v_exchange.source_date::text ->> 'status') = 'error';
+    v_target_shortage := (v_next_schedule -> v_exchange.target_date::text ->> 'status') = 'error';
+
+    SELECT COALESCE(jsonb_agg(w.value ORDER BY w.ordinality), '[]'::jsonb)
+    INTO v_warnings
+    FROM jsonb_array_elements(COALESCE(v_schedule.warnings, '[]'::jsonb))
+         WITH ORDINALITY AS w(value, ordinality)
+    WHERE NOT (
+        COALESCE(w.value #>> '{}', '') LIKE
+            '[백업 인원 확인 필요] ' || v_exchange.source_date::text || ':%'
+        OR COALESCE(w.value #>> '{}', '') LIKE
+            '[백업 인원 확인 필요] ' || v_exchange.target_date::text || ':%'
+    );
+
+    IF v_source_shortage THEN
+        v_warnings := v_warnings || jsonb_build_array(
+            '[백업 인원 확인 필요] ' || v_exchange.source_date::text || ': 휴무 교환 후 백업 배정이 부족합니다.'
+        );
+    END IF;
+    IF v_target_shortage THEN
+        v_warnings := v_warnings || jsonb_build_array(
+            '[백업 인원 확인 필요] ' || v_exchange.target_date::text || ': 휴무 교환 후 백업 배정이 부족합니다.'
+        );
+    END IF;
+
+    PERFORM set_config(
+        'app.schedule_change_reason',
+        left(
+            '직원 간 휴무 교환 승인: ' ||
+            COALESCE(v_schedule.employee_details -> v_exchange.requester_id::text ->> 'name', '직원') ||
+            ' / ' || v_exchange.source_date::text ||
+            ' ↔ ' ||
+            COALESCE(v_schedule.employee_details -> v_exchange.receiver_id::text ->> 'name', '직원') ||
+            ' / ' || v_exchange.target_date::text,
+            300
+        ),
+        true
+    );
+    PERFORM set_config('app.schedule_change_type', 'request_approved', true);
+
+    UPDATE public.organization_weekly_schedules
+    SET schedule = v_next_schedule,
+        warnings = v_warnings,
+        version = version + 1,
+        updated_by = v_user_id,
+        updated_at = now()
+    WHERE id = v_schedule.id;
+
+    INSERT INTO public.organization_schedule_change_history (
+        organization_id, schedule_id, request_type, request_id, actor_id,
+        changed_dates, previous_schedule, new_schedule, details
+    ) VALUES (
+        v_organization_id, v_schedule.id, 'day_off_exchange', v_exchange.id, v_user_id,
+        jsonb_build_array(v_exchange.source_date::text, v_exchange.target_date::text),
+        v_previous_schedule, v_next_schedule,
+        jsonb_build_object(
+            'requester_id', v_exchange.requester_id,
+            'receiver_id', v_exchange.receiver_id,
+            'source_date', v_exchange.source_date,
+            'target_date', v_exchange.target_date
+        )
+    );
+
+    UPDATE public.shift_exchanges
+    SET status = 'accepted', responded_at = now()
+    WHERE id = v_exchange.id;
+
+    RETURN jsonb_build_object(
+        'status', 'accepted',
+        'schedule_id', v_schedule.id,
+        'schedule_team_id', v_schedule.team_id,
+        'week_start', v_schedule.week_start,
+        'schedule', v_next_schedule,
+        'warnings', v_warnings,
+        'version', v_schedule.version + 1,
+        'has_shortage', (v_source_shortage OR v_target_shortage)
+    );
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.respond_to_extra_day_off_request(
+    p_request_id uuid,
+    p_response text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $function$
+DECLARE
+    v_user_id uuid := auth.uid();
+    v_response text := lower(btrim(COALESCE(p_response, '')));
+    v_request public.organization_extra_day_off_requests%ROWTYPE;
+    v_organization_id uuid;
+    v_schedule public.organization_weekly_schedules%ROWTYPE;
+    v_day jsonb;
+    v_previous_schedule jsonb;
+    v_next_schedule jsonb;
+    v_off_ids jsonb;
+    v_warnings jsonb;
+    v_has_shortage boolean := false;
+BEGIN
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION '로그인이 필요합니다.';
+    END IF;
+    IF v_response NOT IN ('approved', 'declined') THEN
+        RAISE EXCEPTION '응답은 approved 또는 declined만 허용됩니다.';
+    END IF;
+
+    SELECT r.* INTO v_request
+    FROM public.organization_extra_day_off_requests r
+    WHERE r.id = p_request_id
+    FOR UPDATE;
+
+    IF NOT FOUND OR v_request.status <> 'pending' THEN
+        RAISE EXCEPTION '대기 중인 추가휴무 요청을 찾지 못했습니다.';
+    END IF;
+
+    SELECT p.organization_id INTO v_organization_id
+    FROM public.profiles p
+    JOIN public.organizations o ON o.id = p.organization_id
+    WHERE p.id = v_user_id
+      AND o.owner_id = v_user_id;
+
+    IF v_organization_id IS NULL OR v_organization_id <> v_request.organization_id THEN
+        RAISE EXCEPTION '이 회사의 추가휴무 요청을 처리할 권한이 없습니다.';
+    END IF;
+
+    IF v_response = 'declined' THEN
+        UPDATE public.organization_extra_day_off_requests
+        SET status = 'declined', reviewed_at = now(), reviewed_by = v_user_id
+        WHERE id = v_request.id;
+        RETURN jsonb_build_object('status', 'declined');
+    END IF;
+
+    SELECT s.* INTO v_schedule
+    FROM public.organization_weekly_schedules s
+    WHERE s.id = v_request.schedule_id
+      AND s.organization_id = v_organization_id
+    FOR UPDATE;
+
+    IF NOT FOUND OR v_schedule.status <> 'confirmed' THEN
+        RAISE EXCEPTION '해당 주의 관리자 근무표가 확정 상태가 아닙니다. 근무표를 다시 확인해주세요.';
+    END IF;
+    IF NOT (v_schedule.employee_details ? v_request.employee_id::text) THEN
+        RAISE EXCEPTION '요청한 직원이 현재 근무표에 없습니다.';
+    END IF;
+
+    v_day := v_schedule.schedule -> v_request.requested_date::text;
+    IF v_day IS NULL THEN
+        RAISE EXCEPTION '요청 날짜의 근무표가 없습니다.';
+    END IF;
+    IF COALESCE(v_day -> 'offEmployeeIds', '[]'::jsonb)
+       @> jsonb_build_array(v_request.employee_id::text) THEN
+        RAISE EXCEPTION '요청 이후 해당 직원의 휴무가 이미 변경되었습니다. 근무표를 다시 확인해주세요.';
+    END IF;
+
+    SELECT COALESCE(jsonb_agg(to_jsonb(employee_id) ORDER BY employee_id), '[]'::jsonb)
+    INTO v_off_ids
+    FROM (
+        SELECT DISTINCT item AS employee_id
+        FROM jsonb_array_elements_text(COALESCE(v_day -> 'offEmployeeIds', '[]'::jsonb)) AS x(item)
+        UNION
+        SELECT v_request.employee_id::text
+    ) AS ids;
+
+    v_previous_schedule := v_schedule.schedule;
+    v_next_schedule := private.rebuild_organization_schedule_day(
+        v_schedule.schedule,
+        v_schedule.employee_details,
+        v_request.requested_date,
+        v_off_ids
+    );
+
+    v_has_shortage := (v_next_schedule -> v_request.requested_date::text ->> 'status') = 'error';
+
+    SELECT COALESCE(jsonb_agg(w.value ORDER BY w.ordinality), '[]'::jsonb)
+    INTO v_warnings
+    FROM jsonb_array_elements(COALESCE(v_schedule.warnings, '[]'::jsonb))
+         WITH ORDINALITY AS w(value, ordinality)
+    WHERE COALESCE(w.value #>> '{}', '') NOT LIKE
+        '[백업 인원 확인 필요] ' || v_request.requested_date::text || ':%';
+
+    IF v_has_shortage THEN
+        v_warnings := v_warnings || jsonb_build_array(
+            '[백업 인원 확인 필요] ' || v_request.requested_date::text ||
+            ': 추가휴무 승인 후 백업 배정이 부족합니다. 대체 인력 또는 일정 조정이 필요합니다.'
+        );
+    END IF;
+
+    PERFORM set_config(
+        'app.schedule_change_reason',
+        left(
+            '직원 추가휴무 요청 승인: ' || v_request.employee_name ||
+            ' / ' || v_request.requested_date::text ||
+            CASE
+                WHEN NULLIF(btrim(v_request.note), '') IS NOT NULL
+                    THEN ' - ' || btrim(v_request.note)
+                ELSE ''
+            END,
+            300
+        ),
+        true
+    );
+    PERFORM set_config('app.schedule_change_type', 'request_approved', true);
+
+    UPDATE public.organization_weekly_schedules
+    SET schedule = v_next_schedule,
+        warnings = v_warnings,
+        version = version + 1,
+        updated_by = v_user_id,
+        updated_at = now()
+    WHERE id = v_schedule.id;
+
+    INSERT INTO public.organization_schedule_change_history (
+        organization_id, schedule_id, request_type, request_id, actor_id,
+        changed_dates, previous_schedule, new_schedule, details
+    ) VALUES (
+        v_organization_id, v_schedule.id, 'extra_day_off', v_request.id, v_user_id,
+        jsonb_build_array(v_request.requested_date::text),
+        v_previous_schedule, v_next_schedule,
+        jsonb_build_object(
+            'employee_id', v_request.employee_id,
+            'employee_name', v_request.employee_name,
+            'requested_date', v_request.requested_date,
+            'note', v_request.note
+        )
+    );
+
+    UPDATE public.organization_extra_day_off_requests
+    SET status = 'approved', reviewed_at = now(), reviewed_by = v_user_id
+    WHERE id = v_request.id;
+
+    RETURN jsonb_build_object(
+        'status', 'approved',
+        'schedule_id', v_schedule.id,
+        'team_id', v_schedule.team_id,
+        'week_start', v_schedule.week_start,
+        'schedule', v_next_schedule,
+        'warnings', v_warnings,
+        'version', v_schedule.version + 1,
+        'has_shortage', v_has_shortage
+    );
+END;
+$function$;
 
 NOTIFY pgrst, 'reload schema';
 COMMIT;
