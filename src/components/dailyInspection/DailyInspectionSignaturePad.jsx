@@ -44,7 +44,7 @@ const SignaturePad = ({ value, onChange, label, isDarkMode }) => {
         const ctx = canvas.getContext('2d');
         const p = point(event);
         ctx.beginPath(); ctx.moveTo(p.x, p.y);
-        ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#111827';
+        ctx.lineWidth = 9; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#111827';
         drawingRef.current = true;
     };
     const move = (event) => {
@@ -72,9 +72,9 @@ const SignaturePad = ({ value, onChange, label, isDarkMode }) => {
                 <span className="text-sm font-bold">{label}</span>
                 <button type="button" onClick={clear} className="text-xs font-semibold text-blue-600">다시 서명</button>
             </div>
-            <canvas ref={canvasRef} width={720} height={220} aria-label={label}
+            <canvas ref={canvasRef} width={960} height={220} aria-label={label}
                 onPointerDown={start} onPointerMove={move} onPointerUp={stop} onPointerCancel={stop}
-                className={`w-full h-28 rounded-lg border border-dashed touch-none ${isDarkMode ? 'bg-white border-slate-500' : 'bg-slate-50 border-slate-300'}`} />
+                className={`w-full h-20 rounded-lg border border-dashed touch-none ${isDarkMode ? 'bg-white border-slate-500' : 'bg-slate-50 border-slate-300'}`} />
             {!hasInk && <p className="mt-1 text-xs text-slate-500">손가락으로 위 영역에 직접 서명하세요.</p>}
         </div>
     );
