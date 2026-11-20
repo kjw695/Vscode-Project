@@ -24,6 +24,7 @@ import {
     Images
 } from 'lucide-react';
 
+import { generateWeeklySchedule, rebalanceWeeklyScheduleDay, validateWeeklySchedule } from './utils/schedulingEngine';
 import { useAdminData } from './contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
