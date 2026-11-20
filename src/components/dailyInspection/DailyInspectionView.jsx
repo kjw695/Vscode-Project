@@ -97,6 +97,12 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const canSave=allAnswered&&(badItems.length===0||actionNotes.trim().length>0)&&String(odometerKm).trim()!==''&&Number.isFinite(Number(odometerKm))&&Number(odometerKm)>=0&&Boolean(driverName.trim())&&Boolean(vehicleNumber.trim())&&Boolean(driverSignature)&&(!currentRecord||Boolean(correctionReason.trim()));
 
  const chooseAnswer=(id,value)=>{setAnswers(prev=>({...prev,[id]:value}));setIsSaved(false);setSaveError('');};
+ const markAllAsGood=()=>{
+  const allGood=Object.fromEntries(ALL_ITEMS.map(item=>[item.id,'good']));
+  setAnswers(allGood);
+  setIsSaved(false);
+  setSaveError('');
+ };
  const handleSaveIdentity=async()=>{
   if(!authUser?.id){setProfileSaveError('내정보에 저장하려면 먼저 로그인해주세요.');return;}
   const name=driverName.trim(),vehicle=vehicleNumber.trim();
@@ -159,8 +165,8 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
 
   <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
    <div className="grid grid-cols-2 gap-3">
-    <label className="min-w-0 text-xs">운전자(점검자) 성명<input value={driverName} onChange={e=>setDriverName(e.target.value)} maxLength={60} placeholder="이름 입력" className={fieldClass}/></label>
-    <label className="min-w-0 text-xs">차량번호<input value={vehicleNumber} onChange={e=>setVehicleNumber(e.target.value)} maxLength={30} placeholder="차량번호 입력" className={fieldClass}/></label>
+    <label className="min-w-0 text-xs text-center">운전자(점검자) 성명<input value={driverName} onChange={e=>setDriverName(e.target.value)} maxLength={60} placeholder="이름 입력" className={`${fieldClass} text-center`}/></label>
+    <label className="min-w-0 text-xs text-center">차량번호<input value={vehicleNumber} onChange={e=>setVehicleNumber(e.target.value)} maxLength={30} placeholder="차량번호 입력" className={`${fieldClass} text-center`}/></label>
     <label className="min-w-0 text-xs">운송사업자명(선택)<input value={carrierName} onChange={e=>setCarrierName(e.target.value)} maxLength={80} placeholder="회사명" className={fieldClass}/></label>
     <label className="min-w-0 text-xs">주행거리(적산거리계 km)<input type="number" min="0" step="1" inputMode="numeric" value={odometerKm} onChange={e=>{setOdometerKm(e.target.value);setIsSaved(false);}} placeholder="예: 125430" className={fieldClass}/></label>
    </div>
@@ -180,20 +186,26 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
    <div className={`mt-2 h-1.5 rounded-full overflow-hidden ${dark?'bg-slate-700':'bg-slate-100'}`}><div className="h-full rounded-full bg-blue-500 transition-all" style={{width:`${answeredCount/ALL_ITEMS.length*100}%`}}/></div>
   </section>
 
-  {INSPECTION_GROUPS.map(group=><section key={group.title} className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
-   <h3 className="font-black text-sm mb-2">{group.title}</h3>
-   {group.items.map(item=>{
+  {INSPECTION_GROUPS.map((group,groupIndex)=><section key={group.title} className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
+   <h3 className="font-black text-base sm:text-lg mb-3">{groupIndex+1}. {group.title}</h3>
+   {group.items.map((item,itemIndex)=>{
     const answer=answers[item.id];
+    const itemNumber=`${groupIndex+1}-${itemIndex+1}`;
     return <div key={item.id} className="py-3 border-t first:border-t-0 border-slate-200 dark:border-slate-700">
-     <div className="flex items-start justify-between gap-3"><p className="flex-1 min-w-0 text-sm font-medium leading-5">{item.label}{item.extra&&<span className="ml-1 text-[10px] text-blue-500">추가점검</span>}</p>
-      <div className="flex shrink-0 gap-1.5">
-       <button type="button" onClick={()=>chooseAnswer(item.id,'good')} aria-pressed={answer==='good'} className={`min-w-[58px] rounded-lg border px-2.5 py-2 text-xs font-bold ${answer==='good'?'border-emerald-500 bg-emerald-500 text-white':dark?'border-slate-600 text-slate-300':'border-slate-300 text-slate-600'}`}>○ 양호</button>
-       <button type="button" onClick={()=>chooseAnswer(item.id,'bad')} aria-pressed={answer==='bad'} className={`min-w-[58px] rounded-lg border px-2.5 py-2 text-xs font-bold ${answer==='bad'?'border-red-500 bg-red-500 text-white':dark?'border-slate-600 text-slate-300':'border-slate-300 text-slate-600'}`}>× 불량</button>
-      </div>
+     <p className="w-full overflow-x-auto whitespace-nowrap text-[16px] sm:text-lg font-semibold leading-7" title={`${itemNumber}. ${item.label}`}>
+      <span className="mr-2 font-black text-blue-600 dark:text-blue-400">{itemNumber}</span>{item.label}{item.extra&&<span className="ml-2 text-xs font-bold text-blue-500">추가점검</span>}
+     </p>
+     <div className="grid grid-cols-2 gap-2 mt-3">
+      <button type="button" onClick={()=>chooseAnswer(item.id,'good')} aria-pressed={answer==='good'} className={`min-h-[50px] w-full rounded-xl border px-3 py-3 text-base font-black ${answer==='good'?'border-emerald-500 bg-emerald-500 text-white':dark?'border-slate-600 text-slate-200':'border-slate-300 text-slate-700'}`}>○ 양호</button>
+      <button type="button" onClick={()=>chooseAnswer(item.id,'bad')} aria-pressed={answer==='bad'} className={`min-h-[50px] w-full rounded-xl border px-3 py-3 text-base font-black ${answer==='bad'?'border-red-500 bg-red-500 text-white':dark?'border-slate-600 text-slate-200':'border-slate-300 text-slate-700'}`}>× 불량</button>
      </div>
     </div>;
    })}
   </section>)}
+
+  <button type="button" onClick={markAllAsGood} className="w-full min-h-[50px] rounded-xl border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 px-4 py-3 mb-3 text-base font-black text-emerald-700 dark:text-emerald-300">
+   모두 양호로 선택
+  </button>
 
   <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
    <label htmlFor="daily-inspection-action-notes" className="block font-black text-sm">불량상태 조치 기록 <span className={`ml-1 text-xs font-medium ${mutedClass}`}>불량 항목이 있을 때 필수</span></label>
