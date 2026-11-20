@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CheckCircle2, CircleAlert, ClipboardCheck } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ClipboardCheck } from 'lucide-react';
 import { readDailyInspectionRecord, saveDailyInspectionRecord } from '../../services/dailyInspectionService';
 
 const INSPECTION_GROUPS = [
