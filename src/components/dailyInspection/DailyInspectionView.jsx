@@ -164,14 +164,14 @@ const DailyInspectionView = ({
                 <section key={group.title} className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
                     <h3 className="font-black text-sm mb-2">{group.title}</h3>
                     <div className="divide-y divide-slate-200 dark:divide-slate-700">
-                        {group.items.map((item, index) => {
+                        {group.items.map((item) => {
                             const answer = answers[item.id];
                             return (
                                 <div key={item.id} className="py-3 first:pt-1 last:pb-1">
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-medium leading-5">
-                                                <span className={`mr-1.5 text-xs font-bold ${mutedClass}`}>{index + 1}.</span>
+                                                <span className={`mr-1.5 text-xs font-bold ${mutedClass}`}>{ALL_ITEMS.findIndex((allItem) => allItem.id === item.id) + 1}.</span>
                                                 {item.label}
                                             </p>
                                         </div>
