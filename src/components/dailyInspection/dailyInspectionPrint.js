@@ -69,7 +69,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
         .filter((record) => String(record.actionNotes || '').trim())
         .map((record) => `${Number(String(record.date).slice(8, 10))}일: ${String(record.actionNotes).trim()}`);
     const actionNotes = actionEntries.length
-        ? escapeHtml(actionEntries.join(' / '))
+        ? escapeHtml(actionEntries.join('\n'))
         : '<span class="example-text">(예시) 00일 창닦이기 불량 - 00일 창닦이기 교체</span>';
 
         const detailPages = monthRecords.map((record) => {
@@ -148,7 +148,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .inspection-table .signature-cell { height: 10mm; padding: 0.5mm; }
     .signature-cell img { display: block; width: 100%; height: 8mm; object-fit: contain; background: #fff; }
     .inspection-table .action-title { height: 15mm; font-size: 9pt; padding: 1.5mm; }
-    .inspection-table .action-content { height: 15mm; text-align: left; vertical-align: middle; padding: 2mm 3mm; font-size: 9pt; line-height: 1.4; overflow-wrap: anywhere; }
+    .inspection-table .action-content { height: 15mm; text-align: left; vertical-align: middle; padding: 2mm 3mm; font-size: 9pt; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
     .example-text { color: #999; }
     .page-break { break-before: page; page-break-before: always; }
     .detail { margin: 0; padding: 0; font-family: Arial, 'Malgun Gothic', sans-serif; }
