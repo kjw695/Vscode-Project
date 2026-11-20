@@ -1,3 +1,18 @@
+import { Capacitor, registerPlugin } from '@capacitor/core';
+
+const DailyInspectionPrint = registerPlugin('DailyInspectionPrint');
+
+if (typeof window !== 'undefined') {
+    window.__dailyInspectionPrintHtml = async (html, name) => {
+        if (Capacitor.getPlatform() === 'android' && Capacitor.isPluginAvailable('DailyInspectionPrint')) {
+            return DailyInspectionPrint.printHtml({ html, name });
+        }
+        const frame = document.getElementById('daily-inspection-print-frame');
+        frame?.contentWindow?.focus();
+        frame?.contentWindow?.print();
+    };
+}
+
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 }[char]));
@@ -133,14 +148,14 @@ export const printDailyInspectionMonth = (records, year, month) => {
 <html lang="ko">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>운수종사자 일상점검표 ${year}-${String(month).padStart(2, '0')}</title>
 <style>
     :root { color-scheme: light; }
     * { box-sizing: border-box; }
     html, body { background: #fff !important; color: #111 !important; }
     body { width: 297mm; min-width: 297mm; max-width: none; margin: 0 auto; padding: 0; background: #fff; color: #111; font-family: Arial, 'Malgun Gothic', sans-serif; font-size: 9pt; }
-    .toolbar { position: sticky; top: 0; left: 0; z-index: 5; display: flex; flex-direction: column; gap: 6px; width: 100vw; max-width: 100vw; box-sizing: border-box; padding: 7px 8px 6px; margin: 0 0 3mm; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; }
+    .toolbar { position: sticky; top: 0; left: 0; z-index: 5; display: flex; flex-direction: column; gap: 6px; width: 100vw; max-width: 100vw; box-sizing: border-box; padding: max(32px, calc(env(safe-area-inset-top, 0px) + 8px)) 8px 6px; margin: 0 0 3mm; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; }
     .toolbar-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; width: 100%; }
     .toolbar button { display: block; width: 100%; min-width: 0; border: 0; border-radius: 7px; padding: 9px 2px; background: #1d4ed8; color: #fff; font-size: clamp(9px, 2.7vw, 12px); line-height: 1.1; font-weight: 700; white-space: nowrap; }
     .toolbar button.secondary { background: #475569; }
@@ -185,8 +200,8 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .detail-table .defect-datetime { font-size: 7.5pt; line-height: 1.5; white-space: pre-line; }
     .detail-meta { display: flex; flex-wrap: wrap; gap: 12mm; margin: 0 0 5mm; padding: 2.5mm 3mm; border: 1px solid #777; font-size: 8.5pt; }
     .detail-table .defect-content, .detail-table .defect-action { text-align: left; }
-    .detail-table .defect-signature { padding: 1mm; }
-    .defect-signature-image { display: block; width: 100%; height: 13mm; object-fit: contain; background: #fff; }
+    .detail-table .defect-signature { padding: 0; vertical-align: middle; }
+    .defect-signature-image { display: block; width: 100%; height: 19mm; min-height: 19mm; object-fit: fill; object-position: center; background: #fff; margin: 0; padding: 0; }
     .detail-table tr { break-inside: avoid; page-break-inside: avoid; }
     .no-defects { padding: 8mm; text-align: center !important; color: #666; font-size: 9pt !important; }
 
@@ -365,14 +380,28 @@ export const printDailyInspectionMonth = (records, year, month) => {
                 }
                 if (printStatus()) printStatus().textContent = '서명 준비 완료';
             };
-            window.printDailyInspectionPdf = () => {
+            window.printDailyInspectionPdf = async () => {
                 if (!printReady) {
                     if (printStatus()) printStatus().textContent = '서명 이미지를 준비하고 있습니다.';
                     return;
                 }
-                // 사용자 클릭 이벤트 안에서 동기적으로 호출해야 Android 인쇄 창이 차단되지 않습니다.
-                window.focus();
-                window.print();
+                const button = printButton();
+                if (button) { button.disabled = true; button.textContent = '인쇄 화면 여는 중...'; }
+                try {
+                    const printHtml = document.documentElement.outerHTML;
+                    if (typeof window.parent?.__dailyInspectionPrintHtml === 'function') {
+                        await window.parent.__dailyInspectionPrintHtml(printHtml, document.title);
+                    } else {
+                        window.focus();
+                        window.print();
+                    }
+                    if (printStatus()) printStatus().textContent = '인쇄 화면이 열렸습니다. PDF로 저장할 수 있습니다.';
+                    if (button) { button.disabled = false; button.textContent = '저장/공유'; }
+                } catch (error) {
+                    console.error('[DailyInspection] 저장/공유 실행 실패:', error);
+                    if (printStatus()) printStatus().textContent = error?.message || '인쇄 화면을 열지 못했습니다.';
+                    if (button) { button.disabled = false; button.textContent = '다시 저장/공유'; }
+                }
             };
             window.adjustDailyInspectionZoom = (delta) => {
                 zoom = Math.max(0.25, Math.min(2.5, Math.round((zoom + delta) * 100) / 100));
