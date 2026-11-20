@@ -124,11 +124,13 @@ export const printDailyInspectionMonth = (records, year, month) => {
     * { box-sizing: border-box; }
     html, body { background: #fff !important; color: #111 !important; }
     body { width: 297mm; min-width: 297mm; max-width: none; margin: 0 auto; padding: 0; background: #fff; color: #111; font-family: Arial, 'Malgun Gothic', sans-serif; font-size: 9pt; }
-    .toolbar { position: sticky; top: 0; left: 0; z-index: 5; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; width: 100vw; max-width: 100vw; box-sizing: border-box; padding: 8px 10px; margin: 0 0 3mm; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; }
-    .toolbar button { border: 0; border-radius: 8px; padding: 9px 13px; background: #1d4ed8; color: #fff; font-size: 14px; font-weight: 700; }
+    .toolbar { position: sticky; top: 0; left: 0; z-index: 5; display: flex; flex-direction: column; gap: 6px; width: 100vw; max-width: 100vw; box-sizing: border-box; padding: 7px 8px 6px; margin: 0 0 3mm; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; }
+    .toolbar-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; width: 100%; }
+    .toolbar button { display: block; width: 100%; min-width: 0; border: 0; border-radius: 7px; padding: 9px 2px; background: #1d4ed8; color: #fff; font-size: clamp(9px, 2.7vw, 12px); line-height: 1.1; font-weight: 700; white-space: nowrap; }
     .toolbar button.secondary { background: #475569; }
-    .toolbar .zoom-label { min-width: 48px; text-align: center; color: #111; font: 700 13px Arial, sans-serif; }
-    .toolbar .zoom-hint { color: #475569; font-size: 11px; margin: 0 auto 0 4px; }
+    .toolbar button:disabled { opacity: .55; }
+    .toolbar .zoom-hint { width: 100%; margin: 0; color: #475569; font-size: 11px; line-height: 1.25; text-align: center; }
+    .toolbar .print-status { display: none; }
     #preview-content { width: 297mm; min-width: 297mm; box-sizing: border-box; padding: 5mm; transform-origin: top left; }
     .form-caption { min-height: 5mm; margin: 0 0 1mm 1mm; font-family: 'Malgun Gothic', sans-serif; font-size: 8.5pt; line-height: 1.2; white-space: nowrap; }
     .form-caption .new-date { color: #0645ad; }
@@ -150,6 +152,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .inspection-table .signature-title { height: 15mm; font-size: 9pt; }
     .inspection-table .signature-cell { height: 15mm; padding: 0.5mm; }
     .signature-cell img { display: block; width: 100%; height: 13mm; object-fit: contain; background: #fff; }
+    .signature-detail-image { display: block; width: 100%; max-width: 700px; height: 145px; object-fit: contain; object-position: left center; background: #fff; margin-top: 8px; }
     .inspection-table .action-title { height: 15mm; font-size: 9pt; padding: 1.5mm; }
     .inspection-table .action-content { height: 15mm; text-align: left; vertical-align: middle; padding: 2mm 3mm; font-size: 9pt; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
     .example-text { color: #999; }
@@ -163,8 +166,8 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .meta { display: flex; gap: 18px; flex-wrap: wrap; margin: 8px 0; }
     .notes { border: 1px solid #777; min-height: 35px; padding: 7px; white-space: pre-wrap; font-size: 9px; }
     .signatures { display: flex; gap: 20px; margin-top: 16px; }
-    .signatures > div { width: 100%; border: 1px solid #777; padding: 10px; min-height: 190px; }
-    .signature-detail-image { display: block; width: 100%; max-width: 700px; height: 145px; object-fit: contain; object-position: left center; background: #fff; margin-top: 8px; }
+    .signatures > div { width: 100%; border: 1px solid #777; padding: 10px; min-height: 210px; }
+    .signature-detail-image { display: block; width: 100%; max-width: 850px; height: 165px; object-fit: contain; object-position: left center; background: #fff; margin-top: 8px; }
     .footnote { font-size: 8px; color: #555; margin-top: 8px; }
     @page { size: A4 landscape; margin: 0; }
     @media screen { body { width: 297mm; min-width: 297mm; max-width: none; margin: 0 auto; padding: 0; } .inspection-table { min-width: 0; } .detail { border-top: 2px dashed #cbd5e1; padding-top: 12px; margin-top: 24px; } }
@@ -173,13 +176,14 @@ export const printDailyInspectionMonth = (records, year, month) => {
 </head>
 <body>
     <div class="toolbar">
-        <button type="button" onclick="window.printDailyInspectionPdf()">PDF 저장 / 인쇄</button>
-        <button type="button" class="secondary" onclick="window.adjustDailyInspectionZoom(-0.1)">축소 −</button>
-        <span id="preview-zoom-label" class="zoom-label">맞춤</span>
-        <span class="zoom-hint">두 손가락으로 벌리거나 모아 확대·축소</span>
-        <button type="button" class="secondary" onclick="window.adjustDailyInspectionZoom(0.1)">확대 +</button>
-        <button type="button" class="secondary" onclick="window.fitDailyInspectionPreview()">화면 맞춤</button>
-        <button type="button" class="secondary" onclick="window.parent.document.getElementById('daily-inspection-print-frame')?.remove()">미리보기 닫기</button>
+        <div class="toolbar-controls">
+            <button id="daily-inspection-print-button" type="button" onclick="window.printDailyInspectionPdf()" disabled>저장/공유</button>
+            <button type="button" class="secondary" onclick="window.adjustDailyInspectionZoom(-0.1)">축소</button>
+            <button type="button" class="secondary" onclick="window.adjustDailyInspectionZoom(0.1)">확대</button>
+            <button type="button" class="secondary" onclick="window.parent.document.getElementById('daily-inspection-print-frame')?.remove()">미리보기 닫기</button>
+        </div>
+        <div class="zoom-hint"><span id="preview-zoom-label">맞춤</span> · 두 손가락으로 벌리거나 모아 확대·축소</div>
+        <span id="daily-inspection-print-status" class="print-status" aria-live="polite"></span>
     </div>
 
     <div id="preview-content">
@@ -233,8 +237,11 @@ export const printDailyInspectionMonth = (records, year, month) => {
             let pinchStartDistance = 0;
             let pinchStartZoom = 1;
             let isPinching = false;
+            let printReady = false;
             const content = () => document.getElementById('preview-content');
             const label = () => document.getElementById('preview-zoom-label');
+            const printButton = () => document.getElementById('daily-inspection-print-button');
+            const printStatus = () => document.getElementById('daily-inspection-print-status');
             const getTouchDistance = (touches) => {
                 const dx = touches[0].clientX - touches[1].clientX;
                 const dy = touches[0].clientY - touches[1].clientY;
@@ -267,15 +274,69 @@ export const printDailyInspectionMonth = (records, year, month) => {
                 target.style.zoom = String(zoom);
                 if (label()) label().textContent = Math.round(zoom * 100) + '%';
             };
-            window.printDailyInspectionPdf = async () => {
-                const images = Array.from(document.querySelectorAll('#preview-content img'));
-                await Promise.all(images.map((image) => {
-                    if (image.complete) return Promise.resolve();
-                    return new Promise((resolve) => {
-                        image.addEventListener('load', resolve, { once: true });
-                        image.addEventListener('error', resolve, { once: true });
-                    });
+            const waitForImage = (image) => new Promise((resolve) => {
+                if (image.complete) { resolve(); return; }
+                image.addEventListener('load', resolve, { once: true });
+                image.addEventListener('error', resolve, { once: true });
+            });
+            const cropSignatureImage = async (image) => {
+                if (image.dataset.signatureCropped === 'true' || !image.naturalWidth || !image.naturalHeight) return;
+                try {
+                    const source = document.createElement('canvas');
+                    source.width = image.naturalWidth;
+                    source.height = image.naturalHeight;
+                    const sourceContext = source.getContext('2d', { willReadFrequently: true });
+                    sourceContext.drawImage(image, 0, 0);
+                    const pixels = sourceContext.getImageData(0, 0, source.width, source.height).data;
+                    let minX = source.width, minY = source.height, maxX = -1, maxY = -1;
+                    for (let y = 0; y < source.height; y += 1) {
+                        for (let x = 0; x < source.width; x += 1) {
+                            const index = (y * source.width + x) * 4;
+                            const alpha = pixels[index + 3];
+                            const isInk = alpha > 12 && (pixels[index] < 245 || pixels[index + 1] < 245 || pixels[index + 2] < 245);
+                            if (isInk) {
+                                if (x < minX) minX = x;
+                                if (x > maxX) maxX = x;
+                                if (y < minY) minY = y;
+                                if (y > maxY) maxY = y;
+                            }
+                        }
+                    }
+                    if (maxX < minX || maxY < minY) return;
+                    const padX = Math.max(8, Math.round((maxX - minX + 1) * 0.08));
+                    const padY = Math.max(8, Math.round((maxY - minY + 1) * 0.18));
+                    minX = Math.max(0, minX - padX);
+                    minY = Math.max(0, minY - padY);
+                    maxX = Math.min(source.width - 1, maxX + padX);
+                    maxY = Math.min(source.height - 1, maxY + padY);
+                    const cropped = document.createElement('canvas');
+                    cropped.width = maxX - minX + 1;
+                    cropped.height = maxY - minY + 1;
+                    cropped.getContext('2d').drawImage(source, minX, minY, cropped.width, cropped.height, 0, 0, cropped.width, cropped.height);
+                    image.dataset.signatureCropped = 'true';
+                    image.src = cropped.toDataURL('image/png');
+                    await waitForImage(image);
+                } catch (error) {
+                    console.warn('[DailyInspection] 서명 이미지 자르기 실패:', error);
+                }
+            };
+            const preparePrint = async () => {
+                const images = Array.from(document.querySelectorAll('.signature-cell img, .signature-detail-image'));
+                await Promise.all(images.map(async (image) => {
+                    await waitForImage(image);
+                    await cropSignatureImage(image);
                 }));
+                printReady = true;
+                if (printButton()) printButton().disabled = false;
+                if (printStatus()) printStatus().textContent = '서명 준비 완료';
+            };
+            window.printDailyInspectionPdf = () => {
+                if (!printReady) {
+                    if (printStatus()) printStatus().textContent = '서명 이미지를 준비하고 있습니다.';
+                    return;
+                }
+                // 사용자 클릭 이벤트 안에서 동기적으로 호출해야 Android 인쇄 창이 차단되지 않습니다.
+                window.focus();
                 window.print();
             };
             window.adjustDailyInspectionZoom = (delta) => {
@@ -302,6 +363,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
             window.addEventListener('afterprint', applyZoom);
             window.addEventListener('load', window.fitDailyInspectionPreview);
             window.fitDailyInspectionPreview();
+            preparePrint();
         })();
     </script>
 </body>
