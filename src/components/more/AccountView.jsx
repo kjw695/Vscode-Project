@@ -43,7 +43,11 @@ function AccountView({ onBack, isDarkMode, autoEdit = false }) {
   const [hasUnclassifiedSettings, setHasUnclassifiedSettings] = useState(false);
   const [showLogoutOptions, setShowLogoutOptions] = useState(false);
   const [logoutError, setLogoutError] = useState('');
-  const [isLoggingOut, setIsLoggingOut] = useState(false); 
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState('');
 
   const [isEditing, setIsEditing] = useState(autoEdit);
   const [isSaving, setIsSaving] = useState(false);
@@ -263,6 +267,48 @@ const handleEditClick = () => {
       }
   };
 
+  const handleAccountDeletion = async () => {
+    if (!user?.id || deleteConfirmation.trim() !== '탈퇴합니다') return;
+
+    setIsDeletingAccount(true);
+    setDeleteAccountError('');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-account', {
+        body: { confirmation: '탈퇴합니다' }
+      });
+
+      if (error) {
+        let message = error.message || '회원 탈퇴 요청에 실패했습니다.';
+        try {
+          const response = error.context;
+          const payload = response && typeof response.json === 'function'
+            ? await response.json()
+            : null;
+          if (payload?.error) message = payload.error;
+        } catch (_) {}
+        throw new Error(message);
+      }
+
+      if (!data?.success) {
+        throw new Error(data?.error || '회원 탈퇴를 완료하지 못했습니다.');
+      }
+
+      // Remove only this account's local records. Guest and other-account data stay untouched.
+      localStorage.removeItem(`deliveryEntries:v2:user:${user.id}`);
+      localStorage.removeItem(`appSettings:v2:user:${user.id}`);
+      localStorage.removeItem(`migration_state:v2:${user.id}`);
+
+      await supabase.auth.signOut({ scope: 'local' });
+      onBack?.();
+      window.location.reload();
+    } catch (error) {
+      setDeleteAccountError(error.message || '회원 탈퇴를 완료하지 못했습니다.');
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
   const handleLogoutClick = async () => {
       // 로컬 큐를 읽기 전에 로그아웃하면 미전송 건수 확인을 건너뛸 수 있습니다.
       if (!isDataLoaded) {
@@ -424,6 +470,13 @@ const handleEditClick = () => {
                 >
                   계정 및 개인정보 삭제 요청
                 </a>
+                <button
+                  type="button"
+                  onClick={() => { setDeleteConfirmation(''); setDeleteAccountError(''); setShowDeleteAccount(true); }}
+                  className="mt-2 inline-flex text-xs font-semibold text-red-600 dark:text-red-400 underline underline-offset-2"
+                >
+                  회원 탈퇴
+                </button>
               )}
             </div>
           </div>
@@ -696,6 +749,55 @@ const handleEditClick = () => {
             </div>
         )}
       </div>
+
+
+      {showDeleteAccount && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4">
+          <div className={`w-full max-w-md rounded-2xl p-5 shadow-2xl ${isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}>
+            <h3 className="text-lg font-bold text-red-600 dark:text-red-400">회원 탈퇴</h3>
+            <p className="mt-3 text-sm leading-6">
+              탈퇴하면 로그인 계정과 개인 장부, 설정, 반품 채번 정보 및 개인 요청 기록이 삭제됩니다.
+              회사의 확정 근무표와 다른 직원의 기록은 보존됩니다.
+            </p>
+            <ul className="mt-3 list-disc pl-5 text-xs leading-5 text-gray-500 space-y-1">
+              <li>회사 대표라면 먼저 대표 권한을 다른 관리자에게 이전해야 합니다.</li>
+              <li>회사 소속 직원이라면 먼저 팀 관리에서 팀 나가기를 완료해야 합니다.</li>
+              <li>이 기기의 해당 계정 장부와 설정도 삭제됩니다. 게스트 및 다른 계정 자료는 유지됩니다.</li>
+              <li>탈퇴 후에는 계정을 복구할 수 없습니다.</li>
+            </ul>
+            <label className="block mt-4 text-sm font-semibold" htmlFor="delete-account-confirmation">
+              확인을 위해 '탈퇴합니다'를 입력하세요.
+            </label>
+            <input
+              id="delete-account-confirmation"
+              value={deleteConfirmation}
+              onChange={(event) => setDeleteConfirmation(event.target.value)}
+              placeholder="탈퇴합니다"
+              autoComplete="off"
+              className={`mt-2 w-full rounded-lg border px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-red-500 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+            />
+            {deleteAccountError && <p className="mt-3 text-sm text-red-500">{deleteAccountError}</p>}
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                disabled={isDeletingAccount}
+                onClick={() => setShowDeleteAccount(false)}
+                className={`flex-1 rounded-lg py-3 text-sm font-semibold ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} disabled:opacity-50`}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingAccount || deleteConfirmation.trim() !== '탈퇴합니다'}
+                onClick={handleAccountDeletion}
+                className="flex-1 rounded-lg bg-red-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
+              >
+                {isDeletingAccount ? '삭제 중...' : '계정 영구 삭제'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showLogoutOptions && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
