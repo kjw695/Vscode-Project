@@ -180,9 +180,9 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .inspection-table .item { width: 53mm; text-align: left; padding: 1.2mm 1.8mm; line-height: 1.35; font-size: 8.5pt; overflow-wrap: anywhere; }
     .inspection-row td.result-cell { height: 9.5mm; padding: 0; font-size: 9pt; }
     .inspection-row.long-item td { height: 12mm; }
-    .inspection-table .signature-title { height: 15mm; font-size: 9pt; }
-    .inspection-table .signature-cell { height: 15mm; padding: 0.5mm; }
-    .signature-cell img { display: block; width: 100%; height: 13mm; object-fit: contain; background: #fff; }
+    .inspection-table .signature-title { height: 8mm; font-size: 9pt; }
+    .inspection-table .signature-cell { height: 8mm; padding: 0.2mm; }
+    .signature-cell img { display: block; width: 100%; height: 7.5mm; object-fit: fill; background: #fff; }
     .signature-detail-image { display: block; width: 100%; max-width: 700px; height: 145px; object-fit: contain; object-position: left center; background: #fff; margin-top: 8px; }
     .inspection-table .action-title { height: 15mm; font-size: 9pt; padding: 1.5mm; }
     .inspection-table .action-content { height: 15mm; text-align: left; vertical-align: middle; padding: 2mm 3mm; font-size: 9pt; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
