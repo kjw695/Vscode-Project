@@ -144,25 +144,48 @@ const DailyInspectionView = ({
         }
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!canSave) return;
-        if (hasMissingIdentity || identityChanged) {
-            setSaveError('이름과 차량번호를 먼저 내정보에 저장해주세요.');
+        setSaveError('');
+
+        const normalizedName = (profileName || driverName).trim();
+        const normalizedVehicleNumber = (profileVehicleNumber || vehicleNumber).trim();
+        if (!normalizedName || !normalizedVehicleNumber) {
+            setSaveError('이름과 차량번호를 모두 입력해주세요.');
             return;
         }
-        setSaveError('');
+
         try {
+            // 로그인 사용자가 점검표에서 처음 입력한 정보는 완료 저장과 함께 내정보에도 반영합니다.
+            if (authUser?.id && (hasMissingIdentity || identityChanged)) {
+                setIsSavingProfile(true);
+                const { error } = await supabase
+                    .from('profiles')
+                    .update({
+                        full_name: normalizedName,
+                        vehicle_number: normalizedVehicleNumber
+                    })
+                    .eq('id', authUser.id);
+
+                if (error) throw error;
+                await refreshProfile();
+                setProfileSaveMessage('이름과 차량번호가 내정보에 자동 저장되었습니다.');
+            }
+
             const record = saveDailyInspectionRecord(userId, date, {
                 answers,
                 actionNotes: actionNotes.trim(),
-                driverName: profileName,
-                vehicleNumber: profileVehicleNumber,
+                driverName: normalizedName,
+                vehicleNumber: normalizedVehicleNumber,
                 completed: true
             });
             setIsSaved(true);
             onSaved?.(record);
         } catch (error) {
-            setSaveError(error.message || '점검 기록을 저장하지 못했습니다.');
+            console.error('[DailyInspection] 점검 또는 내정보 저장 실패:', error);
+            setSaveError(error.message || '점검 기록 또는 내정보를 저장하지 못했습니다.');
+        } finally {
+            setIsSavingProfile(false);
         }
     };
 
@@ -234,6 +257,9 @@ const DailyInspectionView = ({
                 </div>
                 {(hasMissingIdentity || identityChanged) && (
                     <div className="mt-3">
+                        <p className={`mb-2 text-xs ${mutedClass}`}>
+                            점검 완료를 저장하면 입력한 이름과 차량번호도 내정보에 자동 반영됩니다.
+                        </p>
                         <button
                             type="button"
                             onClick={handleSaveIdentity}
@@ -372,10 +398,10 @@ const DailyInspectionView = ({
             <button
                 type="button"
                 onClick={handleSave}
-                disabled={!canSave}
+                disabled={!canSave || isSavingProfile}
                 className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-black text-white disabled:opacity-40"
             >
-                {isSaved ? '점검 결과 수정 저장' : '점검 완료 저장'}
+                {isSavingProfile ? '내정보 저장 중...' : isSaved ? '점검 결과 수정 저장' : '점검 완료 저장'}
             </button>
             {!canSave && (
                 <p className={`mt-2 text-center text-xs ${mutedClass}`}>
