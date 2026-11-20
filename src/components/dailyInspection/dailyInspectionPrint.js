@@ -20,9 +20,7 @@ const OFFICIAL_ITEMS = [
     ['seatBelt', '기타', '좌석 안전띠 상태'],
     ['fireExtinguisher', '기타', '소화기 비치 여부'],
     ['warningTriangle', '기타', '안전삼각대 등 비치 여부']
-]; 
-
-const dateLabel];
+];
 
 const dateLabel = (date) => {
     const [year, month, day] = String(date).split('-').map(Number);
