@@ -76,7 +76,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
         const timeLabel = completionDate && !Number.isNaN(completionDate.getTime())
             ? `${String(completionDate.getHours()).padStart(2, '0')}:${String(completionDate.getMinutes()).padStart(2, '0')}`
             : '--:--';
-        const dateTimeLabel = `${recordDate.slice(5).replace('-', '/')} ${timeLabel}`;
+        const dateTimeLabel = `${recordDate}\n${timeLabel}`;
         const badItems = OFFICIAL_ITEMS.filter(([id]) => record.answers?.[id] === 'bad');
         badItems.forEach(([, , label]) => {
             detailRows.push({
@@ -102,6 +102,10 @@ export const printDailyInspectionMonth = (records, year, month) => {
     const detailPages = `
         <section class="detail page-break">
             <h2>불량 점검 및 조치 기록</h2>
+            <div class="detail-meta">
+                <span>차량번호: ${escapeHtml(first.vehicleNumber || '')}</span>
+                <span>운전자명: ${escapeHtml(first.driverName || '')}</span>
+            </div>
             <table class="detail-table">
                 <colgroup>
                     <col style="width:8mm" />
@@ -178,14 +182,13 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .detail-table th, .detail-table td { border: 1px solid #555; padding: 2mm 1.2mm; text-align: center; vertical-align: middle; font-size: 8pt; line-height: 1.3; overflow-wrap: anywhere; }
     .detail-table th { font-weight: 700; white-space: nowrap; background: #f4f4f4; }
     .detail-table .defect-number, .detail-table .defect-result { padding-left: 0.5mm; padding-right: 0.5mm; font-size: 8pt; white-space: nowrap; }
-    .detail-table .defect-datetime { font-size: 7.5pt; white-space: nowrap; }
+    .detail-table .defect-datetime { font-size: 7.5pt; line-height: 1.5; white-space: pre-line; }\n    .detail-meta { display: flex; flex-wrap: wrap; gap: 12mm; margin: 0 0 5mm; padding: 2.5mm 3mm; border: 1px solid #777; font-size: 8.5pt; }
     .detail-table .defect-content, .detail-table .defect-action { text-align: left; }
     .detail-table .defect-signature { padding: 1mm; }
     .defect-signature-image { display: block; width: 100%; height: 13mm; object-fit: contain; background: #fff; }
     .detail-table tr { break-inside: avoid; page-break-inside: avoid; }
     .no-defects { padding: 8mm; text-align: center !important; color: #666; font-size: 9pt !important; }
-    .detail-table th, .detail-table td { border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 10px; }
-    .no-defects { margin: 14px 0; padding: 12px; border: 1px solid #999; text-align: center; font-size: 11px; }
+
     .meta { display: flex; gap: 18px; flex-wrap: wrap; margin: 8px 0; }
     .notes { border: 1px solid #777; min-height: 35px; padding: 7px; white-space: pre-wrap; font-size: 9px; }
     .signatures { display: flex; gap: 20px; margin-top: 16px; }
