@@ -165,8 +165,14 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
 
   <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
    <div className="grid grid-cols-2 gap-3">
-    <label className="min-w-0 text-xs text-center">운전자(점검자) 성명<input value={driverName} onChange={e=>setDriverName(e.target.value)} maxLength={60} placeholder="이름 입력" className={`${fieldClass} text-center`}/></label>
-    <label className="min-w-0 text-xs text-center">차량번호<input value={vehicleNumber} onChange={e=>setVehicleNumber(e.target.value)} maxLength={30} placeholder="차량번호 입력" className={`${fieldClass} text-center`}/></label>
+    <label className="flex w-full min-w-0 flex-col items-stretch text-center text-xs">
+     <span className="mb-1 text-center">운전자(점검자) 성명</span>
+     <input value={driverName} onChange={e=>setDriverName(e.target.value)} maxLength={60} placeholder="이름 입력" className={`${fieldClass} block w-full text-center`} style={{textAlign:"center"}}/>
+    </label>
+    <label className="flex w-full min-w-0 flex-col items-stretch text-center text-xs">
+     <span className="mb-1 text-center">차량번호</span>
+     <input value={vehicleNumber} onChange={e=>setVehicleNumber(e.target.value)} maxLength={30} placeholder="차량번호 입력" className={`${fieldClass} block w-full text-center`} style={{textAlign:"center"}}/>
+    </label>
     <label className="min-w-0 text-xs">운송사업자명(선택)<input value={carrierName} onChange={e=>setCarrierName(e.target.value)} maxLength={80} placeholder="회사명" className={fieldClass}/></label>
     <label className="min-w-0 text-xs">주행거리(적산거리계 km)<input type="number" min="0" step="1" inputMode="numeric" value={odometerKm} onChange={e=>{setOdometerKm(e.target.value);setIsSaved(false);}} placeholder="예: 125430" className={fieldClass}/></label>
    </div>
