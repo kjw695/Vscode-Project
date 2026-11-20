@@ -10,7 +10,6 @@ const getReminderNotificationId = (userId) => {
     }
     return 70000 + ((hash >>> 0) % 2000000000);
 };
-const REMINDER_CHANNEL_ID = 'daily-inspection-reminder';
 const STORAGE_KEY_PREFIX = 'dailyInspectionReminder:v1:user:';
 
 const getStorageKey = (userId) => `${STORAGE_KEY_PREFIX}${userId || 'guest'}`;
