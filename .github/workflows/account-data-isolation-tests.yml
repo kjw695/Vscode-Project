@@ -3,6 +3,7 @@ name: Account Data Isolation Tests
 on:
   push:
     branches:
+      - feature/account-data-isolation
       - feature/account-data-isolation-tests
       - feature/confirmed-schedule-change-integrated
   pull_request:
