@@ -445,3 +445,361 @@ function getStableWeekIndex(sunday) {
 function formatDate(year, month, day) {
     return String(year) + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
 }
+
+/**
+ * Rebuilds one day after a manager manually changes an employee's off status.
+ * Keeps still-valid assignments, then uses the same permission and historical
+ * workload score as the automatic generator for newly uncovered routes.
+ */
+export function rebalanceWeeklyScheduleDay(options = {}) {
+    const dateKey = String(options.dateKey || '');
+    const employees = (options.employees || []).filter(function (employee) {
+        return employee && employee.active !== false;
+    });
+    const permissions = options.substitutePermissions || [];
+    const history = options.substituteWorkHistory || [];
+    const existingRecord = options.existingRecord || {};
+    const requestedOffIds = Array.from(new Map(
+        (options.offEmployeeIds || []).map(function (id) {
+            const normalized = id && typeof id === 'object'
+                ? (id.employeeId || id.employee_id || id.id)
+                : id;
+            return [String(normalized), normalized];
+        })
+    ).values());
+
+    const baseEmployees = employees.filter(function (employee) {
+        return getEmployeeType(employee) === 'base';
+    });
+    const substitutes = employees.filter(function (employee) {
+        return getEmployeeType(employee) === 'sub';
+    });
+    const baseOffEmployees = baseEmployees.filter(function (employee) {
+        return containsId(requestedOffIds, employee.id);
+    });
+    const subOffEmployees = substitutes.filter(function (employee) {
+        return containsId(requestedOffIds, employee.id);
+    });
+    const allOffs = {};
+    allOffs[dateKey] = requestedOffIds;
+    const assignments = [];
+    const assignedIds = [];
+
+    // Keep valid assignments first so changing one person's day does not
+    // unnecessarily reshuffle every other route.
+    baseOffEmployees.forEach(function (baseEmployee) {
+        const existing = (Array.isArray(existingRecord.subs) ? existingRecord.subs : [])
+            .find(function (assignment) {
+                return String(assignment.targetBaseId) === String(baseEmployee.id);
+            });
+        if (!existing) return;
+
+        const backup = substitutes.find(function (employee) {
+            return String(employee.id) === String(existing.subId);
+        });
+        if (!backup ||
+            containsId(requestedOffIds, backup.id) ||
+            containsId(assignedIds, backup.id) ||
+            !isSubstituteAllowedForBase(backup, baseEmployee, permissions)) {
+            return;
+        }
+
+        assignments.push(existing);
+        assignedIds.push(backup.id);
+    });
+
+    const averageHistory = substitutes.length > 0
+        ? Math.floor(history.length / substitutes.length)
+        : 0;
+    const warnings = [];
+
+    baseOffEmployees.forEach(function (baseEmployee) {
+        const alreadyCovered = assignments.some(function (assignment) {
+            return String(assignment.targetBaseId) === String(baseEmployee.id);
+        });
+        if (alreadyCovered) return;
+
+        const candidates = getValidSubstitutes(
+            baseEmployee,
+            dateKey,
+            substitutes,
+            permissions,
+            allOffs,
+            assignments
+        ).sort(function (a, b) {
+            const scoreA = calculateSubstituteScore(a, baseEmployee, history, averageHistory);
+            const scoreB = calculateSubstituteScore(b, baseEmployee, history, averageHistory);
+            return scoreB - scoreA ||
+                String(a.name || a.id).localeCompare(String(b.name || b.id), 'ko');
+        });
+
+        const chosen = candidates[0];
+        if (!chosen) {
+            warnings.push(
+                '[백업 인원 확인 필요] ' + dateKey + ': ' + baseEmployee.name +
+                ' 휴무가 지정됐지만 허용 범위와 근무 가능 조건을 만족하는 백업이 없습니다.'
+            );
+            return;
+        }
+
+        assignments.push({
+            subId: chosen.id,
+            subName: chosen.name,
+            targetBaseId: baseEmployee.id,
+            targetBaseName: baseEmployee.name,
+            routeName: getEmployeeRouteName(baseEmployee),
+            score: calculateSubstituteScore(chosen, baseEmployee, history, averageHistory)
+        });
+        assignedIds.push(chosen.id);
+    });
+
+    const nextRecord = Object.assign({}, existingRecord, {
+        date: dateKey,
+        offEmployeeIds: requestedOffIds,
+        offs: baseOffEmployees.map(function (employee) { return employee.name; }),
+        subOffs: subOffEmployees.map(function (employee) { return employee.name; }),
+        subs: assignments,
+        status: warnings.length > 0 ? 'error' : 'ok'
+    });
+
+    return {
+        record: nextRecord,
+        warnings: warnings
+    };
+}
+
+/**
+ * Pre-confirmation checks for alternating work patterns, missing days,
+ * duplicate backup assignments, invalid backup eligibility and route coverage.
+ */
+export function validateWeeklySchedule(options = {}) {
+    const startDate = parseDateInput(options.weekStart);
+    if (!startDate || Number.isNaN(startDate.getTime())) {
+        return ['[근무표 검증] 주 시작 날짜가 올바르지 않습니다.'];
+    }
+
+    const sunday = getSunday(startDate);
+    const weekDates = Array.from({ length: 7 }, function (_, index) {
+        const date = new Date(sunday);
+        date.setDate(sunday.getDate() + index);
+        return formatDate(date.getFullYear(), date.getMonth() + 1, date.getDate());
+    });
+    const schedule = options.schedule || {};
+    const employees = (options.employees || []).filter(function (employee) {
+        return employee && employee.active !== false;
+    });
+    const permissions = options.substitutePermissions || [];
+    const warnings = [];
+    const weekIndex = getStableWeekIndex(sunday);
+
+    weekDates.forEach(function (dateKey) {
+        if (!schedule[dateKey]) {
+            warnings.push('[주간 일정 누락] ' + dateKey + ': 일정이 생성되지 않았습니다.');
+        }
+    });
+
+    employees.filter(function (employee) {
+        return String(employee.pattern || employee.work_pattern || '').includes('격주');
+    }).forEach(function (employee) {
+        const expectedWorkDays = getWorkDaysForWeek(employee, weekIndex);
+        const actualOffDays = weekDates.filter(function (dateKey) {
+            return containsId(
+                Array.isArray(schedule[dateKey]?.offEmployeeIds) ? schedule[dateKey].offEmployeeIds : [],
+                employee.id
+            );
+        }).length;
+        const actualWorkDays = 7 - actualOffDays;
+        if (actualWorkDays !== expectedWorkDays) {
+            warnings.push(
+                '[격주 근무 검증] ' + employee.name + ': ' + dateKeyForWeek(sunday) +
+                ' 주간 목표 ' + expectedWorkDays + '일 근무, 현재 ' + actualWorkDays +
+                '일 근무입니다. 격주 짝과 휴무 지정 상태를 확인하세요.'
+            );
+        }
+    });
+
+    weekDates.forEach(function (dateKey) {
+        const day = schedule[dateKey];
+        if (!day) return;
+
+        const offIds = Array.isArray(day.offEmployeeIds) ? day.offEmployeeIds : [];
+        const assignments = Array.isArray(day.subs) ? day.subs : [];
+        const baseEmployees = employees.filter(function (employee) {
+            return getEmployeeType(employee) === 'base';
+        });
+        const substitutes = employees.filter(function (employee) {
+            return getEmployeeType(employee) === 'sub';
+        });
+        const assignedIds = [];
+
+        assignments.forEach(function (assignment) {
+            const backup = substitutes.find(function (employee) {
+                return String(employee.id) === String(assignment.subId);
+            });
+            const target = baseEmployees.find(function (employee) {
+                return String(employee.id) === String(assignment.targetBaseId);
+            });
+
+            if (!backup) {
+                warnings.push(
+                    '[백업 배정 오류] ' + dateKey + ': 등록되지 않았거나 비활성인 백업 직원이 배정되어 있습니다.'
+                );
+                return;
+            }
+            if (containsId(offIds, backup.id)) {
+                warnings.push(
+                    '[백업 배정 충돌] ' + dateKey + ': ' + backup.name + ' 직원이 휴무인데 백업으로 배정되어 있습니다.'
+                );
+            }
+            if (assignedIds.some(function (id) { return String(id) === String(backup.id); })) {
+                warnings.push(
+                    '[백업 중복 배정] ' + dateKey + ': ' + backup.name + ' 직원이 같은 날 여러 노선에 배정되어 있습니다.'
+                );
+            }
+            assignedIds.push(backup.id);
+
+            if (!target || !containsId(offIds, target.id)) {
+                warnings.push(
+                    '[백업 배정 대상 오류] ' + dateKey + ': 휴무가 아닌 직원에게 백업이 배정되어 있습니다.'
+                );
+            } else if (!isSubstituteAllowedForBase(backup, target, permissions)) {
+                warnings.push(
+                    '[백업 노선 권한 오류] ' + dateKey + ': ' + backup.name +
+                    ' 직원은 ' + target.name + ' 담당 노선을 대체할 수 없습니다.'
+                );
+            }
+        });
+
+        baseEmployees.filter(function (employee) {
+            return containsId(offIds, employee.id);
+        }).forEach(function (employee) {
+            const count = assignments.filter(function (assignment) {
+                return String(assignment.targetBaseId) === String(employee.id);
+            }).length;
+            if (count === 0) {
+                warnings.push(
+                    '[백업 인원 확인 필요] ' + dateKey + ': ' + employee.name +
+                    ' 담당 노선에 배정 가능한 백업이 없습니다.'
+                );
+            } else if (count > 1) {
+                warnings.push(
+                    '[백업 중복 배정] ' + dateKey + ': ' + employee.name +
+                    ' 담당 노선에 백업이 여러 명 배정되어 있습니다.'
+                );
+            }
+        });
+    });
+
+    return Array.from(new Set(warnings));
+}
+
+function dateKeyForWeek(sunday) {
+    return formatDate(sunday.getFullYear(), sunday.getMonth() + 1, sunday.getDate());
+}
+
+/**
+ * Sanitizes a copied weekly schedule against the current active roster.
+ * Stale employee IDs are removed and backup assignments are rebalanced
+ * before a previous week or a saved template is used as a new draft.
+ */
+export function prepareCopiedWeeklySchedule(options = {}) {
+    const employees = (options.employees || []).filter(function (employee) {
+        return employee && employee.active !== false;
+    });
+    const activeById = new Map(employees.map(function (employee) {
+        return [String(employee.id), employee];
+    }));
+    const permissions = options.substitutePermissions || [];
+    const history = options.substituteWorkHistory || [];
+    const sourceSchedule = options.schedule || {};
+    const schedule = {};
+    const allocationWarnings = [];
+
+    Object.entries(sourceSchedule).forEach(function ([dateKey, dayRecord]) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey) || !dayRecord || typeof dayRecord !== 'object') {
+            return;
+        }
+
+        let sourceOffIds = [];
+        if (Array.isArray(dayRecord.offEmployeeIds)) {
+            sourceOffIds = dayRecord.offEmployeeIds.map(function (item) {
+                return item && typeof item === 'object'
+                    ? (item.employeeId || item.employee_id || item.id)
+                    : item;
+            });
+        } else {
+            const offNames = []
+                .concat(Array.isArray(dayRecord.offs) ? dayRecord.offs : [])
+                .concat(Array.isArray(dayRecord.subOffs) ? dayRecord.subOffs : []);
+            sourceOffIds = employees
+                .filter(function (employee) {
+                    return offNames.some(function (item) {
+                        const name = item && typeof item === 'object'
+                            ? (item.name || item.employeeName)
+                            : item;
+                        return name != null && String(name) === String(employee.name);
+                    });
+                })
+                .map(function (employee) { return employee.id; });
+        }
+
+        const validOffIds = Array.from(new Set(
+            sourceOffIds
+                .filter(function (id) {
+                    return id != null && activeById.has(String(id));
+                })
+                .map(function (id) {
+                    return activeById.get(String(id)).id;
+                })
+        ));
+
+        const result = rebalanceWeeklyScheduleDay({
+            dateKey: dateKey,
+            employees: employees,
+            offEmployeeIds: validOffIds,
+            existingRecord: dayRecord,
+            substitutePermissions: permissions,
+            substituteWorkHistory: history
+        });
+
+        schedule[dateKey] = result.record;
+        allocationWarnings.push.apply(allocationWarnings, result.warnings);
+    });
+
+    const staleWarningPrefixes = [
+        '[백업 인원 확인 필요]',
+        '[백업 배정 오류]',
+        '[백업 배정 충돌]',
+        '[백업 중복 배정]',
+        '[백업 배정 대상 오류]',
+        '[백업 노선 권한 오류]',
+        '[격주 근무 검증]',
+        '[주간 일정 누락]'
+    ];
+    const retainedWarnings = (Array.isArray(options.warnings) ? options.warnings : [])
+        .filter(function (warning) {
+            const value = String(warning);
+            return !staleWarningPrefixes.some(function (prefix) {
+                return value.startsWith(prefix);
+            });
+        });
+
+    const weekStart = options.weekStart ||
+        Object.keys(schedule).filter(function (date) {
+            return /^\d{4}-\d{2}-\d{2}$/.test(date);
+        }).sort()[0];
+
+    const validationWarnings = validateWeeklySchedule({
+        weekStart: weekStart,
+        schedule: schedule,
+        employees: employees,
+        substitutePermissions: permissions
+    });
+
+    return {
+        schedule: schedule,
+        warnings: Array.from(new Set(
+            retainedWarnings.concat(allocationWarnings, validationWarnings)
+        ))
+    };
+}

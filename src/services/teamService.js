@@ -146,3 +146,87 @@ export async function fetchPreferredDays(userId) {
     if (error) return [];
     return data?.preferred_days || [];
 }
+
+// Company-shared admin setup. All mutations are authorized by database RPCs.
+export async function fetchMyOrganizationAdminState() {
+    const { data, error } = await supabase.rpc('get_my_organization_admin_state');
+    if (error) throw error;
+    return data || null;
+}
+
+export async function saveMyOrganizationAdminState({
+    regions,
+    teams,
+    employees,
+    routes,
+    expectedVersion
+}) {
+    const { data, error } = await supabase.rpc('save_my_organization_admin_state', {
+        p_regions: Array.isArray(regions) ? regions : [],
+        p_teams: Array.isArray(teams) ? teams : [],
+        p_employees: Array.isArray(employees) ? employees : [],
+        p_routes: Array.isArray(routes) ? routes : [],
+        p_expected_version: expectedVersion
+    });
+
+    if (error) throw error;
+    return data;
+}
+
+export function subscribeToOrganizationAdminState(organizationId, onChange) {
+    if (!organizationId || typeof onChange !== 'function') {
+        return () => {};
+    }
+
+    const channel = supabase
+        .channel(`organization-admin-state-${organizationId}`)
+        .on(
+            'postgres_changes',
+            {
+                event: '*',
+                schema: 'public',
+                table: 'organization_admin_state',
+                filter: `organization_id=eq.${organizationId}`
+            },
+            onChange
+        )
+        .subscribe();
+
+    return () => {
+        supabase.removeChannel(channel);
+    };
+}
+
+// Administrator workspace backup history. The database RPCs verify the current
+// organization owner and never expose backup table writes to the client.
+export async function fetchMyOrganizationAdminBackups() {
+    const { data, error } = await supabase.rpc('list_my_organization_admin_backups');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+}
+
+export async function fetchMyOrganizationAdminBackup(backupId) {
+    if (!backupId) throw new Error('백업 항목을 선택해주세요.');
+    const { data, error } = await supabase.rpc('get_my_organization_admin_backup', {
+        p_backup_id: backupId
+    });
+    if (error) throw error;
+    return data || null;
+}
+
+export async function createMyOrganizationAdminBackup(description = null) {
+    const { data, error } = await supabase.rpc('create_my_organization_admin_backup', {
+        p_description: description
+    });
+    if (error) throw error;
+    return data;
+}
+
+export async function restoreMyOrganizationAdminBackup(backupId) {
+    if (!backupId) throw new Error('복구할 백업을 선택해주세요.');
+    const { data, error } = await supabase.rpc('restore_my_organization_admin_backup', {
+        p_backup_id: backupId
+    });
+    if (error) throw error;
+    return data;
+}
