@@ -16,10 +16,17 @@ const readHistory = (userId) => {
 
 export const listDailyInspectionRecords = (userId, year, month) => {
     const prefix = `${String(year)}-${String(month).padStart(2, '0')}-`;
-    return readHistory(userId)
-        .filter((record) => String(record.inspectionDate || record.date || '').startsWith(prefix))
-        .sort((a, b) => String(a.inspectionDate || a.date).localeCompare(String(b.inspectionDate || b.date))
-            || String(a.completedAt || '').localeCompare(String(b.completedAt || '')));
+    const latestByDate = new Map();
+    readHistory(userId).forEach((record) => {
+        const recordDate = String(record.inspectionDate || record.date || '').slice(0, 10);
+        if (recordDate.startsWith(prefix)) {
+            // 같은 날짜의 정정본이 여러 개 남아 있으면 마지막 저장본만 사용합니다.
+            latestByDate.set(recordDate, record);
+        }
+    });
+    return [...latestByDate.values()].sort((a, b) =>
+        String(a.inspectionDate || a.date).localeCompare(String(b.inspectionDate || b.date))
+    );
 };
 
 export const readDailyInspectionRecord = (userId, date) => {
@@ -41,14 +48,21 @@ export const readDailyInspectionRecord = (userId, date) => {
 export const saveDailyInspectionRecord = async (userId, date, record) => {
     if (!date || !record || typeof record !== 'object') throw new Error('저장할 점검 날짜 또는 내용이 없습니다.');
     const history = readHistory(userId);
+    const dayKey = String(date).slice(0, 10);
+    const previousDayRecords = history.filter((item) =>
+        String(item.inspectionDate || item.date || '').slice(0, 10) === dayKey
+    );
+    const previousRevision = previousDayRecords.reduce((max, item) =>
+        Math.max(max, Number(item.revision) || 1), 0
+    );
     const payload = {
         ...record,
         id: record.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `inspection-${Date.now()}-${Math.random().toString(36).slice(2)}`),
-        date: String(date).slice(0, 10),
-        inspectionDate: String(date).slice(0, 10),
+        date: dayKey,
+        inspectionDate: dayKey,
         completedAt: new Date().toISOString(),
         storageMode: 'device-only',
-        revision: history.filter((item) => String(item.inspectionDate || item.date).slice(0, 10) === String(date).slice(0, 10)).length + 1
+        revision: previousRevision + 1
     };
     try {
         if (typeof crypto !== 'undefined' && crypto.subtle) {
@@ -60,14 +74,41 @@ export const saveDailyInspectionRecord = async (userId, date, record) => {
         console.warn('[DailyInspection] 무결성 보조 해시 생성 실패:', error);
     }
     try {
-        history.push(payload);
-        localStorage.setItem(getHistoryKey(userId), JSON.stringify(history));
+        // 같은 날짜의 이전 완료본·정정본은 제거하고 최신 기록 하나만 보관합니다.
+        const nextHistory = history.filter((item) =>
+            String(item.inspectionDate || item.date || '').slice(0, 10) !== dayKey
+        );
+        nextHistory.push(payload);
+        localStorage.setItem(getHistoryKey(userId), JSON.stringify(nextHistory));
         localStorage.setItem(getDailyInspectionStorageKey(userId, date), JSON.stringify(payload));
     } catch (error) {
         console.error('[DailyInspection] 점검 기록 저장 실패:', error);
         throw new Error('점검 기록을 기기에 저장하지 못했습니다. 저장 공간을 확인해주세요.');
     }
     return payload;
+};
+
+const getSavedTransportCompanyNameKey = (userId) => `${getDailyInspectionStoragePrefix(userId)}saved-transport-company-name`;
+
+export const readSavedTransportCompanyName = (userId) => {
+    try {
+        return localStorage.getItem(getSavedTransportCompanyNameKey(userId)) || '';
+    } catch (error) {
+        console.warn('[DailyInspection] 저장된 운송사업자명을 읽지 못했습니다.', error);
+        return '';
+    }
+};
+
+export const saveSavedTransportCompanyName = (userId, companyName) => {
+    try {
+        const value = String(companyName || '').trim();
+        if (value) localStorage.setItem(getSavedTransportCompanyNameKey(userId), value);
+        else localStorage.removeItem(getSavedTransportCompanyNameKey(userId));
+        return true;
+    } catch (error) {
+        console.warn('[DailyInspection] 운송사업자명 저장 실패:', error);
+        throw new Error('운송사업자명을 기기에 저장하지 못했습니다.');
+    }
 };
 
 const getSavedDriverSignatureKey = (userId) => `${getDailyInspectionStoragePrefix(userId)}saved-driver-signature`;
