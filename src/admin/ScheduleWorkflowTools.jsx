@@ -517,7 +517,18 @@ export default function ScheduleWorkflowTools({
                                             <p className="mt-1 text-[10px] leading-4 text-slate-600">사유: {revision.change_reason}</p>
                                         )}
                                     </div>
-                                    <span className="text-[10px] text-slate-400">{revision.revision_type === 'baseline' ? '기본' : '변경 전'}</span>
+                                    <span className="text-[10px] text-slate-400">
+                                        {({
+                                            baseline: '기본',
+                                            draft_saved: '임시 저장',
+                                            confirmed: '확정',
+                                            reopened: '확정 해제',
+                                            admin_changed: '관리자 변경',
+                                            request_approved: '직원 요청 승인',
+                                            restored: '이전 버전 복구',
+                                            updated: '수정'
+                                        })[revision.change_type] || (revision.revision_type === 'baseline' ? '기본' : '변경 전')}
+                                    </span>
                                     <button
                                         type="button"
                                         onClick={() => handlePreviewRevision(revision.id)}
