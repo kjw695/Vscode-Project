@@ -94,6 +94,9 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const badItems=useMemo(()=>ALL_ITEMS.filter(item=>answers[item.id]==='bad'),[answers]);
  const allAnswered=answeredCount===ALL_ITEMS.length;
  const allGoodSelected=ALL_ITEMS.every(item=>answers[item.id]==='good');
+ const currentRecordMatchesSelectedMonth=Boolean(currentRecord&&String(currentRecord.inspectionDate||currentRecord.date||'').startsWith(`${selectedMonth}-`));
+ const currentRecordAlreadyInMonthList=monthRecords.some(record=>record.id===currentRecord?.id);
+ const selectedMonthRecordCount=monthRecords.length+(currentRecordMatchesSelectedMonth&&!currentRecordAlreadyInMonthList?1:0);
  const profileName=profile?.full_name||profile?.display_name||'';
  const profileVehicleNumber=profile?.vehicle_number||'';
  const hasMissingIdentity=!profileName.trim()||!profileVehicleNumber.trim();
@@ -251,7 +254,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
 
   <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
    <label htmlFor="daily-inspection-action-notes" className="block font-black text-sm">불량상태 조치 기록 <span className={`ml-1 text-xs font-medium ${mutedClass}`}>불량 항목이 있을 때 필수</span></label>
-   <textarea id="daily-inspection-action-notes" value={actionNotes} onChange={e=>{setActionNotes(e.target.value);setIsSaved(false);}} rows={3} placeholder="예: 00일 창닦이기 불량 - 00일 창닦이기 교체" className={`mt-2 w-full rounded-lg border p-3 text-sm ${dark?'bg-slate-900 border-slate-600 text-white':'bg-white border-slate-300 text-slate-900'}`}/>
+   <textarea id="daily-inspection-action-notes" value={actionNotes} onChange={e=>{setActionNotes(e.target.value);setIsSaved(false);}} rows={3} placeholder="(예시) 00일 창닦이기 불량 － 00일 창닦이기 교체" className={`mt-2 w-full rounded-lg border p-3 text-sm ${dark?'bg-slate-900 border-slate-600 text-white':'bg-white border-slate-300 text-slate-900'}`}/>
    {badItems.length>0&&<p className="mt-2 text-xs text-red-500">불량 항목 {badItems.length}개가 있습니다. 조치 내용까지 입력해야 완료 처리됩니다.</p>}
   </section>
 
@@ -281,7 +284,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   <section className={`rounded-2xl border p-3 mt-5 ${panelClass}`}>
    <div className="flex items-center justify-between gap-2 mb-3">
     <div className="flex items-center gap-2"><History size={17}/><h3 className="font-black text-sm">월별 기록 및 출력</h3></div>
-    <span className={`rounded-full px-2.5 py-1 text-xs font-bold tabular-nums ${dark?'bg-slate-700 text-slate-200':'bg-slate-100 text-slate-600'}`}>{monthRecords.length}건</span>
+    <span className={`rounded-full px-2.5 py-1 text-xs font-bold tabular-nums ${dark?'bg-slate-700 text-slate-200':'bg-slate-100 text-slate-600'}`}>{selectedMonthRecordCount}건</span>
    </div>
    <div className={`flex items-center gap-2 rounded-xl border p-2 ${dark?'border-slate-700 bg-slate-900/70':'border-slate-200 bg-slate-50'}`}>
     <button type="button" onClick={()=>changeSelectedMonth(-1)} aria-label="이전 달" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${dark?'bg-slate-800 text-slate-200':'bg-white text-slate-700 shadow-sm'}`}><ChevronLeft size={19}/></button>
@@ -291,8 +294,8 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
     </label>
     <button type="button" onClick={()=>changeSelectedMonth(1)} aria-label="다음 달" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${dark?'bg-slate-800 text-slate-200':'bg-white text-slate-700 shadow-sm'}`}><ChevronRight size={19}/></button>
    </div>
-   <button type="button" onClick={handlePrint} disabled={!monthRecords.length} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-800 px-3 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40 dark:bg-blue-600"><Printer size={17}/> {selectedMonth.replace('-', '년 ')}월 저장/공유</button>
-   <p className={`mt-2 text-center text-xs leading-5 ${mutedClass}`}>선택한 월의 점검 기록 {monthRecords.length}건을 공식 서식 PDF로 저장하거나 공유합니다.</p>
+   <button type="button" onClick={handlePrint} disabled={!selectedMonthRecordCount} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-800 px-3 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40 dark:bg-blue-600"><Printer size={17}/> {selectedMonth.replace('-', '년 ')}월 저장/공유</button>
+   <p className={`mt-2 text-center text-xs leading-5 ${mutedClass}`}>선택한 월의 점검 기록 {selectedMonthRecordCount}건을 공식 서식 PDF로 저장하거나 공유합니다.</p>
   </section>
 
   <section className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950">
