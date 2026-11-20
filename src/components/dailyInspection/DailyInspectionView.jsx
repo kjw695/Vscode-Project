@@ -190,9 +190,9 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
      <p className="w-full overflow-x-auto whitespace-nowrap text-[16px] sm:text-lg font-semibold leading-7" title={`${itemNumber}. ${item.label}`}>
       <span className="mr-2 font-black text-blue-600 dark:text-blue-400">{itemNumber}</span>{item.label}{item.extra&&<span className="ml-2 text-xs font-bold text-blue-500">추가점검</span>}
      </p>
-     <div className="grid grid-cols-2 gap-2 mt-3">
-      <button type="button" onClick={()=>chooseAnswer(item.id,'good')} aria-pressed={answer==='good'} className={`min-h-[50px] w-full rounded-xl border px-3 py-3 text-base font-black ${answer==='good'?'border-emerald-500 bg-emerald-500 text-white':dark?'border-slate-600 text-slate-200':'border-slate-300 text-slate-700'}`}>○ 양호</button>
-      <button type="button" onClick={()=>chooseAnswer(item.id,'bad')} aria-pressed={answer==='bad'} className={`min-h-[50px] w-full rounded-xl border px-3 py-3 text-base font-black ${answer==='bad'?'border-red-500 bg-red-500 text-white':dark?'border-slate-600 text-slate-200':'border-slate-300 text-slate-700'}`}>× 불량</button>
+     <div className="grid grid-cols-2 gap-1.5 mt-2">
+      <button type="button" onClick={()=>chooseAnswer(item.id,'good')} aria-pressed={answer==='good'} className={`h-10 min-h-0 min-w-0 w-full rounded-lg border px-2 py-1.5 text-[15px] font-black leading-none whitespace-nowrap ${answer==='good'?'border-emerald-500 bg-emerald-500 text-white':dark?'border-slate-600 text-slate-200':'border-slate-300 text-slate-700'}`}>○ 양호</button>
+      <button type="button" onClick={()=>chooseAnswer(item.id,'bad')} aria-pressed={answer==='bad'} className={`h-10 min-h-0 min-w-0 w-full rounded-lg border px-2 py-1.5 text-[15px] font-black leading-none whitespace-nowrap ${answer==='bad'?'border-red-500 bg-red-500 text-white':dark?'border-slate-600 text-slate-200':'border-slate-300 text-slate-700'}`}>× 불량</button>
      </div>
     </div>;
    })}
