@@ -1,9 +1,35 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 const SignaturePad = ({ value, onChange, label, isDarkMode }) => {
     const canvasRef = useRef(null);
     const drawingRef = useRef(false);
     const [hasInk, setHasInk] = useState(Boolean(value));
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return undefined;
+
+        const context = canvas.getContext('2d');
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        if (!value) {
+            setHasInk(false);
+            return undefined;
+        }
+
+        const image = new Image();
+        image.onload = () => {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(image, 0, 0, canvas.width, canvas.height);
+            setHasInk(true);
+        };
+        image.onerror = () => setHasInk(false);
+        image.src = value;
+
+        return () => {
+            image.onload = null;
+            image.onerror = null;
+        };
+    }, [value]);
 
     const point = (event) => {
         const canvas = canvasRef.current;
@@ -28,7 +54,6 @@ const SignaturePad = ({ value, onChange, label, isDarkMode }) => {
         const p = point(event);
         ctx.lineTo(p.x, p.y); ctx.stroke();
         setHasInk(true);
-        onChange(canvasRef.current.toDataURL('image/png'));
     };
     const stop = () => {
         if (!drawingRef.current) return;
