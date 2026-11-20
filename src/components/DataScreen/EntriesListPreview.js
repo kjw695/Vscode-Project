@@ -62,7 +62,7 @@ const AmountPair = ({ stats, compact = false }) => {
     const expenses = safeNumber(stats?.totalExpenses);
 
     return (
-        <div className={'flex shrink-0 items-center justify-end gap-1.5 whitespace-nowrap ' + (compact ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-sm')}>
+        <div className={'flex shrink-0 items-center justify-end gap-1.5 whitespace-nowrap ' + (compact ? 'text-xs sm:text-[13px]' : 'text-sm')}>
             {revenue > 0 && (
                 <span className="font-bold text-red-500">+{revenue.toLocaleString()}원</span>
             )}
@@ -76,6 +76,7 @@ const AmountPair = ({ stats, compact = false }) => {
     );
 };
 
+// 휴무 일정은 별도 캘린더/휴무관리 영역의 정보이므로 이 데이터 목록에는 합치지 않습니다.
 const EntriesListPreview = ({
     entries = [],
     summary,
@@ -152,7 +153,7 @@ const EntriesListPreview = ({
     const mutedTextClass = isDarkMode ? 'text-gray-400' : 'text-gray-500';
 
     return (
-        <div className="w-full space-y-3 pb-32">
+        <div className="w-full space-y-4 pb-32">
             <div className={'sticky top-0 z-20 -mx-1 flex items-center gap-2 border-b px-1 py-2 ' + (isDarkMode ? 'border-gray-700 bg-[#111827]' : 'border-gray-100 bg-white')}>
                 <button
                     type="button"
@@ -180,8 +181,8 @@ const EntriesListPreview = ({
             </div>
 
             {summary && (
-                <div className={'rounded-xl border px-3 py-2.5 ' + panelClass}>
-                    <div className="mb-1 flex items-center justify-between gap-2">
+                <div className={'rounded-xl border px-4 py-3.5 ' + panelClass}>
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
                         <span className="text-sm font-bold">전체 합계</span>
                         <AmountPair stats={summary} />
                     </div>
@@ -197,7 +198,7 @@ const EntriesListPreview = ({
                     <p className="text-sm font-semibold">저장된 데이터가 없습니다.</p>
                 </div>
             ) : (
-                <div className="space-y-4">
+                <div className="space-y-5">
                     {sortedMonths.map((month) => {
                         const monthEntries = groupedMonths[month];
                         const monthStats = calculateData(monthEntries, itemLabels);
@@ -215,11 +216,11 @@ const EntriesListPreview = ({
                             : Number(month.slice(5, 7)) + '월';
 
                         return (
-                            <section key={month} className="space-y-2">
+                            <section key={month} className="space-y-3">
                                 <button
                                     type="button"
                                     onClick={() => toggleMonth(month)}
-                                    className={'flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left ' + panelClass}
+                                    className={'flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3.5 text-left ' + panelClass}
                                 >
                                     <div className="flex min-w-0 items-center gap-2">
                                         {isMonthCollapsed ? <ChevronDown size={17} /> : <ChevronUp size={17} />}
@@ -231,7 +232,7 @@ const EntriesListPreview = ({
                                 </button>
 
                                 {!isMonthCollapsed && (
-                                    <div className="space-y-2">
+                                    <div className="space-y-3">
                                         {sortedDates.map((date) => {
                                             const dailyEntries = datesMap[date];
                                             const dailyStats = calculateData(dailyEntries, itemLabels);
@@ -244,7 +245,7 @@ const EntriesListPreview = ({
                                                     <button
                                                         type="button"
                                                         onClick={() => toggleDate(date)}
-                                                        className={'flex w-full items-center justify-between gap-2 rounded-t-xl px-3 py-2.5 text-left ' + (isDarkMode ? 'hover:bg-gray-700/60' : 'hover:bg-gray-50')}
+                                                        className={'flex w-full items-center justify-between gap-3 rounded-t-xl px-4 py-3.5 text-left ' + (isDarkMode ? 'hover:bg-gray-700/60' : 'hover:bg-gray-50')}
                                                     >
                                                         <span className="flex min-w-0 items-center gap-2">
                                                             <CalendarDays size={15} className={'shrink-0 ' + mutedTextClass} />
@@ -258,12 +259,12 @@ const EntriesListPreview = ({
                                                         </span>
                                                     </button>
 
-                                                    <div className={'px-3 pb-2 text-[11px] ' + mutedTextClass}>
+                                                    <div className={'px-4 pb-3 text-xs leading-5 ' + mutedTextClass}>
                                                         {volumeSummary || '수량 항목 없음'}
                                                     </div>
 
                                                     {isDateExpanded && (
-                                                        <div className={'border-t px-2.5 py-1 ' + (isDarkMode ? 'border-gray-700' : 'border-gray-100')}>
+                                                        <div className={'border-t px-3 py-1.5 ' + (isDarkMode ? 'border-gray-700' : 'border-gray-100')}>
                                                             {roundGroups.map((group) => {
                                                                 const roundStats = calculateData(group.entries, itemLabels);
                                                                 const itemSummary = getItemSummary(roundStats);
@@ -272,13 +273,13 @@ const EntriesListPreview = ({
                                                                 const memos = group.entries.filter((entry) => String(entry.memo || '').trim());
 
                                                                 return (
-                                                                    <div key={actionKey} className={'relative border-b py-2 last:border-b-0 ' + (isDarkMode ? 'border-gray-700' : 'border-gray-100')}>
-                                                                        <div className="flex min-w-0 items-center gap-2">
-                                                                            <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-                                                                                <span className={'shrink-0 text-[11px] font-extrabold ' + (isDarkMode ? 'text-gray-200' : 'text-gray-700')}>
+                                                                    <div key={actionKey} className={'relative border-b py-3 last:border-b-0 ' + (isDarkMode ? 'border-gray-700' : 'border-gray-100')}>
+                                                                        <div className="flex min-w-0 items-center gap-3">
+                                                                            <div className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
+                                                                                <span className={'shrink-0 text-xs font-extrabold ' + (isDarkMode ? 'text-gray-200' : 'text-gray-700')}>
                                                                                     {group.label}
                                                                                 </span>
-                                                                                <div className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap text-[11px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                                                                                <div className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap text-xs [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                                                                                     <span className={mutedTextClass}>
                                                                                         {itemSummary || '수량 정보 없음'}
                                                                                     </span>
@@ -298,7 +299,7 @@ const EntriesListPreview = ({
                                                                         {memos.map((entry, memoIndex) => (
                                                                             <div
                                                                                 key={(entry.id || actionKey) + '-memo-' + memoIndex}
-                                                                                className={'mt-1 pl-1 text-[11px] leading-4 whitespace-pre-wrap break-words ' + (isDarkMode ? 'text-amber-300' : 'text-amber-700')}
+                                                                                className={'mt-2 pl-1 text-xs leading-5 whitespace-pre-wrap break-words ' + (isDarkMode ? 'text-amber-300' : 'text-amber-700')}
                                                                             >
                                                                                 메모: {String(entry.memo).trim()}
                                                                             </div>
