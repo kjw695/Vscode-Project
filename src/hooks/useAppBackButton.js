@@ -53,6 +53,12 @@ const useAppBackButton = ({
                     return;
                 }
 
+                // 홈의 일상점검표 화면에서는 앱 종료 대신 홈 요약 화면으로 돌아갑니다.
+                if (selectedMainTab === 'home' && activeContentTab === 'dailyInspection') {
+                    setActiveContentTab('bluecoinsDailySummary');
+                    return;
+                }
+
                 // ✨ 4. 주소(Hash) 확인 및 뒤로 가기 (할부 창, 계산기 창 등)
                 // 이제 팝업이 모두 닫힌 상태에서만 할부 창이 닫힙니다.
                 if (window.location.hash) {
