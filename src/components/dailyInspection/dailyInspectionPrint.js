@@ -25,10 +25,6 @@ const OFFICIAL_ITEMS = [
 // 월간 점검표는 실제 날짜와 일치하도록 1일부터 31일까지 모두 표시합니다.
 const FORM_DAYS = Array.from({ length: 31 }, (_, index) => index + 1);
 
-const dateLabel = (date) => {
-    const [year, month, day] = String(date).split('-').map(Number);
-    return `${year}년 ${month}월 ${day}일`;
-};
 
 export const printDailyInspectionMonth = (records, year, month) => {
     const monthRecords = [...(records || [])].sort((a, b) => String(a.date).localeCompare(String(b.date)));
