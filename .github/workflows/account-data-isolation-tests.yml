@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - feature/account-data-isolation-tests
+      - feature/confirmed-schedule-change-integrated
   pull_request:
     branches:
       - feature/account-data-isolation
+      - feature/shared-company-admin-data
 
 permissions:
   contents: read
@@ -53,6 +55,9 @@ jobs:
         env:
           CI: 'true'
         run: npm test -- --watchAll=false --runInBand src/admin/utils/schedulingEngine.test.js
+
+      - name: Verify confirmed schedule change safeguards
+        run: node scripts/verify-confirmed-schedule-change.js
 
       - name: Build React production bundle
         env:
