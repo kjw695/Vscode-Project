@@ -38,7 +38,7 @@ const DailyInspectionCard = ({
             <div className="text-xs whitespace-nowrap font-semibold text-slate-500 dark:text-slate-400">
                 일상점검표
             </div>
-            <div className={`mt-0.5 truncate text-[clamp(11px,3.2vw,15px)] font-black ${statusColor}`}>
+            <div className={`mt-0.5 truncate text-lg leading-[1.1] font-black ${statusColor}`}>
                 {statusLabel}
             </div>
         </button>
