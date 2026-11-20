@@ -6,10 +6,12 @@ on:
       - security-audit
       - feature/account-data-isolation
       - feature/shared-company-admin-data
+      - feature/confirmed-schedule-change-integrated
   pull_request:
     branches:
       - security-audit
       - feature/account-data-isolation
+      - feature/shared-company-admin-data
   workflow_dispatch:
 
 permissions:
