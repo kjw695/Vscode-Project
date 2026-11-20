@@ -13,7 +13,7 @@ const DailyInspectionCard = ({
     const statusLabel = isOff
         ? '휴무'
         : isPending
-            ? '근무표 미확정'
+            ? '미확정'
             : isComplete
                 ? '완료'
                 : '미완료';
