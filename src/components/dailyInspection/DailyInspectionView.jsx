@@ -162,7 +162,6 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
    });
    try{saveSavedTransportCompanyName(userId,normalizedCompanyName);}catch(storageError){console.warn("[DailyInspection] 운송사업자명 자동 저장 실패:",storageError);}
    setCurrentRecord(record);setIsSaved(true);setCorrectionReason('');
-   const [year,month]=String(date).slice(0,7).split('-');
    const [selectedYear,selectedMonthNumber]=selectedMonth.split('-');
    setMonthRecords(listDailyInspectionRecords(userId,selectedYear,selectedMonthNumber));
    onSaved?.(record);
@@ -180,7 +179,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   try{
    const [year,month]=selectedMonth.split('-');
    const records=listDailyInspectionRecords(userId,year,month);
-   if(!records.length&&currentRecord)records.push(currentRecord);
+   if(!records.length&&currentRecord&&String(currentRecord.inspectionDate||currentRecord.date||'').startsWith(`${selectedMonth}-`))records.push(currentRecord);
    if(!records.length){setSaveError('선택한 달에 출력할 점검 기록이 없습니다.');return;}
    printDailyInspectionMonth(records,year,Number(month));
   }catch(error){setSaveError(error.message||'인쇄 화면을 열지 못했습니다.');}
