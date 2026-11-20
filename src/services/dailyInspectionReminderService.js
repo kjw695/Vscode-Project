@@ -46,6 +46,17 @@ const ensurePermission = async () => {
     if (permission.display !== 'granted') {
         throw new Error('알림 권한이 허용되지 않았습니다. 휴대폰 설정에서 택배메이트 알림을 허용해주세요.');
     }
+
+    if (Capacitor.getPlatform() === 'android') {
+        let exactPermission = await LocalNotifications.checkExactNotificationSetting();
+        if (exactPermission.exact_alarm !== 'granted') {
+            await LocalNotifications.changeExactNotificationSetting();
+            exactPermission = await LocalNotifications.checkExactNotificationSetting();
+        }
+        if (exactPermission.exact_alarm !== 'granted') {
+            throw new Error('정확한 알람 권한이 필요합니다. 휴대폰 설정에서 택배메이트의 알람 및 리마인더를 허용한 뒤 다시 눌러주세요.');
+        }
+    }
 };
 
 export const enableDailyInspectionReminder = async (userId, time) => {
@@ -56,17 +67,6 @@ export const enableDailyInspectionReminder = async (userId, time) => {
     await ensurePermission();
 
     const [hour, minute] = time.split(':').map(Number);
-    if (Capacitor.getPlatform() === 'android') {
-        await LocalNotifications.createChannel({
-            id: REMINDER_CHANNEL_ID,
-            name: '업무 전 차량 점검 알림',
-            description: '업무 시작 전 일상점검표 작성 알림',
-            importance: 5,
-            visibility: 1,
-            vibration: true
-        });
-    }
-
     await LocalNotifications.cancel({
         notifications: [{ id: getReminderNotificationId(userId) }]
     });
@@ -76,7 +76,6 @@ export const enableDailyInspectionReminder = async (userId, time) => {
             id: getReminderNotificationId(userId),
             title: '업무 전 차량 점검',
             body: '업무를 시작하기 전에 일상점검표를 작성해주세요.',
-            channelId: REMINDER_CHANNEL_ID,
             schedule: {
                 on: { hour, minute },
                 allowWhileIdle: true
