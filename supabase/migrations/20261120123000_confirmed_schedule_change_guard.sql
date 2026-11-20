@@ -53,7 +53,6 @@ BEGIN
            OR OLD.warnings IS DISTINCT FROM NEW.warnings
        ) THEN
         v_reason := NULLIF(left(btrim(current_setting('app.schedule_change_reason', true)), 300), '');
-    v_requested_change_type := NULLIF(current_setting('app.schedule_change_type', true), '');
         IF v_reason IS NULL THEN
             RAISE EXCEPTION '확정된 근무표를 변경하려면 변경 사유를 입력해주세요.';
         END IF;
@@ -99,6 +98,7 @@ DECLARE
     v_status text;
 BEGIN
     v_reason := NULLIF(left(btrim(current_setting('app.schedule_change_reason', true)), 300), '');
+    v_requested_change_type := NULLIF(current_setting('app.schedule_change_type', true), '');
 
     BEGIN
         v_restore_id := NULLIF(current_setting('app.schedule_restore_revision_id', true), '')::uuid;
