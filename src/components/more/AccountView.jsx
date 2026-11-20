@@ -45,6 +45,7 @@ function AccountView({ onBack, isDarkMode, autoEdit = false }) {
   const [logoutError, setLogoutError] = useState('');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [showFinalDeleteConfirmation, setShowFinalDeleteConfirmation] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deleteAccountError, setDeleteAccountError] = useState('');
@@ -790,10 +791,51 @@ const handleEditClick = () => {
               <button
                 type="button"
                 disabled={isDeletingAccount || deleteConfirmation.trim() !== '탈퇴합니다'}
+                onClick={() => {
+                  setShowDeleteAccount(false);
+                  setShowFinalDeleteConfirmation(true);
+                }}
+                className="flex-1 rounded-lg bg-red-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
+              >
+                계정 영구 삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showFinalDeleteConfirmation && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/70 p-4">
+          <div className={`w-full max-w-sm rounded-2xl p-5 shadow-2xl ${isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}>
+            <h3 className="text-lg font-bold text-red-600 dark:text-red-400">
+              정말 계정을 영구 삭제하시겠습니까?
+            </h3>
+            <p className="mt-3 text-sm leading-6">
+              삭제 후에는 계정과 개인 데이터를 복구할 수 없습니다.
+            </p>
+            {deleteAccountError && (
+              <p className="mt-3 text-sm text-red-500">{deleteAccountError}</p>
+            )}
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                disabled={isDeletingAccount}
+                onClick={() => {
+                  setShowFinalDeleteConfirmation(false);
+                  setDeleteAccountError('');
+                  setShowDeleteAccount(true);
+                }}
+                className={`flex-1 rounded-lg py-3 text-sm font-semibold ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} disabled:opacity-50`}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingAccount}
                 onClick={handleAccountDeletion}
                 className="flex-1 rounded-lg bg-red-600 py-3 text-sm font-semibold text-white disabled:opacity-40"
               >
-                {isDeletingAccount ? '삭제 중...' : '계정 영구 삭제'}
+                {isDeletingAccount ? '삭제 중...' : '최종 삭제'}
               </button>
             </div>
           </div>
