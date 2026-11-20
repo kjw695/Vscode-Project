@@ -62,32 +62,8 @@ Deno.serve(async (request: Request) => {
     error: "먼저 팀 관리에서 팀 나가기를 완료해야 탈퇴할 수 있습니다. 회사 근무표와 다른 직원의 기록은 보존됩니다.",
   }, 409);
 
-  // Supabase Auth refuses to delete users who still own Storage objects.
-  // Remove only objects owned by this authenticated user; never touch other owners.
-  const { data: objects, error: objectsError } = await admin
-    .schema("storage").from("objects").select("bucket_id,name").eq("owner_id", user.id);
-  if (objectsError) {
-    console.error("[delete-account] Storage ownership lookup failed:", objectsError.message);
-    return jsonResponse({ success: false, error: "개인 파일 보관 상태를 확인하지 못했습니다. 고객센터에 문의해주세요." }, 500);
-  }
-
-  const byBucket = new Map<string, string[]>();
-  for (const object of objects ?? []) {
-    if (!object.bucket_id || !object.name) continue;
-    const paths = byBucket.get(object.bucket_id) ?? [];
-    paths.push(object.name);
-    byBucket.set(object.bucket_id, paths);
-  }
-
-  for (const [bucket, paths] of byBucket) {
-    for (let offset = 0; offset < paths.length; offset += 100) {
-      const { error } = await admin.storage.from(bucket).remove(paths.slice(offset, offset + 100));
-      if (error) {
-        console.error("[delete-account] Storage cleanup failed:", bucket, error.message);
-        return jsonResponse({ success: false, error: "개인 파일을 삭제하지 못했습니다. 계정은 삭제되지 않았습니다." }, 500);
-      }
-    }
-  }
+  // This project currently has no Storage buckets. If file uploads are added
+  // later, add an authenticated per-user object cleanup step before deletion.
 
   // The database BEFORE DELETE trigger atomically rechecks organization state,
   // deletes private rows, and anonymizes references in shared company history.
