@@ -10,19 +10,16 @@ const INSPECTION_GROUPS = [
  { title:'외관점검', items:[
   {id:'cleanliness',label:'번호판, 전면유리, 후사경 등의 청결상태'},
   {id:'lighting',label:'후미등, 차폭등 등 등화장치 작동상태'},
-  {id:'wipers',label:'창닦이기(와이퍼) 작동상태'},
-  {id:'cargoBody',label:'적재함·덮개·보조지지대·측면 보호대·후부반사판·연결장치의 부착 및 훼손 여부'}
+  {id:'wipers',label:'창닦이기 작동상태'},
+  {id:'cargoBody',label:'적재함(보조지지대 포함), 측면 보호대, 후부반사판, 트레일러 연결장치의 부착 상태 및 훼손 여부'}
  ]},
  { title:'상태점검', items:[
-  {id:'tires',label:'타이어 손상 및 마모(1.6mm 이상) 여부'},
-  {id:'cargoFixing',label:'화물·적재함 덮개·결속장치 및 판스프링 고정상태'},
-  {id:'wheelNuts',label:'바퀴 너트 등의 균열 여부'},
-  {id:'brakes',label:'제동장치 작동 및 제동력 이상 여부',extra:true},
-  {id:'engineLeak',label:'원동기 누유·냉각수·엔진오일 등 이상 여부',extra:true},
-  {id:'illegalAttachments',label:'판스프링 등 불법 부착물·임의 개조 여부',extra:true}
+  {id:'tires',label:'타이어 손상 및 마모(1.6mm이상) 여부'},
+  {id:'cargoFixing',label:'화물, 적재함 지지대(판스프링) 등의 고정상태'},
+  {id:'wheelNuts',label:'바퀴 너트 등 균열 여부'}
  ]},
  { title:'기타', items:[
-  {id:'fluidsAndWarning',label:'냉각수·공기압·엔진오일 등 차량 이상 여부(계기판 확인)'},
+  {id:'fluidsAndWarning',label:'냉각수, 공기압, 엔진오일 등 차량 이상 여부(계기판 확인)'},
   {id:'seatBelt',label:'좌석 안전띠 상태'},
   {id:'fireExtinguisher',label:'소화기 비치 여부'},
   {id:'warningTriangle',label:'안전삼각대 등 비치 여부'}
@@ -200,21 +197,20 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   </div>
 
   <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
-   <div className="grid grid-cols-2 gap-3">
-    <label className="col-span-2 flex w-full min-w-0 flex-col items-stretch text-center text-xs">
-     <span className="mb-1 text-center">운송사업자명</span>
-     <input value={transportCompanyName} onChange={e=>setTransportCompanyName(e.target.value)} maxLength={100} placeholder="운송사업자명 입력" className={`${fieldClass} block w-full text-center`} style={{textAlign:"center"}}/>
+   <div className="grid grid-cols-3 gap-1.5">
+    <label className="flex w-full min-w-0 flex-col items-stretch text-center text-[11px] font-semibold">
+     <span className="mb-1 text-center whitespace-nowrap">운전자명</span>
+     <input value={driverName} onChange={e=>setDriverName(e.target.value)} maxLength={60} placeholder="이름" className={`${fieldClass} block w-full !mt-1 !px-1.5 text-center text-xs`} style={{textAlign:"center"}}/>
     </label>
-    <label className="flex w-full min-w-0 flex-col items-stretch text-center text-xs">
-     <span className="mb-1 text-center">운전자(점검자) 성명</span>
-     <input value={driverName} onChange={e=>setDriverName(e.target.value)} maxLength={60} placeholder="이름 입력" className={`${fieldClass} block w-full text-center`} style={{textAlign:"center"}}/>
+    <label className="flex w-full min-w-0 flex-col items-stretch text-center text-[11px] font-semibold">
+     <span className="mb-1 text-center whitespace-nowrap">운송사업자명</span>
+     <input value={transportCompanyName} onChange={e=>setTransportCompanyName(e.target.value)} maxLength={100} placeholder="사업자명" className={`${fieldClass} block w-full !mt-1 !px-1.5 text-center text-xs`} style={{textAlign:"center"}}/>
     </label>
-    <label className="flex w-full min-w-0 flex-col items-stretch text-center text-xs">
-     <span className="mb-1 text-center">차량번호</span>
-     <input value={vehicleNumber} onChange={e=>setVehicleNumber(e.target.value)} maxLength={30} placeholder="차량번호 입력" className={`${fieldClass} block w-full text-center`} style={{textAlign:"center"}}/>
+    <label className="flex w-full min-w-0 flex-col items-stretch text-center text-[11px] font-semibold">
+     <span className="mb-1 text-center whitespace-nowrap">차량번호</span>
+     <input value={vehicleNumber} onChange={e=>setVehicleNumber(e.target.value)} maxLength={30} placeholder="차량번호" className={`${fieldClass} block w-full !mt-1 !px-1.5 text-center text-xs`} style={{textAlign:"center"}}/>
     </label>
    </div>
-   <p className={`mt-2 text-xs ${mutedClass}`}>운송사업자명은 한 번 입력하면 이 기기에 저장되어 다음 점검에도 자동 입력됩니다.</p>
    {(hasMissingIdentity||identityChanged)&&<div className="mt-3">
     <p className={`mb-2 text-xs ${mutedClass}`}>점검 완료 저장 시 로그인 계정의 내정보에도 이름과 차량번호가 반영됩니다.</p>
     <button type="button" onClick={handleSaveIdentity} disabled={!authUser?.id||!driverName.trim()||!vehicleNumber.trim()||isSavingProfile} className="w-full rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-40">{isSavingProfile?'내정보 저장 중...':'입력한 정보를 내정보에 저장'}</button>
@@ -238,7 +234,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
     const itemNumber=`${groupIndex+1}-${itemIndex+1}`;
     return <div key={item.id} className="py-3 border-t first:border-t-0 border-slate-200 dark:border-slate-700">
      <p className="w-full overflow-x-auto whitespace-nowrap text-[16px] sm:text-lg font-semibold leading-7" title={`${itemNumber}. ${item.label}`}>
-      <span className="mr-2 font-black text-blue-600 dark:text-blue-400">{itemNumber}</span>{item.label}{item.extra&&<span className="ml-2 text-xs font-bold text-blue-500">추가점검</span>}
+      <span className="mr-2 font-black text-blue-600 dark:text-blue-400">{itemNumber}</span>{item.label}
      </p>
      <div className="grid grid-cols-2 gap-1.5 mt-2">
       <button type="button" onClick={()=>chooseAnswer(item.id,'good')} aria-pressed={answer==='good'} className={`h-10 min-h-0 min-w-0 w-full rounded-lg border px-2 py-1.5 text-[15px] font-black leading-none whitespace-nowrap ${answer==='good'?'border-emerald-500 bg-emerald-500 text-white':dark?'border-slate-600 text-slate-200':'border-slate-300 text-slate-700'}`}>○ 양호</button>
@@ -262,8 +258,8 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
    <h3 className="font-black text-sm mb-3">전자서명</h3>
    <div className="mb-3"><SignaturePad value={driverSignature} onChange={v=>{setDriverSignature(v);setIsSaved(false);setSignatureMessage('');}} label="운전자(점검자) 자필 서명" isDarkMode={dark}/></div>
    <div className="grid grid-cols-2 gap-2">
-    <button type="button" onClick={handleSaveSignature} disabled={!driverSignature} className="min-h-10 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-40">현재 서명 저장</button>
-    <button type="button" onClick={handleLoadSavedSignature} disabled={!savedDriverSignature} className={`min-h-10 rounded-lg border px-3 py-2 text-sm font-bold disabled:opacity-40 ${dark?'border-slate-600 text-slate-200':'border-slate-300 text-slate-700'}`}>저장한 서명 불러오기</button>
+    <button type="button" onClick={handleSaveSignature} disabled={!driverSignature} className="min-h-10 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-40">서명 저장</button>
+    <button type="button" onClick={handleLoadSavedSignature} disabled={!savedDriverSignature} className={`min-h-10 rounded-lg border px-3 py-2 text-sm font-bold disabled:opacity-40 ${dark?'border-slate-600 text-slate-200':'border-slate-300 text-slate-700'}`}>서명 불러오기</button>
    </div>
    <p className={`mt-2 text-xs leading-5 ${mutedClass}`}>{savedDriverSignature?'저장된 서명이 있습니다. 새 점검을 열면 자동으로 불러옵니다.':'한 번 서명을 저장하면 다음 점검부터 자동으로 사용할 수 있습니다.'}</p>
    {signatureMessage&&<p className="mt-2 text-xs font-semibold text-blue-600 dark:text-blue-300">{signatureMessage}</p>}
