@@ -5,6 +5,7 @@ import { printDailyInspectionMonth } from './dailyInspectionPrint';
 import SignaturePad from './DailyInspectionSignaturePad';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../contexts/AuthContext';
+import { enableDailyInspectionReminder, disableDailyInspectionReminder, readDailyInspectionReminder } from '../../services/dailyInspectionReminderService';
 
 const INSPECTION_GROUPS = [
  { title:'외관점검', items:[
@@ -54,6 +55,12 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const [currentRecord,setCurrentRecord]=useState(null);
  const [monthRecords,setMonthRecords]=useState([]);
  const [selectedMonth,setSelectedMonth]=useState(String(date||'').slice(0,7));
+ const [isMonthPickerOpen,setIsMonthPickerOpen]=useState(false);
+ const [monthPickerYear,setMonthPickerYear]=useState(Number(String(date||'').slice(0,4))||new Date().getFullYear());
+ const [reminderTime,setReminderTime]=useState('07:00');
+ const [reminderEnabled,setReminderEnabled]=useState(false);
+ const [reminderMessage,setReminderMessage]=useState('');
+ const [isSavingReminder,setIsSavingReminder]=useState(false);
  const [isSavingProfile,setIsSavingProfile]=useState(false);
  const [profileSaveMessage,setProfileSaveMessage]=useState('');
  const [profileSaveError,setProfileSaveError]=useState('');
@@ -81,6 +88,12 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  };
  useEffect(()=>{refreshRecords();setSaveError('');},[userId,date]);
  useEffect(()=>{setSelectedMonth(String(date||'').slice(0,7));},[date]);
+ useEffect(()=>{
+  const setting=readDailyInspectionReminder(userId);
+  setReminderTime(setting.time);
+  setReminderEnabled(setting.enabled);
+  setReminderMessage('');
+ },[userId]);
  useEffect(()=>{
   if(!selectedMonth)return;
   const [year,month]=selectedMonth.split('-');
@@ -169,6 +182,32 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   finally{setIsSavingProfile(false);}
  };
 
+ const handleEnableReminder=async()=>{
+  if(isSavingReminder)return;
+  setIsSavingReminder(true);setReminderMessage('');
+  try{
+   await enableDailyInspectionReminder(userId,reminderTime);
+   setReminderEnabled(true);
+   setReminderMessage(`매일 ${reminderTime}에 업무 전 점검 알림이 울립니다.`);
+  }catch(error){
+   setReminderMessage(error.message||'알림을 설정하지 못했습니다.');
+  }finally{setIsSavingReminder(false);}
+ };
+ const handleDisableReminder=async()=>{
+  if(isSavingReminder)return;
+  setIsSavingReminder(true);setReminderMessage('');
+  try{
+   await disableDailyInspectionReminder(userId,reminderTime);
+   setReminderEnabled(false);
+   setReminderMessage('일상점검 알림을 껐습니다.');
+  }catch(error){setReminderMessage(error.message||'알림을 끄지 못했습니다.');}
+  finally{setIsSavingReminder(false);}
+ };
+ const openMonthPicker=()=>{
+  setMonthPickerYear(Number(selectedMonth.slice(0,4))||new Date().getFullYear());
+  setIsMonthPickerOpen(true);
+ };
+
  const changeSelectedMonth=(delta)=>{
   if(!selectedMonth)return;
   const [year,month]=selectedMonth.split('-').map(Number);
@@ -196,7 +235,23 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
    <div className="min-w-0 flex-1"><h2 className="text-lg sm:text-xl font-black break-keep">화물자동차 안전사고 예방을 위한 일상점검표</h2><p className={`mt-0.5 text-xs ${mutedClass}`}>{formatDateLabel(date)}</p></div>
   </div>
 
-  <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
+    <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
+   <div className="flex items-center justify-between gap-2">
+    <h3 className="font-black text-sm">업무 전 점검 알림</h3>
+    <span className={`rounded-full px-2 py-1 text-xs font-bold ${reminderEnabled?'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300':'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300'}`}>{reminderEnabled?'알림 켜짐':'알림 꺼짐'}</span>
+   </div>
+   <div className="mt-2 flex items-end gap-2">
+    <label className="min-w-0 flex-1 text-xs font-semibold">알림 시간
+     <input type="time" value={reminderTime} onChange={e=>setReminderTime(e.target.value)} className={fieldClass}/>
+    </label>
+    <button type="button" onClick={handleEnableReminder} disabled={isSavingReminder} className="h-10 shrink-0 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white disabled:opacity-50">{isSavingReminder?'설정 중...':reminderEnabled?'시간 변경':'알림 켜기'}</button>
+   </div>
+   {reminderEnabled&&<button type="button" onClick={handleDisableReminder} disabled={isSavingReminder} className={`mt-2 text-xs font-semibold ${mutedClass} underline disabled:opacity-50`}>알림 끄기</button>}
+   <p className={`mt-2 text-xs leading-5 ${mutedClass}`}>설정한 시간에 매일 업무 전 차량 점검표 작성 알림을 보냅니다. 휴무일에도 알림이 울립니다.</p>
+   {reminderMessage&&<p className={`mt-2 text-xs font-semibold ${reminderMessage.includes('울립니다')||reminderMessage.includes('껐습니다')?'text-emerald-600 dark:text-emerald-400':'text-red-500'}`}>{reminderMessage}</p>}
+  </section>
+
+<section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
    <div className="grid grid-cols-3 gap-1.5">
     <label className="flex w-full min-w-0 flex-col items-stretch text-center text-[11px] font-semibold">
      <span className="mb-1 text-center whitespace-nowrap">운전자명</span>
@@ -284,10 +339,10 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
    </div>
    <div className={`flex items-center gap-2 rounded-xl border p-2 ${dark?'border-slate-700 bg-slate-900/70':'border-slate-200 bg-slate-50'}`}>
     <button type="button" onClick={()=>changeSelectedMonth(-1)} aria-label="이전 달" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${dark?'bg-slate-800 text-slate-200':'bg-white text-slate-700 shadow-sm'}`}><ChevronLeft size={19}/></button>
-    <label className="relative min-w-0 flex-1">
-     <CalendarDays size={16} className={`pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 ${mutedClass}`}/>
-     <input aria-label="출력할 월 선택" type="month" value={selectedMonth} onChange={e=>setSelectedMonth(e.target.value)} className={`h-10 w-full min-w-0 appearance-none rounded-lg border-0 bg-transparent pl-9 pr-1 text-center text-sm font-bold tabular-nums outline-none ${dark?'text-white':'text-slate-900'}`}/>
-    </label>
+    <button type="button" onClick={openMonthPicker} aria-label="출력할 월 선택" className={`flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg px-2 text-sm font-bold tabular-nums ${dark?'text-white':'text-slate-900'}`}>
+     <CalendarDays size={16} className={mutedClass}/>
+     <span>{selectedMonth.slice(0,4)}년 {Number(selectedMonth.slice(5,7))}월</span>
+    </button>
     <button type="button" onClick={()=>changeSelectedMonth(1)} aria-label="다음 달" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${dark?'bg-slate-800 text-slate-200':'bg-white text-slate-700 shadow-sm'}`}><ChevronRight size={19}/></button>
    </div>
    <button type="button" onClick={handlePrint} disabled={!selectedMonthRecordCount} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-800 px-3 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40 dark:bg-blue-600"><Printer size={17}/> {selectedMonth.replace('-', '년 ')}월 저장/공유</button>
@@ -299,6 +354,23 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
    <p className="mt-1 text-xs leading-5">모바일 기록만으로 모든 단속·제출 요건을 충족한다고 단정할 수 없습니다. 운수회사와 관할 기관에 모바일 기록 인정 여부를 확인하고, 보수적으로는 월별 점검표를 정기적으로 출력해 차량 내 서류함(글로브박스)에 함께 보관하세요.</p>
   </section>
   <p className={`mt-3 text-center text-[11px] leading-5 ${mutedClass}`}>현재 기록은 이 기기의 앱 저장소에 보관됩니다. 기기 시각은 서버가 인증한 타임스탬프가 아니며, 앱 삭제·기기 변경 시 기록이 사라질 수 있으므로 출력본도 보관하세요.</p>
+  {isMonthPickerOpen&&<div className="fixed inset-0 z-[10050] flex items-center justify-center bg-black/50 p-4" onClick={()=>setIsMonthPickerOpen(false)}>
+   <div role="dialog" aria-modal="true" aria-label="월 선택" className={`w-full max-w-sm rounded-2xl p-4 shadow-2xl ${dark?'bg-slate-800 text-white':'bg-white text-slate-900'}`} onClick={e=>e.stopPropagation()}>
+    <div className="mb-4 flex items-center justify-between gap-3">
+     <button type="button" onClick={()=>setMonthPickerYear(y=>y-1)} aria-label="이전 연도" className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-100"><ChevronLeft size={18}/></button>
+     <div className="text-base font-black tabular-nums">{monthPickerYear}년</div>
+     <button type="button" onClick={()=>setMonthPickerYear(y=>y+1)} aria-label="다음 연도" className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-100"><ChevronRight size={18}/></button>
+    </div>
+    <div className="grid grid-cols-3 gap-2">
+     {Array.from({length:12},(_,index)=>index+1).map(month=>{
+      const value=`${monthPickerYear}-${String(month).padStart(2,'0')}`;
+      const selected=value===selectedMonth;
+      return <button key={month} type="button" onClick={()=>{setSelectedMonth(value);setIsMonthPickerOpen(false);}} className={`h-11 rounded-lg text-sm font-bold ${selected?'bg-blue-600 text-white':dark?'bg-slate-700 text-slate-100':'bg-slate-100 text-slate-700'}`}>{month}월</button>;
+     })}
+    </div>
+    <button type="button" onClick={()=>setIsMonthPickerOpen(false)} className={`mt-4 h-10 w-full rounded-lg text-sm font-semibold ${dark?'bg-slate-700 text-slate-100':'bg-slate-100 text-slate-700'}`}>닫기</button>
+   </div>
+  </div>}
  </div>;
 };
 export default DailyInspectionView;
