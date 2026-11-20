@@ -22,8 +22,8 @@ const OFFICIAL_ITEMS = [
     ['warningTriangle', '기타', '안전삼각대 등 비치 여부']
 ];
 
-// 원본 서식의 날짜 열은 1~20일, 22~31일이며 21일 칸은 없습니다.
-const FORM_DAYS = [...Array.from({ length: 20 }, (_, index) => index + 1), ...Array.from({ length: 10 }, (_, index) => index + 22)];
+// 월간 점검표는 실제 날짜와 일치하도록 1일부터 31일까지 모두 표시합니다.
+const FORM_DAYS = Array.from({ length: 31 }, (_, index) => index + 1);
 
 const dateLabel = (date) => {
     const [year, month, day] = String(date).split('-').map(Number);
