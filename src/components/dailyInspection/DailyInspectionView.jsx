@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, ClipboardCheck, Printer, History } from 'lucide-react';
-import { listDailyInspectionRecords, readDailyInspectionRecord, saveDailyInspectionRecord, readSavedDriverSignature, saveSavedDriverSignature } from '../../services/dailyInspectionService';
+import { listDailyInspectionRecords, readDailyInspectionRecord, saveDailyInspectionRecord, readSavedDriverSignature, saveSavedDriverSignature, readSavedTransportCompanyName, saveSavedTransportCompanyName } from '../../services/dailyInspectionService';
 import { printDailyInspectionMonth } from './dailyInspectionPrint';
 import SignaturePad from './DailyInspectionSignaturePad';
 import { supabase } from '../../lib/supabaseClient';
@@ -47,6 +47,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const [actionNotes,setActionNotes]=useState('');
  const [saveError,setSaveError]=useState('');
  const [isSaved,setIsSaved]=useState(false);
+ const [transportCompanyName,setTransportCompanyName]=useState('');
  const [driverName,setDriverName]=useState(profile?.full_name||profile?.display_name||'');
  const [vehicleNumber,setVehicleNumber]=useState(profile?.vehicle_number||'');
  const [driverSignature,setDriverSignature]=useState('');
@@ -72,6 +73,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   setCurrentRecord(latest);
   setAnswers(latest?.answers&&typeof latest.answers==='object'?latest.answers:{});
   setActionNotes(latest?.actionNotes||'');
+  setTransportCompanyName(latest?.transportCompanyName||readSavedTransportCompanyName(userId)||'');
   const savedSignature=readSavedDriverSignature(userId);
   setSavedDriverSignature(savedSignature);
   setDriverSignature(latest?.driverSignature||savedSignature||'');
@@ -91,7 +93,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const profileVehicleNumber=profile?.vehicle_number||'';
  const hasMissingIdentity=!profileName.trim()||!profileVehicleNumber.trim();
  const identityChanged=driverName.trim()!==profileName.trim()||vehicleNumber.trim()!==profileVehicleNumber.trim();
- const canSave=allAnswered&&(badItems.length===0||actionNotes.trim().length>0)&&Boolean(driverName.trim())&&Boolean(vehicleNumber.trim())&&Boolean(driverSignature)&&(!currentRecord||Boolean(correctionReason.trim()));
+ const canSave=allAnswered&&(badItems.length===0||actionNotes.trim().length>0)&&Boolean(transportCompanyName.trim())&&Boolean(driverName.trim())&&Boolean(vehicleNumber.trim())&&Boolean(driverSignature)&&(!currentRecord||Boolean(correctionReason.trim()));
 
  const chooseAnswer=(id,value)=>{setAnswers(prev=>({...prev,[id]:value}));setIsSaved(false);setSaveError('');};
  const markAllAsGood=()=>{
@@ -138,6 +140,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const handleSave=async()=>{
   if(!canSave)return;
   setSaveError('');
+  const normalizedCompanyName=transportCompanyName.trim();
   const normalizedName=driverName.trim(),normalizedVehicle=vehicleNumber.trim();
   try{
    if(authUser?.id&&(hasMissingIdentity||identityChanged)){
@@ -148,10 +151,11 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
     setProfileSaveMessage('이름과 차량번호가 내정보에 자동 저장되었습니다.');
    }
    const record=await saveDailyInspectionRecord(userId,date,{
-    answers,actionNotes:actionNotes.trim(),driverName:normalizedName,vehicleNumber:normalizedVehicle,
+    answers,actionNotes:actionNotes.trim(),transportCompanyName:normalizedCompanyName,driverName:normalizedName,vehicleNumber:normalizedVehicle,
     driverSignature,correctionReason:correctionReason.trim(),supersedesId:currentRecord?.id||null,
     isNotOperated:false,completed:true
    });
+   saveSavedTransportCompanyName(userId,normalizedCompanyName);
    setCurrentRecord(record);setIsSaved(true);setCorrectionReason('');
    const [year,month]=String(date).slice(0,7).split('-');
    setMonthRecords(listDailyInspectionRecords(userId,year,month));
@@ -183,6 +187,10 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
 
   <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
    <div className="grid grid-cols-2 gap-3">
+    <label className="col-span-2 flex w-full min-w-0 flex-col items-stretch text-center text-xs">
+     <span className="mb-1 text-center">운송사업자명</span>
+     <input value={transportCompanyName} onChange={e=>setTransportCompanyName(e.target.value)} maxLength={100} placeholder="운송사업자명 입력" className={`${fieldClass} block w-full text-center`} style={{textAlign:"center"}}/>
+    </label>
     <label className="flex w-full min-w-0 flex-col items-stretch text-center text-xs">
      <span className="mb-1 text-center">운전자(점검자) 성명</span>
      <input value={driverName} onChange={e=>setDriverName(e.target.value)} maxLength={60} placeholder="이름 입력" className={`${fieldClass} block w-full text-center`} style={{textAlign:"center"}}/>
@@ -248,15 +256,15 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
 
   {currentRecord&&<section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
    <h3 className="font-black text-sm">기존 완료 기록 정정</h3>
-   <p className={`mt-1 text-xs ${mutedClass}`}>기존 기록을 덮어쓰지 않고 새 정정 이력으로 추가합니다. 기존 기록은 이 기기 안에서 계속 확인할 수 있습니다.</p>
+   <p className={`mt-1 text-xs ${mutedClass}`}>같은 날짜로 다시 저장하면 이전 점검 기록은 삭제되고 최신 기록 하나만 남습니다. 변경 사유를 입력해주세요.</p>
    <label className="block mt-2 text-xs">정정 사유(필수)<textarea value={correctionReason} onChange={e=>setCorrectionReason(e.target.value)} rows={2} placeholder="정정이 필요한 이유를 입력하세요." className={fieldClass}/></label>
   </section>}
 
   {saveError&&<p className="mb-3 rounded-lg bg-red-50 dark:bg-red-950/30 p-3 text-sm text-red-600">{saveError}</p>}
   {isSaved&&<p className="mb-3 flex items-center gap-2 text-sm font-semibold text-emerald-600"><CheckCircle2 size={17}/> 점검 기록이 기기에 저장되어 있습니다.</p>}
-  <button type="button" onClick={handleSave} disabled={!canSave||isSavingProfile} className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-black text-white disabled:opacity-40">{isSavingProfile?'저장 중...':currentRecord?'정정 이력으로 추가 저장':'점검 완료 저장'}</button>
+  <button type="button" onClick={handleSave} disabled={!canSave||isSavingProfile} className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-black text-white disabled:opacity-40">{isSavingProfile?'저장 중...':currentRecord?'기존 기록 덮어쓰기':'점검 완료 저장'}</button>
   {!canSave&&<p className={`mt-2 text-center text-xs ${mutedClass}`}>모든 항목 선택, 운전자 서명 및 필수 조치·정정 내용을 입력해야 저장됩니다.</p>}
-  {currentRecord&&<p className={`mt-2 text-center text-xs ${mutedClass}`}>최근 저장 시각(기기): {formatTimestamp(currentRecord.completedAt||currentRecord.updatedAt)} · 이력 {currentRecord.revision||1}차</p>}
+  {currentRecord&&<p className={`mt-2 text-center text-xs ${mutedClass}`}>최근 저장 시각(기기): {formatTimestamp(currentRecord.completedAt||currentRecord.updatedAt)} · 같은 날짜 기록은 최신본 1건만 보관</p>}
 
   <section className={`rounded-2xl border p-3 mt-5 ${panelClass}`}>
    <div className="flex items-center gap-2 mb-2"><History size={17}/><h3 className="font-black text-sm">월별 기록 및 출력</h3></div>
