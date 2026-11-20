@@ -174,7 +174,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
 </head>
 <body>
     <div class="toolbar">
-        <button type="button" onclick="window.print()">PDF 저장 / 인쇄</button>
+        <button type="button" onclick="window.printDailyInspectionPdf()">PDF 저장 / 인쇄</button>
         <button type="button" class="secondary" onclick="window.adjustDailyInspectionZoom(-0.1)">축소 −</button>
         <span id="preview-zoom-label" class="zoom-label">맞춤</span>
         <button type="button" class="secondary" onclick="window.adjustDailyInspectionZoom(0.1)">확대 +</button>
@@ -235,6 +235,17 @@ export const printDailyInspectionMonth = (records, year, month) => {
                 if (!target) return;
                 target.style.zoom = String(zoom);
                 if (label()) label().textContent = Math.round(zoom * 100) + '%';
+            };
+            window.printDailyInspectionPdf = async () => {
+                const images = Array.from(document.querySelectorAll('#preview-content img'));
+                await Promise.all(images.map((image) => {
+                    if (image.complete) return Promise.resolve();
+                    return new Promise((resolve) => {
+                        image.addEventListener('load', resolve, { once: true });
+                        image.addEventListener('error', resolve, { once: true });
+                    });
+                }));
+                window.print();
             };
             window.adjustDailyInspectionZoom = (delta) => {
                 zoom = Math.max(0.25, Math.min(1.5, Math.round((zoom + delta) * 100) / 100));
