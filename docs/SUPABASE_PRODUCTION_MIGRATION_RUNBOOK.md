@@ -1,96 +1,92 @@
-# Supabase 운영 DB 마이그레이션 사전 점검 및 적용 절차
+# Supabase 운영 DB 마이그레이션 적용 및 확인 기록
 
-> 2026-11-19 기준 읽기 전용 운영 DB 점검 결과를 기록한다. 이 문서는 SQL을 직접 실행하지 않는다.
+> 최종 확인: 2026-11-20  
+> 프로젝트: `delivery-app` (`rrjoilqlsyilqqtzybps`) · PostgreSQL 17.6 · `ACTIVE_HEALTHY`
 
-## 확인한 운영 상태
+## 현재 적용 상태
 
-프로젝트: delivery-app (rrjoilqlsyilqqtzybps), PostgreSQL 17.6, ACTIVE_HEALTHY.
+운영 DB의 마이그레이션 이력과 실제 스키마를 확인했다. 아래 16개 항목이 모두 applied로 기록되어 있다.
 
-운영 DB 마이그레이션 이력은 현재 다음 4개만 기록되어 있다.
+| 버전 | 마이그레이션 |
+|---|---|
+| 20261026090000 | security_hardening |
+| 20261027090000 | shift_exchange_rpc |
+| 20261029090000 | team_deletion_election |
+| 20261030090000 | organization_member_display_names |
+| 20261030100000 | profile_username_required |
+| 20261101090000 | organization_weekly_schedule_sync |
+| 20261101100000 | schedule_day_off_workflows |
+| 20261113 | camp_return_numbering_hakcheon_nongso |
+| 20261114 | regional_camp_return_forms |
+| 20261115 | camp_return_default_mobile_camp |
+| 20261116 | camp_return_records_delete_own |
+| 20261119193000 | shared_company_admin_data |
+| 20261119194500 | admin_data_backup_restore |
+| 20261119195500 | weekly_schedule_templates_history |
+| 20261119200500 | day_off_request_admin_history |
+| 20261120122049 | confirmed_schedule_change_guard |
 
-- 20261113
-- 20261114
-- 20261115
-- 20261116
+이전 2026-11-19 사전 점검에서는 신규 4개가 미적용으로 확인됐지만, 이후 PR #24와 PR #28 병합 후 이들 5개(기존 신규 4개 + 확정 근무표 보호 1개)가 운영 DB에 적용됐다. 예전 사전 점검의 “미적용” 설명과 적용 순서는 현재 상태에 적용하지 않는다.
 
-그러나 저장소에는 아래 7개 구버전 기능이 이미 운영 DB에 반영된 것으로 보이는 객체가 존재한다. 예시로 확인한 객체:
-- 계정/권한 보안 강화: profiles/entries/settings/notifications/shift_exchanges RLS 정책과 최소 권한 GRANT
-- 직원 휴무 교환: 중복 휴무 방지 인덱스, shift-exchange RPC, 직접 INSERT/UPDATE 차단
-- 업체 삭제/대표 변경: 삭제 요청·투표 테이블, 관련 함수, 분 단위 Cron 작업
-- 사용자명: profiles.username, 형식 CHECK, unique index, 멤버 표시이름 RPC
-- 주간 근무표 연동: organizations.schedule_sync_from, organization_weekly_schedules, 직원 휴무 RPC 및 기존 개인 휴무 연동 차단 로직
-- 추가 휴무/교환: organization_extra_day_off_requests, organization_schedule_change_history, 승인·교환 RPC
-
-다만 이 검사는 스키마·인덱스·정책·함수 시그니처와 권한의 존재를 확인한 것으로, 구버전 SQL 전체와 운영 함수 정의를 바이트 단위로 대조한 것은 아니다. 따라서 아래 repair 명령 전에 실제 운영 스키마를 백업하고, 각 migration 기능의 최종 상태를 한 번 더 확인해야 한다.
-
-## 중요한 재실행 금지 항목
-
-1. 20261026090000_security_hardening.sql은 public 스키마의 모든 테이블에 대해 anon/authenticated 권한을 일괄 회수한 뒤 일부 테이블만 다시 부여한다. 이 파일을 신규 테이블 생성 후 다시 실행하면 그 후 생성된 테이블 권한도 바뀔 수 있다.
-2. 20261101090000_organization_weekly_schedule_sync.sql은 회사 연동 시작일 이후의 개인 휴무 전용 entries를 삭제한다. 운영 데이터가 추가된 이후 재실행하면 새 데이터가 삭제될 위험이 있다.
-3. 따라서 아래 7개 구버전은 SQL 재실행 대상이 아니라, 현재 스키마 반영이 확인된 뒤 migration history에만 applied로 맞추는 대상이다.
-4. supabase db push --include-all은 사용하지 않는다.
-
-## 고유한 14자리 migration timestamp
-
-기존 파일 중 8자리 버전이 중복된 날짜(20261030, 20261101)가 있고, 신규 공유 데이터 마이그레이션의 8자리 버전(20261119)이 같은 날짜의 14자리 마이그레이션과 섞여 있었다. CLI 로컬 파일명 정렬과 원격 버전 문자열 정렬이 달라질 수 있으므로 모두 고유한 14자리 timestamp로 정리했다.
-
-| 이전 버전 | 정리한 버전 | 파일 |
-|---|---|---|
-| 20261026 | 20261026090000 | security_hardening |
-| 20261027 | 20261027090000 | shift_exchange_rpc |
-| 20261029 | 20261029090000 | team_deletion_election |
-| 20261030 | 20261030090000 | organization_member_display_names |
-| 20261030 | 20261030100000 | profile_username_required |
-| 20261101 | 20261101090000 | organization_weekly_schedule_sync |
-| 20261101 | 20261101100000 | schedule_day_off_workflows |
-| 20261119 | 20261119193000 | shared_company_admin_data |
-
-The remote history versions 20261113–20261116 remain unchanged. The four new migrations must be applied after those entries in this order:
-
-1. 20261119193000_shared_company_admin_data.sql
-2. 20261119194500_admin_data_backup_restore.sql
-3. 20261119195500_weekly_schedule_templates_history.sql
-4. 20261119200500_day_off_request_admin_history.sql
-
-## 권장 실행 순서 (운영 DB 변경 전 백업 필수)
-
-Run these from the repository root after linking the correct project:
+다음 명령으로 현재 상태를 재확인할 수 있다.
 
 ~~~bash
 supabase link --project-ref rrjoilqlsyilqqtzybps
 supabase migration list --remote
 ~~~
 
-먼저 7개 구버전의 전체 SQL 효과가 현재 운영 DB에 이미 적용됐는지 검토한다. 모든 효과가 확인된 경우에만 history-only repair를 실행한다. 이 명령은 SQL을 실행하지 않고 migration tracking row만 기록한다.
-
-~~~bash
-supabase migration repair 20261026090000 20261027090000 20261029090000 20261030090000 20261030100000 20261101090000 20261101100000 --status applied --remote
-supabase migration list --remote
-~~~
-
-그다음 dry-run을 실행한다. 결과에 아래 신규 4개만 pending으로 나와야 한다. 이전 마이그레이션이 pending으로 나오거나 예상과 다른 항목이 나오면 중단한다.
+현재 적용된 이력을 다시 실행하거나 `migration repair`를 반복하지 않는다. 정상 상태라면 로컬 migration 파일과 원격 이력이 일치하고, 아래 dry-run에서 pending migration이 없어야 한다.
 
 ~~~bash
 supabase db push --dry-run --remote
 ~~~
 
-dry-run 결과가 정확히 일치하고 운영 백업이 확인된 이후에만 아래 명령으로 새 4개를 적용한다.
+## 기존 구버전 마이그레이션 주의사항
 
-~~~bash
-supabase db push --remote
-~~~
+아래 SQL은 과거 운영 DB에 반영되어 있던 기능의 이력을 정리한 것이다.
 
-## 신규 적용 후 검증
+- `20261026090000_security_hardening.sql`: public 스키마 권한을 폭넓게 회수한 뒤 필요한 권한을 다시 부여한다. 신규 테이블 생성 후 재실행하면 새 테이블 권한에도 영향을 줄 수 있다.
+- `20261101090000_organization_weekly_schedule_sync.sql`: 회사 연동 시작일 이후의 개인 휴무 전용 entries를 삭제한다. 운영 데이터가 추가된 뒤 재실행하면 실제 사용자 기록이 삭제될 수 있다.
 
-- migration history에 20261119193000, 20261119194500, 20261119195500, 20261119200500이 applied로 기록되었는지 확인한다.
-- organization_admin_state에는 대표만 SELECT 가능한 RLS 정책이 생성되었는지 확인한다.
-- organization_admin_state_backups, organization_weekly_schedule_templates, organization_weekly_schedule_revisions는 RLS enabled 및 anon/authenticated 직접 권한 없음인지 확인한다. 해당 데이터는 대표 검증을 하는 RPC만 사용한다.
-- organization_admin_state 변경 트리거가 자동 백업을 만들고, 수동 백업/복구 RPC가 회사 ID 범위로 제한되는지 확인한다.
-- 기존 organization_weekly_schedules 2개 행에 baseline revision 2개가 생성되었는지 확인한다.
-- 직원용 list_my_organization_weekly_schedules는 기존과 같이 직원에게 confirmed schedule만 상세 제공하고 draft는 미확정 상태만 제공하는지 확인한다.
-- 휴무 이력 RPC는 현재 조직의 요청만 반환하는지 확인한다.
-- 실제 앱에서 대표 계정 백업·복구, 템플릿 저장/불러오기, 지난주 복사, 임시저장/확정, 직원 화면의 미확정/확정 근무표, 휴무 요청 이력을 점검한다.
+두 파일을 포함해 이미 applied인 마이그레이션은 재실행하지 않는다. 과거 이력 정리가 필요할 때도 실제 DB 스키마와 이력의 차이를 먼저 확인한 뒤 별도 판단한다.
 
-## 현재 미적용 상태
+## 확정 근무표 변경 통제 적용 내용
 
-이 사전 점검 시점에는 신규 migration을 운영 DB에 적용하지 않았다. PR 병합, 앱 배포도 별도 단계다.
+적용 파일: `supabase/migrations/20261120122049_confirmed_schedule_change_guard.sql`
+
+- 기존 `organization_weekly_schedule_revisions` 테이블에 `after_snapshot`, `result_version`, `change_type`, `change_reason`, `restored_from_revision_id`를 추가했다.
+- 확정 근무표가 변경될 때 사유가 없으면 DB 트리거가 업데이트를 거부한다. 기존 저장 RPC를 통한 우회도 차단한다.
+- 버전 충돌을 확인하는 `save_my_organization_weekly_schedule_v2`를 추가했다.
+- 사유 필수·버전 확인 복구 RPC `restore_my_organization_weekly_schedule_revision_v2`를 추가하고 구형 복구 RPC의 authenticated 실행 권한을 회수했다.
+- 직원 본인 일정에 맞는 변경 안내 조회 RPC `list_my_organization_weekly_schedule_change_notices`를 추가했다.
+- 직원의 추가휴무 승인과 휴무 교환 승인 흐름은 유지했다. 이 승인들은 직원 요청을 근거로 사유를 자동 기록하고, 변경 이력 유형을 `request_approved`로 구분한다.
+
+## 운영 DB 적용 후 확인 결과
+
+- `organization_weekly_schedules`: 2개 행 유지
+- `organization_weekly_schedule_revisions`: 2개 행 유지, 기존 기준 이력 2개 유지
+- 새 감사 컬럼 5개 확인
+- 확정 근무표 보호 트리거와 기존 이력 캡처 트리거 설치 확인
+- 신규 RPC 3개 모두 authenticated 실행 가능, anon 실행 불가
+- 구형 복구 RPC는 authenticated 실행 불가
+- 근무표·이력 테이블은 RLS enabled이며 authenticated 직접 SELECT/UPDATE 권한 없음
+- 변경 사유 없이 확정 근무표 수정 시도 시 DB가 거부하는 동작 확인. 테스트 변경은 트랜잭션 안에서 롤백되어 데이터는 바뀌지 않았다.
+
+## 보안 및 성능 Advisor 참고
+
+Advisor에는 이 변경과 무관하게 기존부터 존재하는 안내도 남아 있다. RLS policy가 없는 테이블 경고는 해당 테이블의 직접 API 권한도 회수되어 있는지 함께 확인해야 하며, SECURITY DEFINER 함수 경고는 함수별 의도된 인증 범위와 내부 권한 검사를 확인해야 한다. 이번 변경의 신규 RPC는 `search_path=pg_catalog, public`으로 고정했고, anon 실행 권한은 부여하지 않았다.
+
+기존 앱 전체의 Auth 보안·기타 public 함수 권한·미사용 인덱스·외래 키 인덱스 안내는 이번 작업 범위에서 변경하지 않았다.
+
+## 남은 실사용 확인
+
+GitHub Actions에서 계정 분리/회귀 테스트, 변경 통제 전용 검사, React 프로덕션 빌드, Capacitor 동기화, Android Debug APK 빌드 및 업로드가 성공했다.
+
+실제 Android 기기에서 대표 계정과 직원 계정으로 다음 동작을 확인하는 작업만 별도로 남아 있다.
+
+1. 대표 계정에서 확정 근무표 수정·확정 해제·복구 시 사유를 입력해야 저장되는지
+2. 사유와 변경 이력이 근무표 이력에 표시되는지
+3. 직원 계정은 본인 일정에 해당하는 변경 안내만 확인하는지
+4. 직원의 추가휴무 요청 승인과 휴무 교환 승인 동작이 기존처럼 유지되는지
+
+안내는 직원이 기존 직원용 달력 화면을 열고 동기화할 때 표시되는 인앱 안내다. 네이티브 푸시 알림(FCM)은 구현하지 않았다.
