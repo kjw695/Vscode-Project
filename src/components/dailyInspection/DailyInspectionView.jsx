@@ -49,11 +49,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const [isSaved,setIsSaved]=useState(false);
  const [driverName,setDriverName]=useState(profile?.full_name||profile?.display_name||'');
  const [vehicleNumber,setVehicleNumber]=useState(profile?.vehicle_number||'');
- const [odometerKm,setOdometerKm]=useState('');
- const [carrierName,setCarrierName]=useState('');
  const [driverSignature,setDriverSignature]=useState('');
- const [managerName,setManagerName]=useState('');
- const [managerSignature,setManagerSignature]=useState('');
  const [correctionReason,setCorrectionReason]=useState('');
  const [currentRecord,setCurrentRecord]=useState(null);
  const [monthRecords,setMonthRecords]=useState([]);
@@ -74,11 +70,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   setCurrentRecord(latest);
   setAnswers(latest?.answers&&typeof latest.answers==='object'?latest.answers:{});
   setActionNotes(latest?.actionNotes||'');
-  setOdometerKm(latest?.odometerKm==null?'':String(latest.odometerKm));
-  setCarrierName(latest?.carrierName||'');
   setDriverSignature(latest?.driverSignature||'');
-  setManagerName(latest?.managerName||'');
-  setManagerSignature(latest?.managerSignature||'');
   setIsSaved(Boolean(latest?.completedAt||latest?.updatedAt));
   setCorrectionReason('');
   const [year,month]=String(date).slice(0,7).split('-');
@@ -94,7 +86,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const profileVehicleNumber=profile?.vehicle_number||'';
  const hasMissingIdentity=!profileName.trim()||!profileVehicleNumber.trim();
  const identityChanged=driverName.trim()!==profileName.trim()||vehicleNumber.trim()!==profileVehicleNumber.trim();
- const canSave=allAnswered&&(badItems.length===0||actionNotes.trim().length>0)&&String(odometerKm).trim()!==''&&Number.isFinite(Number(odometerKm))&&Number(odometerKm)>=0&&Boolean(driverName.trim())&&Boolean(vehicleNumber.trim())&&Boolean(driverSignature)&&(!currentRecord||Boolean(correctionReason.trim()));
+ const canSave=allAnswered&&(badItems.length===0||actionNotes.trim().length>0)&&Boolean(driverName.trim())&&Boolean(vehicleNumber.trim())&&Boolean(driverSignature)&&(!currentRecord||Boolean(correctionReason.trim()));
 
  const chooseAnswer=(id,value)=>{setAnswers(prev=>({...prev,[id]:value}));setIsSaved(false);setSaveError('');};
  const markAllAsGood=()=>{
@@ -130,8 +122,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
    }
    const record=await saveDailyInspectionRecord(userId,date,{
     answers,actionNotes:actionNotes.trim(),driverName:normalizedName,vehicleNumber:normalizedVehicle,
-    odometerKm:Number(odometerKm),carrierName:carrierName.trim(),driverSignature,managerName:managerName.trim(),
-    managerSignature,correctionReason:correctionReason.trim(),supersedesId:currentRecord?.id||null,
+    driverSignature,correctionReason:correctionReason.trim(),supersedesId:currentRecord?.id||null,
     isNotOperated:false,completed:true
    });
    setCurrentRecord(record);setIsSaved(true);setCorrectionReason('');
@@ -173,8 +164,6 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
      <span className="mb-1 text-center">차량번호</span>
      <input value={vehicleNumber} onChange={e=>setVehicleNumber(e.target.value)} maxLength={30} placeholder="차량번호 입력" className={`${fieldClass} block w-full text-center`} style={{textAlign:"center"}}/>
     </label>
-    <label className="min-w-0 text-xs">운송사업자명(선택)<input value={carrierName} onChange={e=>setCarrierName(e.target.value)} maxLength={80} placeholder="회사명" className={fieldClass}/></label>
-    <label className="min-w-0 text-xs">주행거리(적산거리계 km)<input type="number" min="0" step="1" inputMode="numeric" value={odometerKm} onChange={e=>{setOdometerKm(e.target.value);setIsSaved(false);}} placeholder="예: 125430" className={fieldClass}/></label>
    </div>
    {(hasMissingIdentity||identityChanged)&&<div className="mt-3">
     <p className={`mb-2 text-xs ${mutedClass}`}>점검 완료 저장 시 로그인 계정의 내정보에도 이름과 차량번호가 반영됩니다.</p>
@@ -222,8 +211,6 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
    <h3 className="font-black text-sm mb-3">전자서명</h3>
    <div className="mb-4"><SignaturePad value={driverSignature} onChange={v=>{setDriverSignature(v);setIsSaved(false);}} label="운전자(점검자) 자필 서명" isDarkMode={dark}/></div>
-   <label className="block text-xs mb-2">관리자 확인자명(선택)<input value={managerName} onChange={e=>setManagerName(e.target.value)} maxLength={60} placeholder="관리자 성명" className={fieldClass}/></label>
-   <SignaturePad value={managerSignature} onChange={setManagerSignature} label="관리자 확인 서명(선택)" isDarkMode={dark}/>
   </section>
 
   {currentRecord&&<section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
@@ -235,7 +222,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   {saveError&&<p className="mb-3 rounded-lg bg-red-50 dark:bg-red-950/30 p-3 text-sm text-red-600">{saveError}</p>}
   {isSaved&&<p className="mb-3 flex items-center gap-2 text-sm font-semibold text-emerald-600"><CheckCircle2 size={17}/> 점검 기록이 기기에 저장되어 있습니다.</p>}
   <button type="button" onClick={handleSave} disabled={!canSave||isSavingProfile} className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-black text-white disabled:opacity-40">{isSavingProfile?'저장 중...':currentRecord?'정정 이력으로 추가 저장':'점검 완료 저장'}</button>
-  {!canSave&&<p className={`mt-2 text-center text-xs ${mutedClass}`}>모든 항목 선택, 주행거리, 운전자 서명 및 필수 조치·정정 내용을 입력해야 저장됩니다.</p>}
+  {!canSave&&<p className={`mt-2 text-center text-xs ${mutedClass}`}>모든 항목 선택, 운전자 서명 및 필수 조치·정정 내용을 입력해야 저장됩니다.</p>}
   {currentRecord&&<p className={`mt-2 text-center text-xs ${mutedClass}`}>최근 저장 시각(기기): {formatTimestamp(currentRecord.completedAt||currentRecord.updatedAt)} · 이력 {currentRecord.revision||1}차</p>}
 
   <section className={`rounded-2xl border p-3 mt-5 ${panelClass}`}>
