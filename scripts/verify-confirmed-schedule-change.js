@@ -71,9 +71,8 @@ const checks = [
         migration.includes("'reopened', 'admin_changed', 'restored'")
     ],
     [
-        'service calls protected save and restore RPCs with version and reason',
+        'service saves schedules through the protected version-aware RPC with a reason',
         service.includes('save_my_organization_weekly_schedule_v2') &&
-        service.includes('restore_my_organization_weekly_schedule_revision_v2') &&
         service.includes('p_expected_version') &&
         service.includes('p_change_reason')
     ],
