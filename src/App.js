@@ -3,14 +3,13 @@
 //사장님(App.js): 손님 응대(화면 표시)만 함.
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ArrowUp, ArrowDown, Home, BarChart2, List, MoreHorizontal, Eye } from 'lucide-react';
+import { ArrowUp, ArrowDown, Home, BarChart2, List, MoreHorizontal } from 'lucide-react';
 import { backupToDrive, restoreFromDrive } from './utils/googleDrive';
 import { Preferences } from '@capacitor/preferences';
 import MessageModal from './components/common/MessageModal';
 import StatsDisplay from './StatsDisplay';
 import FilterModal from './components/DataScreen/FilterModal';
 import EntriesList from './components/DataScreen/EntriesList';
-import EntriesListPreview from './components/DataScreen/EntriesListPreview';
 import DataEntryForm from './DataEntryForm';
 import PrivacyPolicy from './components/more/PrivacyPolicy';
 import OpenSourceLicenses from './components/more/OpenSourceLicenses';
@@ -141,7 +140,6 @@ const { isLoggedIn, user, profile } = useAuth();
     const [isFabVisible, setIsFabVisible] = useState(false);
 
     const [activeDataTab, setActiveDataTab] = useState('entry');
-    const [isEntriesPreviewOpen, setIsEntriesPreviewOpen] = useState(false);
 
     const [initialExpenseTab, setInitialExpenseTab] = useState('income');
     const [bluecoinsSelectedDate, setBluecoinsSelectedDate] = useState('');
@@ -255,12 +253,6 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const [selectedMainTab, setSelectedMainTab] = useState('home');
     const [activeContentTab, setActiveContentTab] = useState('bluecoinsDailySummary');
     const [homeVisitKey, setHomeVisitKey] = useState(0);
-
-    useEffect(() => {
-        if (selectedMainTab !== 'data' || activeContentTab !== 'dataEntry' || activeDataTab !== 'list') {
-            setIsEntriesPreviewOpen(false);
-        }
-    }, [selectedMainTab, activeContentTab, activeDataTab]);
         const [moreSubView, setMoreSubView] = useState('main');
     const [autoEditAccountProfile, setAutoEditAccountProfile] = useState(false);
     const [returnToCampNumbering, setReturnToCampNumbering] = useState(false);
@@ -792,7 +784,6 @@ const handleTodayClick = () => {
     };
    
     const handleCalendarDateClick = (clickedDate) => {
-        setIsEntriesPreviewOpen(false);
         const entriesForDate = entries.filter(entry => entry.date === clickedDate);
         
         // ✨ 1. 데이터가 1개 이상(1, 2, 3...) 있으면 무조건 해당 날짜의 [데이터-리스트] 화면으로 이동
@@ -1139,7 +1130,6 @@ const handleTodayClick = () => {
     const cumulativePeriod = null;
 
     const handleNavigateToDataEntry = () => {
-        setIsEntriesPreviewOpen(false);
         setSelectedMainTab('data'); setActiveContentTab('dataEntry'); setActiveDataTab('entry'); setEntryToEdit(null);
         setDate(getTodayLocal()); setUnitPrice(''); setFormData({}); setFormType('income');
     };
@@ -1182,8 +1172,6 @@ const handleTodayClick = () => {
         handleDayOffBack,
         isDayOffModalOpen,
         setIsDayOffModalOpen,
-        isEntriesPreviewOpen,
-        setIsEntriesPreviewOpen,
         modalState, closeModal, showConfirmation, isFilterModalOpen, setIsFilterModalOpen,
         isExpenseSettingsModalOpen, setIsExpenseSettingsModalOpen,
         moreSubView, setMoreSubView, selectedMainTab, setSelectedMainTab, activeContentTab, setActiveContentTab,
@@ -1339,14 +1327,13 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                         )}
 
                         {activeContentTab === 'dataEntry' && (
-                            <div className="w-full h-full flex flex-col pt-2" onTouchStart={isEntriesPreviewOpen ? undefined : handleTouchStart} onTouchMove={isEntriesPreviewOpen ? undefined : handleTouchMove} onTouchEnd={isEntriesPreviewOpen ? undefined : handleTouchEnd}>
+                            <div className="w-full h-full flex flex-col pt-2" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
                                 <div className="flex justify-center border-b mb-2 px-4">
-                                    <button onClick={() => { setIsEntriesPreviewOpen(false); setActiveDataTab('entry'); }} className={`py-2 px-4 font-semibold ${activeDataTab === 'entry' ? (isDarkMode ? 'border-amber-400 text-amber-400' : 'border-amber-600 text-amber-700') : (isDarkMode ? 'border-transparent text-gray-400' : 'border-transparent text-gray-500')} border-b-2`}>입력</button>
+                                    <button onClick={() => setActiveDataTab('entry')} className={`py-2 px-4 font-semibold ${activeDataTab === 'entry' ? (isDarkMode ? 'border-amber-400 text-amber-400' : 'border-amber-600 text-amber-700') : (isDarkMode ? 'border-transparent text-gray-400' : 'border-transparent text-gray-500')} border-b-2`}>입력</button>
                                     
 
                                     <button 
                                         onClick={() => { 
-                                            setIsEntriesPreviewOpen(false);
                                             setActiveDataTab('list');
                                             setFilters({ period: 'all', startDate: '', endDate: '', type: 'all' }); 
                                         }} 
@@ -1378,7 +1365,6 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
     favoriteUnitPrices={favoriteUnitPrices}
     
     onNavigate={(tab) => { 
-        setIsEntriesPreviewOpen(false);
         setActiveDataTab(tab); 
         if (tab === 'list') {
             setFilters({ period: 'all', startDate: '', endDate: '', type: 'all' });
@@ -1392,50 +1378,21 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 </div>
                                 
                               <div className={activeDataTab === 'list' ? 'w-full block' : 'hidden'}>
-                                    {isEntriesPreviewOpen ? (
-                                        <EntriesListPreview
-                                            entries={finalFilteredEntries}
-                                            summary={{
-                                                totalRevenue: calculateData(finalFilteredEntries, itemLabels).totalRevenue,
-                                                totalExpenses: calculateData(finalFilteredEntries, itemLabels).totalExpenses,
-                                                filterLabel: filters.label || '전체'
-                                            }}
-                                            isDarkMode={isDarkMode}
-                                            itemLabels={itemLabels}
-                                            handleEdit={handleEdit}
-                                            handleDelete={handleDelete}
-                                            onOpenFilter={() => setIsFilterModalOpen(true)}
-                                            onBack={() => setIsEntriesPreviewOpen(false)}
-                                            filterType={filters.type}
-                                        />
-                                    ) : (
-                                        <>
-                                            <div className="flex justify-end px-1 pb-1">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setIsEntriesPreviewOpen(true)}
-                                                    className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400"
-                                                >
-                                                    <Eye size={14} />
-                                                    <span>새 화면 미리보기</span>
-                                                </button>
-                                            </div>
-                                            <EntriesList
-                                                entries={finalFilteredEntries}
-                                                summary={{
-                                                    totalRevenue: calculateData(finalFilteredEntries, itemLabels).totalRevenue,
-                                                    totalExpenses: calculateData(finalFilteredEntries, itemLabels).totalExpenses,
-                                                    entryNetProfit: Object.fromEntries(finalFilteredEntries.map(entry => [entry.id, 0])),
-                                                    filterLabel: filters.label || '전체'
-                                                }}
-                                                handleEdit={handleEdit}
-                                                handleDelete={handleDelete}
-                                                isDarkMode={isDarkMode}
-                                                onOpenFilter={() => setIsFilterModalOpen(true)}
-                                                filterType={filters.type}
-                                            />
-                                        </>
-                                    )}
+                                
+                                    <EntriesList
+                                        entries={finalFilteredEntries}
+                                        summary={{
+                                            totalRevenue: calculateData(finalFilteredEntries, itemLabels).totalRevenue,
+                                            totalExpenses: calculateData(finalFilteredEntries, itemLabels).totalExpenses,
+                                            entryNetProfit: Object.fromEntries(finalFilteredEntries.map(entry => [entry.id, 0])),
+                                            filterLabel: filters.label || '전체'
+                                        }}
+                                        handleEdit={handleEdit} 
+                                        handleDelete={handleDelete} 
+                                        isDarkMode={isDarkMode} 
+                                        onOpenFilter={() => setIsFilterModalOpen(true)} 
+                                        filterType={filters.type}
+                                    />
                                 </div>
                             </div>
                         )}
@@ -1573,7 +1530,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
             </div>
 
       {/* 👇 홈 화면이거나, 달력에서 특정 날짜를 콕 짚어서 들어온 경우(custom)에만 [입력] 버튼 표시 */}
-      {(activeContentTab === 'bluecoinsDailySummary' || (activeContentTab === 'dataEntry' && activeDataTab === 'list' && !isEntriesPreviewOpen && filters.period === 'custom')) && (
+      {(activeContentTab === 'bluecoinsDailySummary' || (activeContentTab === 'dataEntry' && activeDataTab === 'list' && filters.period === 'custom')) && (
                 <>
                 <button 
                     onClick={(e) => {
@@ -1656,7 +1613,6 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                     <button 
                         className={`flex flex-col items-center text-sm font-medium px-2 py-1 rounded-md transition duration-150 ease-in-out ${selectedMainTab === 'data' ? (isDarkMode ? 'text-blue-400 bg-gray-700' : 'text-blue-600 bg-blue-50') : (isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800')}`} 
                         onClick={() => { 
-                            setIsEntriesPreviewOpen(false);
                             // ✨ 하단 메뉴의 [데이터]를 누를 때도 무조건 '전체'로 필터 초기화!
                             setFilters({ period: 'all', startDate: '', endDate: '', type: 'all' });
 
