@@ -9,7 +9,8 @@
 - 기존 직원용 화면·기능은 유지한다. 해당 단계 범위에 없는 직원용 동작은 변경하지 않는다.
 - 현재 업체 대표 계정 1개 관리 구조를 유지한다. 복수 관리자, 대표/일반 관리자 구분, 관리자 추가 구매는 구현하지 않는다.
 - 직원 개인 배송기록, 개인 계정 설정, 로그인 정보는 회사 관리자 데이터 백업 범위에 넣지 않는다.
-- Supabase 운영 DB 마이그레이션 적용과 PR 병합은 별도 승인 전까지 하지 않는다.
+- 운영 DB 변경은 적용 전 백업·사전 점검을 하고, 적용 후 실제 DB와 migration history를 확인한다.
+- 단계 범위를 벗어난 팀관리·직원 프로필·노선관리 기능은 수정하지 않는다.
 
 ## 단계별 결과
 
@@ -44,29 +45,49 @@
 - 해당 커밋 시점 일부 Android 빌드는 후속 커밋 푸시로 취소됐으므로 개별 빌드 성공으로 기록하지 않는다.
 - 아래 최종 통합 검증에서 두 단계의 코드가 포함된 전체 앱의 테스트·React 빌드·Android APK 빌드를 확인했다.
 
-### 4단계 및 최종 통합 검증
-- 최종 기준 커밋: 894a9ab2027bb9a96ed9625cfcafcdfa9a88d108
-- Account Data Isolation Tests: 성공
+### 4단계, 확정 근무표 보호 및 최종 통합 검증
+- PR #24: 병합 완료 → `feature/account-data-isolation`
+- PR #28: 병합 완료 → `feature/account-data-isolation`
+- 중복 구현 PR #25, #26, #27: superseded 처리 후 종료
+- Account Data Isolation Tests (GitHub Actions #105): 성공
   - 계정 데이터 분리 테스트
   - 계정 전환 회귀 테스트
   - 게스트 장부 가져오기 테스트
   - 주간 일정·백업 배치 검증 테스트
+  - 확정 근무표 보호 전용 14개 검사
   - React 프로덕션 빌드
-- Android Build Verification: 성공
+- Android Build Verification (GitHub Actions #331): 성공
   - React 빌드
   - Capacitor Android 동기화
   - Android Debug APK 생성 및 아티팩트 업로드
+- 신규 확정 근무표 보호 기능:
+  - 확정 일정 수정·확정 해제·복구 시 사유 필수
+  - 변경 전후 스냅샷, 버전, 변경자, 변경 사유 기록
+  - 직원별 인앱 변경 안내
+  - 직원 요청에 따른 추가휴무·휴무교환 승인 흐름 유지
 
-## 운영 DB migration 점검
+## 운영 DB 마이그레이션 완료
 
-운영 DB는 migration 이력과 실제 스키마가 일치하지 않는다. 구버전 파일 중 일부는 운영 DB에서 기능이 이미 확인되지만 migration history에는 빠져 있다. 구버전 SQL에는 public 전체 권한 회수와 직원 휴무 기록 DELETE가 포함되어 있어 재실행하면 안 된다. 파일 timestamp 정리 및 안전 적용 절차는 docs/SUPABASE_PRODUCTION_MIGRATION_RUNBOOK.md를 따른다.
+운영 프로젝트 `delivery-app` (`rrjoilqlsyilqqtzybps`)에 총 16개 migration이 applied로 기록되어 있다. 기존 공유 관리자 데이터 4개 migration은 이미 적용된 상태를 확인했고 재실행하지 않았다. 신규 확정 근무표 보호 migration은 원격 기록 버전 `20261120122049`로 적용했다. 저장소 파일명도 원격 버전과 일치시켰다.
 
-## 배포 상태 및 미완료 항목
+적용 후 검증:
+- 주간 근무표 2건, 기준 이력 2건 유지
+- 감사 컬럼 5개 생성 및 기존 기준 이력의 after snapshot/result version 채움
+- 확정 일정 보호 트리거 설치
+- 신규 RPC 3개 authenticated만 실행 가능, anon 실행 불가
+- 기존 직접 테이블 권한 없음 및 RLS 유지
+- 사유 없는 확정 근무표 수정 시도 거부 확인(테스트 변경은 롤백, 운영 데이터 변화 없음)
 
-- PR #24는 feature/shared-company-admin-data에서 feature/account-data-isolation으로 열린 Draft PR 상태이며 아직 병합하지 않았다.
-- 신규 마이그레이션은 저장소에 추가되어 있으나 Supabase 운영 DB에는 적용하지 않았다.
-- 따라서 실제 운영 앱에서 백업·템플릿·이력·자동 재배치 기능이 활성화됐다고 간주하지 않는다.
-- 운영 반영 전에는 마이그레이션 순서, 권한, RLS/RPC, 실제 조직 데이터에 대한 검증이 별도로 필요하다.
+상세한 원격 migration 버전과 검증 쿼리 결과는 `docs/SUPABASE_PRODUCTION_MIGRATION_RUNBOOK.md`를 참조한다.
+
+## 현재 남은 실사용 확인
+
+- GitHub Actions APK를 추출해 Android Debug APK를 확보했다. 아직 실제 기기에서 설치·로그인·업무 흐름을 실행한 것은 아니다.
+- 대표 계정에서 확정 근무표 수정·확정 해제·복구 시 사유 필수 동작 확인
+- 직원 계정에서 본인 일정 변경 안내 표시 확인
+- 직원의 추가휴무 요청 승인 및 휴무 교환 승인 동작 확인
+- 안내는 앱의 직원용 달력 화면을 열고 동기화할 때 나타나는 인앱 안내다. 네이티브 푸시(FCM)는 구현하지 않았다.
+- PR 병합은 `feature/account-data-isolation`에 반영했다. `security-audit` 또는 배포 브랜치로의 승격과 앱 스토어 배포는 별도 단계다.
 
 ## 변경 범위
 
