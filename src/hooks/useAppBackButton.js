@@ -11,7 +11,8 @@ const useAppBackButton = ({
     selectedMainTab, setSelectedMainTab,
     activeContentTab, setActiveContentTab,
     isEditing = false, closeEditMode = () => {}, handleDayOffBack,
-    isDayOffModalOpen = false, setIsDayOffModalOpen = () => {}
+    isDayOffModalOpen = false, setIsDayOffModalOpen = () => {},
+    isEntriesPreviewOpen = false, setIsEntriesPreviewOpen = () => {}
 }) => {
     useEffect(() => {
         let backButtonListener;
@@ -36,6 +37,13 @@ const useAppBackButton = ({
                     setIsFilterModalOpen(false);
                     return;
                 }
+
+                // 임시 데이터 목록 미리보기에서 뒤로가기를 누르면 기존 목록으로 복귀합니다.
+                if (isEntriesPreviewOpen) {
+                    setIsEntriesPreviewOpen(false);
+                    return;
+                }
+
 // ✨ 4. 수정 중일 때 뒤로가기 방지 및 팝업 띄우기
                 if (isEditing) {
                     closeEditMode();
@@ -91,7 +99,8 @@ const useAppBackButton = ({
         };
     }, [
         modalState, isFilterModalOpen, isExpenseSettingsModalOpen, moreSubView, selectedMainTab, activeContentTab, showConfirmation, 
-        isEditing, closeEditMode, handleDayOffBack, isDayOffModalOpen, setIsDayOffModalOpen
+        isEditing, closeEditMode, handleDayOffBack, isDayOffModalOpen, setIsDayOffModalOpen,
+        isEntriesPreviewOpen, setIsEntriesPreviewOpen
     ]);
 };
 
