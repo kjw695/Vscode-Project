@@ -5,7 +5,7 @@ import { printDailyInspectionMonth } from './dailyInspectionPrint';
 import SignaturePad from './DailyInspectionSignaturePad';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../contexts/AuthContext';
-import { enableDailyInspectionReminder, disableDailyInspectionReminder, readDailyInspectionReminder } from '../../services/dailyInspectionReminderService';
+import { enableDailyInspectionReminder, disableDailyInspectionReminder, readDailyInspectionReminder, refreshDailyInspectionReminder } from '../../services/dailyInspectionReminderService';
 
 const INSPECTION_GROUPS = [
  { title:'외관점검', items:[
@@ -93,6 +93,11 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   setReminderTime(setting.time);
   setReminderEnabled(setting.enabled);
   setReminderMessage('');
+  if(setting.enabled){
+   refreshDailyInspectionReminder(userId).catch(error=>{
+    console.warn('[DailyInspectionReminder] 아이콘 적용을 위한 알림 재등록 실패:',error);
+   });
+  }
  },[userId]);
  useEffect(()=>{
   if(!selectedMonth)return;
