@@ -16,16 +16,26 @@ const readHistory = (userId) => {
 
 export const listDailyInspectionRecords = (userId, year, month) => {
     const prefix = `${String(year)}-${String(month).padStart(2, '0')}-`;
+    const history = readHistory(userId);
     const latestByDate = new Map();
-    readHistory(userId).forEach((record) => {
+    const undatedRecords = [];
+    history.forEach((record) => {
         const recordDate = String(record.inspectionDate || record.date || '').slice(0, 10);
-        if (recordDate.startsWith(prefix)) {
-            // 같은 날짜의 정정본이 여러 개 남아 있으면 마지막 저장본만 사용합니다.
-            latestByDate.set(recordDate, record);
-        }
+        if (recordDate) latestByDate.set(recordDate, record);
+        else undatedRecords.push(record);
     });
-    return [...latestByDate.values()].sort((a, b) =>
-        String(a.inspectionDate || a.date).localeCompare(String(b.inspectionDate || b.date))
+    const deduplicatedHistory = [...latestByDate.values(), ...undatedRecords].sort((a, b) =>
+        String(a.inspectionDate || a.date || '').localeCompare(String(b.inspectionDate || b.date || ''))
+    );
+    if (deduplicatedHistory.length < history.length) {
+        try {
+            localStorage.setItem(getHistoryKey(userId), JSON.stringify(deduplicatedHistory));
+        } catch (error) {
+            console.warn('[DailyInspection] 중복 이력 정리 실패:', error);
+        }
+    }
+    return deduplicatedHistory.filter((record) =>
+        String(record.inspectionDate || record.date || '').startsWith(prefix)
     );
 };
 
