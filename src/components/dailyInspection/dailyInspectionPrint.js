@@ -39,7 +39,8 @@ export const printDailyInspectionMonth = (records, year, month) => {
     const latestByDay = new Map();
     monthRecords.forEach((record) => latestByDay.set(Number(String(record.date).slice(8, 10)), record));
     const first = monthRecords[0] || {};
-    const companyName = first.transportCompanyName || first.companyName || first.organizationName || first.vendorName || '';
+    const companyRecord = [...monthRecords].reverse().find((record) => String(record.transportCompanyName || record.companyName || record.organizationName || record.vendorName || '').trim()) || first;
+    const companyName = companyRecord.transportCompanyName || companyRecord.companyName || companyRecord.organizationName || companyRecord.vendorName || '';
     const dateHeaders = FORM_DAYS.map((day) => `<th class="day-header">${day}</th>`).join('');
     const itemGroups = [
         { category: '외관점검', items: OFFICIAL_ITEMS.slice(0, 4) },
