@@ -5,7 +5,7 @@
 
 ## 현재 적용 상태
 
-운영 DB의 마이그레이션 이력과 실제 스키마를 확인했다. 아래 16개 항목이 모두 applied로 기록되어 있다.
+운영 DB의 마이그레이션 이력과 실제 스키마를 확인했다. 아래 17개 항목이 모두 applied로 기록되어 있다.
 
 | 버전 | 마이그레이션 |
 |---|---|
@@ -25,6 +25,7 @@
 | 20261119195500 | weekly_schedule_templates_history |
 | 20261119200500 | day_off_request_admin_history |
 | 20261120122049 | confirmed_schedule_change_guard |
+| 20261120125422 | remove_schedule_template_storage |
 
 이전 2026-11-19 사전 점검에서는 신규 4개가 미적용으로 확인됐지만, 이후 PR #24와 PR #28 병합 후 이들 5개(기존 신규 4개 + 확정 근무표 보호 1개)가 운영 DB에 적용됐다. 예전 사전 점검의 “미적용” 설명과 적용 순서는 현재 상태에 적용하지 않는다.
 
@@ -61,10 +62,20 @@ supabase db push --dry-run --remote
 - 직원 본인 일정에 맞는 변경 안내 조회 RPC `list_my_organization_weekly_schedule_change_notices`를 추가했다.
 - 직원의 추가휴무 승인과 휴무 교환 승인 흐름은 유지했다. 이 승인들은 직원 요청을 근거로 사유를 자동 기록하고, 변경 이력 유형을 `request_approved`로 구분한다.
 
+## 근무표 템플릿 기능 제거
+
+적용 파일: `supabase/migrations/20261120125422_remove_schedule_template_storage.sql`
+
+- 자동 휴무 생성이 핵심 제품 방향으로 확정되어, 반복 일정 템플릿 저장 기능을 제거했다.
+- 적용 전 운영 DB의 `organization_weekly_schedule_templates` 행은 0건이었다.
+- 템플릿 전용 RPC 4개(`list`, `get`, `save`, `delete`)와 템플릿 테이블만 제거했다.
+- 근무표 감사 이력 테이블 `organization_weekly_schedule_revisions`는 유지했다. 확정 근무표 변경 사유, 전후 스냅샷, 직원 변경 안내에 필요하다.
+
 ## 운영 DB 적용 후 확인 결과
 
 - `organization_weekly_schedules`: 2개 행 유지
 - `organization_weekly_schedule_revisions`: 2개 행 유지, 기존 기준 이력 2개 유지
+- `organization_weekly_schedule_templates`: 테이블과 템플릿 전용 RPC 4개 제거 확인 (적용 전 행 0개)
 - 새 감사 컬럼 5개 확인
 - 확정 근무표 보호 트리거와 기존 이력 캡처 트리거 설치 확인
 - 신규 RPC 3개 모두 authenticated 실행 가능, anon 실행 불가
@@ -84,7 +95,7 @@ GitHub Actions에서 계정 분리/회귀 테스트, 변경 통제 전용 검사
 
 실제 Android 기기에서 대표 계정과 직원 계정으로 다음 동작을 확인하는 작업만 별도로 남아 있다.
 
-1. 대표 계정에서 확정 근무표 수정·확정 해제·복구 시 사유를 입력해야 저장되는지
+1. 대표 계정에서 확정 근무표 수정·확정 해제 시 사유를 입력해야 저장되는지
 2. 사유와 변경 이력이 근무표 이력에 표시되는지
 3. 직원 계정은 본인 일정에 해당하는 변경 안내만 확인하는지
 4. 직원의 추가휴무 요청 승인과 휴무 교환 승인 동작이 기존처럼 유지되는지
