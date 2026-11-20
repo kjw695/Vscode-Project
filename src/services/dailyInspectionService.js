@@ -69,3 +69,37 @@ export const saveDailyInspectionRecord = async (userId, date, record) => {
     }
     return payload;
 };
+
+const getSavedDriverSignatureKey = (userId) => `${getDailyInspectionStoragePrefix(userId)}saved-driver-signature`;
+
+export const readSavedDriverSignature = (userId) => {
+    try {
+        return localStorage.getItem(getSavedDriverSignatureKey(userId)) || '';
+    } catch (error) {
+        console.warn('[DailyInspection] 저장된 서명을 읽지 못했습니다.', error);
+        return '';
+    }
+};
+
+export const saveSavedDriverSignature = (userId, signatureDataUrl) => {
+    if (!signatureDataUrl || typeof signatureDataUrl !== 'string' || !signatureDataUrl.startsWith('data:image/png;base64,')) {
+        throw new Error('저장할 서명이 올바르지 않습니다. 다시 서명해주세요.');
+    }
+    try {
+        localStorage.setItem(getSavedDriverSignatureKey(userId), signatureDataUrl);
+        return true;
+    } catch (error) {
+        console.error('[DailyInspection] 서명 저장 실패:', error);
+        throw new Error('서명을 기기에 저장하지 못했습니다. 저장 공간을 확인해주세요.');
+    }
+};
+
+export const clearSavedDriverSignature = (userId) => {
+    try {
+        localStorage.removeItem(getSavedDriverSignatureKey(userId));
+        return true;
+    } catch (error) {
+        console.warn('[DailyInspection] 저장된 서명을 삭제하지 못했습니다.', error);
+        return false;
+    }
+};
