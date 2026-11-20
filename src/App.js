@@ -255,6 +255,12 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const mainTouchStartY = useRef(null);
     const [selectedMainTab, setSelectedMainTab] = useState('home');
     const [activeContentTab, setActiveContentTab] = useState('bluecoinsDailySummary');
+
+    useEffect(() => {
+        if (selectedMainTab !== 'data' || activeContentTab !== 'dataEntry' || activeDataTab !== 'list') {
+            setIsEntriesPreviewOpen(false);
+        }
+    }, [selectedMainTab, activeContentTab, activeDataTab]);
         const [moreSubView, setMoreSubView] = useState('main');
     const [autoEditAccountProfile, setAutoEditAccountProfile] = useState(false);
     const [returnToCampNumbering, setReturnToCampNumbering] = useState(false);
