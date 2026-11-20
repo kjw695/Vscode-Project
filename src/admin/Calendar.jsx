@@ -659,7 +659,6 @@ export default function Calendar({ onBack }) {
 
             setGeneratedSchedule(prepared.schedule);
             setWarnings(prepared.warnings);
-            setSavedRecord(null);
             setScheduleStatus('generated');
             setWarningsAcknowledged(false);
             window.alert('지난주 근무표를 현재 주간으로 복사했습니다. 날짜와 직원 구성을 확인한 뒤 임시 저장해주세요.');
@@ -725,7 +724,6 @@ export default function Calendar({ onBack }) {
             setWarnings(result.warnings || []);
             setWarningsAcknowledged(false);
             setScheduleStatus('generated');
-            setSavedRecord(null);
         } catch (error) {
             console.error('자동 근무표 생성에 실패했습니다.', error);
             setScheduleStatus('ready');
@@ -746,6 +744,17 @@ export default function Calendar({ onBack }) {
             window.alert('회사 소속 정보를 확인하고 있습니다. 잠시 후 다시 저장해주세요.');
             return;
         }
+
+        let changeReason = null;
+        if (organizationId && (savedRecord?.status === 'confirmed' || scheduleStatus === 'confirmed')) {
+            const reasonInput = window.prompt('확정된 근무표를 변경합니다. 직원에게도 안내될 변경 사유를 입력해주세요.');
+            changeReason = String(reasonInput || '').trim().slice(0, 300);
+            if (!changeReason) {
+                window.alert('확정된 근무표를 변경하려면 사유를 입력해야 합니다.');
+                return;
+            }
+        }
+        const expectedVersion = organizationId ? Number(savedRecord?.version || 0) : 0;
 
         const now = new Date().toISOString();
         const employeeDetails = buildEmployeeDetails();
@@ -774,7 +783,9 @@ export default function Calendar({ onBack }) {
                     status: 'draft',
                     schedule: generatedSchedule,
                     employeeDetails: employeeDetails,
-                    warnings: warnings
+                    warnings: warnings,
+                    expectedVersion: expectedVersion,
+                    changeReason: changeReason
                 });
                 record.version = Number(shared?.version || record.version);
                 record.sharedScheduleId = shared?.id || null;
@@ -912,7 +923,9 @@ export default function Calendar({ onBack }) {
                     status: 'confirmed',
                     schedule: generatedSchedule,
                     employeeDetails: employeeDetails,
-                    warnings: warnings
+                    warnings: warnings,
+                    expectedVersion: organizationId ? Number(savedRecord?.version || 0) : 0,
+                    changeReason: null
                 });
                 record.version = Number(shared?.version || record.version);
                 record.sharedScheduleId = shared?.id || null;
@@ -944,11 +957,21 @@ export default function Calendar({ onBack }) {
             window.alert('먼저 근무조에 속한 팀을 선택해주세요.');
             return;
         }
-        if (!window.confirm('확정 상태를 해제하고 다시 초안으로 편집할 수 있도록 변경할까요?')) return;
         if (user?.id && organizationLookupStatus !== 'ready') {
             window.alert('회사 소속 정보를 확인하고 있습니다. 잠시 후 다시 시도해주세요.');
             return;
         }
+
+        let changeReason = null;
+        if (organizationId && savedRecord?.status === 'confirmed') {
+            const reasonInput = window.prompt('확정 해제 사유를 입력해주세요. 직원에게도 안내됩니다.');
+            changeReason = String(reasonInput || '').trim().slice(0, 300);
+            if (!changeReason) {
+                window.alert('확정 해제 사유를 입력해야 합니다.');
+                return;
+            }
+        }
+        if (!window.confirm('확정 상태를 해제하고 다시 초안으로 편집할 수 있도록 변경할까요?')) return;
 
         const now = new Date().toISOString();
         const employeeDetails = buildEmployeeDetails();
@@ -977,7 +1000,9 @@ export default function Calendar({ onBack }) {
                     status: 'draft',
                     schedule: generatedSchedule,
                     employeeDetails: employeeDetails,
-                    warnings: warnings
+                    warnings: warnings,
+                    expectedVersion: organizationId ? Number(savedRecord?.version || 0) : 0,
+                    changeReason: changeReason
                 });
                 record.version = Number(shared?.version || record.version);
                 record.sharedScheduleId = shared?.id || null;
@@ -1059,7 +1084,6 @@ export default function Calendar({ onBack }) {
             ));
         });
         setScheduleStatus('generated');
-        setSavedRecord(null);
     };
 
     const handleDownloadScheduleImage = async function () {
@@ -1297,6 +1321,7 @@ export default function Calendar({ onBack }) {
                     employeeDetails={savedRecord?.employeeDetails || buildEmployeeDetails()}
                     warnings={warnings}
                     status={scheduleStatus}
+                    currentVersion={Number(savedRecord?.version || 0)}
                     onApplySchedule={function (result) {
                         const prepared = prepareCopiedWeeklySchedule({
                             weekStart: weekStartKey,
@@ -1308,7 +1333,6 @@ export default function Calendar({ onBack }) {
                         });
                         setGeneratedSchedule(prepared.schedule);
                         setWarnings(prepared.warnings);
-                        setSavedRecord(null);
                         setScheduleStatus('generated');
                         setWarningsAcknowledged(false);
                     }}

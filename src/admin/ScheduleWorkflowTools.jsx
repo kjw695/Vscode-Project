@@ -93,6 +93,7 @@ export default function ScheduleWorkflowTools({
     employeeDetails,
     warnings,
     status,
+    currentVersion = 0,
     onApplySchedule,
     onCopyPreviousWeek,
     canCopyPreviousWeek,
@@ -254,15 +255,30 @@ export default function ScheduleWorkflowTools({
             ? '복구하면 선택한 과거 근무표가 다시 직원 앱에 확정 일정으로 공유됩니다.'
             : '복구하면 선택한 과거 임시 근무표로 돌아가며 직원 앱에는 미확정 상태로 표시됩니다.';
 
+        const reasonInput = window.prompt('이전 근무표를 복구하는 사유를 입력해주세요. 직원에게도 안내됩니다.');
+        const changeReason = String(reasonInput || '').trim().slice(0, 300);
+        if (!changeReason) {
+            setHistoryError('복구하려면 변경 사유를 입력해야 합니다.');
+            return;
+        }
+        if (!Number.isInteger(Number(currentVersion)) || Number(currentVersion) < 1) {
+            setHistoryError('현재 근무표 버전을 확인할 수 없습니다. 최신 근무표를 다시 불러와주세요.');
+            return;
+        }
+
         if (!window.confirm(
             '버전 ' + selectedRevision.source_version + '로 복구할까요?\n' +
-            warning + '\n현재 근무표는 복구 직전 이력으로 자동 보관됩니다.'
+            warning + '\n변경 사유: ' + changeReason + '\n현재 근무표는 복구 직전 이력으로 자동 보관됩니다.'
         )) return;
 
         setRevisionBusy(true);
         setHistoryError('');
         try {
-            const restored = await restoreMyOrganizationWeeklyScheduleRevision(selectedRevision.id);
+            const restored = await restoreMyOrganizationWeeklyScheduleRevision(
+                selectedRevision.id,
+                Number(currentVersion),
+                changeReason
+            );
             setSelectedRevision(null);
             onRevisionRestored?.(restored);
             await loadHistory();
@@ -497,8 +513,22 @@ export default function ScheduleWorkflowTools({
                                             </span>
                                         </p>
                                         <p className="mt-0.5 text-[10px] text-slate-400">{formatDateTime(revision.captured_at)}</p>
+                                        {revision.change_reason && (
+                                            <p className="mt-1 text-[10px] leading-4 text-slate-600">사유: {revision.change_reason}</p>
+                                        )}
                                     </div>
-                                    <span className="text-[10px] text-slate-400">{revision.revision_type === 'baseline' ? '기본' : '변경 전'}</span>
+                                    <span className="text-[10px] text-slate-400">
+                                        {({
+                                            baseline: '기본',
+                                            draft_saved: '임시 저장',
+                                            confirmed: '확정',
+                                            reopened: '확정 해제',
+                                            admin_changed: '관리자 변경',
+                                            request_approved: '직원 요청 승인',
+                                            restored: '이전 버전 복구',
+                                            updated: '수정'
+                                        })[revision.change_type] || (revision.revision_type === 'baseline' ? '기본' : '변경 전')}
+                                    </span>
                                     <button
                                         type="button"
                                         onClick={() => handlePreviewRevision(revision.id)}
@@ -541,6 +571,11 @@ export default function ScheduleWorkflowTools({
                                     </div>
                                 ))}
                             </div>
+                            {selectedRevision.change_reason && (
+                                <p className="mt-2 text-[11px] leading-5 text-slate-600">
+                                    당시 변경 사유: {selectedRevision.change_reason}
+                                </p>
+                            )}
                             <p className="mt-2 text-[10px] leading-4 text-slate-500">
                                 복구하면 해당 버전의 임시/확정 상태까지 되돌아갑니다. 현재 버전은 복구 이력으로 자동 보관됩니다.
                             </p>
