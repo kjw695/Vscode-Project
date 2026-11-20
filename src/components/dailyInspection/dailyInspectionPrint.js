@@ -162,7 +162,8 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .detail h2 { font-size: 15px; margin: 0 0 8px; }
     .detail h3 { font-size: 11px; margin: 12px 0 5px; }
     .detail-table { margin: 7px 0; }
-    .detail-table th, .detail-table td { border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 10px; }\n    .no-defects { margin: 14px 0; padding: 12px; border: 1px solid #999; text-align: center; font-size: 11px; }
+    .detail-table th, .detail-table td { border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 10px; }
+    .no-defects { margin: 14px 0; padding: 12px; border: 1px solid #999; text-align: center; font-size: 11px; }
     .meta { display: flex; gap: 18px; flex-wrap: wrap; margin: 8px 0; }
     .notes { border: 1px solid #777; min-height: 35px; padding: 7px; white-space: pre-wrap; font-size: 9px; }
     .signatures { display: flex; gap: 20px; margin-top: 16px; }
@@ -314,8 +315,13 @@ export const printDailyInspectionMonth = (records, year, month) => {
                     cropped.height = maxY - minY + 1;
                     cropped.getContext('2d').drawImage(source, minX, minY, cropped.width, cropped.height, 0, 0, cropped.width, cropped.height);
                     image.dataset.signatureCropped = 'true';
-                    image.src = cropped.toDataURL('image/png');
-                    await waitForImage(image);
+                    const croppedDataUrl = cropped.toDataURL('image/png');
+                    await new Promise((resolve) => {
+                        image.addEventListener('load', resolve, { once: true });
+                        image.addEventListener('error', resolve, { once: true });
+                        image.src = croppedDataUrl;
+                        if (image.complete && image.naturalWidth > 0) resolve();
+                    });
                 } catch (error) {
                     console.warn('[DailyInspection] 서명 이미지 자르기 실패:', error);
                 }
