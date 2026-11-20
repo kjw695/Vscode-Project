@@ -43,7 +43,7 @@ const scheduleReminderNotification = async (userId, time) => {
     await LocalNotifications.schedule({
         notifications: [{
             id: notificationId,
-            title: '업무 전 차량 점검',
+            title: '택배메이트 · 업무 전 차량 점검',
             body: '업무를 시작하기 전에 일상점검표를 작성해주세요.',
             smallIcon: 'ic_stat_daily_inspection',
             iconColor: '#2563EB',
