@@ -462,21 +462,23 @@ const handleEditClick = () => {
                 {isLoggedIn ? user?.email : '기기 내부에만 임시 저장 중'}
               </p>
               {isLoggedIn && (
-                <a
-                  href="/delete-account.html"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-2 inline-flex text-xs font-medium text-red-600 dark:text-red-400 underline underline-offset-2"
-                >
-                  계정 및 개인정보 삭제 요청
-                </a>
-                <button
-                  type="button"
-                  onClick={() => { setDeleteConfirmation(''); setDeleteAccountError(''); setShowDeleteAccount(true); }}
-                  className="mt-2 inline-flex text-xs font-semibold text-red-600 dark:text-red-400 underline underline-offset-2"
-                >
-                  회원 탈퇴
-                </button>
+                <>
+                  <a
+                    href="/delete-account.html"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex text-xs font-medium text-red-600 dark:text-red-400 underline underline-offset-2"
+                  >
+                    계정 및 개인정보 삭제 요청
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => { setDeleteConfirmation(''); setDeleteAccountError(''); setShowDeleteAccount(true); }}
+                    className="mt-2 inline-flex text-xs font-semibold text-red-600 dark:text-red-400 underline underline-offset-2"
+                  >
+                    회원 탈퇴
+                  </button>
+                </>
               )}
             </div>
           </div>
