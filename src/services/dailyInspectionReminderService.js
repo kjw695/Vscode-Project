@@ -1,7 +1,15 @@
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 
-const REMINDER_NOTIFICATION_ID = 73021;
+const getReminderNotificationId = (userId) => {
+    const source = String(userId || 'guest');
+    let hash = 2166136261;
+    for (let index = 0; index < source.length; index += 1) {
+        hash ^= source.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+    return 70000 + ((hash >>> 0) % 2000000000);
+};
 const REMINDER_CHANNEL_ID = 'daily-inspection-reminder';
 const STORAGE_KEY_PREFIX = 'dailyInspectionReminder:v1:user:';
 
@@ -60,12 +68,12 @@ export const enableDailyInspectionReminder = async (userId, time) => {
     }
 
     await LocalNotifications.cancel({
-        notifications: [{ id: REMINDER_NOTIFICATION_ID }]
+        notifications: [{ id: getReminderNotificationId(userId) }]
     });
 
     await LocalNotifications.schedule({
         notifications: [{
-            id: REMINDER_NOTIFICATION_ID,
+            id: getReminderNotificationId(userId),
             title: '업무 전 차량 점검',
             body: '업무를 시작하기 전에 일상점검표를 작성해주세요.',
             channelId: REMINDER_CHANNEL_ID,
@@ -82,7 +90,7 @@ export const enableDailyInspectionReminder = async (userId, time) => {
 export const disableDailyInspectionReminder = async (userId, time) => {
     if (Capacitor.isNativePlatform()) {
         await LocalNotifications.cancel({
-            notifications: [{ id: REMINDER_NOTIFICATION_ID }]
+            notifications: [{ id: getReminderNotificationId(userId) }]
         });
     }
     saveReminderSetting(userId, { enabled: false, time: time || '07:00' });
