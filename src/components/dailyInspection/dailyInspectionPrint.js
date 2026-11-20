@@ -107,7 +107,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
                 <div class="signatures">
                     <div>
                         <b>운전자(점검자) 서명</b>
-                        <img src="${safeSignatureImage(record.driverSignature)}" alt="운전자 서명" />
+                        <img class="signature-detail-image" src="${safeSignatureImage(record.driverSignature)}" alt="운전자 서명" />
                     </div>
                 </div>
                 <p class="footnote">기기 로컬 저장 기록이며, 기기 기록 시각은 서버 공인 타임스탬프가 아닙니다.</p>
@@ -126,15 +126,19 @@ export const printDailyInspectionMonth = (records, year, month) => {
     * { box-sizing: border-box; }
     html, body { background: #fff !important; color: #111 !important; }
     body { margin: 0; padding: 10mm; background: #fff; color: #111; font-family: Arial, 'Malgun Gothic', sans-serif; font-size: 9pt; }
-    .toolbar { position: sticky; top: 0; z-index: 5; display: flex; justify-content: flex-end; gap: 8px; padding: 10px; margin: -10mm -10mm 8mm; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; }
-    .toolbar button { border: 0; border-radius: 8px; padding: 10px 14px; background: #1d4ed8; color: #fff; font-size: 14px; font-weight: 700; }
+    .toolbar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; padding: 10px; margin: -10mm -10mm 8mm; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; }
+    .toolbar button { border: 0; border-radius: 8px; padding: 9px 13px; background: #1d4ed8; color: #fff; font-size: 14px; font-weight: 700; }
     .toolbar button.secondary { background: #475569; }
+    .toolbar .zoom-label { min-width: 48px; text-align: center; color: #111; font: 700 13px Arial, sans-serif; }
+    #preview-content { transform-origin: top left; }
     .form-caption { min-height: 5mm; margin: 0 0 1mm 1mm; font-family: 'Malgun Gothic', sans-serif; font-size: 8.5pt; line-height: 1.2; white-space: nowrap; }
     .form-caption .new-date { color: #0645ad; }
     h1 { margin: 0 0 3mm; text-align: center; font-size: 12pt; line-height: 1.25; font-weight: 400; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; background: #fff; }
     .identity-table { margin: 0 0 3mm; border: 0.45mm solid #111; font-family: 'Malgun Gothic', sans-serif; }
-    .identity-table td { height: 8mm; border: 0.25mm solid #333; padding: 1mm 1.2mm; text-align: center; vertical-align: middle; font-size: 9pt; white-space: nowrap; }
+    .identity-table td { height: 9mm; border: 0.25mm solid #333; padding: 1.2mm 2mm; text-align: center; vertical-align: middle; font-size: 9pt; white-space: normal; overflow-wrap: anywhere; }
+    .identity-table .identity-label { width: 13%; background: #f7f7f7; font-weight: 700; }
+    .identity-table .identity-value { width: 37%; min-width: 0; }
     .inspection-table { border: 0.5mm solid #111; font-family: 'Malgun Gothic', sans-serif; font-size: 8.5pt; break-inside: avoid; page-break-inside: avoid; }
     .inspection-table th, .inspection-table td { border: 0.2mm solid #777; color: #111; background: #fff; text-align: center; vertical-align: middle; padding: 0.8mm 0.3mm; font-weight: 400; }
     .inspection-table .main-heading { font-size: 10pt; height: 8mm; }
@@ -144,13 +148,14 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .inspection-table .item { width: 53mm; text-align: left; padding: 1.2mm 1.8mm; line-height: 1.35; font-size: 8.5pt; overflow-wrap: anywhere; }
     .inspection-row td.result-cell { height: 9.5mm; padding: 0; font-size: 9pt; }
     .inspection-row.long-item td { height: 12mm; }
-    .inspection-table .signature-title { height: 10mm; font-size: 9pt; }
-    .inspection-table .signature-cell { height: 10mm; padding: 0.5mm; }
-    .signature-cell img { display: block; width: 100%; height: 8mm; object-fit: contain; background: #fff; }
+    .inspection-table .signature-title { height: 15mm; font-size: 9pt; }
+    .inspection-table .signature-cell { height: 15mm; padding: 0.5mm; }
+    .signature-cell img { display: block; width: 100%; height: 13mm; object-fit: contain; background: #fff; }
     .inspection-table .action-title { height: 15mm; font-size: 9pt; padding: 1.5mm; }
     .inspection-table .action-content { height: 15mm; text-align: left; vertical-align: middle; padding: 2mm 3mm; font-size: 9pt; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
     .example-text { color: #999; }
     .page-break { break-before: page; page-break-before: always; }
+    #preview-content { transform-origin: top left; }
     .detail { margin: 0; padding: 0; font-family: Arial, 'Malgun Gothic', sans-serif; }
     .detail h2 { font-size: 15px; margin: 0 0 8px; }
     .detail h3 { font-size: 11px; margin: 12px 0 5px; }
@@ -158,37 +163,44 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .detail-table th, .detail-table td { border: 1px solid #555; padding: 5px; text-align: center; font-size: 9px; }
     .meta { display: flex; gap: 18px; flex-wrap: wrap; margin: 8px 0; }
     .notes { border: 1px solid #777; min-height: 35px; padding: 7px; white-space: pre-wrap; font-size: 9px; }
-    .signatures { display: flex; gap: 20px; margin-top: 12px; }
-    .signatures > div { width: 50%; border: 1px solid #777; padding: 6px; min-height: 95px; }
-    .signatures img { display: block; width: 100%; max-width: 420px; height: 60px; object-fit: contain; background: #fff; }
+    .signatures { display: flex; gap: 20px; margin-top: 16px; }
+    .signatures > div { width: 100%; border: 1px solid #777; padding: 10px; min-height: 190px; }
+    .signature-detail-image { display: block; width: 100%; max-width: 700px; height: 145px; object-fit: contain; object-position: left center; background: #fff; margin-top: 8px; }
     .footnote { font-size: 8px; color: #555; margin-top: 8px; }
     @page { size: A4 landscape; margin: 0; }
     @media screen { body { max-width: 1400px; margin: 0 auto; } .inspection-table { min-width: 1100px; } .detail { border-top: 2px dashed #cbd5e1; padding-top: 12px; margin-top: 24px; } }
-    @media print { html, body { width: 297mm; min-height: 210mm; padding: 10mm; margin: 0; background: #fff !important; color: #111 !important; } .toolbar { display: none !important; } .form-caption, h1, .identity-table, .inspection-table { break-inside: avoid; page-break-inside: avoid; } .page-break { break-before: page; page-break-before: always; } .detail { margin: 0; padding: 0; border: 0; } table, tr, img { break-inside: avoid; page-break-inside: avoid; } * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    @media print { html, body { width: 297mm; min-height: 210mm; padding: 10mm; margin: 0; background: #fff !important; color: #111 !important; } .toolbar { display: none !important; } #preview-content { zoom: 1 !important; } .form-caption, h1, .identity-table, .inspection-table { break-inside: avoid; page-break-inside: avoid; } .page-break { break-before: page; page-break-before: always; } .detail { margin: 0; padding: 0; border: 0; } table, tr, img { break-inside: avoid; page-break-inside: avoid; } * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style>
 </head>
 <body>
     <div class="toolbar">
         <button type="button" onclick="window.print()">PDF 저장 / 인쇄</button>
-        <button type="button" class="secondary" onclick="window.parent.document.getElementById('daily-inspection-print-frame')?.remove()">닫기</button>
+        <button type="button" class="secondary" onclick="window.adjustDailyInspectionZoom(-0.1)">축소 −</button>
+        <span id="preview-zoom-label" class="zoom-label">맞춤</span>
+        <button type="button" class="secondary" onclick="window.adjustDailyInspectionZoom(0.1)">확대 +</button>
+        <button type="button" class="secondary" onclick="window.fitDailyInspectionPreview()">화면 맞춤</button>
+        <button type="button" class="secondary" onclick="window.parent.document.getElementById('daily-inspection-print-frame')?.remove()">미리보기 닫기</button>
     </div>
 
+    <div id="preview-content">
     <div class="form-caption">■ 화물자동차 운수사업법 시행규칙 [별지 제14호의5서식] <span class="new-date">&lt;신설 2025. 12. 29.&gt;</span></div>
     <h1>운수종사자 일상점검표</h1>
 
     <table class="identity-table">
         <colgroup>
-            <col style="width:12%"><col style="width:13%">
-            <col style="width:12%"><col style="width:13%">
-            <col style="width:12%"><col style="width:13%">
-            <col style="width:12%"><col style="width:13%">
+            <col style="width:13%"><col style="width:37%">
+            <col style="width:13%"><col style="width:37%">
         </colgroup>
-        <tbody><tr>
-            <td>점검연월</td><td>${year}년 ${month}월</td>
-            <td>운송사업자명</td><td>${escapeHtml(companyName)}</td>
-            <td>차량번호</td><td>${escapeHtml(first.vehicleNumber || '')}</td>
-            <td>운수종사자명</td><td>${escapeHtml(first.driverName || '')}</td>
-        </tr></tbody>
+        <tbody>
+            <tr>
+                <td class="identity-label">점검연월</td><td class="identity-value">${year}년 ${month}월</td>
+                <td class="identity-label">운송사업자명</td><td class="identity-value">${escapeHtml(companyName)}</td>
+            </tr>
+            <tr>
+                <td class="identity-label">차량번호</td><td class="identity-value">${escapeHtml(first.vehicleNumber || '')}</td>
+                <td class="identity-label">운수종사자명</td><td class="identity-value">${escapeHtml(first.driverName || '')}</td>
+            </tr>
+        </tbody>
     </table>
 
     <table class="inspection-table">
@@ -212,6 +224,39 @@ export const printDailyInspectionMonth = (records, year, month) => {
     </table>
 
     ${detailPages}
+    </div>
+    <script>
+        (function () {
+            let zoom = 1;
+            const content = () => document.getElementById('preview-content');
+            const label = () => document.getElementById('preview-zoom-label');
+            const applyZoom = () => {
+                const target = content();
+                if (!target) return;
+                target.style.zoom = String(zoom);
+                if (label()) label().textContent = Math.round(zoom * 100) + '%';
+            };
+            window.adjustDailyInspectionZoom = (delta) => {
+                zoom = Math.max(0.25, Math.min(1.5, Math.round((zoom + delta) * 100) / 100));
+                applyZoom();
+            };
+            window.fitDailyInspectionPreview = () => {
+                const target = content();
+                if (!target) return;
+                const availableWidth = Math.max(240, window.innerWidth - 28);
+                const contentWidth = Math.max(target.scrollWidth, target.getBoundingClientRect().width);
+                zoom = Math.max(0.25, Math.min(1, availableWidth / contentWidth));
+                applyZoom();
+            };
+            window.addEventListener('resize', window.fitDailyInspectionPreview);
+            window.addEventListener('beforeprint', () => {
+                if (content()) content().style.zoom = '1';
+            });
+            window.addEventListener('afterprint', applyZoom);
+            window.addEventListener('load', window.fitDailyInspectionPreview);
+            window.fitDailyInspectionPreview();
+        })();
+    </script>
 </body>
 </html>`;
 
