@@ -1,418 +1,238 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CheckCircle2, ClipboardCheck } from 'lucide-react';
-import { readDailyInspectionRecord, saveDailyInspectionRecord } from '../../services/dailyInspectionService';
+import { ArrowLeft, CheckCircle2, ClipboardCheck, Printer, History } from 'lucide-react';
+import { listDailyInspectionRecords, readDailyInspectionRecord, saveDailyInspectionRecord } from '../../services/dailyInspectionService';
+import { printDailyInspectionMonth } from './dailyInspectionPrint';
+import DailyInspectionSignaturePad from './DailyInspectionSignaturePad';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../contexts/AuthContext';
 
 const INSPECTION_GROUPS = [
-    {
-        title: '외관점검',
-        items: [
-            { id: 'cleanliness', label: '번호판, 전면유리, 후사경 등의 청결상태' },
-            { id: 'lighting', label: '후미등, 차폭등 등 등화장치 작동상태' },
-            { id: 'wipers', label: '창닦이기(와이퍼) 작동상태' },
-            { id: 'cargoBody', label: '적재함(보조지지대 포함), 측면 보호대, 후부반사판, 트레일러 연결장치의 부착 상태 및 훼손 여부' }
-        ]
-    },
-    {
-        title: '상태점검',
-        items: [
-            { id: 'tires', label: '타이어 손상 및 마모(1.6mm 이상) 여부' },
-            { id: 'cargoFixing', label: '화물, 적재함 지지대(판스프링) 등의 고정상태' },
-            { id: 'wheelNuts', label: '바퀴 너트 등 균열 여부' }
-        ]
-    },
-    {
-        title: '기타',
-        items: [
-            { id: 'fluidsAndWarning', label: '냉각수, 공기압, 엔진오일 등 차량 이상 여부(계기판 확인)' },
-            { id: 'seatBelt', label: '좌석 안전띠 상태' },
-            { id: 'fireExtinguisher', label: '소화기 비치 여부' },
-            { id: 'warningTriangle', label: '안전삼각대 등 비치 여부' }
-        ]
-    }
+ { title:'외관점검', items:[
+  {id:'cleanliness',label:'번호판, 전면유리, 후사경 등의 청결상태'},
+  {id:'lighting',label:'후미등, 차폭등 등 등화장치 작동상태'},
+  {id:'wipers',label:'창닦이기(와이퍼) 작동상태'},
+  {id:'cargoBody',label:'적재함·덮개·보조지지대·측면 보호대·후부반사판·연결장치의 부착 및 훼손 여부'}
+ ]},
+ { title:'상태점검', items:[
+  {id:'tires',label:'타이어 손상 및 마모(1.6mm 이상) 여부'},
+  {id:'cargoFixing',label:'화물·적재함 덮개·결속장치 및 판스프링 고정상태'},
+  {id:'wheelNuts',label:'바퀴 너트 등의 균열 여부'},
+  {id:'brakes',label:'제동장치 작동 및 제동력 이상 여부',extra:true},
+  {id:'engineLeak',label:'원동기 누유·냉각수·엔진오일 등 이상 여부',extra:true},
+  {id:'illegalAttachments',label:'판스프링 등 불법 부착물·임의 개조 여부',extra:true}
+ ]},
+ { title:'기타', items:[
+  {id:'fluidsAndWarning',label:'냉각수·공기압·엔진오일 등 차량 이상 여부(계기판 확인)'},
+  {id:'seatBelt',label:'좌석 안전띠 상태'},
+  {id:'fireExtinguisher',label:'소화기 비치 여부'},
+  {id:'warningTriangle',label:'안전삼각대 등 비치 여부'}
+ ]}
 ];
-
-const ALL_ITEMS = INSPECTION_GROUPS.flatMap((group) => group.items);
-
-const formatDateLabel = (dateKey) => {
-    if (!dateKey) return '';
-    const [year, month, day] = dateKey.split('-').map(Number);
-    const date = new Date(year, month - 1, day);
-    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
-    return `${year}년 ${month}월 ${day}일 (${weekdays[date.getDay()]})`;
+const ALL_ITEMS=INSPECTION_GROUPS.flatMap(group=>group.items);
+const formatDateLabel=(dateKey)=>{
+ if(!dateKey)return '';
+ const [year,month,day]=dateKey.split('-').map(Number);
+ const date=new Date(year,month-1,day);
+ return `${year}년 ${month}월 ${day}일 (${['일','월','화','수','목','금','토'][date.getDay()]})`;
+};
+const formatTimestamp=(value)=>{
+ if(!value)return '-';
+ const d=new Date(value);
+ if(Number.isNaN(d.getTime()))return '-';
+ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 };
 
-const DailyInspectionView = ({
-    onBack,
-    onSaved,
-    date,
-    userId,
-    profile,
-    isDarkMode,
-    scheduleStatus = 'work'
-}) => {
-    const [answers, setAnswers] = useState({});
-    const [actionNotes, setActionNotes] = useState('');
-    const [saveError, setSaveError] = useState('');
-    const [isSaved, setIsSaved] = useState(false);
-    const [driverName, setDriverName] = useState(
-        profile?.full_name || profile?.display_name || ''
-    );
-    const [vehicleNumber, setVehicleNumber] = useState(profile?.vehicle_number || '');
-    const [isSavingProfile, setIsSavingProfile] = useState(false);
-    const [profileSaveMessage, setProfileSaveMessage] = useState('');
-    const [profileSaveError, setProfileSaveError] = useState('');
-    const { user: authUser, refreshProfile } = useAuth();
+const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,scheduleStatus='work'})=>{
+ const [answers,setAnswers]=useState({});
+ const [actionNotes,setActionNotes]=useState('');
+ const [saveError,setSaveError]=useState('');
+ const [isSaved,setIsSaved]=useState(false);
+ const [driverName,setDriverName]=useState(profile?.full_name||profile?.display_name||'');
+ const [vehicleNumber,setVehicleNumber]=useState(profile?.vehicle_number||'');
+ const [odometerKm,setOdometerKm]=useState('');
+ const [carrierName,setCarrierName]=useState('');
+ const [driverSignature,setDriverSignature]=useState('');
+ const [managerName,setManagerName]=useState('');
+ const [managerSignature,setManagerSignature]=useState('');
+ const [correctionReason,setCorrectionReason]=useState('');
+ const [currentRecord,setCurrentRecord]=useState(null);
+ const [monthRecords,setMonthRecords]=useState([]);
+ const [selectedMonth,setSelectedMonth]=useState(String(date||'').slice(0,7));
+ const [isSavingProfile,setIsSavingProfile]=useState(false);
+ const [profileSaveMessage,setProfileSaveMessage]=useState('');
+ const [profileSaveError,setProfileSaveError]=useState('');
+ const {user:authUser,refreshProfile}=useAuth();
 
-    useEffect(() => {
-        setDriverName(profile?.full_name || profile?.display_name || '');
-        setVehicleNumber(profile?.vehicle_number || '');
-        setProfileSaveMessage('');
-        setProfileSaveError('');
-    }, [profile?.full_name, profile?.display_name, profile?.vehicle_number]);
+ useEffect(()=>{
+  setDriverName(profile?.full_name||profile?.display_name||'');
+  setVehicleNumber(profile?.vehicle_number||'');
+  setProfileSaveMessage('');setProfileSaveError('');
+ },[profile?.full_name,profile?.display_name,profile?.vehicle_number]);
 
-    useEffect(() => {
-        const record = readDailyInspectionRecord(userId, date);
-        setAnswers(record?.answers && typeof record.answers === 'object' ? record.answers : {});
-        setActionNotes(record?.actionNotes || '');
-        setIsSaved(Boolean(record?.updatedAt));
-        setSaveError('');
-    }, [userId, date]);
+ const refreshRecords=()=>{
+  const latest=readDailyInspectionRecord(userId,date);
+  setCurrentRecord(latest);
+  setAnswers(latest?.answers&&typeof latest.answers==='object'?latest.answers:{});
+  setActionNotes(latest?.actionNotes||'');
+  setOdometerKm(latest?.odometerKm==null?'':String(latest.odometerKm));
+  setCarrierName(latest?.carrierName||'');
+  setDriverSignature(latest?.driverSignature||'');
+  setManagerName(latest?.managerName||'');
+  setManagerSignature(latest?.managerSignature||'');
+  setIsSaved(Boolean(latest?.completedAt||latest?.updatedAt));
+  setCorrectionReason('');
+  const [year,month]=String(date).slice(0,7).split('-');
+  setMonthRecords(listDailyInspectionRecords(userId,year,month));
+ };
+ useEffect(()=>{refreshRecords();setSaveError('');},[userId,date]);
+ useEffect(()=>{setSelectedMonth(String(date||'').slice(0,7));},[date]);
 
-    const answeredCount = useMemo(
-        () => ALL_ITEMS.filter((item) => ['good', 'bad'].includes(answers[item.id])).length,
-        [answers]
-    );
-    const badItems = useMemo(
-        () => ALL_ITEMS.filter((item) => answers[item.id] === 'bad'),
-        [answers]
-    );
-    const allAnswered = answeredCount === ALL_ITEMS.length;
-    const canSave = allAnswered && (badItems.length === 0 || actionNotes.trim().length > 0);
+ const answeredCount=useMemo(()=>ALL_ITEMS.filter(item=>['good','bad'].includes(answers[item.id])).length,[answers]);
+ const badItems=useMemo(()=>ALL_ITEMS.filter(item=>answers[item.id]==='bad'),[answers]);
+ const allAnswered=answeredCount===ALL_ITEMS.length;
+ const profileName=profile?.full_name||profile?.display_name||'';
+ const profileVehicleNumber=profile?.vehicle_number||'';
+ const hasMissingIdentity=!profileName.trim()||!profileVehicleNumber.trim();
+ const identityChanged=driverName.trim()!==profileName.trim()||vehicleNumber.trim()!==profileVehicleNumber.trim();
+ const canSave=allAnswered&&(badItems.length===0||actionNotes.trim().length>0)&&String(odometerKm).trim()!==''&&Number.isFinite(Number(odometerKm))&&Number(odometerKm)>=0&&Boolean(driverName.trim())&&Boolean(vehicleNumber.trim())&&Boolean(driverSignature)&&(!currentRecord||Boolean(correctionReason.trim()));
 
-    const chooseAnswer = (itemId, value) => {
-        setAnswers((previous) => ({ ...previous, [itemId]: value }));
-        setIsSaved(false);
-        setSaveError('');
-    };
+ const chooseAnswer=(id,value)=>{setAnswers(prev=>({...prev,[id]:value}));setIsSaved(false);setSaveError('');};
+ const handleSaveIdentity=async()=>{
+  if(!authUser?.id){setProfileSaveError('내정보에 저장하려면 먼저 로그인해주세요.');return;}
+  const name=driverName.trim(),vehicle=vehicleNumber.trim();
+  if(!name||!vehicle){setProfileSaveError('이름과 차량번호를 모두 입력해주세요.');return;}
+  setIsSavingProfile(true);setProfileSaveError('');setProfileSaveMessage('');
+  try{
+   const {error}=await supabase.from('profiles').update({full_name:name,vehicle_number:vehicle}).eq('id',authUser.id);
+   if(error)throw error;
+   await refreshProfile();setProfileSaveMessage('이름과 차량번호가 내정보에 저장되었습니다.');
+  }catch(error){console.error('[DailyInspection] 내정보 저장 실패:',error);setProfileSaveError(error.message||'내정보 저장에 실패했습니다.');}
+  finally{setIsSavingProfile(false);}
+ };
 
-    const profileName = profile?.full_name || profile?.display_name || '';
-    const profileVehicleNumber = profile?.vehicle_number || '';
-    const hasMissingIdentity = !profileName.trim() || !profileVehicleNumber.trim();
-    const identityChanged =
-        driverName.trim() !== profileName.trim() ||
-        vehicleNumber.trim() !== profileVehicleNumber.trim();
-    const canSaveIdentity =
-        Boolean(authUser?.id) &&
-        Boolean(driverName.trim()) &&
-        Boolean(vehicleNumber.trim()) &&
-        (hasMissingIdentity || identityChanged);
+ const handleSave=async()=>{
+  if(!canSave)return;
+  setSaveError('');
+  const normalizedName=driverName.trim(),normalizedVehicle=vehicleNumber.trim();
+  try{
+   if(authUser?.id&&(hasMissingIdentity||identityChanged)){
+    setIsSavingProfile(true);
+    const {error}=await supabase.from('profiles').update({full_name:normalizedName,vehicle_number:normalizedVehicle}).eq('id',authUser.id);
+    if(error)throw error;
+    await refreshProfile();
+    setProfileSaveMessage('이름과 차량번호가 내정보에 자동 저장되었습니다.');
+   }
+   const record=await saveDailyInspectionRecord(userId,date,{
+    answers,actionNotes:actionNotes.trim(),driverName:normalizedName,vehicleNumber:normalizedVehicle,
+    odometerKm:Number(odometerKm),carrierName:carrierName.trim(),driverSignature,managerName:managerName.trim(),
+    managerSignature,correctionReason:correctionReason.trim(),supersedesId:currentRecord?.id||null,
+    isNotOperated:false,completed:true
+   });
+   setCurrentRecord(record);setIsSaved(true);setCorrectionReason('');
+   const [year,month]=String(date).slice(0,7).split('-');
+   setMonthRecords(listDailyInspectionRecords(userId,year,month));
+   onSaved?.(record);
+  }catch(error){console.error('[DailyInspection] 점검 기록 저장 실패:',error);setSaveError(error.message||'점검 기록을 저장하지 못했습니다.');}
+  finally{setIsSavingProfile(false);}
+ };
 
-    const handleSaveIdentity = async () => {
-        if (!authUser?.id) {
-            setProfileSaveError('내정보에 저장하려면 먼저 로그인해주세요.');
-            return;
-        }
-        const normalizedName = driverName.trim();
-        const normalizedVehicleNumber = vehicleNumber.trim();
-        if (!normalizedName || !normalizedVehicleNumber) {
-            setProfileSaveError('이름과 차량번호를 모두 입력해주세요.');
-            return;
-        }
+ const handlePrint=()=>{
+  try{
+   const [year,month]=selectedMonth.split('-');
+   const records=listDailyInspectionRecords(userId,year,month);
+   if(!records.length&&currentRecord)records.push(currentRecord);
+   if(!records.length){setSaveError('선택한 달에 출력할 점검 기록이 없습니다.');return;}
+   printDailyInspectionMonth(records,year,Number(month));
+  }catch(error){setSaveError(error.message||'인쇄 화면을 열지 못했습니다.');}
+ };
 
-        setIsSavingProfile(true);
-        setProfileSaveError('');
-        setProfileSaveMessage('');
-        try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({
-                    full_name: normalizedName,
-                    vehicle_number: normalizedVehicleNumber
-                })
-                .eq('id', authUser.id);
+ const dark=Boolean(isDarkMode);
+ const panelClass=dark?'bg-slate-800 border-slate-700 text-slate-100':'bg-white border-slate-200 text-slate-900';
+ const mutedClass=dark?'text-slate-400':'text-slate-500';
+ const fieldClass=`mt-1 w-full min-w-0 rounded-lg border px-2.5 py-2 text-sm ${dark?'bg-slate-900 border-slate-600 text-white':'bg-white border-slate-300 text-slate-900'}`;
 
-            if (error) throw error;
-            await refreshProfile();
-            setProfileSaveMessage('이름과 차량번호가 내정보에 저장되었습니다.');
-        } catch (error) {
-            console.error('[DailyInspection] 내정보 저장 실패:', error);
-            setProfileSaveError(error.message || '내정보 저장에 실패했습니다. 다시 시도해주세요.');
-        } finally {
-            setIsSavingProfile(false);
-        }
-    };
+ return <div className="w-full max-w-3xl mx-auto px-2 sm:px-4 pb-8">
+  <div className="flex items-center gap-2 mb-4 pt-2">
+   <button type="button" onClick={onBack} aria-label="뒤로" className={`p-2 rounded-full ${dark?'hover:bg-slate-800 text-slate-200':'hover:bg-slate-100 text-slate-700'}`}><ArrowLeft size={22}/></button>
+   <div className="min-w-0 flex-1"><h2 className="text-lg sm:text-xl font-black break-keep">화물자동차 안전사고 예방을 위한 일상점검표</h2><p className={`mt-0.5 text-xs ${mutedClass}`}>{formatDateLabel(date)}</p></div>
+  </div>
 
-    const handleSave = async () => {
-        if (!canSave) return;
-        setSaveError('');
+  <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
+   <div className="grid grid-cols-2 gap-3">
+    <label className="min-w-0 text-xs">운전자(점검자) 성명<input value={driverName} onChange={e=>setDriverName(e.target.value)} maxLength={60} placeholder="이름 입력" className={fieldClass}/></label>
+    <label className="min-w-0 text-xs">차량번호<input value={vehicleNumber} onChange={e=>setVehicleNumber(e.target.value)} maxLength={30} placeholder="차량번호 입력" className={fieldClass}/></label>
+    <label className="min-w-0 text-xs">운송사업자명(선택)<input value={carrierName} onChange={e=>setCarrierName(e.target.value)} maxLength={80} placeholder="회사명" className={fieldClass}/></label>
+    <label className="min-w-0 text-xs">주행거리(적산거리계 km)<input type="number" min="0" step="1" inputMode="numeric" value={odometerKm} onChange={e=>{setOdometerKm(e.target.value);setIsSaved(false);}} placeholder="예: 125430" className={fieldClass}/></label>
+   </div>
+   {(hasMissingIdentity||identityChanged)&&<div className="mt-3">
+    <p className={`mb-2 text-xs ${mutedClass}`}>점검 완료 저장 시 로그인 계정의 내정보에도 이름과 차량번호가 반영됩니다.</p>
+    <button type="button" onClick={handleSaveIdentity} disabled={!authUser?.id||!driverName.trim()||!vehicleNumber.trim()||isSavingProfile} className="w-full rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-40">{isSavingProfile?'내정보 저장 중...':'입력한 정보를 내정보에 저장'}</button>
+    {!authUser?.id&&<p className={`mt-2 text-xs ${mutedClass}`}>로그인하면 입력한 정보를 내정보에 저장할 수 있습니다.</p>}
+   </div>}
+   {profileSaveMessage&&<p className="mt-2 text-xs font-semibold text-emerald-600">{profileSaveMessage}</p>}
+   {profileSaveError&&<p className="mt-2 text-xs text-red-500">{profileSaveError}</p>}
+   {scheduleStatus==='off'&&<p className="mt-3 text-xs text-slate-500">오늘은 근무표상 휴무일입니다. 차량을 운행하지 않는다면 점검 기록을 남기지 않아도 됩니다.</p>}
+   {scheduleStatus==='pending'&&<p className="mt-3 text-xs text-amber-600">오늘 근무표가 아직 확정되지 않았습니다. 실제 운행한다면 운행 전에 점검하세요.</p>}
+  </section>
 
-        const normalizedName = (profileName || driverName).trim();
-        const normalizedVehicleNumber = (profileVehicleNumber || vehicleNumber).trim();
-        if (!normalizedName || !normalizedVehicleNumber) {
-            setSaveError('이름과 차량번호를 모두 입력해주세요.');
-            return;
-        }
+  <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
+   <div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2"><ClipboardCheck size={18} className="text-blue-500"/><h3 className="font-black">차량 점검 항목</h3></div><span className="text-sm font-bold tabular-nums">{answeredCount}/{ALL_ITEMS.length}</span></div>
+   <div className={`mt-2 h-1.5 rounded-full overflow-hidden ${dark?'bg-slate-700':'bg-slate-100'}`}><div className="h-full rounded-full bg-blue-500 transition-all" style={{width:`${answeredCount/ALL_ITEMS.length*100}%`}}/></div>
+  </section>
 
-        try {
-            // 로그인 사용자가 점검표에서 처음 입력한 정보는 완료 저장과 함께 내정보에도 반영합니다.
-            if (authUser?.id && (hasMissingIdentity || identityChanged)) {
-                setIsSavingProfile(true);
-                const { error } = await supabase
-                    .from('profiles')
-                    .update({
-                        full_name: normalizedName,
-                        vehicle_number: normalizedVehicleNumber
-                    })
-                    .eq('id', authUser.id);
+  {INSPECTION_GROUPS.map(group=><section key={group.title} className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
+   <h3 className="font-black text-sm mb-2">{group.title}</h3>
+   {group.items.map(item=>{
+    const answer=answers[item.id];
+    return <div key={item.id} className="py-3 border-t first:border-t-0 border-slate-200 dark:border-slate-700">
+     <div className="flex items-start justify-between gap-3"><p className="flex-1 min-w-0 text-sm font-medium leading-5">{item.label}{item.extra&&<span className="ml-1 text-[10px] text-blue-500">추가점검</span>}</p>
+      <div className="flex shrink-0 gap-1.5">
+       <button type="button" onClick={()=>chooseAnswer(item.id,'good')} aria-pressed={answer==='good'} className={`min-w-[58px] rounded-lg border px-2.5 py-2 text-xs font-bold ${answer==='good'?'border-emerald-500 bg-emerald-500 text-white':dark?'border-slate-600 text-slate-300':'border-slate-300 text-slate-600'}`}>○ 양호</button>
+       <button type="button" onClick={()=>chooseAnswer(item.id,'bad')} aria-pressed={answer==='bad'} className={`min-w-[58px] rounded-lg border px-2.5 py-2 text-xs font-bold ${answer==='bad'?'border-red-500 bg-red-500 text-white':dark?'border-slate-600 text-slate-300':'border-slate-300 text-slate-600'}`}>× 불량</button>
+      </div>
+     </div>
+    </div>;
+   })}
+  </section>)}
 
-                if (error) throw error;
-                await refreshProfile();
-                setProfileSaveMessage('이름과 차량번호가 내정보에 자동 저장되었습니다.');
-            }
+  <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
+   <label htmlFor="daily-inspection-action-notes" className="block font-black text-sm">불량상태 조치 기록 <span className={`ml-1 text-xs font-medium ${mutedClass}`}>불량 항목이 있을 때 필수</span></label>
+   <textarea id="daily-inspection-action-notes" value={actionNotes} onChange={e=>{setActionNotes(e.target.value);setIsSaved(false);}} rows={3} placeholder="불량 항목, 조치 내용 및 정비 일시를 입력하세요." className={`mt-2 w-full rounded-lg border p-3 text-sm ${dark?'bg-slate-900 border-slate-600 text-white':'bg-white border-slate-300 text-slate-900'}`}/>
+   {badItems.length>0&&<p className="mt-2 text-xs text-red-500">불량 항목 {badItems.length}개가 있습니다. 조치 내용까지 입력해야 완료 처리됩니다.</p>}
+  </section>
 
-            const record = saveDailyInspectionRecord(userId, date, {
-                answers,
-                actionNotes: actionNotes.trim(),
-                driverName: normalizedName,
-                vehicleNumber: normalizedVehicleNumber,
-                completed: true
-            });
-            setIsSaved(true);
-            onSaved?.(record);
-        } catch (error) {
-            console.error('[DailyInspection] 점검 또는 내정보 저장 실패:', error);
-            setSaveError(error.message || '점검 기록 또는 내정보를 저장하지 못했습니다.');
-        } finally {
-            setIsSavingProfile(false);
-        }
-    };
+  <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
+   <h3 className="font-black text-sm mb-3">전자서명</h3>
+   <div className="mb-4"><SignaturePad value={driverSignature} onChange={v=>{setDriverSignature(v);setIsSaved(false);}} label="운전자(점검자) 자필 서명" isDarkMode={dark}/></div>
+   <label className="block text-xs mb-2">관리자 확인자명(선택)<input value={managerName} onChange={e=>setManagerName(e.target.value)} maxLength={60} placeholder="관리자 성명" className={fieldClass}/></label>
+   <SignaturePad value={managerSignature} onChange={setManagerSignature} label="관리자 확인 서명(선택)" isDarkMode={dark}/>
+  </section>
 
-    const dark = Boolean(isDarkMode);
-    const panelClass = dark
-        ? 'bg-slate-800 border-slate-700 text-slate-100'
-        : 'bg-white border-slate-200 text-slate-900';
-    const mutedClass = dark ? 'text-slate-400' : 'text-slate-500';
+  {currentRecord&&<section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
+   <h3 className="font-black text-sm">기존 완료 기록 정정</h3>
+   <p className={`mt-1 text-xs ${mutedClass}`}>기존 기록을 덮어쓰지 않고 새 정정 이력으로 추가합니다. 기존 기록은 이 기기 안에서 계속 확인할 수 있습니다.</p>
+   <label className="block mt-2 text-xs">정정 사유(필수)<textarea value={correctionReason} onChange={e=>setCorrectionReason(e.target.value)} rows={2} placeholder="정정이 필요한 이유를 입력하세요." className={fieldClass}/></label>
+  </section>}
 
-    return (
-        <div className="w-full max-w-3xl mx-auto px-2 sm:px-4 pb-8">
-            <div className="flex items-center gap-2 mb-4 pt-2">
-                <button
-                    type="button"
-                    onClick={onBack}
-                    aria-label="뒤로"
-                    className={`p-2 rounded-full ${dark ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-slate-100 text-slate-700'}`}
-                >
-                    <ArrowLeft size={22} />
-                </button>
-                <div className="min-w-0 flex-1">
-                    <h2 className="text-lg sm:text-xl font-black break-keep">화물자동차 안전사고 예방을 위한 일상점검표</h2>
-                    <p className={`mt-0.5 text-xs ${mutedClass}`}>{formatDateLabel(date)}</p>
-                </div>
-            </div>
+  {saveError&&<p className="mb-3 rounded-lg bg-red-50 dark:bg-red-950/30 p-3 text-sm text-red-600">{saveError}</p>}
+  {isSaved&&<p className="mb-3 flex items-center gap-2 text-sm font-semibold text-emerald-600"><CheckCircle2 size={17}/> 점검 기록이 기기에 저장되어 있습니다.</p>}
+  <button type="button" onClick={handleSave} disabled={!canSave||isSavingProfile} className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-black text-white disabled:opacity-40">{isSavingProfile?'저장 중...':currentRecord?'정정 이력으로 추가 저장':'점검 완료 저장'}</button>
+  {!canSave&&<p className={`mt-2 text-center text-xs ${mutedClass}`}>모든 항목 선택, 주행거리, 운전자 서명 및 필수 조치·정정 내용을 입력해야 저장됩니다.</p>}
+  {currentRecord&&<p className={`mt-2 text-center text-xs ${mutedClass}`}>최근 저장 시각(기기): {formatTimestamp(currentRecord.completedAt||currentRecord.updatedAt)} · 이력 {currentRecord.revision||1}차</p>}
 
-            <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="min-w-0">
-                        <p className={`text-xs ${mutedClass}`}>운수종사자</p>
-                        {profileName ? (
-                            <p className="font-bold truncate">{profileName}</p>
-                        ) : (
-                            <input
-                                type="text"
-                                value={driverName}
-                                onChange={(event) => {
-                                    setDriverName(event.target.value);
-                                    setProfileSaveMessage('');
-                                    setProfileSaveError('');
-                                }}
-                                maxLength={60}
-                                placeholder="이름 입력"
-                                aria-label="내정보 이름 입력"
-                                className={`mt-1 w-full min-w-0 rounded-lg border px-2.5 py-2 text-sm ${dark ? 'bg-slate-900 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
-                            />
-                        )}
-                    </div>
-                    <div className="min-w-0 text-right">
-                        <p className={`text-xs ${mutedClass}`}>차량번호</p>
-                        {profileVehicleNumber ? (
-                            <p className="font-bold truncate">{profileVehicleNumber}</p>
-                        ) : (
-                            <input
-                                type="text"
-                                value={vehicleNumber}
-                                onChange={(event) => {
-                                    setVehicleNumber(event.target.value);
-                                    setProfileSaveMessage('');
-                                    setProfileSaveError('');
-                                }}
-                                maxLength={30}
-                                placeholder="차량번호 입력"
-                                aria-label="내정보 차량번호 입력"
-                                className={`mt-1 w-full min-w-0 rounded-lg border px-2.5 py-2 text-sm text-right ${dark ? 'bg-slate-900 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
-                            />
-                        )}
-                    </div>
-                </div>
-                {(hasMissingIdentity || identityChanged) && (
-                    <div className="mt-3">
-                        <p className={`mb-2 text-xs ${mutedClass}`}>
-                            점검 완료를 저장하면 입력한 이름과 차량번호도 내정보에 자동 반영됩니다.
-                        </p>
-                        <button
-                            type="button"
-                            onClick={handleSaveIdentity}
-                            disabled={!canSaveIdentity || isSavingProfile}
-                            className="w-full rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-40"
-                        >
-                            {isSavingProfile ? '내정보 저장 중...' : '입력한 정보를 내정보에 저장'}
-                        </button>
-                        {!authUser?.id && (
-                            <p className={`mt-2 text-xs ${mutedClass}`}>
-                                로그인하면 입력한 이름과 차량번호를 내정보에 저장할 수 있습니다.
-                            </p>
-                        )}
-                    </div>
-                )}
-                {profileSaveMessage && (
-                    <p className="mt-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">{profileSaveMessage}</p>
-                )}
-                {profileSaveError && (
-                    <p className="mt-2 text-xs text-red-600 dark:text-red-300">{profileSaveError}</p>
-                )}
-                {scheduleStatus === 'off' && (
-                    <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-                        오늘은 근무표상 휴무일입니다. 차량을 운행하지 않는다면 점검 기록을 남기지 않아도 됩니다.
-                    </p>
-                )}
-                {scheduleStatus === 'pending' && (
-                    <p className="mt-3 text-xs text-amber-600 dark:text-amber-300">
-                        오늘 근무표가 아직 확정되지 않았습니다. 차량을 운행한다면 운행 전에 점검을 진행하세요.
-                    </p>
-                )}
-            </section>
+  <section className={`rounded-2xl border p-3 mt-5 ${panelClass}`}>
+   <div className="flex items-center gap-2 mb-2"><History size={17}/><h3 className="font-black text-sm">월별 기록 및 출력</h3></div>
+   <div className="flex gap-2"><input type="month" value={selectedMonth} onChange={e=>setSelectedMonth(e.target.value)} className={`min-w-0 flex-1 rounded-lg border px-2 py-2 text-sm ${dark?'bg-slate-900 border-slate-600 text-white':'bg-white border-slate-300'}`}/>
+    <button type="button" onClick={handlePrint} className="flex items-center gap-2 rounded-lg bg-slate-700 px-3 py-2 text-sm font-bold text-white"><Printer size={16}/> PDF·인쇄</button></div>
+   <p className={`mt-2 text-xs leading-5 ${mutedClass}`}>월간 공식 서식형 요약과 날짜별 상세 기록을 인쇄합니다. 인쇄 화면에서 ‘PDF로 저장’을 선택할 수 있습니다.</p>
+   <p className={`mt-1 text-xs leading-5 ${mutedClass}`}>저장된 기록 {monthRecords.length}건 · 오프라인에서도 이 기기에 저장된 기록을 열람할 수 있습니다.</p>
+  </section>
 
-            <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
-                <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                        <ClipboardCheck size={18} className="text-blue-500" />
-                        <h3 className="font-black">차량 점검 항목</h3>
-                    </div>
-                    <span className="text-sm font-bold tabular-nums">{answeredCount}/{ALL_ITEMS.length}</span>
-                </div>
-                <div className={`mt-2 h-1.5 rounded-full overflow-hidden ${dark ? 'bg-slate-700' : 'bg-slate-100'}`}>
-                    <div
-                        className="h-full rounded-full bg-blue-500 transition-all"
-                        style={{ width: `${(answeredCount / ALL_ITEMS.length) * 100}%` }}
-                    />
-                </div>
-            </section>
-
-            {INSPECTION_GROUPS.map((group) => (
-                <section key={group.title} className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
-                    <h3 className="font-black text-sm mb-2">{group.title}</h3>
-                    <div className="divide-y divide-slate-200 dark:divide-slate-700">
-                        {group.items.map((item) => {
-                            const answer = answers[item.id];
-                            return (
-                                <div key={item.id} className="py-3 first:pt-1 last:pb-1">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium leading-5">
-                                                <span className={`mr-1.5 text-xs font-bold ${mutedClass}`}>{ALL_ITEMS.findIndex((allItem) => allItem.id === item.id) + 1}.</span>
-                                                {item.label}
-                                            </p>
-                                        </div>
-                                        <div className="flex shrink-0 gap-1.5">
-                                            <button
-                                                type="button"
-                                                onClick={() => chooseAnswer(item.id, 'good')}
-                                                aria-pressed={answer === 'good'}
-                                                className={`min-w-[58px] rounded-lg border px-2.5 py-2 text-xs font-bold transition-colors ${
-                                                    answer === 'good'
-                                                        ? 'border-emerald-500 bg-emerald-500 text-white'
-                                                        : (dark ? 'border-slate-600 text-slate-300' : 'border-slate-300 text-slate-600')
-                                                }`}
-                                            >
-                                                ○ 양호
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => chooseAnswer(item.id, 'bad')}
-                                                aria-pressed={answer === 'bad'}
-                                                className={`min-w-[58px] rounded-lg border px-2.5 py-2 text-xs font-bold transition-colors ${
-                                                    answer === 'bad'
-                                                        ? 'border-red-500 bg-red-500 text-white'
-                                                        : (dark ? 'border-slate-600 text-slate-300' : 'border-slate-300 text-slate-600')
-                                                }`}
-                                            >
-                                                × 불량
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </section>
-            ))}
-
-            <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
-                <label htmlFor="daily-inspection-action-notes" className="block font-black text-sm">
-                    불량상태 조치 기록
-                    <span className={`ml-2 text-xs font-medium ${mutedClass}`}>불량 항목이 있을 때 작성</span>
-                </label>
-                <textarea
-                    id="daily-inspection-action-notes"
-                    value={actionNotes}
-                    onChange={(event) => {
-                        setActionNotes(event.target.value);
-                        setIsSaved(false);
-                    }}
-                    rows={3}
-                    placeholder="예: 21일 우측 후미등 불량 확인 - 정비소에서 전구 교체"
-                    className={`mt-2 w-full rounded-lg border p-3 text-sm leading-5 outline-none focus:ring-2 focus:ring-blue-500 ${
-                        dark ? 'bg-slate-900 border-slate-600 text-white placeholder:text-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder:text-slate-400'
-                    }`}
-                />
-                {badItems.length > 0 && (
-                    <p className="mt-2 text-xs text-red-500">
-                        불량 항목 {badItems.length}개가 있습니다. 조치 내용까지 입력해야 완료로 저장됩니다.
-                    </p>
-                )}
-            </section>
-
-            {saveError && (
-                <p className="mb-3 rounded-lg bg-red-50 dark:bg-red-950/30 p-3 text-sm text-red-600 dark:text-red-300">
-                    {saveError}
-                </p>
-            )}
-
-            {isSaved && (
-                <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle2 size={17} /> 오늘 점검 기록이 저장되었습니다.
-                </p>
-            )}
-
-            <button
-                type="button"
-                onClick={handleSave}
-                disabled={!canSave || isSavingProfile}
-                className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-black text-white disabled:opacity-40"
-            >
-                {isSavingProfile ? '내정보 저장 중...' : isSaved ? '점검 결과 수정 저장' : '점검 완료 저장'}
-            </button>
-            {!canSave && (
-                <p className={`mt-2 text-center text-xs ${mutedClass}`}>
-                    모든 항목을 양호 또는 불량으로 선택해야 완료 처리됩니다.
-                </p>
-            )}
-            <p className={`mt-4 text-center text-[11px] leading-5 ${mutedClass}`}>
-                점검 기록은 현재 이 기기의 앱 저장소에 보관됩니다.
-            </p>
-        </div>
-    );
+  <section className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950">
+   <p className="text-xs font-bold">현장 보관 안내</p>
+   <p className="mt-1 text-xs leading-5">모바일 기록만으로 모든 단속·제출 요건을 충족한다고 단정할 수 없습니다. 운수회사와 관할 기관에 모바일 기록 인정 여부를 확인하고, 보수적으로는 월별 점검표를 정기적으로 출력해 차량 내 서류함(글로브박스)에 함께 보관하세요.</p>
+  </section>
+  <p className={`mt-3 text-center text-[11px] leading-5 ${mutedClass}`}>현재 기록은 이 기기의 앱 저장소에 보관됩니다. 기기 시각은 서버가 인증한 타임스탬프가 아니며, 앱 삭제·기기 변경 시 기록이 사라질 수 있으므로 출력본도 보관하세요.</p>
+ </div>;
 };
-
 export default DailyInspectionView;
