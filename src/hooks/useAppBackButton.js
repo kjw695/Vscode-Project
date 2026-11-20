@@ -18,7 +18,14 @@ const useAppBackButton = ({
 
         const setupListener = async () => {
             backButtonListener = await CapacitorApp.addListener('backButton', ({ canGoBack }) => {
-                
+
+                // PDF 미리보기 위에서는 앱 종료 확인보다 미리보기 닫기를 먼저 처리합니다.
+                const inspectionPrintFrame = document.getElementById('daily-inspection-print-frame');
+                if (inspectionPrintFrame) {
+                    inspectionPrintFrame.remove();
+                    return;
+                }
+
                 // ✨ 1. 공통 팝업/경고창 닫기 (최우선)
                 if (modalState && modalState.isOpen) {
                     closeModal();
