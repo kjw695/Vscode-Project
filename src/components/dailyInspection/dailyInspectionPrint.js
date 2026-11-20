@@ -353,7 +353,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
                 }
             };
             const preparePrint = async () => {
-                const images = Array.from(document.querySelectorAll('.signature-cell img, .signature-detail-image'));
+                const images = Array.from(document.querySelectorAll('.signature-cell img, .signature-detail-image, .defect-signature-image'));
                 await Promise.all(images.map(async (image) => {
                     await waitForImage(image);
                     await cropSignatureImage(image);
