@@ -182,7 +182,8 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .detail-table th, .detail-table td { border: 1px solid #555; padding: 2mm 1.2mm; text-align: center; vertical-align: middle; font-size: 8pt; line-height: 1.3; overflow-wrap: anywhere; }
     .detail-table th { font-weight: 700; white-space: nowrap; background: #f4f4f4; }
     .detail-table .defect-number, .detail-table .defect-result { padding-left: 0.5mm; padding-right: 0.5mm; font-size: 8pt; white-space: nowrap; }
-    .detail-table .defect-datetime { font-size: 7.5pt; line-height: 1.5; white-space: pre-line; }\n    .detail-meta { display: flex; flex-wrap: wrap; gap: 12mm; margin: 0 0 5mm; padding: 2.5mm 3mm; border: 1px solid #777; font-size: 8.5pt; }
+    .detail-table .defect-datetime { font-size: 7.5pt; line-height: 1.5; white-space: pre-line; }
+    .detail-meta { display: flex; flex-wrap: wrap; gap: 12mm; margin: 0 0 5mm; padding: 2.5mm 3mm; border: 1px solid #777; font-size: 8.5pt; }
     .detail-table .defect-content, .detail-table .defect-action { text-align: left; }
     .detail-table .defect-signature { padding: 1mm; }
     .defect-signature-image { display: block; width: 100%; height: 13mm; object-fit: contain; background: #fff; }
