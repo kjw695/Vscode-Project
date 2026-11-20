@@ -47,6 +47,7 @@ import InsuranceView from './components/more/InsuranceView';
 import { AppUpdate } from '@capawesome/capacitor-app-update';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import BluecoinsDailySummaryPreview from './components/BluecoinsDailySummaryPreview';
 import DailyInspectionView from './components/dailyInspection/DailyInspectionView';
 import { readDailyInspectionRecord } from './services/dailyInspectionService';
@@ -257,6 +258,25 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const [selectedMainTab, setSelectedMainTab] = useState('home');
     const [activeContentTab, setActiveContentTab] = useState('bluecoinsDailySummary');
     const [homeVisitKey, setHomeVisitKey] = useState(0);
+
+    // 업무 전 점검 알림을 누르면 바로 일상점검표 입력 화면을 엽니다.
+    useEffect(() => {
+        let listener;
+        let disposed = false;
+        LocalNotifications.addListener('localNotificationActionPerformed', () => {
+            setSelectedMainTab('home');
+            setActiveContentTab('dailyInspection');
+        }).then((handle) => {
+            if (disposed) handle.remove();
+            else listener = handle;
+        }).catch((error) => {
+            console.warn('[DailyInspectionReminder] 알림 클릭 이벤트 연결 실패:', error);
+        });
+        return () => {
+            disposed = true;
+            listener?.remove();
+        };
+    }, []);
         const [moreSubView, setMoreSubView] = useState('main');
     const [autoEditAccountProfile, setAutoEditAccountProfile] = useState(false);
     const [returnToCampNumbering, setReturnToCampNumbering] = useState(false);
