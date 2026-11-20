@@ -200,14 +200,14 @@ export const printDailyInspectionMonth = (records, year, month) => {
         <thead>
             <tr>
                 <th class="main-heading" rowspan="2" colspan="2">점검항목</th>
-                <th class="result-heading" colspan="30">점검결과(양호 ○, 불량 ×, 미운행시 “미” 기입)</th>
+                <th class="result-heading" colspan="31">점검결과(양호 ○, 불량 ×, 미운행시 “미” 기입)</th>
             </tr>
             <tr>${dateHeaders}</tr>
         </thead>
         <tbody>
             ${officialRows}
             <tr><td class="signature-title" colspan="2">점검자 확인(서명)</td>${signatureCells}</tr>
-            <tr><td class="action-title" colspan="2">불량상태 조치 기록</td><td class="action-content" colspan="30">${actionNotes}</td></tr>
+            <tr><td class="action-title" colspan="2">불량상태 조치 기록</td><td class="action-content" colspan="31">${actionNotes}</td></tr>
         </tbody>
     </table>
 
