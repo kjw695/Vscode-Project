@@ -41,9 +41,22 @@ const checks = [
     ],
     [
         'reopening and restoring a schedule persist the change reason',
-        migration.includes(\"v_change_type := 'reopened'\") &&
+        migration.includes("v_change_type := 'reopened'") &&
         migration.includes('restore_my_organization_weekly_schedule_revision_v2') &&
         migration.includes('p_change_reason')
+    ],
+    [
+        'employee-requested extra day off and swap approvals remain functional under the guard',
+        migration.includes('respond_to_extra_day_off_request') &&
+        migration.includes('respond_to_shift_exchange') &&
+        migration.includes('직원 추가휴무 요청 승인:') &&
+        migration.includes('직원 간 휴무 교환 승인:') &&
+        migration.includes("set_config('app.schedule_change_type', 'request_approved', true)")
+    ],
+    [
+        'request approvals are separately classified in the existing revision history',
+        migration.includes("'request_approved'") &&
+        migration.includes('v_requested_change_type = \'request_approved\'')
     ],
     [
         'legacy restore endpoint is no longer executable by authenticated clients',
@@ -56,7 +69,7 @@ const checks = [
         migration.includes('r.snapshot_data ->') &&
         migration.includes('r.after_snapshot ->') &&
         migration.includes('v_user_id::text') &&
-        migration.includes(\"'reopened', 'admin_changed', 'restored'\")
+        migration.includes("'reopened', 'admin_changed', 'restored'")
     ],
     [
         'service calls protected save and restore RPCs with version and reason',
