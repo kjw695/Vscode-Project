@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, ClipboardCheck, Printer, History } from 'lucide-react';
-import { listDailyInspectionRecords, readDailyInspectionRecord, saveDailyInspectionRecord } from '../../services/dailyInspectionService';
+import { listDailyInspectionRecords, readDailyInspectionRecord, saveDailyInspectionRecord, readSavedDriverSignature, saveSavedDriverSignature } from '../../services/dailyInspectionService';
 import { printDailyInspectionMonth } from './dailyInspectionPrint';
 import SignaturePad from './DailyInspectionSignaturePad';
 import { supabase } from '../../lib/supabaseClient';
@@ -50,6 +50,8 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const [driverName,setDriverName]=useState(profile?.full_name||profile?.display_name||'');
  const [vehicleNumber,setVehicleNumber]=useState(profile?.vehicle_number||'');
  const [driverSignature,setDriverSignature]=useState('');
+ const [savedDriverSignature,setSavedDriverSignature]=useState('');
+ const [signatureMessage,setSignatureMessage]=useState('');
  const [correctionReason,setCorrectionReason]=useState('');
  const [currentRecord,setCurrentRecord]=useState(null);
  const [monthRecords,setMonthRecords]=useState([]);
@@ -70,7 +72,10 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   setCurrentRecord(latest);
   setAnswers(latest?.answers&&typeof latest.answers==='object'?latest.answers:{});
   setActionNotes(latest?.actionNotes||'');
-  setDriverSignature(latest?.driverSignature||'');
+  const savedSignature=readSavedDriverSignature(userId);
+  setSavedDriverSignature(savedSignature);
+  setDriverSignature(latest?.driverSignature||savedSignature||'');
+  setSignatureMessage('');
   setIsSaved(Boolean(latest?.completedAt||latest?.updatedAt));
   setCorrectionReason('');
   const [year,month]=String(date).slice(0,7).split('-');
@@ -94,6 +99,28 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   setAnswers(allGood);
   setIsSaved(false);
   setSaveError('');
+ };
+ const handleSaveSignature=()=>{
+  if(!driverSignature){
+   setSignatureMessage('먼저 서명란에 손가락으로 서명해주세요.');
+   return;
+  }
+  try{
+   saveSavedDriverSignature(userId,driverSignature);
+   setSavedDriverSignature(driverSignature);
+   setSignatureMessage('서명을 이 기기에 저장했습니다. 다음 점검부터 자동으로 불러옵니다.');
+  }catch(error){
+   setSignatureMessage(error.message||'서명을 저장하지 못했습니다.');
+  }
+ };
+ const handleLoadSavedSignature=()=>{
+  if(!savedDriverSignature){
+   setSignatureMessage('저장된 서명이 없습니다. 먼저 서명한 뒤 저장해주세요.');
+   return;
+  }
+  setDriverSignature(savedDriverSignature);
+  setIsSaved(false);
+  setSignatureMessage('저장된 서명을 불러왔습니다.');
  };
  const handleSaveIdentity=async()=>{
   if(!authUser?.id){setProfileSaveError('내정보에 저장하려면 먼저 로그인해주세요.');return;}
@@ -210,7 +237,13 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
 
   <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
    <h3 className="font-black text-sm mb-3">전자서명</h3>
-   <div className="mb-4"><SignaturePad value={driverSignature} onChange={v=>{setDriverSignature(v);setIsSaved(false);}} label="운전자(점검자) 자필 서명" isDarkMode={dark}/></div>
+   <div className="mb-3"><SignaturePad value={driverSignature} onChange={v=>{setDriverSignature(v);setIsSaved(false);setSignatureMessage('');}} label="운전자(점검자) 자필 서명" isDarkMode={dark}/></div>
+   <div className="grid grid-cols-2 gap-2">
+    <button type="button" onClick={handleSaveSignature} disabled={!driverSignature} className="min-h-10 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-40">현재 서명 저장</button>
+    <button type="button" onClick={handleLoadSavedSignature} disabled={!savedDriverSignature} className={`min-h-10 rounded-lg border px-3 py-2 text-sm font-bold disabled:opacity-40 ${dark?'border-slate-600 text-slate-200':'border-slate-300 text-slate-700'}`}>저장한 서명 불러오기</button>
+   </div>
+   <p className={`mt-2 text-xs leading-5 ${mutedClass}`}>{savedDriverSignature?'저장된 서명이 있습니다. 새 점검을 열면 자동으로 불러옵니다.':'한 번 서명을 저장하면 다음 점검부터 자동으로 사용할 수 있습니다.'}</p>
+   {signatureMessage&&<p className="mt-2 text-xs font-semibold text-blue-600 dark:text-blue-300">{signatureMessage}</p>}
   </section>
 
   {currentRecord&&<section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
