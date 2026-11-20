@@ -32,6 +32,41 @@ const saveReminderSetting = (userId, setting) => {
     localStorage.setItem(getStorageKey(userId), JSON.stringify(setting));
 };
 
+const scheduleReminderNotification = async (userId, time) => {
+    const [hour, minute] = time.split(':').map(Number);
+    const notificationId = getReminderNotificationId(userId);
+
+    await LocalNotifications.cancel({
+        notifications: [{ id: notificationId }]
+    });
+
+    await LocalNotifications.schedule({
+        notifications: [{
+            id: notificationId,
+            title: '업무 전 차량 점검',
+            body: '업무를 시작하기 전에 일상점검표를 작성해주세요.',
+            smallIcon: 'ic_stat_daily_inspection',
+            iconColor: '#2563EB',
+            schedule: {
+                on: { hour, minute },
+                allowWhileIdle: true
+            }
+        }]
+    });
+};
+
+export const refreshDailyInspectionReminder = async (userId) => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const setting = readDailyInspectionReminder(userId);
+    if (!setting.enabled) return;
+
+    const permission = await LocalNotifications.checkPermissions();
+    if (permission.display !== 'granted') return;
+
+    await scheduleReminderNotification(userId, setting.time);
+};
+
 const ensurePermission = async () => {
     if (!Capacitor.isNativePlatform()) {
         throw new Error('기기 알림은 설치된 앱에서 설정할 수 있습니다.');
@@ -65,23 +100,7 @@ export const enableDailyInspectionReminder = async (userId, time) => {
 
     await ensurePermission();
 
-    const [hour, minute] = time.split(':').map(Number);
-    await LocalNotifications.cancel({
-        notifications: [{ id: getReminderNotificationId(userId) }]
-    });
-
-    await LocalNotifications.schedule({
-        notifications: [{
-            id: getReminderNotificationId(userId),
-            title: '업무 전 차량 점검',
-            body: '업무를 시작하기 전에 일상점검표를 작성해주세요.',
-            schedule: {
-                on: { hour, minute },
-                allowWhileIdle: true
-            }
-        }]
-    });
-
+    await scheduleReminderNotification(userId, time);
     saveReminderSetting(userId, { enabled: true, time });
 };
 
