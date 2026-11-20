@@ -73,45 +73,61 @@ export const printDailyInspectionMonth = (records, year, month) => {
         ? escapeHtml(actionEntries.join('\n'))
         : '<span class="example-text">(예시) 00일 창닦이기 불량 - 00일 창닦이기 교체</span>';
 
-        const detailPages = monthRecords.map((record) => {
-        const badItems = [
-            ...OFFICIAL_ITEMS.map(([id, , label]) => ({ id, label })),
-            { id: 'brakes', label: '제동장치' },
-            { id: 'engineLeak', label: '원동기 누유·냉각계통 추가 확인' },
-            { id: 'illegalAttachments', label: '불법 부착물·개조 여부' }
-        ].filter((item) => record.answers?.[item.id] === 'bad');
-
-        const badRows = badItems.map((item, index) =>
-            `<tr><td>${index + 1}</td><td>${escapeHtml(item.label)}</td><td>불량</td></tr>`
-        ).join('');
-        const badItemsContent = badItems.length
-            ? `<h3>불량 점검 항목</h3><table class="detail-table"><thead><tr><th>No.</th><th>불량 내용</th><th>점검 결과</th></tr></thead><tbody>${badRows}</tbody></table>`
-            : '<p class="no-defects">불량 항목 없음</p>';
-        const actionNotes = String(record.actionNotes || '').trim();
-        const actionContent = actionNotes
-            ? `<h3>조치 기록</h3><p class="notes">${escapeHtml(actionNotes)}</p>`
-            : '';
-
-        return `
-            <section class="detail page-break">
-                <h2>일일 점검 상세 기록 - ${escapeHtml(dateLabel(record.date))}</h2>
-                <div class="meta">
-                    <span>차량번호: ${escapeHtml(record.vehicleNumber)}</span>
-                    <span>운전자: ${escapeHtml(record.driverName)}</span>
-                    <span>완료 시각(기기): ${escapeHtml(record.completedAt || '-')}</span>
-                </div>
-                ${badItemsContent}
-                ${actionContent}
-                <div class="signatures">
-                    <div>
-                        <b>운전자(점검자) 서명</b>
-                        <img class="signature-detail-image" src="${safeSignatureImage(record.driverSignature)}" alt="운전자 서명" />
-                    </div>
-                </div>
-                <p class="footnote">기기 로컬 저장 기록이며, 기기 기록 시각은 서버 공인 타임스탬프가 아닙니다.</p>
-            </section>
-        `;
+        const detailRows = [];
+    monthRecords.forEach((record) => {
+        const recordDate = String(record.inspectionDate || record.date || '').slice(0, 10);
+        const completionDate = record.completedAt ? new Date(record.completedAt) : null;
+        const timeLabel = completionDate && !Number.isNaN(completionDate.getTime())
+            ? `${String(completionDate.getHours()).padStart(2, '0')}:${String(completionDate.getMinutes()).padStart(2, '0')}`
+            : '--:--';
+        const dateTimeLabel = `${recordDate.slice(5).replace('-', '/')} ${timeLabel}`;
+        const badItems = OFFICIAL_ITEMS.filter(([id]) => record.answers?.[id] === 'bad');
+        badItems.forEach(([id, , label]) => {
+            detailRows.push({
+                dateTimeLabel,
+                label,
+                actionNotes: String(record.actionNotes || '').trim(),
+                driverSignature: record.driverSignature
+            });
+        });
+    });
+    const detailTableRows = detailRows.map((row, index) => {
+        const number = String(index + 1).padStart(2, '0');
+        const signature = safeSignatureImage(row.driverSignature);
+        return `<tr>
+            <td class="defect-number">${number}</td>
+            <td class="defect-datetime">${escapeHtml(row.dateTimeLabel)}</td>
+            <td class="defect-content">${escapeHtml(row.label)}</td>
+            <td class="defect-result">불량</td>
+            <td class="defect-action">${escapeHtml(row.actionNotes || '-')}</td>
+            <td class="defect-signature">${signature ? `<img class="defect-signature-image" src="${signature}" alt="점검자 서명" />` : ''}</td>
+        </tr>`;
     }).join('');
+    const detailPages = `
+        <section class="detail page-break">
+            <h2>불량 점검 및 조치 기록</h2>
+            <table class="detail-table">
+                <colgroup>
+                    <col style="width:8mm" />
+                    <col style="width:31mm" />
+                    <col style="width:63mm" />
+                    <col style="width:14mm" />
+                    <col style="width:105mm" />
+                    <col style="width:55mm" />
+                </colgroup>
+                <thead><tr>
+                    <th>번호</th>
+                    <th>날짜·작성시간</th>
+                    <th>불량내용</th>
+                    <th>점검결과</th>
+                    <th>조치기록</th>
+                    <th>서명</th>
+                </tr></thead>
+                <tbody>${detailTableRows || '<tr><td colspan="6" class="no-defects">해당 월 불량 점검 기록 없음</td></tr>'}</tbody>
+            </table>
+            <p class="footnote">기기 로컬 저장 기록이며, 기기 기록 시각은 서버 공인 타임스탬프가 아닙니다.</p>
+        </section>
+    `;
 
     const html = `<!doctype html>
 <html lang="ko">
@@ -161,7 +177,17 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .detail { margin: 0; padding: 0; font-family: Arial, 'Malgun Gothic', sans-serif; }
     .detail h2 { font-size: 15px; margin: 0 0 8px; }
     .detail h3 { font-size: 11px; margin: 12px 0 5px; }
-    .detail-table { margin: 7px 0; }
+    .detail-table { width: 100%; margin: 7px 0; border-collapse: collapse; table-layout: fixed; }
+    .detail-table thead { display: table-header-group; }
+    .detail-table th, .detail-table td { border: 1px solid #555; padding: 2mm 1.2mm; text-align: center; vertical-align: middle; font-size: 8pt; line-height: 1.3; overflow-wrap: anywhere; }
+    .detail-table th { font-weight: 700; white-space: nowrap; background: #f4f4f4; }
+    .detail-table .defect-number, .detail-table .defect-result { padding-left: 0.5mm; padding-right: 0.5mm; font-size: 8pt; white-space: nowrap; }
+    .detail-table .defect-datetime { font-size: 7.5pt; white-space: nowrap; }
+    .detail-table .defect-content, .detail-table .defect-action { text-align: left; }
+    .detail-table .defect-signature { padding: 1mm; }
+    .defect-signature-image { display: block; width: 100%; height: 13mm; object-fit: contain; background: #fff; }
+    .detail-table tr { break-inside: avoid; page-break-inside: avoid; }
+    .no-defects { padding: 8mm; text-align: center !important; color: #666; font-size: 9pt !important; }
     .detail-table th, .detail-table td { border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 10px; }
     .no-defects { margin: 14px 0; padding: 12px; border: 1px solid #999; text-align: center; font-size: 11px; }
     .meta { display: flex; gap: 18px; flex-wrap: wrap; margin: 8px 0; }
