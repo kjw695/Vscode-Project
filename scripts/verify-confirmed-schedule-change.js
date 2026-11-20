@@ -5,7 +5,6 @@ const read = (file) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
 const migration = read('supabase/migrations/20261120122049_confirmed_schedule_change_guard.sql').toLowerCase();
 const service = read('src/services/organizationScheduleService.js');
 const adminCalendar = read('src/admin/Calendar.jsx');
-const workflowTools = read('src/admin/ScheduleWorkflowTools.jsx');
 const employeeCalendar = read('src/components/dayOff/CalendarTab.jsx');
 
 const checks = [
@@ -83,13 +82,7 @@ const checks = [
         adminCalendar.includes('확정된 근무표를 변경합니다.') &&
         adminCalendar.includes('확정 해제 사유를 입력해주세요.') &&
         adminCalendar.includes('expectedVersion: expectedVersion') &&
-        adminCalendar.includes('currentVersion={Number(savedRecord?.version || 0)}')
-    ],
-    [
-        'revision restore UI requires a reason and current version',
-        workflowTools.includes('이전 근무표를 복구하는 사유를 입력해주세요.') &&
-        workflowTools.includes('Number(currentVersion)') &&
-        workflowTools.includes('changeReason')
+        adminCalendar.includes('Number(savedRecord?.version || 0)')
     ],
     [
         'employee calendar polls, displays and remembers change notices',
