@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, ClipboardCheck } from 'lucide-react';
 import { readDailyInspectionRecord, saveDailyInspectionRecord } from '../../services/dailyInspectionService';
+import { supabase } from '../../lib/supabaseClient';
+import { useAuth } from '../../contexts/AuthContext';
 
 const INSPECTION_GROUPS = [
     {
@@ -54,6 +56,21 @@ const DailyInspectionView = ({
     const [actionNotes, setActionNotes] = useState('');
     const [saveError, setSaveError] = useState('');
     const [isSaved, setIsSaved] = useState(false);
+    const [driverName, setDriverName] = useState(
+        profile?.full_name || profile?.display_name || ''
+    );
+    const [vehicleNumber, setVehicleNumber] = useState(profile?.vehicle_number || '');
+    const [isSavingProfile, setIsSavingProfile] = useState(false);
+    const [profileSaveMessage, setProfileSaveMessage] = useState('');
+    const [profileSaveError, setProfileSaveError] = useState('');
+    const { user: authUser, refreshProfile } = useAuth();
+
+    useEffect(() => {
+        setDriverName(profile?.full_name || profile?.display_name || '');
+        setVehicleNumber(profile?.vehicle_number || '');
+        setProfileSaveMessage('');
+        setProfileSaveError('');
+    }, [profile?.full_name, profile?.display_name, profile?.vehicle_number]);
 
     useEffect(() => {
         const record = readDailyInspectionRecord(userId, date);
@@ -80,15 +97,66 @@ const DailyInspectionView = ({
         setSaveError('');
     };
 
+    const profileName = profile?.full_name || profile?.display_name || '';
+    const profileVehicleNumber = profile?.vehicle_number || '';
+    const hasMissingIdentity = !profileName.trim() || !profileVehicleNumber.trim();
+    const identityChanged =
+        driverName.trim() !== profileName.trim() ||
+        vehicleNumber.trim() !== profileVehicleNumber.trim();
+    const canSaveIdentity =
+        Boolean(authUser?.id) &&
+        Boolean(driverName.trim()) &&
+        Boolean(vehicleNumber.trim()) &&
+        (hasMissingIdentity || identityChanged);
+
+    const handleSaveIdentity = async () => {
+        if (!authUser?.id) {
+            setProfileSaveError('내정보에 저장하려면 먼저 로그인해주세요.');
+            return;
+        }
+        const normalizedName = driverName.trim();
+        const normalizedVehicleNumber = vehicleNumber.trim();
+        if (!normalizedName || !normalizedVehicleNumber) {
+            setProfileSaveError('이름과 차량번호를 모두 입력해주세요.');
+            return;
+        }
+
+        setIsSavingProfile(true);
+        setProfileSaveError('');
+        setProfileSaveMessage('');
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({
+                    full_name: normalizedName,
+                    vehicle_number: normalizedVehicleNumber
+                })
+                .eq('id', authUser.id);
+
+            if (error) throw error;
+            await refreshProfile();
+            setProfileSaveMessage('이름과 차량번호가 내정보에 저장되었습니다.');
+        } catch (error) {
+            console.error('[DailyInspection] 내정보 저장 실패:', error);
+            setProfileSaveError(error.message || '내정보 저장에 실패했습니다. 다시 시도해주세요.');
+        } finally {
+            setIsSavingProfile(false);
+        }
+    };
+
     const handleSave = () => {
         if (!canSave) return;
+        if (hasMissingIdentity || identityChanged) {
+            setSaveError('이름과 차량번호를 먼저 내정보에 저장해주세요.');
+            return;
+        }
         setSaveError('');
         try {
             const record = saveDailyInspectionRecord(userId, date, {
                 answers,
                 actionNotes: actionNotes.trim(),
-                driverName: profile?.full_name || profile?.display_name || '',
-                vehicleNumber: profile?.vehicle_number || '',
+                driverName: profileName,
+                vehicleNumber: profileVehicleNumber,
                 completed: true
             });
             setIsSaved(true);
@@ -122,16 +190,71 @@ const DailyInspectionView = ({
             </div>
 
             <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
-                <div className="flex items-center justify-between gap-2">
+                <div className="grid grid-cols-2 gap-3">
                     <div className="min-w-0">
                         <p className={`text-xs ${mutedClass}`}>운수종사자</p>
-                        <p className="font-bold truncate">{profile?.full_name || profile?.display_name || '이름 미등록'}</p>
+                        {profileName ? (
+                            <p className="font-bold truncate">{profileName}</p>
+                        ) : (
+                            <input
+                                type="text"
+                                value={driverName}
+                                onChange={(event) => {
+                                    setDriverName(event.target.value);
+                                    setProfileSaveMessage('');
+                                    setProfileSaveError('');
+                                }}
+                                maxLength={60}
+                                placeholder="이름 입력"
+                                aria-label="내정보 이름 입력"
+                                className={`mt-1 w-full min-w-0 rounded-lg border px-2.5 py-2 text-sm ${dark ? 'bg-slate-900 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
+                            />
+                        )}
                     </div>
                     <div className="min-w-0 text-right">
                         <p className={`text-xs ${mutedClass}`}>차량번호</p>
-                        <p className="font-bold truncate">{profile?.vehicle_number || '차량번호 미등록'}</p>
+                        {profileVehicleNumber ? (
+                            <p className="font-bold truncate">{profileVehicleNumber}</p>
+                        ) : (
+                            <input
+                                type="text"
+                                value={vehicleNumber}
+                                onChange={(event) => {
+                                    setVehicleNumber(event.target.value);
+                                    setProfileSaveMessage('');
+                                    setProfileSaveError('');
+                                }}
+                                maxLength={30}
+                                placeholder="차량번호 입력"
+                                aria-label="내정보 차량번호 입력"
+                                className={`mt-1 w-full min-w-0 rounded-lg border px-2.5 py-2 text-sm text-right ${dark ? 'bg-slate-900 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
+                            />
+                        )}
                     </div>
                 </div>
+                {(hasMissingIdentity || identityChanged) && (
+                    <div className="mt-3">
+                        <button
+                            type="button"
+                            onClick={handleSaveIdentity}
+                            disabled={!canSaveIdentity || isSavingProfile}
+                            className="w-full rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-40"
+                        >
+                            {isSavingProfile ? '내정보 저장 중...' : '입력한 정보를 내정보에 저장'}
+                        </button>
+                        {!authUser?.id && (
+                            <p className={`mt-2 text-xs ${mutedClass}`}>
+                                로그인하면 입력한 이름과 차량번호를 내정보에 저장할 수 있습니다.
+                            </p>
+                        )}
+                    </div>
+                )}
+                {profileSaveMessage && (
+                    <p className="mt-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">{profileSaveMessage}</p>
+                )}
+                {profileSaveError && (
+                    <p className="mt-2 text-xs text-red-600 dark:text-red-300">{profileSaveError}</p>
+                )}
                 {scheduleStatus === 'off' && (
                     <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
                         오늘은 근무표상 휴무일입니다. 차량을 운행하지 않는다면 점검 기록을 남기지 않아도 됩니다.
