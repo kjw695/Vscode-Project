@@ -63,6 +63,11 @@ public class DailyInspectionPrintPlugin extends Plugin {
                         PrintDocumentAdapter delegate = view.createPrintDocumentAdapter(jobName);
                         PrintDocumentAdapter retainedAdapter = new PrintDocumentAdapter() {
                             @Override
+                            public void onStart() {
+                                delegate.onStart();
+                            }
+
+                            @Override
                             public void onLayout(
                                 PrintAttributes oldAttributes,
                                 PrintAttributes newAttributes,
@@ -109,7 +114,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
                         call.resolve();
                     } catch (Exception error) {
                         releasePrintView(view);
-                        call.reject("PDF 인쇄 화면을 열지 못했습니다: " + error.getMessage(), error);
+                        call.reject("PDF 인쇄 화면을 열지 못했습니다: " + error.getMessage());
                     }
                 }
             });
