@@ -1,9 +1,9 @@
-def notificationIconResDir = layout.buildDirectory.dir("generated/res/notificationIcon")
-
 plugins {
     id 'com.android.application'
     id 'com.google.gms.google-services'
 }
+
+def notificationIconResDir = layout.buildDirectory.dir("generated/res/notificationIcon")
 
 android {
     namespace "com.kjw.deliverytracker"
