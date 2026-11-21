@@ -452,9 +452,9 @@ export const printDailyInspectionMonth = (records, year, month) => {
                             }
                         }
                     } else if (action === 'kakao') {
-                        if (printStatus()) printStatus().textContent = '카카오톡 공유 화면을 열었습니다.';
+                        if (printStatus()) printStatus().textContent = '카카오톡에서 대화방을 선택하고 PDF를 전송해주세요.';
                     } else if (printStatus()) {
-                        printStatus().textContent = 'PDF를 첨부할 문자 앱 선택 화면을 열었습니다.';
+                        printStatus().textContent = '문자 앱을 열었습니다. 받는 사람과 PDF 첨부를 확인한 뒤 전송해주세요.';
                     }
                 } catch (error) {
                     console.error('[DailyInspection] PDF 저장/공유 실패:', error);
