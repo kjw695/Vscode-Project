@@ -447,23 +447,22 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
      <p className={`mt-1 text-xs ${mutedClass}`}>오전·오후와 시·분을 위아래로 움직여 선택하세요.</p>
     </div>
     <div className="relative mt-4 grid grid-cols-3 gap-2">
-     <div className={`pointer-events-none absolute inset-x-0 top-[72px] h-12 rounded-lg border-y ${dark?'border-blue-400/50 bg-blue-500/10':'border-blue-300 bg-blue-50'}`}/>
      <div className="min-w-0">
       <div className={`mb-2 text-center text-xs font-semibold ${mutedClass}`}>오전 / 오후</div>
-      <div ref={periodWheelRef} onScroll={e=>handleWheelScroll(e,PERIOD_OPTIONS,setReminderPeriod)} className="h-36 overflow-y-auto snap-y snap-mandatory overscroll-contain" style={{paddingTop:WHEEL_ROW_HEIGHT,paddingBottom:WHEEL_ROW_HEIGHT,scrollbarWidth:'none'}}>
-       {PERIOD_OPTIONS.map((value,index)=><button key={value} type="button" onClick={()=>selectWheelValue(periodWheelRef,index,()=>setReminderPeriod(value))} className={`flex h-12 w-full snap-center items-center justify-center text-base font-bold ${reminderPeriod===value?'text-blue-600 dark:text-blue-300':'text-slate-400 dark:text-slate-500'}`}>{value}</button>)}
+      <div ref={periodWheelRef} onScroll={e=>handleWheelScroll(e,PERIOD_OPTIONS,setReminderPeriod)} className={`h-36 overflow-y-auto snap-y snap-mandatory overscroll-contain rounded-lg ${dark?'bg-black':'bg-white'}`} style={{paddingTop:WHEEL_ROW_HEIGHT,paddingBottom:WHEEL_ROW_HEIGHT,scrollbarWidth:'none'}}>
+       {PERIOD_OPTIONS.map((value,index)=><button key={value} type="button" onClick={()=>selectWheelValue(periodWheelRef,index,()=>setReminderPeriod(value))} className={`flex h-12 w-full snap-center items-center justify-center text-base font-bold text-black dark:text-white ${reminderPeriod===value?'bg-slate-100 dark:bg-neutral-800':'bg-transparent'}`}>{value}</button>)}
       </div>
      </div>
      <div className="min-w-0">
       <div className={`mb-2 text-center text-xs font-semibold ${mutedClass}`}>시</div>
-      <div ref={hourWheelRef} onScroll={e=>handleWheelScroll(e,HOUR_OPTIONS,setReminderHour)} className="h-36 overflow-y-auto snap-y snap-mandatory overscroll-contain" style={{paddingTop:WHEEL_ROW_HEIGHT,paddingBottom:WHEEL_ROW_HEIGHT,scrollbarWidth:'none'}}>
-       {HOUR_OPTIONS.map((value,index)=><button key={value} type="button" onClick={()=>selectWheelValue(hourWheelRef,index,()=>setReminderHour(value))} className={`flex h-12 w-full snap-center items-center justify-center text-xl font-bold tabular-nums ${reminderHour===value?'text-blue-600 dark:text-blue-300':'text-slate-400 dark:text-slate-500'}`}>{String(value).padStart(2,'0')}</button>)}
+      <div ref={hourWheelRef} onScroll={e=>handleWheelScroll(e,HOUR_OPTIONS,setReminderHour)} className={`h-36 overflow-y-auto snap-y snap-mandatory overscroll-contain rounded-lg ${dark?'bg-black':'bg-white'}`} style={{paddingTop:WHEEL_ROW_HEIGHT,paddingBottom:WHEEL_ROW_HEIGHT,scrollbarWidth:'none'}}>
+       {HOUR_OPTIONS.map((value,index)=><button key={value} type="button" onClick={()=>selectWheelValue(hourWheelRef,index,()=>setReminderHour(value))} className={`flex h-12 w-full snap-center items-center justify-center text-xl font-bold tabular-nums text-black dark:text-white ${reminderHour===value?'bg-slate-100 dark:bg-neutral-800':'bg-transparent'}`}>{String(value).padStart(2,'0')}</button>)}
       </div>
      </div>
      <div className="min-w-0">
       <div className={`mb-2 text-center text-xs font-semibold ${mutedClass}`}>분</div>
-      <div ref={minuteWheelRef} onScroll={e=>handleWheelScroll(e,MINUTE_OPTIONS,setReminderMinute)} className="h-36 overflow-y-auto snap-y snap-mandatory overscroll-contain" style={{paddingTop:WHEEL_ROW_HEIGHT,paddingBottom:WHEEL_ROW_HEIGHT,scrollbarWidth:'none'}}>
-       {MINUTE_OPTIONS.map((value,index)=><button key={value} type="button" onClick={()=>selectWheelValue(minuteWheelRef,index,()=>setReminderMinute(value))} className={`flex h-12 w-full snap-center items-center justify-center text-xl font-bold tabular-nums ${reminderMinute===value?'text-blue-600 dark:text-blue-300':'text-slate-400 dark:text-slate-500'}`}>{String(value).padStart(2,'0')}</button>)}
+      <div ref={minuteWheelRef} onScroll={e=>handleWheelScroll(e,MINUTE_OPTIONS,setReminderMinute)} className={`h-36 overflow-y-auto snap-y snap-mandatory overscroll-contain rounded-lg ${dark?'bg-black':'bg-white'}`} style={{paddingTop:WHEEL_ROW_HEIGHT,paddingBottom:WHEEL_ROW_HEIGHT,scrollbarWidth:'none'}}>
+       {MINUTE_OPTIONS.map((value,index)=><button key={value} type="button" onClick={()=>selectWheelValue(minuteWheelRef,index,()=>setReminderMinute(value))} className={`flex h-12 w-full snap-center items-center justify-center text-xl font-bold tabular-nums text-black dark:text-white ${reminderMinute===value?'bg-slate-100 dark:bg-neutral-800':'bg-transparent'}`}>{String(value).padStart(2,'0')}</button>)}
       </div>
      </div>
     </div>
