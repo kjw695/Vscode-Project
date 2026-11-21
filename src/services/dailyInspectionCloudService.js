@@ -97,3 +97,15 @@ export const saveDailyInspectionRecordToServer = async (userId, date, record, si
   if (error) throw error;
   return (await attachSignatures([data]))[0];
 };
+
+export const listRecentDailyInspectionRecordsFromServer = async (fromDate) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from('daily_inspection_records')
+    .select('*')
+    .gte('inspection_date', fromDate)
+    .lte('inspection_date', today)
+    .order('inspection_date', { ascending: true });
+  if (error) throw error;
+  return attachSignatures(data || []);
+};
