@@ -91,7 +91,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
         const timeLabel = completionDate && !Number.isNaN(completionDate.getTime())
             ? `${String(completionDate.getHours()).padStart(2, '0')}:${String(completionDate.getMinutes()).padStart(2, '0')}`
             : '--:--';
-        const dateTimeLabel = `${recordDate}\n${timeLabel}`;
+        const dateTimeLabel = `${recordDate} ${timeLabel}`;
         const badItems = OFFICIAL_ITEMS.filter(([id]) => record.answers?.[id] === 'bad');
         badItems.forEach(([, , label]) => {
             detailRows.push({
@@ -197,7 +197,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .detail-table th, .detail-table td { border: 1px solid #555; padding: 2mm 1.2mm; text-align: center; vertical-align: middle; font-size: 8pt; line-height: 1.3; overflow-wrap: anywhere; }
     .detail-table th { font-weight: 700; white-space: nowrap; background: #f4f4f4; }
     .detail-table .defect-number, .detail-table .defect-result { padding-left: 0.5mm; padding-right: 0.5mm; font-size: 8pt; white-space: nowrap; }
-    .detail-table .defect-datetime { font-size: 7.5pt; line-height: 1.5; white-space: pre-line; }
+    .detail-table .defect-datetime { padding-top: 0.7mm; padding-bottom: 0.7mm; font-size: 7.5pt; line-height: 1.1; white-space: nowrap; }
     .detail-meta { display: flex; flex-wrap: wrap; gap: 12mm; margin: 0 0 5mm; padding: 2.5mm 3mm; border: 1px solid #777; font-size: 8.5pt; }
     .detail-table .defect-content, .detail-table .defect-action { text-align: left; }
     .detail-table .defect-signature { padding: 0; vertical-align: middle; }
