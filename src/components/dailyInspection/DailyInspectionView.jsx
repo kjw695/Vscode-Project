@@ -121,12 +121,20 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
      for(const localRecord of localRecords){
       const recordDate=String(localRecord.inspectionDate||localRecord.date||'').slice(0,10);
       if(!recordDate||new Date(recordDate)<cutoff)continue;
+      // 서버에 이미 존재하는 날짜는 건너뛰어 오래된 기기 캐시가 최신 서버 기록을 덮지 않게 합니다.
+      const existingServerRecord=await readDailyInspectionRecordFromServer(recordDate);
+      if(existingServerRecord)continue;
       const signature=localRecord.driverSignature||legacySignature;
       if(!signature)continue;
       const signatureVersion=await saveDailyInspectionSignatureToServer(signature);
       await saveDailyInspectionRecordToServer(authUser.id,recordDate,localRecord,signatureVersion.signature_id);
      }
      legacySyncDoneRef.current=true;
+     const [migrationYear,migrationMonth]=String(selectedMonth||date).split('-');
+     if(migrationYear&&migrationMonth){
+      const migratedMonth=await listDailyInspectionRecordsFromServer(migrationYear,migrationMonth);
+      setMonthRecords(migratedMonth);
+     }
     }
     latest=await readDailyInspectionRecordFromServer(date);
     const cloudSignature=await readLatestDailyInspectionSignatureFromServer();
