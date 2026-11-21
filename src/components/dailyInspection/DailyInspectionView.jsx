@@ -433,7 +433,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
      <p className={`mt-1 text-xs ${mutedClass}`}>오전·오후와 시·분을 위아래로 움직여 선택하세요.</p>
     </div>
     <div className="relative mt-4 grid grid-cols-3 gap-2">
-     <div className={`pointer-events-none absolute inset-x-0 top-12 h-12 rounded-lg border-y ${dark?'border-blue-400/50 bg-blue-500/10':'border-blue-300 bg-blue-50'}`}/>
+     <div className={`pointer-events-none absolute inset-x-0 top-[72px] h-12 rounded-lg border-y ${dark?'border-blue-400/50 bg-blue-500/10':'border-blue-300 bg-blue-50'}`}/>
      <div className="min-w-0">
       <div className={`mb-2 text-center text-xs font-semibold ${mutedClass}`}>오전 / 오후</div>
       <div ref={periodWheelRef} onScroll={e=>handleWheelScroll(e,PERIOD_OPTIONS,setReminderPeriod)} className="h-36 overflow-y-auto snap-y snap-mandatory overscroll-contain" style={{paddingTop:WHEEL_ROW_HEIGHT,paddingBottom:WHEEL_ROW_HEIGHT,scrollbarWidth:'none'}}>
