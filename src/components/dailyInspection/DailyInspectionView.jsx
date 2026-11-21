@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, CheckCircle2, ClipboardCheck, Printer, History, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ClipboardCheck, Printer, History, CalendarDays, ChevronLeft, ChevronRight, Bell, X } from 'lucide-react';
 import { listDailyInspectionRecords, readDailyInspectionRecord, saveDailyInspectionRecord, readSavedDriverSignature, saveSavedDriverSignature, readSavedTransportCompanyName, saveSavedTransportCompanyName } from '../../services/dailyInspectionService';
 import { printDailyInspectionMonth } from './dailyInspectionPrint';
 import SignaturePad from './DailyInspectionSignaturePad';
@@ -80,6 +80,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const [isMonthPickerOpen,setIsMonthPickerOpen]=useState(false);
  const [monthPickerYear,setMonthPickerYear]=useState(Number(String(date||'').slice(0,4))||new Date().getFullYear());
  const [reminderTime,setReminderTime]=useState('07:00');
+ const [isReminderSettingsOpen,setIsReminderSettingsOpen]=useState(false);
  const [isTimePickerOpen,setIsTimePickerOpen]=useState(false);
  const [reminderPeriod,setReminderPeriod]=useState('오전');
  const [reminderHour,setReminderHour]=useState(7);
@@ -302,26 +303,14 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   <div className="flex items-center gap-2 mb-4 pt-2">
    <button type="button" onClick={onBack} aria-label="뒤로" className={`p-2 rounded-full ${dark?'hover:bg-slate-800 text-slate-200':'hover:bg-slate-100 text-slate-700'}`}><ArrowLeft size={22}/></button>
    <div className="min-w-0 flex-1"><h2 className="text-lg sm:text-xl font-black break-keep">화물자동차 안전사고 예방을 위한 일상점검표</h2><p className={`mt-0.5 text-xs ${mutedClass}`}>{formatDateLabel(date)}</p></div>
+   <button type="button" onClick={()=>setIsReminderSettingsOpen(true)} aria-label="알림 설정" title="알림 설정" aria-expanded={isReminderSettingsOpen} className={`relative flex h-10 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-sm font-bold ${dark?'border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700':'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
+    <Bell size={18}/>
+    <span>알림</span>
+    {reminderEnabled&&<span className="absolute right-2 top-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500"/>}
+   </button>
   </div>
 
-    <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
-   <div className="flex items-center justify-between gap-2">
-    <h3 className="font-black text-sm">업무 전 점검 알림</h3>
-    <span className={`rounded-full px-2 py-1 text-xs font-bold ${reminderEnabled?'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300':'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300'}`}>{reminderEnabled?'알림 켜짐':'알림 꺼짐'}</span>
-   </div>
-   <div className="mt-2 flex items-end gap-2">
-    <label className="min-w-0 flex-1 text-xs font-semibold">알림 시간
-     <button type="button" onClick={openReminderTimePicker} className={`mt-1 flex h-10 w-full items-center justify-between rounded-lg border px-3 text-sm font-bold tabular-nums ${dark?'border-slate-600 bg-slate-900 text-white':'border-slate-300 bg-white text-slate-900'}`}>
-      <span>{formatReminderTimeLabel(reminderTime)}</span>
-      <span className={mutedClass}>변경</span>
-     </button>
-    </label>
-    <button type="button" onClick={handleEnableReminder} disabled={isSavingReminder} className="h-10 shrink-0 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white disabled:opacity-50">{isSavingReminder?'설정 중...':reminderEnabled?'시간 변경':'알림 켜기'}</button>
-   </div>
-   {reminderEnabled&&<button type="button" onClick={handleDisableReminder} disabled={isSavingReminder} className={`mt-2 text-xs font-semibold ${mutedClass} underline disabled:opacity-50`}>알림 끄기</button>}
-   <p className={`mt-2 text-xs leading-5 ${mutedClass}`}>설정한 시간에 매일 알림을 보냅니다. Android에서는 첫 설정 시 알림 및 정확한 알람 권한을 허용해야 합니다. 휴무일에도 알림이 울립니다.</p>
-   {reminderMessage&&<p className={`mt-2 text-xs font-semibold ${reminderMessage.includes('울립니다')||reminderMessage.includes('껐습니다')?'text-emerald-600 dark:text-emerald-400':'text-red-500'}`}>{reminderMessage}</p>}
-  </section>
+    
 
 <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
    <div className="grid grid-cols-3 gap-1.5">
@@ -426,6 +415,31 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
    <p className="mt-1 text-xs leading-5">모바일 기록만으로 모든 단속·제출 요건을 충족한다고 단정할 수 없습니다. 운수회사와 관할 기관에 모바일 기록 인정 여부를 확인하고, 보수적으로는 월별 점검표를 정기적으로 출력해 차량 내 서류함(글로브박스)에 함께 보관하세요.</p>
   </section>
   <p className={`mt-3 text-center text-[11px] leading-5 ${mutedClass}`}>현재 기록은 이 기기의 앱 저장소에 보관됩니다. 기기 시각은 서버가 인증한 타임스탬프가 아니며, 앱 삭제·기기 변경 시 기록이 사라질 수 있으므로 출력본도 보관하세요.</p>
+  {isReminderSettingsOpen&&<div className="fixed inset-0 z-[10050] flex items-center justify-center bg-black/50 p-4" onClick={()=>setIsReminderSettingsOpen(false)}>
+   <div role="dialog" aria-modal="true" aria-label="업무 전 점검 알림 설정" className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl p-3 shadow-2xl ${dark?'bg-slate-800 text-white':'bg-white text-slate-900'}`} onClick={e=>e.stopPropagation()}>
+    <section className={`rounded-2xl border p-3 ${panelClass}`}>
+       <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+         <h3 className="font-black text-sm">업무 전 점검 알림</h3>
+         <span className={`rounded-full px-2 py-1 text-xs font-bold ${reminderEnabled?'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300':'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300'}`}>{reminderEnabled?'알림 켜짐':'알림 꺼짐'}</span>
+        </div>
+        <button type="button" onClick={()=>setIsReminderSettingsOpen(false)} aria-label="알림 설정 닫기" className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${dark?'text-slate-300 hover:bg-slate-700':'text-slate-500 hover:bg-slate-100'}`}><X size={18}/></button>
+       </div>
+       <div className="mt-2 flex items-end gap-2">
+        <label className="min-w-0 flex-1 text-xs font-semibold">알림 시간
+         <button type="button" onClick={openReminderTimePicker} className={`mt-1 flex h-10 w-full items-center justify-between rounded-lg border px-3 text-sm font-bold tabular-nums ${dark?'border-slate-600 bg-slate-900 text-white':'border-slate-300 bg-white text-slate-900'}`}>
+          <span>{formatReminderTimeLabel(reminderTime)}</span>
+          <span className={mutedClass}>변경</span>
+         </button>
+        </label>
+        <button type="button" onClick={handleEnableReminder} disabled={isSavingReminder} className="h-10 shrink-0 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white disabled:opacity-50">{isSavingReminder?'설정 중...':reminderEnabled?'시간 변경':'알림 켜기'}</button>
+       </div>
+       {reminderEnabled&&<button type="button" onClick={handleDisableReminder} disabled={isSavingReminder} className={`mt-2 text-xs font-semibold ${mutedClass} underline disabled:opacity-50`}>알림 끄기</button>}
+       <p className={`mt-2 text-xs leading-5 ${mutedClass}`}>설정한 시간에 매일 알림을 보냅니다. Android에서는 첫 설정 시 알림 및 정확한 알람 권한을 허용해야 합니다. 휴무일에도 알림이 울립니다.</p>
+       {reminderMessage&&<p className={`mt-2 text-xs font-semibold ${reminderMessage.includes('울립니다')||reminderMessage.includes('껐습니다')?'text-emerald-600 dark:text-emerald-400':'text-red-500'}`}>{reminderMessage}</p>}
+      </section>
+   </div>
+  </div>}
   {isTimePickerOpen&&<div className="fixed inset-0 z-[10060] flex items-center justify-center bg-black/50 p-4" onClick={()=>setIsTimePickerOpen(false)}>
    <div role="dialog" aria-modal="true" aria-label="알림 시간 설정" className={`w-full max-w-sm rounded-2xl p-4 shadow-2xl ${dark?'bg-slate-800 text-white':'bg-white text-slate-900'}`} onClick={e=>e.stopPropagation()}>
     <div className="mb-1">
