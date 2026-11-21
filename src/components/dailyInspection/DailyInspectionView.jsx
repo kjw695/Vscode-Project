@@ -470,7 +470,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   </section>}
 
   {saveError&&<p className="mb-3 rounded-lg bg-red-50 dark:bg-red-950/30 p-3 text-sm text-red-600">{saveError}</p>}
-  {isSaved&&<p className="mb-3 flex items-center gap-2 text-sm font-semibold text-emerald-600"><CheckCircle2 size={17}/> 점검 기록이 서버에 저장되어 있습니다.</p>}
+  {isSaved&&<p className="mb-3 flex items-center gap-2 text-sm font-semibold text-emerald-600"><CheckCircle2 size={17}/> {currentRecord?.storageMode==='server'?'점검 기록이 서버에 저장되어 있습니다.':'점검 기록이 이 기기에 저장되어 있습니다.'}</p>}
   <button type="button" onClick={handleSave} disabled={!canSave||isSavingProfile} className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-black text-white disabled:opacity-40">{isSavingProfile?'저장 중...':currentRecord?'기존 기록 덮어쓰기':'점검 완료 저장'}</button>
   {!canSave&&<p className={`mt-2 text-center text-xs ${mutedClass}`}>운송사업자명, 모든 점검 항목, 운전자 서명 및 필수 조치·정정 내용을 입력해야 저장됩니다.</p>}
   {currentRecord&&<p className={`mt-2 text-center text-xs ${mutedClass}`}>최근 저장 시각: {formatTimestamp(currentRecord.completedAt||currentRecord.updatedAt)} · 같은 날짜 기록은 최신본 1건만 보관</p>}
