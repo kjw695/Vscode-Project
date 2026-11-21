@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, ClipboardCheck, Printer, History, CalendarDays, ChevronLeft, ChevronRight, Bell, X } from 'lucide-react';
 import { listDailyInspectionRecords, readDailyInspectionRecord, saveDailyInspectionRecord, readSavedDriverSignature, saveSavedDriverSignature, readSavedTransportCompanyName, saveSavedTransportCompanyName, listAllLocalDailyInspectionRecords } from '../../services/dailyInspectionService';
-import { readLatestDailyInspectionSignatureFromServer, saveDailyInspectionSignatureToServer, readDailyInspectionRecordFromServer, listDailyInspectionRecordsFromServer, saveDailyInspectionRecordToServer } from '../../services/dailyInspectionCloudService';
+import { readLatestDailyInspectionSignatureFromServer, saveDailyInspectionSignatureToServer, readDailyInspectionRecordFromServer, listDailyInspectionRecordsFromServer, listRecentDailyInspectionRecordsFromServer, saveDailyInspectionRecordToServer } from '../../services/dailyInspectionCloudService';
 import { printDailyInspectionMonth } from './dailyInspectionPrint';
 import SignaturePad from './DailyInspectionSignaturePad';
 import { supabase } from '../../lib/supabaseClient';
@@ -117,17 +117,22 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
     if(!legacySyncDoneRef.current){
      const localRecords=listAllLocalDailyInspectionRecords(userId);
      const cutoff=new Date();cutoff.setFullYear(cutoff.getFullYear()-2);
+     const cutoffKey=cutoff.toISOString().slice(0,10);
+     const existingRecords=await listRecentDailyInspectionRecordsFromServer(cutoffKey);
+     const existingDates=new Set(existingRecords.map(item=>item.inspectionDate));
      const legacySignature=savedSignature;
-     for(const localRecord of localRecords){
+     const orderedLocalRecords=[...localRecords].sort((a,b)=>
+      String(a.inspectionDate||a.date||'').localeCompare(String(b.inspectionDate||b.date||''))
+     );
+     for(const localRecord of orderedLocalRecords){
       const recordDate=String(localRecord.inspectionDate||localRecord.date||'').slice(0,10);
-      if(!recordDate||new Date(recordDate)<cutoff)continue;
+      if(!recordDate||new Date(recordDate)<cutoff||existingDates.has(recordDate))continue;
       // 서버에 이미 존재하는 날짜는 건너뛰어 오래된 기기 캐시가 최신 서버 기록을 덮지 않게 합니다.
-      const existingServerRecord=await readDailyInspectionRecordFromServer(recordDate);
-      if(existingServerRecord)continue;
       const signature=localRecord.driverSignature||legacySignature;
       if(!signature)continue;
       const signatureVersion=await saveDailyInspectionSignatureToServer(signature);
       await saveDailyInspectionRecordToServer(authUser.id,recordDate,localRecord,signatureVersion.signature_id);
+      existingDates.add(recordDate);
      }
      legacySyncDoneRef.current=true;
      const [migrationYear,migrationMonth]=String(selectedMonth||date).split('-');
