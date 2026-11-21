@@ -161,6 +161,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
                     started = true;
                     try {
                         PrintDocumentAdapter adapter = view.createPrintDocumentAdapter(jobName);
+                        adapter.onStart();
                         PrintAttributes attributes = createPrintAttributes();
                         adapter.onLayout(null, attributes, new CancellationSignal(),
                             new PrintDocumentAdapter.LayoutResultCallback() {
@@ -181,6 +182,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
                                                 @Override
                                                 public void onWriteFinished(PageRange[] pages) {
                                                     closeQuietly(finalDestination);
+                                                    try { adapter.onFinish(); } catch (Exception ignored) { }
                                                     releasePrintView(view);
                                                     if (!output.exists() || output.length() == 0) {
                                                         call.reject("PDF 파일이 비어 있습니다. 다시 시도해주세요.");
@@ -192,6 +194,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
                                                 @Override
                                                 public void onWriteFailed(CharSequence error) {
                                                     closeQuietly(finalDestination);
+                                                    try { adapter.onFinish(); } catch (Exception ignored) { }
                                                     releasePrintView(view);
                                                     output.delete();
                                                     call.reject("PDF 생성에 실패했습니다: " + error);
@@ -200,6 +203,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
                                                 @Override
                                                 public void onWriteCancelled() {
                                                     closeQuietly(finalDestination);
+                                                    try { adapter.onFinish(); } catch (Exception ignored) { }
                                                     releasePrintView(view);
                                                     output.delete();
                                                     call.reject("PDF 생성이 취소되었습니다.");
@@ -207,6 +211,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
                                             });
                                     } catch (Exception error) {
                                         closeQuietly(destination);
+                                        try { adapter.onFinish(); } catch (Exception ignored) { }
                                         releasePrintView(view);
                                         output.delete();
                                         call.reject("PDF 파일을 만들지 못했습니다: " + error.getMessage());
