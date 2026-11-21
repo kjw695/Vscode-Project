@@ -3,7 +3,7 @@ plugins {
     id 'com.google.gms.google-services'
 }
 
-def notificationIconResDir = layout.buildDirectory.dir("generated/res/notificationIcon")
+def notificationIconResDir = "${buildDir}/generated/res/notificationIcon"
 
 android {
     namespace "com.kjw.deliverytracker"
@@ -100,7 +100,7 @@ tasks.register("copyNotificationAppIcons", Copy) {
     from("$projectDir/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.webp") {
         rename { "ic_stat_app_icon.webp" }
     }
-    into(notificationIconResDir.map { it.dir("drawable") })
+    into("${notificationIconResDir}/drawable")
 }
 
 tasks.named("preBuild").configure {
