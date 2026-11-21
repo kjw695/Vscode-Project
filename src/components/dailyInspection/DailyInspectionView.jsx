@@ -368,7 +368,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
     const answer=answers[item.id];
     const itemNumber=`${groupIndex+1}-${itemIndex+1}`;
     return <div key={item.id} className="py-3 border-t first:border-t-0 border-slate-200 dark:border-slate-700">
-     <p className="w-full overflow-x-auto whitespace-nowrap text-[16px] sm:text-lg font-semibold leading-7" title={`${itemNumber}. ${item.label}`}>
+     <p className="w-full min-w-0 whitespace-normal break-words text-[16px] sm:text-lg font-semibold leading-7">
       <span className="mr-2 font-black text-blue-600 dark:text-blue-400">{itemNumber}</span>{item.label}
      </p>
      <div className="grid grid-cols-2 gap-1.5 mt-2">
