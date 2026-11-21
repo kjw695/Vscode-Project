@@ -154,3 +154,8 @@ export const clearSavedDriverSignature = (userId) => {
         return false;
     }
 };
+
+
+// Used once when moving this device's existing records to the cloud.
+export const listAllLocalDailyInspectionRecords = (userId) => readHistory(userId);
+
