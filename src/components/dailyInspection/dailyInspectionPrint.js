@@ -440,9 +440,15 @@ export const printDailyInspectionMonth = (records, year, month) => {
                         } else {
                             if (printStatus()) printStatus().textContent = 'PDF 저장 완료 · 파일을 여는 중입니다.';
                             if (typeof window.parent?.__dailyInspectionOpenPdf === 'function') {
-                                await window.parent.__dailyInspectionOpenPdf(result.uri);
+                                try {
+                                    await window.parent.__dailyInspectionOpenPdf(result.uri);
+                                    if (printStatus()) printStatus().textContent = '다운로드 폴더에 저장했고 PDF 뷰어를 열었습니다.';
+                                } catch (openError) {
+                                    if (printStatus()) printStatus().textContent = 'PDF 저장 완료 · 이 기기에 PDF를 여는 앱이 없어 다운로드 폴더에 보관했습니다.';
+                                }
+                            } else if (printStatus()) {
+                                printStatus().textContent = 'PDF 저장 완료 · 다운로드 폴더에서 파일을 열 수 있습니다.';
                             }
-                            if (printStatus()) printStatus().textContent = '다운로드 폴더에 저장했고 PDF 뷰어를 열었습니다.';
                         }
                     } else if (action === 'kakao') {
                         if (printStatus()) printStatus().textContent = '카카오톡 공유 화면을 열었습니다.';
