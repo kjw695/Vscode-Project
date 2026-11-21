@@ -1,6 +1,7 @@
 package com.kjw.deliverytracker;
 
 import android.content.ContentValues;
+import android.content.ClipData;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -275,7 +276,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
                  OutputStream output = getContext().getContentResolver().openOutputStream(uri)) {
                 if (output == null) throw new IOException("저장 파일을 열지 못했습니다.");
                 copy(input, output);
-            } catch (Exception error) {
+            } catch (IOException error) {
                 getContext().getContentResolver().delete(uri, null, null);
                 throw error;
             }
@@ -307,6 +308,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
         intent.setType("application/pdf");
         intent.putExtra(Intent.EXTRA_STREAM, uri);
         intent.putExtra(Intent.EXTRA_SUBJECT, fileName);
+        intent.setClipData(ClipData.newUri(getContext().getContentResolver(), fileName, uri));
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
         if ("kakao".equals(action)) {
