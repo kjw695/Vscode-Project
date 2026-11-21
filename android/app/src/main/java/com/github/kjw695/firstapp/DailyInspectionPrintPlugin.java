@@ -6,6 +6,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.Canvas;
+import android.graphics.pdf.PdfDocument;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -15,9 +17,9 @@ import android.os.ParcelFileDescriptor;
 import android.print.PageRange;
 import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
-import android.print.PrintDocumentInfo;
 import android.print.PrintManager;
 import android.provider.MediaStore;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
@@ -36,6 +38,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @CapacitorPlugin(name = "DailyInspectionPrint")
@@ -152,7 +155,30 @@ public class DailyInspectionPrintPlugin extends Plugin {
 
     private void renderPdf(String html, String jobName, PluginCall call, PdfReadyCallback callback) {
         getActivity().runOnUiThread(() -> {
-            final WebView webView = createPrintWebView();
+            final WebView webView = createPrintWebView(true);
+            webView.addJavascriptInterface(new Object() {
+                @JavascriptInterface
+                public void onReady(String metrics) {
+                    getActivity().runOnUiThread(() -> {
+                        try {
+                            String[] parts = metrics.split("\\|", 2);
+                            int contentHeight = Integer.parseInt(parts[0]);
+                            List<Integer> pageBreaks = new ArrayList<>();
+                            if (parts.length > 1 && !parts[1].isEmpty()) {
+                                for (String value : parts[1].split(",")) {
+                                    try { pageBreaks.add(Integer.parseInt(value)); }
+                                    catch (NumberFormatException ignored) { }
+                                }
+                            }
+                            writePdfFromWebView(webView, contentHeight, pageBreaks, call, callback);
+                        } catch (Exception error) {
+                            releasePrintView(webView);
+                            call.reject("PDF 페이지 정보를 읽지 못했습니다: " + error.getMessage());
+                        }
+                    });
+                }
+            }, "PdfBridge");
+
             webView.setWebViewClient(new WebViewClient() {
                 private boolean started = false;
 
@@ -160,91 +186,123 @@ public class DailyInspectionPrintPlugin extends Plugin {
                 public void onPageFinished(WebView view, String url) {
                     if (started) return;
                     started = true;
-                    try {
-                        PrintDocumentAdapter adapter = view.createPrintDocumentAdapter(jobName);
-                        adapter.onStart();
-                        PrintAttributes attributes = createPrintAttributes();
-                        adapter.onLayout(null, attributes, new CancellationSignal(),
-                            new PrintDocumentAdapter.LayoutResultCallback() {
-                                @Override
-                                public void onLayoutFinished(PrintDocumentInfo info, boolean changed) {
-                                    File output = new File(getContext().getCacheDir(),
-                                        "daily-inspection-" + System.currentTimeMillis() + ".pdf");
-                                    ParcelFileDescriptor destination = null;
-                                    try {
-                                        destination = ParcelFileDescriptor.open(output,
-                                            ParcelFileDescriptor.MODE_CREATE |
-                                            ParcelFileDescriptor.MODE_TRUNCATE |
-                                            ParcelFileDescriptor.MODE_READ_WRITE);
-                                        ParcelFileDescriptor finalDestination = destination;
-                                        adapter.onWrite(new PageRange[]{PageRange.ALL_PAGES}, destination,
-                                            new CancellationSignal(),
-                                            new PrintDocumentAdapter.WriteResultCallback() {
-                                                @Override
-                                                public void onWriteFinished(PageRange[] pages) {
-                                                    closeQuietly(finalDestination);
-                                                    try { adapter.onFinish(); } catch (Exception ignored) { }
-                                                    releasePrintView(view);
-                                                    if (!output.exists() || output.length() == 0) {
-                                                        call.reject("PDF 파일이 비어 있습니다. 다시 시도해주세요.");
-                                                        return;
-                                                    }
-                                                    callback.onReady(output);
-                                                }
-
-                                                @Override
-                                                public void onWriteFailed(CharSequence error) {
-                                                    closeQuietly(finalDestination);
-                                                    try { adapter.onFinish(); } catch (Exception ignored) { }
-                                                    releasePrintView(view);
-                                                    output.delete();
-                                                    call.reject("PDF 생성에 실패했습니다: " + error);
-                                                }
-
-                                                @Override
-                                                public void onWriteCancelled() {
-                                                    closeQuietly(finalDestination);
-                                                    try { adapter.onFinish(); } catch (Exception ignored) { }
-                                                    releasePrintView(view);
-                                                    output.delete();
-                                                    call.reject("PDF 생성이 취소되었습니다.");
-                                                }
-                                            });
-                                    } catch (Exception error) {
-                                        closeQuietly(destination);
-                                        try { adapter.onFinish(); } catch (Exception ignored) { }
-                                        releasePrintView(view);
-                                        output.delete();
-                                        call.reject("PDF 파일을 만들지 못했습니다: " + error.getMessage());
-                                    }
-                                }
-
-                                @Override
-                                public void onLayoutFailed(CharSequence error) {
-                                    releasePrintView(view);
-                                    call.reject("PDF 페이지 배치에 실패했습니다: " + error);
-                                }
-
-                                @Override
-                                public void onLayoutCancelled() {
-                                    releasePrintView(view);
-                                    call.reject("PDF 페이지 배치가 취소되었습니다.");
-                                }
-                            }, new Bundle());
-                    } catch (Exception error) {
-                        releasePrintView(view);
-                        call.reject("PDF 생성 준비에 실패했습니다: " + error.getMessage());
-                    }
+                    String readyScript =
+                        "(function(){" +
+                        "var images=Array.prototype.slice.call(document.images||[]);" +
+                        "Promise.all(images.map(function(img){return img.complete?Promise.resolve():new Promise(function(resolve){img.addEventListener('load',resolve,{once:true});img.addEventListener('error',resolve,{once:true});});}))" +
+                        ".then(function(){" +
+                        "requestAnimationFrame(function(){requestAnimationFrame(function(){" +
+                        "var height=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);" +
+                        "var breaks=Array.prototype.slice.call(document.querySelectorAll('.page-break')).map(function(el){return Math.round(el.getBoundingClientRect().top+window.scrollY);});" +
+                        "window.PdfBridge.onReady(String(height)+'|'+breaks.join(','));" +
+                        "});});" +
+                        "});" +
+                        "})();";
+                    view.evaluateJavascript(readyScript, null);
                 }
             });
-            webView.loadDataWithBaseURL("https://localhost/", html, "text/html", "UTF-8", null);
+
+            String pdfHtml = html.replace("</style>",
+                ".toolbar{display:none!important}#preview-content{zoom:1!important}" +
+                "html,body{overflow:visible!important;margin:0!important}" +
+                "</style>");
+            webView.loadDataWithBaseURL("https://localhost/", pdfHtml, "text/html", "UTF-8", null);
         });
     }
 
+    private void writePdfFromWebView(WebView webView, int contentHeight, List<Integer> pageBreaks,
+        PluginCall call, PdfReadyCallback callback) {
+        final int pageWidthPx = 1123;
+        final int pageHeightPx = 794;
+        final int pdfPageWidth = 842;
+        final int pdfPageHeight = 595;
+        final float scale = (float) pdfPageWidth / (float) pageWidthPx;
+
+        if (contentHeight <= 0) {
+            releasePrintView(webView);
+            call.reject("PDF에 넣을 점검표 내용이 비어 있습니다.");
+            return;
+        }
+
+        try {
+            webView.measure(
+                android.view.View.MeasureSpec.makeMeasureSpec(pageWidthPx, android.view.View.MeasureSpec.EXACTLY),
+                android.view.View.MeasureSpec.makeMeasureSpec(pageHeightPx, android.view.View.MeasureSpec.EXACTLY)
+            );
+            webView.layout(0, 0, pageWidthPx, pageHeightPx);
+            webView.setHorizontalScrollBarEnabled(false);
+            webView.setVerticalScrollBarEnabled(false);
+
+            PdfDocument document = new PdfDocument();
+            int offset = 0;
+            int pageNumber = 1;
+            while (offset < contentHeight && pageNumber <= 100) {
+                int nextOffset = Math.min(offset + pageHeightPx, contentHeight);
+                for (Integer pageBreak : pageBreaks) {
+                    if (pageBreak != null
+                        && pageBreak > offset + (pageHeightPx * 65 / 100)
+                        && pageBreak <= nextOffset
+                        && pageBreak < contentHeight) {
+                        nextOffset = pageBreak;
+                        break;
+                    }
+                }
+                if (nextOffset <= offset) nextOffset = Math.min(offset + pageHeightPx, contentHeight);
+
+                PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(
+                    pdfPageWidth, pdfPageHeight, pageNumber).create();
+                PdfDocument.Page page = document.startPage(pageInfo);
+                Canvas canvas = page.getCanvas();
+                canvas.drawColor(Color.WHITE);
+                canvas.save();
+                canvas.scale(scale, scale);
+                canvas.clipRect(0, 0, pageWidthPx, nextOffset - offset);
+                webView.scrollTo(0, offset);
+                webView.draw(canvas);
+                canvas.restore();
+                document.finishPage(page);
+
+                offset = nextOffset;
+                pageNumber += 1;
+            }
+
+            if (offset < contentHeight) {
+                document.close();
+                releasePrintView(webView);
+                call.reject("점검표가 너무 길어 PDF 페이지를 모두 만들지 못했습니다.");
+                return;
+            }
+
+            File output = new File(getContext().getCacheDir(),
+                "daily-inspection-" + System.currentTimeMillis() + ".pdf");
+            try (FileOutputStream stream = new FileOutputStream(output)) {
+                document.writeTo(stream);
+            } finally {
+                document.close();
+                releasePrintView(webView);
+            }
+
+            if (!output.exists() || output.length() == 0) {
+                call.reject("PDF 파일이 비어 있습니다. 다시 시도해주세요.");
+                return;
+            }
+            callback.onReady(output);
+        } catch (Exception error) {
+            releasePrintView(webView);
+            call.reject("PDF 파일 생성에 실패했습니다: " + error.getMessage());
+        }
+    }
     private WebView createPrintWebView() {
+        return createPrintWebView(false);
+    }
+
+    private WebView createPrintWebView(boolean enableJavascript) {
         WebView webView = new WebView(getActivity());
         webView.setBackgroundColor(Color.WHITE);
-        webView.getSettings().setJavaScriptEnabled(false);
+        webView.getSettings().setJavaScriptEnabled(enableJavascript);
+        webView.getSettings().setLoadWithOverviewMode(false);
+        webView.getSettings().setUseWideViewPort(true);
+        webView.setInitialScale(100);
         activePrintViews.add(webView);
         return webView;
     }
