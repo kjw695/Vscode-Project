@@ -117,10 +117,24 @@ export const printDailyInspectionMonth = (records, year, month) => {
     const detailPages = `
         <section class="detail page-break">
             <h2>불량 점검 및 조치 기록</h2>
-            <div class="detail-meta">
-                <span>차량번호: ${escapeHtml(first.vehicleNumber || '')}</span>
-                <span>운전자명: ${escapeHtml(first.driverName || '')}</span>
-            </div>
+            <table class="identity-table detail-identity-table">
+                <colgroup>
+                    <col style="width:12.5%"><col style="width:12.5%">
+                    <col style="width:12.5%"><col style="width:12.5%">
+                    <col style="width:12.5%"><col style="width:12.5%">
+                    <col style="width:12.5%"><col style="width:12.5%">
+                </colgroup>
+                <tbody><tr>
+                    <td class="identity-label">점검연월</td>
+                    <td class="identity-value">20　${String(year).slice(-2)}년　${month}월</td>
+                    <td class="identity-label">운송사업자명</td>
+                    <td class="identity-value">${escapeHtml(companyName)}</td>
+                    <td class="identity-label">차량번호</td>
+                    <td class="identity-value">${escapeHtml(first.vehicleNumber || '')}</td>
+                    <td class="identity-label">운수종사자명</td>
+                    <td class="identity-value">${escapeHtml(first.driverName || '')}</td>
+                </tr></tbody>
+            </table>
             <table class="detail-table">
                 <colgroup>
                     <col style="width:8mm" />
@@ -201,7 +215,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .detail-meta { display: flex; flex-wrap: wrap; gap: 12mm; margin: 0 0 5mm; padding: 2.5mm 3mm; border: 1px solid #777; font-size: 8.5pt; }
     .detail-table .defect-content, .detail-table .defect-action { text-align: left; }
     .detail-table .defect-signature { padding: 0; vertical-align: middle; }
-    .defect-signature-image { display: block; width: 100%; height: 9mm; min-height: 9mm; object-fit: fill; object-position: center; background: #fff; margin: 0; padding: 0; }
+    .defect-signature-image { display: block; width: 100%; height: 11mm; min-height: 11mm; object-fit: fill; object-position: center; background: #fff; margin: 0; padding: 0; }
     .detail-table tr { break-inside: avoid; page-break-inside: avoid; }
     .no-defects { padding: 8mm; text-align: center !important; color: #666; font-size: 9pt !important; }
 
