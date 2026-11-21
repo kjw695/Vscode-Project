@@ -415,6 +415,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
                     await cropSignatureImage(image);
                 }));
                 printReady = true;
+                window.__dailyInspectionPrintReady = true;
                 exportButtons().forEach((button) => { button.disabled = false; });
                 if (printButton()) printButton().disabled = false;
                 if (printStatus()) printStatus().textContent = '점검표 PDF를 저장하거나 공유할 수 있습니다.';
