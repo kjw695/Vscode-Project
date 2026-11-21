@@ -45,7 +45,8 @@ const scheduleReminderNotification = async (userId, time) => {
             id: notificationId,
             title: '택배메이트 · 업무 전 차량 점검',
             body: '업무를 시작하기 전에 일상점검표를 작성해주세요.',
-            smallIcon: 'ic_stat_daily_inspection',
+            smallIcon: 'ic_stat_app_icon',
+            largeIcon: 'ic_launcher_notification',
             iconColor: '#2563EB',
             schedule: {
                 on: { hour, minute },
