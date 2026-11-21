@@ -126,7 +126,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
                 </colgroup>
                 <tbody><tr>
                     <td class="identity-label">점검연월</td>
-                    <td class="identity-value">20　${String(year).slice(-2)}년　${month}월</td>
+                    <td class="identity-value">${year}년 ${month}월</td>
                     <td class="identity-label">운송사업자명</td>
                     <td class="identity-value">${escapeHtml(companyName)}</td>
                     <td class="identity-label">차량번호</td>
@@ -255,7 +255,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
         </colgroup>
         <tbody><tr>
             <td class="identity-label">점검연월</td>
-            <td class="identity-value">20　${String(year).slice(-2)}년　${month}월</td>
+            <td class="identity-value">${year}년 ${month}월</td>
             <td class="identity-label">운송사업자명</td>
             <td class="identity-value">${escapeHtml(companyName)}</td>
             <td class="identity-label">차량번호</td>
