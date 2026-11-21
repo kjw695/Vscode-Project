@@ -188,15 +188,20 @@ public class DailyInspectionPrintPlugin extends Plugin {
                     started = true;
                     String readyScript =
                         "(function(){" +
+                        "var attempts=0;" +
+                        "function waitForReady(){" +
+                        "if(!window.__dailyInspectionPrintReady&&attempts++<200){setTimeout(waitForReady,50);return;}" +
                         "var images=Array.prototype.slice.call(document.images||[]);" +
                         "Promise.all(images.map(function(img){return img.complete?Promise.resolve():new Promise(function(resolve){img.addEventListener('load',resolve,{once:true});img.addEventListener('error',resolve,{once:true});});}))" +
                         ".then(function(){" +
                         "requestAnimationFrame(function(){requestAnimationFrame(function(){" +
                         "var height=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);" +
-                        "var breaks=Array.prototype.slice.call(document.querySelectorAll('.page-break')).map(function(el){return Math.round(el.getBoundingClientRect().top+window.scrollY);});" +
+                        "var breaks=Array.prototype.slice.call(document.querySelectorAll('.page-break')).map(function(el){return Math.round(el.getBoundingClientRect().top);});" +
                         "window.PdfBridge.onReady(String(height)+'|'+breaks.join(','));" +
                         "});});" +
                         "});" +
+                        "}" +
+                        "waitForReady();" +
                         "})();";
                     view.evaluateJavascript(readyScript, null);
                 }
