@@ -11,6 +11,7 @@ import {
 import { calculateData } from '../utils/calculator';
 import GoalProgressBar from './GoalProgressBar';
 import { useWeather } from '../hooks/useWeather';
+import DailyInspectionCard from './dailyInspection/DailyInspectionCard';
 
 const SHOW_HOME_WEEKLY_PERFORMANCE = false; // 홈 주간 실적 임시 숨김
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -100,11 +101,12 @@ const BluecoinsDailySummaryPreview = ({
     selectedMonth,
     monthlyEndDay,
     goal = 0,
-    selectedInsurance,
     selectedItemsForAverage = ['배송', '반품'],
     itemLabels = {},
     isDarkMode,
-    onOpenInsurance,
+    dailyInspectionScheduleStatus = 'pending',
+    dailyInspectionComplete = false,
+    onOpenDailyInspection,
     currentCalendarDate,
     calendarDays = [],
     calendarMode = 'money',
@@ -234,9 +236,6 @@ const BluecoinsDailySummaryPreview = ({
         ? Math.round(previousIncome / previousWorkingDays)
         : 0);
     const averageVolumeDiff = dailyAverageVolume - previousAverageVolume;
-    const insuranceName = selectedInsurance?.name
-        ? selectedInsurance.name.split('(')[0].trim()
-        : '미등록';
 
     const currentPeriodDates = useMemo(() => {
         return new Set(calendarDays.filter((day) => day?.isCurrentMonth && day?.date).map((day) => day.date));
@@ -622,14 +621,12 @@ const BluecoinsDailySummaryPreview = ({
                         <div className={'text-xs whitespace-nowrap font-semibold ' + mutedClass}>남은 근무</div>
                         <div className="mt-0.5 text-lg font-black tabular-nums text-purple-500">{salaryRemainingWorkDays}일</div>
                     </div>
-                    <button
-                        type="button"
-                        onClick={onOpenInsurance}
-                        className={'min-w-0 px-1 py-2 text-center ' + (dark ? 'hover:bg-slate-800' : 'hover:bg-slate-50')}
-                    >
-                        <div className={'text-xs whitespace-nowrap font-semibold ' + mutedClass}>보험사</div>
-                        <div className="mt-0.5 truncate text-[clamp(12px,3.5vw,16px)] font-black">{insuranceName}</div>
-                    </button>
+                    <DailyInspectionCard
+                        isDarkMode={dark}
+                        scheduleStatus={dailyInspectionScheduleStatus}
+                        isComplete={dailyInspectionComplete}
+                        onClick={onOpenDailyInspection}
+                    />
                 </div>
             </section>
 

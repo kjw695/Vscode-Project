@@ -6,7 +6,10 @@ on:
       - security-audit
       - feature/account-data-isolation
       - feature/shared-company-admin-data
+      - release/prelaunch-hardening
+      - feature/daily-inspection-mobile-pdf-share
       - feature/confirmed-schedule-change-integrated
+      - release/prelaunch-hardening
   pull_request:
     branches:
       - security-audit

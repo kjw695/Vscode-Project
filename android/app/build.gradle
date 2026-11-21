@@ -3,6 +3,8 @@ plugins {
     id 'com.google.gms.google-services'
 }
 
+def notificationIconResDir = "${buildDir}/generated/res/notificationIcon"
+
 android {
     namespace "com.kjw.deliverytracker"
     compileSdk rootProject.ext.compileSdkVersion
@@ -38,6 +40,11 @@ android {
             // ✨ 여기에 -optimize 를 추가했습니다!
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
+        }
+    }
+    sourceSets {
+        main {
+            res.srcDir(notificationIconResDir)
         }
     }
 }
@@ -83,4 +90,19 @@ java {
         // 안드로이드 스튜디오 최신 버전에서 주로 권장하는 Java 17 사용
         languageVersion = JavaLanguageVersion.of(21) 
     }
+}
+
+// Use the existing launcher artwork for notification icons instead of a separate symbol.
+tasks.register("copyNotificationAppIcons", Copy) {
+    from("$projectDir/src/main/res/mipmap-xxxhdpi/ic_launcher.webp") {
+        rename { "ic_launcher_notification.webp" }
+    }
+    from("$projectDir/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.webp") {
+        rename { "ic_stat_app_icon.webp" }
+    }
+    into("${notificationIconResDir}/drawable")
+}
+
+tasks.named("preBuild").configure {
+    dependsOn("copyNotificationAppIcons")
 }

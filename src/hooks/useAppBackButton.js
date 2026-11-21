@@ -18,7 +18,14 @@ const useAppBackButton = ({
 
         const setupListener = async () => {
             backButtonListener = await CapacitorApp.addListener('backButton', ({ canGoBack }) => {
-                
+
+                // PDF 미리보기 위에서는 앱 종료 확인보다 미리보기 닫기를 먼저 처리합니다.
+                const inspectionPrintFrame = document.getElementById('daily-inspection-print-frame');
+                if (inspectionPrintFrame) {
+                    inspectionPrintFrame.remove();
+                    return;
+                }
+
                 // ✨ 1. 공통 팝업/경고창 닫기 (최우선)
                 if (modalState && modalState.isOpen) {
                     closeModal();
@@ -50,6 +57,12 @@ const useAppBackButton = ({
                 // 메인 달력에서 연 휴무 창이면 현재 창만 닫고 이전 화면으로 돌아갑니다.
                 if (isDayOffModalOpen) {
                     setIsDayOffModalOpen(false);
+                    return;
+                }
+
+                // 홈의 일상점검표 화면에서는 앱 종료 대신 홈 요약 화면으로 돌아갑니다.
+                if (selectedMainTab === 'home' && activeContentTab === 'dailyInspection') {
+                    setActiveContentTab('bluecoinsDailySummary');
                     return;
                 }
 
