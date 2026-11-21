@@ -11,6 +11,29 @@ if (typeof window !== 'undefined') {
         frame?.contentWindow?.focus();
         frame?.contentWindow?.print();
     };
+
+    window.__dailyInspectionExportPdf = async (html, name, action) => {
+        if (Capacitor.getPlatform() === 'android' && Capacitor.isPluginAvailable('DailyInspectionPrint')) {
+            return DailyInspectionPrint.exportPdf({ html, name, action });
+        }
+        if (action === 'save') {
+            const frame = document.getElementById('daily-inspection-print-frame');
+            frame?.contentWindow?.focus();
+            frame?.contentWindow?.print();
+            return { webFallback: true };
+        }
+        if (navigator.share && navigator.canShare) {
+            throw new Error('PDF 파일 공유는 Android 앱에서 이용해주세요.');
+        }
+        throw new Error('휴대폰 앱에서 PDF 저장 및 공유를 이용해주세요.');
+    };
+
+    window.__dailyInspectionOpenPdf = async (uri) => {
+        if (Capacitor.getPlatform() === 'android' && Capacitor.isPluginAvailable('DailyInspectionPrint')) {
+            return DailyInspectionPrint.openPdf({ uri });
+        }
+        throw new Error('PDF 바로 열기는 Android 앱에서 이용해주세요.');
+    };
 }
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -154,7 +177,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
                 </tr></thead>
                 <tbody>${detailTableRows || '<tr><td colspan="6" class="no-defects">해당 월 불량 점검 기록 없음</td></tr>'}</tbody>
             </table>
-            <p class="footnote">기기 로컬 저장 기록이며, 기기 기록 시각은 서버 공인 타임스탬프가 아닙니다.</p>
+            <p class="footnote">선택한 월의 점검 기록을 기준으로 생성한 PDF입니다.</p>
         </section>
     `;
 
@@ -170,12 +193,13 @@ export const printDailyInspectionMonth = (records, year, month) => {
     html, body { background: #fff !important; color: #111 !important; }
     body { width: 297mm; min-width: 297mm; max-width: none; margin: 0 auto; padding: 0; background: #fff; color: #111; font-family: Arial, 'Malgun Gothic', sans-serif; font-size: 9pt; }
     .toolbar { position: sticky; top: 0; left: 0; z-index: 5; display: flex; flex-direction: column; gap: 6px; width: 100vw; max-width: 100vw; box-sizing: border-box; padding: max(32px, calc(env(safe-area-inset-top, 0px) + 8px)) 8px 6px; margin: 0 0 3mm; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; }
-    .toolbar-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; width: 100%; }
-    .toolbar button { display: block; width: 100%; min-width: 0; border: 0; border-radius: 7px; padding: 9px 2px; background: #1d4ed8; color: #fff; font-size: clamp(9px, 2.7vw, 12px); line-height: 1.1; font-weight: 700; white-space: nowrap; }
+    .toolbar-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; width: 100%; }
+    .toolbar button { display: block; width: 100%; min-width: 0; border: 0; border-radius: 7px; padding: 10px 2px; background: #1d4ed8; color: #fff; font-size: clamp(10px, 2.8vw, 12px); line-height: 1.1; font-weight: 700; white-space: nowrap; }
     .toolbar button.secondary { background: #475569; }
+    .toolbar button.kakao { background: #f4d900; color: #191919; }
     .toolbar button:disabled { opacity: .55; }
     .toolbar .zoom-hint { width: 100%; margin: 0; color: #475569; font-size: 11px; line-height: 1.25; text-align: center; }
-    .toolbar .print-status { display: none; }
+    .toolbar .print-status { display: block; width: 100%; min-height: 14px; color: #334155; font-size: 11px; line-height: 1.25; text-align: center; }
     #preview-content { width: 297mm; min-width: 297mm; box-sizing: border-box; padding: 5mm; transform-origin: top left; }
     .form-caption { min-height: 5mm; margin: 0 0 1mm 1mm; font-family: 'Malgun Gothic', sans-serif; font-size: 8.5pt; line-height: 1.2; white-space: nowrap; }
     .form-caption .new-date { color: #0645ad; }
@@ -233,13 +257,15 @@ export const printDailyInspectionMonth = (records, year, month) => {
 <body>
     <div class="toolbar">
         <div class="toolbar-controls">
-            <button id="daily-inspection-print-button" type="button" onclick="window.printDailyInspectionPdf()" disabled>준비 중...</button>
+            <button id="daily-inspection-save-button" type="button" onclick="window.exportDailyInspectionPdf('save')" disabled>휴대폰 저장</button>
+            <button id="daily-inspection-kakao-button" class="kakao" type="button" onclick="window.exportDailyInspectionPdf('kakao')" disabled>카카오톡</button>
+            <button id="daily-inspection-sms-button" class="secondary" type="button" onclick="window.exportDailyInspectionPdf('sms')" disabled>문자 보내기</button>
             <button type="button" class="secondary" onclick="window.adjustDailyInspectionZoom(-0.1)">축소</button>
             <button type="button" class="secondary" onclick="window.adjustDailyInspectionZoom(0.1)">확대</button>
-            <button type="button" class="secondary" onclick="window.parent.document.getElementById('daily-inspection-print-frame')?.remove()">미리보기 닫기</button>
+            <button type="button" class="secondary" onclick="window.parent.document.getElementById('daily-inspection-print-frame')?.remove()">닫기</button>
         </div>
         <div class="zoom-hint"><span id="preview-zoom-label">맞춤</span> · 두 손가락으로 벌리거나 모아 확대·축소</div>
-        <span id="daily-inspection-print-status" class="print-status" aria-live="polite"></span>
+        <span id="daily-inspection-print-status" class="print-status" aria-live="polite">PDF 준비 중...</span>
     </div>
 
     <div id="preview-content">
@@ -297,6 +323,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
             const content = () => document.getElementById('preview-content');
             const label = () => document.getElementById('preview-zoom-label');
             const printButton = () => document.getElementById('daily-inspection-print-button');
+            const exportButtons = () => Array.from(document.querySelectorAll('#daily-inspection-save-button, #daily-inspection-kakao-button, #daily-inspection-sms-button'));
             const printStatus = () => document.getElementById('daily-inspection-print-status');
             const getTouchDistance = (touches) => {
                 const dx = touches[0].clientX - touches[1].clientX;
@@ -388,11 +415,53 @@ export const printDailyInspectionMonth = (records, year, month) => {
                     await cropSignatureImage(image);
                 }));
                 printReady = true;
-                if (printButton()) {
-                    printButton().textContent = '저장/공유';
-                    printButton().disabled = false;
+                window.__dailyInspectionPrintReady = true;
+                exportButtons().forEach((button) => { button.disabled = false; });
+                if (printButton()) printButton().disabled = false;
+                if (printStatus()) printStatus().textContent = '점검표 PDF를 저장하거나 공유할 수 있습니다.';
+            };
+            window.exportDailyInspectionPdf = async (action) => {
+                if (!printReady) {
+                    if (printStatus()) printStatus().textContent = '서명 이미지를 준비하고 있습니다.';
+                    return;
                 }
-                if (printStatus()) printStatus().textContent = '서명 준비 완료';
+                const buttons = exportButtons();
+                buttons.forEach((button) => { button.disabled = true; });
+                if (printStatus()) printStatus().textContent = action === 'save' ? '휴대폰에 PDF를 저장하고 있습니다...' : 'PDF 공유 화면을 준비하고 있습니다...';
+                try {
+                    if (typeof window.parent?.__dailyInspectionExportPdf !== 'function') {
+                        throw new Error('PDF 저장 및 공유 기능을 찾지 못했습니다. 앱을 최신 버전으로 업데이트해주세요.');
+                    }
+                    const result = await window.parent.__dailyInspectionExportPdf(
+                        document.documentElement.outerHTML, document.title, action
+                    );
+                    if (action === 'save') {
+                        if (result?.webFallback) {
+                            if (printStatus()) printStatus().textContent = '인쇄 화면에서 PDF로 저장해주세요.';
+                        } else {
+                            if (printStatus()) printStatus().textContent = 'PDF 저장 완료 · 파일을 여는 중입니다.';
+                            if (typeof window.parent?.__dailyInspectionOpenPdf === 'function') {
+                                try {
+                                    await window.parent.__dailyInspectionOpenPdf(result.uri);
+                                    if (printStatus()) printStatus().textContent = '다운로드 폴더에 저장했고 PDF 뷰어를 열었습니다.';
+                                } catch (openError) {
+                                    if (printStatus()) printStatus().textContent = 'PDF 저장 완료 · 이 기기에 PDF를 여는 앱이 없어 다운로드 폴더에 보관했습니다.';
+                                }
+                            } else if (printStatus()) {
+                                printStatus().textContent = 'PDF 저장 완료 · 다운로드 폴더에서 파일을 열 수 있습니다.';
+                            }
+                        }
+                    } else if (action === 'kakao') {
+                        if (printStatus()) printStatus().textContent = '카카오톡 공유 화면을 열었습니다.';
+                    } else if (printStatus()) {
+                        printStatus().textContent = 'PDF를 첨부할 문자 앱 선택 화면을 열었습니다.';
+                    }
+                } catch (error) {
+                    console.error('[DailyInspection] PDF 저장/공유 실패:', error);
+                    if (printStatus()) printStatus().textContent = error?.message || 'PDF 저장 또는 공유에 실패했습니다.';
+                } finally {
+                    buttons.forEach((button) => { button.disabled = false; });
+                }
             };
             window.printDailyInspectionPdf = async () => {
                 if (!printReady) {
@@ -400,21 +469,20 @@ export const printDailyInspectionMonth = (records, year, month) => {
                     return;
                 }
                 const button = printButton();
-                if (button) { button.disabled = true; button.textContent = '인쇄 화면 여는 중...'; }
+                if (button) button.disabled = true;
                 try {
-                    const printHtml = document.documentElement.outerHTML;
                     if (typeof window.parent?.__dailyInspectionPrintHtml === 'function') {
-                        await window.parent.__dailyInspectionPrintHtml(printHtml, document.title);
+                        await window.parent.__dailyInspectionPrintHtml(document.documentElement.outerHTML, document.title);
                     } else {
                         window.focus();
                         window.print();
                     }
-                    if (printStatus()) printStatus().textContent = '인쇄 화면이 열렸습니다. PDF로 저장할 수 있습니다.';
-                    if (button) { button.disabled = false; button.textContent = '저장/공유'; }
+                    if (printStatus()) printStatus().textContent = '인쇄 화면을 열었습니다.';
                 } catch (error) {
-                    console.error('[DailyInspection] 저장/공유 실행 실패:', error);
+                    console.error('[DailyInspection] 인쇄 화면 열기 실패:', error);
                     if (printStatus()) printStatus().textContent = error?.message || '인쇄 화면을 열지 못했습니다.';
-                    if (button) { button.disabled = false; button.textContent = '다시 저장/공유'; }
+                } finally {
+                    if (button) button.disabled = false;
                 }
             };
             window.adjustDailyInspectionZoom = (delta) => {

@@ -373,11 +373,19 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const handlePrint=()=>{
   try{
    const [year,month]=selectedMonth.split('-');
-   const records=listDailyInspectionRecords(userId,year,month);
-   if(!records.length&&currentRecord&&String(currentRecord.inspectionDate||currentRecord.date||'').startsWith(`${selectedMonth}-`))records.push(currentRecord);
-   if(!records.length){setSaveError('선택한 달에 출력할 점검 기록이 없습니다.');return;}
-   printDailyInspectionMonth(records,year,Number(month));
-  }catch(error){setSaveError(error.message||'인쇄 화면을 열지 못했습니다.');}
+   // 로그인 사용자는 서버에서 조회한 월별 기록을 PDF 원본으로 사용합니다.
+   // 비로그인 사용자는 기존 기기 저장 기록을 사용합니다.
+   const records=authUser?.id ? [...monthRecords] : listDailyInspectionRecords(userId,year,month);
+   const currentDate=String(currentRecord?.inspectionDate||currentRecord?.date||'').slice(0,10);
+   if(currentRecord&&currentDate.slice(0,7)===selectedMonth&&!records.some(item=>String(item.inspectionDate||item.date||'').slice(0,10)===currentDate)){
+    records.push(currentRecord);
+   }
+   const uniqueRecords=[...new Map(records.map(item=>[String(item.inspectionDate||item.date||'').slice(0,10),item])).values()]
+    .filter(item=>String(item.inspectionDate||item.date||'').slice(0,7)===selectedMonth)
+    .sort((a,b)=>String(a.inspectionDate||a.date||'').localeCompare(String(b.inspectionDate||b.date||'')));
+   if(!uniqueRecords.length){setSaveError('선택한 달에 저장된 점검 기록이 없습니다.');return;}
+   printDailyInspectionMonth(uniqueRecords,year,Number(month));
+  }catch(error){setSaveError(error.message||'PDF 미리보기를 열지 못했습니다.');}
  };
 
  const dark=Boolean(isDarkMode);
@@ -493,7 +501,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
     </button>
     <button type="button" onClick={()=>changeSelectedMonth(1)} aria-label="다음 달" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${dark?'bg-slate-800 text-slate-200':'bg-white text-slate-700 shadow-sm'}`}><ChevronRight size={19}/></button>
    </div>
-   <button type="button" onClick={handlePrint} disabled={!selectedMonthRecordCount} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-800 px-3 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40 dark:bg-blue-600"><Printer size={17}/> {selectedMonth.replace('-', '년 ')}월 저장/공유</button>
+   <button type="button" onClick={handlePrint} disabled={!selectedMonthRecordCount} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-800 px-3 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40 dark:bg-blue-600"><Printer size={17}/> {selectedMonth.replace('-', '년 ')}월 PDF 미리보기 · 저장/공유</button>
    <p className={`mt-2 text-center text-xs leading-5 ${mutedClass}`}>선택한 월의 점검 기록 {selectedMonthRecordCount}건을 공식 서식 PDF로 저장하거나 공유합니다.</p>
   </section>
 
@@ -501,7 +509,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
    <p className="text-xs font-bold">현장 보관 안내</p>
    <p className="mt-1 text-xs leading-5">모바일 기록만으로 모든 단속·제출 요건을 충족한다고 단정할 수 없습니다. 운수회사와 관할 기관에 모바일 기록 인정 여부를 확인하고, 보수적으로는 월별 점검표를 정기적으로 출력해 차량 내 서류함(글로브박스)에 함께 보관하세요.</p>
   </section>
-  <p className={`mt-3 text-center text-[11px] leading-5 ${mutedClass}`}>현재 기록은 이 기기의 앱 저장소에 보관됩니다. 기기 시각은 서버가 인증한 타임스탬프가 아니며, 앱 삭제·기기 변경 시 기록이 사라질 수 있으므로 출력본도 보관하세요.</p>
+  <p className={`mt-3 text-center text-[11px] leading-5 ${mutedClass}`}>로그인 상태에서는 점검 기록이 서버에 저장되어 다른 기기에서도 확인할 수 있습니다. 비로그인 상태의 기록은 이 기기에 저장됩니다.</p>
   {isReminderSettingsOpen&&<div className={`fixed inset-0 z-[10050] flex min-h-[100dvh] flex-col ${dark?'bg-black text-white':'bg-[#f4f4f5] text-[#202124]'}`}>
    <header className="flex items-center justify-between gap-3 px-5 pb-3 pt-[calc(env(safe-area-inset-top)+2rem)]">
     <div className="min-w-0">
