@@ -88,6 +88,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const [reminderPeriod,setReminderPeriod]=useState('오전');
  const [reminderHour,setReminderHour]=useState(7);
  const [reminderMinute,setReminderMinute]=useState(0);
+ const [wheelScrollIndexes,setWheelScrollIndexes]=useState({period:0,hour:0,minute:0});
  const periodWheelRef=useRef(null);
  const hourWheelRef=useRef(null);
  const minuteWheelRef=useRef(null);
@@ -139,10 +140,14 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
 
  useEffect(()=>{
   if(!isReminderSettingsOpen)return undefined;
+  const periodIndex=2*PERIOD_OPTIONS.length+(reminderPeriod==='오후'?1:0);
+  const hourIndex=2*HOUR_OPTIONS.length+(reminderHour-1);
+  const minuteIndex=2*MINUTE_OPTIONS.length+reminderMinute;
+  setWheelScrollIndexes({period:periodIndex,hour:hourIndex,minute:minuteIndex});
   const frame=window.requestAnimationFrame(()=>{
-   if(periodWheelRef.current)periodWheelRef.current.scrollTop=(2*PERIOD_OPTIONS.length+(reminderPeriod==='오후'?1:0))*WHEEL_ROW_HEIGHT;
-   if(hourWheelRef.current)hourWheelRef.current.scrollTop=(2*HOUR_OPTIONS.length+(reminderHour-1))*WHEEL_ROW_HEIGHT;
-   if(minuteWheelRef.current)minuteWheelRef.current.scrollTop=(2*MINUTE_OPTIONS.length+reminderMinute)*WHEEL_ROW_HEIGHT;
+   if(periodWheelRef.current)periodWheelRef.current.scrollTop=periodIndex*WHEEL_ROW_HEIGHT;
+   if(hourWheelRef.current)hourWheelRef.current.scrollTop=hourIndex*WHEEL_ROW_HEIGHT;
+   if(minuteWheelRef.current)minuteWheelRef.current.scrollTop=minuteIndex*WHEEL_ROW_HEIGHT;
   });
   return ()=>window.cancelAnimationFrame(frame);
  },[isReminderSettingsOpen]);
@@ -242,19 +247,23 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   setReminderMessage('');
   setIsReminderSettingsOpen(true);
  };
- const selectWheelValue=(wheelRef,index,setValue,options)=>{
+ const selectWheelValue=(wheelRef,index,setValue,options,wheelKey)=>{
   const valueIndex=index%options.length;
   setValue(options[valueIndex]);
+  setWheelScrollIndexes(prev=>({...prev,[wheelKey]:index}));
   if(wheelRef.current)wheelRef.current.scrollTo({top:index*WHEEL_ROW_HEIGHT,behavior:'smooth'});
  };
- const handleWheelScroll=(event,options,setValue)=>{
+ const handleWheelScroll=(event,options,setValue,wheelKey)=>{
   const rawIndex=Math.round(event.currentTarget.scrollTop/WHEEL_ROW_HEIGHT);
   const valueIndex=((rawIndex%options.length)+options.length)%options.length;
+  const shouldRecenter=rawIndex<Math.floor(options.length/2)||rawIndex>options.length*4.5;
+  const centeredIndex=shouldRecenter?2*options.length+valueIndex:rawIndex;
   setValue(options[valueIndex]);
-  if(rawIndex<Math.floor(options.length/2)||rawIndex>options.length*4.5){
+  setWheelScrollIndexes(prev=>({...prev,[wheelKey]:centeredIndex}));
+  if(shouldRecenter){
    const wheel=event.currentTarget;
    window.requestAnimationFrame(()=>{
-    if(wheel)wheel.scrollTop=(2*options.length+valueIndex)*WHEEL_ROW_HEIGHT;
+    if(wheel)wheel.scrollTop=centeredIndex*WHEEL_ROW_HEIGHT;
    });
   }
  };
@@ -436,26 +445,26 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
    <main className="flex flex-1 items-center justify-center px-3">
     <div className="mx-auto w-full max-w-xl">
      <div className="grid items-center" style={{gridTemplateColumns:'1.15fr 0.72fr 0.16fr 1fr'}}>
-      <div ref={periodWheelRef} onScroll={e=>handleWheelScroll(e,PERIOD_OPTIONS,setReminderPeriod)} className={`h-[264px] min-w-0 overflow-y-auto snap-y snap-mandatory overscroll-contain ${dark?'bg-black':'bg-[#f4f4f5]'}`} style={{paddingTop:WHEEL_ROW_HEIGHT,paddingBottom:WHEEL_ROW_HEIGHT,scrollbarWidth:'none'}}>
+      <div ref={periodWheelRef} onScroll={e=>handleWheelScroll(e,PERIOD_OPTIONS,setReminderPeriod,'period')} className={`h-[264px] min-w-0 overflow-y-auto snap-y snap-mandatory overscroll-contain ${dark?'bg-black':'bg-[#f4f4f5]'}`} style={{paddingTop:WHEEL_ROW_HEIGHT,paddingBottom:WHEEL_ROW_HEIGHT,scrollbarWidth:'none'}}>
        {PERIOD_WHEEL_OPTIONS.map((value,index)=>{
-        const centeredIndex=Math.round((periodWheelRef.current?.scrollTop||0)/WHEEL_ROW_HEIGHT);
+        const centeredIndex=wheelScrollIndexes.period;
         const selected=centeredIndex===index;
-        return <button key={index} type="button" onClick={()=>selectWheelValue(periodWheelRef,index,setReminderPeriod,PERIOD_OPTIONS)} className={`flex h-[88px] w-full snap-center items-center justify-center whitespace-nowrap font-bold tracking-tight ${selected?'text-[clamp(2.5rem,8vw,4.6rem)] text-black dark:text-white':'text-[clamp(1.9rem,6.4vw,3.5rem)] text-[#d2d2d6] dark:text-zinc-600'}`}>{value}</button>;
+        return <button key={index} type="button" onClick={()=>selectWheelValue(periodWheelRef,index,setReminderPeriod,PERIOD_OPTIONS,'period')} className={`flex h-[88px] w-full snap-center items-center justify-center whitespace-nowrap font-bold tracking-tight ${selected?'text-[clamp(2.5rem,8vw,4.6rem)] text-black dark:text-white':'text-[clamp(1.9rem,6.4vw,3.5rem)] text-[#d2d2d6] dark:text-zinc-600'}`}>{value}</button>;
        })}
       </div>
-      <div ref={hourWheelRef} onScroll={e=>handleWheelScroll(e,HOUR_OPTIONS,setReminderHour)} className={`h-[264px] min-w-0 overflow-y-auto snap-y snap-mandatory overscroll-contain ${dark?'bg-black':'bg-[#f4f4f5]'}`} style={{paddingTop:WHEEL_ROW_HEIGHT,paddingBottom:WHEEL_ROW_HEIGHT,scrollbarWidth:'none'}}>
+      <div ref={hourWheelRef} onScroll={e=>handleWheelScroll(e,HOUR_OPTIONS,setReminderHour,'hour')} className={`h-[264px] min-w-0 overflow-y-auto snap-y snap-mandatory overscroll-contain ${dark?'bg-black':'bg-[#f4f4f5]'}`} style={{paddingTop:WHEEL_ROW_HEIGHT,paddingBottom:WHEEL_ROW_HEIGHT,scrollbarWidth:'none'}}>
        {HOUR_WHEEL_OPTIONS.map((value,index)=>{
-        const centeredIndex=Math.round((hourWheelRef.current?.scrollTop||0)/WHEEL_ROW_HEIGHT);
+        const centeredIndex=wheelScrollIndexes.hour;
         const selected=centeredIndex===index;
-        return <button key={index} type="button" onClick={()=>selectWheelValue(hourWheelRef,index,setReminderHour,HOUR_OPTIONS)} className={`flex h-[88px] w-full snap-center items-center justify-center font-medium tabular-nums ${selected?'text-[clamp(3.5rem,11vw,5.5rem)] text-black dark:text-white':'text-[clamp(2.7rem,8vw,4.4rem)] text-[#d2d2d6] dark:text-zinc-600'}`}>{value}</button>;
+        return <button key={index} type="button" onClick={()=>selectWheelValue(hourWheelRef,index,setReminderHour,HOUR_OPTIONS,'hour')} className={`flex h-[88px] w-full snap-center items-center justify-center font-medium tabular-nums ${selected?'text-[clamp(3.5rem,11vw,5.5rem)] text-black dark:text-white':'text-[clamp(2.7rem,8vw,4.4rem)] text-[#d2d2d6] dark:text-zinc-600'}`}>{value}</button>;
        })}
       </div>
       <div className={`flex h-[264px] items-center justify-center pb-1 text-[clamp(2.8rem,8vw,4.5rem)] font-medium ${dark?'text-white':'text-[#202124]'}`}>:</div>
-      <div ref={minuteWheelRef} onScroll={e=>handleWheelScroll(e,MINUTE_OPTIONS,setReminderMinute)} className={`h-[264px] min-w-0 overflow-y-auto snap-y snap-mandatory overscroll-contain ${dark?'bg-black':'bg-[#f4f4f5]'}`} style={{paddingTop:WHEEL_ROW_HEIGHT,paddingBottom:WHEEL_ROW_HEIGHT,scrollbarWidth:'none'}}>
+      <div ref={minuteWheelRef} onScroll={e=>handleWheelScroll(e,MINUTE_OPTIONS,setReminderMinute,'minute')} className={`h-[264px] min-w-0 overflow-y-auto snap-y snap-mandatory overscroll-contain ${dark?'bg-black':'bg-[#f4f4f5]'}`} style={{paddingTop:WHEEL_ROW_HEIGHT,paddingBottom:WHEEL_ROW_HEIGHT,scrollbarWidth:'none'}}>
        {MINUTE_WHEEL_OPTIONS.map((value,index)=>{
-        const centeredIndex=Math.round((minuteWheelRef.current?.scrollTop||0)/WHEEL_ROW_HEIGHT);
+        const centeredIndex=wheelScrollIndexes.minute;
         const selected=centeredIndex===index;
-        return <button key={index} type="button" onClick={()=>selectWheelValue(minuteWheelRef,index,setReminderMinute,MINUTE_OPTIONS)} className={`flex h-[88px] w-full snap-center items-center justify-center font-medium tabular-nums ${selected?'text-[clamp(3.1rem,10vw,5rem)] text-black dark:text-white':'text-[clamp(2.3rem,7.5vw,4rem)] text-[#d2d2d6] dark:text-zinc-600'}`}>{String(value).padStart(2,'0')}</button>;
+        return <button key={index} type="button" onClick={()=>selectWheelValue(minuteWheelRef,index,setReminderMinute,MINUTE_OPTIONS,'minute')} className={`flex h-[88px] w-full snap-center items-center justify-center font-medium tabular-nums ${selected?'text-[clamp(3.1rem,10vw,5rem)] text-black dark:text-white':'text-[clamp(2.3rem,7.5vw,4rem)] text-[#d2d2d6] dark:text-zinc-600'}`}>{String(value).padStart(2,'0')}</button>;
        })}
       </div>
      </div>
