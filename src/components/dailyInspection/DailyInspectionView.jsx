@@ -53,7 +53,11 @@ const formatReminderTimeLabel=(value)=>{
 const PERIOD_OPTIONS=['오전','오후'];
 const HOUR_OPTIONS=Array.from({length:12},(_,index)=>index+1);
 const MINUTE_OPTIONS=Array.from({length:60},(_,index)=>index);
-const WHEEL_ROW_HEIGHT=48;
+const WHEEL_ROW_HEIGHT=88;
+const repeatWheelOptions=(options)=>Array.from({length:5},()=>options).flat();
+const PERIOD_WHEEL_OPTIONS=repeatWheelOptions(PERIOD_OPTIONS);
+const HOUR_WHEEL_OPTIONS=repeatWheelOptions(HOUR_OPTIONS);
+const MINUTE_WHEEL_OPTIONS=repeatWheelOptions(MINUTE_OPTIONS);
 
 const formatTimestamp=(value)=>{
  if(!value)return '-';
@@ -81,7 +85,6 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const [monthPickerYear,setMonthPickerYear]=useState(Number(String(date||'').slice(0,4))||new Date().getFullYear());
  const [reminderTime,setReminderTime]=useState('07:00');
  const [isReminderSettingsOpen,setIsReminderSettingsOpen]=useState(false);
- const [isTimePickerOpen,setIsTimePickerOpen]=useState(false);
  const [reminderPeriod,setReminderPeriod]=useState('오전');
  const [reminderHour,setReminderHour]=useState(7);
  const [reminderMinute,setReminderMinute]=useState(0);
@@ -135,14 +138,14 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  },[userId]);
 
  useEffect(()=>{
-  if(!isTimePickerOpen)return undefined;
+  if(!isReminderSettingsOpen)return undefined;
   const frame=window.requestAnimationFrame(()=>{
-   if(periodWheelRef.current)periodWheelRef.current.scrollTop=(reminderPeriod==='오후'?1:0)*WHEEL_ROW_HEIGHT;
-   if(hourWheelRef.current)hourWheelRef.current.scrollTop=(reminderHour-1)*WHEEL_ROW_HEIGHT;
-   if(minuteWheelRef.current)minuteWheelRef.current.scrollTop=reminderMinute*WHEEL_ROW_HEIGHT;
+   if(periodWheelRef.current)periodWheelRef.current.scrollTop=(2*PERIOD_OPTIONS.length+(reminderPeriod==='오후'?1:0))*WHEEL_ROW_HEIGHT;
+   if(hourWheelRef.current)hourWheelRef.current.scrollTop=(2*HOUR_OPTIONS.length+(reminderHour-1))*WHEEL_ROW_HEIGHT;
+   if(minuteWheelRef.current)minuteWheelRef.current.scrollTop=(2*MINUTE_OPTIONS.length+reminderMinute)*WHEEL_ROW_HEIGHT;
   });
   return ()=>window.cancelAnimationFrame(frame);
- },[isTimePickerOpen]);
+ },[isReminderSettingsOpen]);
  useEffect(()=>{
   if(!selectedMonth)return;
   const [year,month]=selectedMonth.split('-');
@@ -231,34 +234,41 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   finally{setIsSavingProfile(false);}
  };
 
- const openReminderTimePicker=()=>{
+ const openReminderSettings=()=>{
   const parts=getTimePickerParts(reminderTime);
   setReminderPeriod(parts.period);
   setReminderHour(parts.hour);
   setReminderMinute(parts.minute);
-  setIsTimePickerOpen(true);
- };
- const applyReminderTime=()=>{
-  setReminderTime(formatReminderTime(reminderPeriod,reminderHour,reminderMinute));
-  setIsTimePickerOpen(false);
   setReminderMessage('');
+  setIsReminderSettingsOpen(true);
  };
- const selectWheelValue=(wheelRef,index,setValue)=>{
+ const selectWheelValue=(wheelRef,index,setValue,options)=>{
+  const valueIndex=index%options.length;
+  setValue(options[valueIndex]);
   if(wheelRef.current)wheelRef.current.scrollTo({top:index*WHEEL_ROW_HEIGHT,behavior:'smooth'});
-  setValue(index);
  };
  const handleWheelScroll=(event,options,setValue)=>{
-  const index=Math.max(0,Math.min(options.length-1,Math.round(event.currentTarget.scrollTop/WHEEL_ROW_HEIGHT)));
-  setValue(options[index]);
+  const rawIndex=Math.round(event.currentTarget.scrollTop/WHEEL_ROW_HEIGHT);
+  const valueIndex=((rawIndex%options.length)+options.length)%options.length;
+  setValue(options[valueIndex]);
+  if(rawIndex<Math.floor(options.length/2)||rawIndex>options.length*4.5){
+   const wheel=event.currentTarget;
+   window.requestAnimationFrame(()=>{
+    if(wheel)wheel.scrollTop=(2*options.length+valueIndex)*WHEEL_ROW_HEIGHT;
+   });
+  }
  };
 
  const handleEnableReminder=async()=>{
   if(isSavingReminder)return;
+  const selectedTime=formatReminderTime(reminderPeriod,reminderHour,reminderMinute);
   setIsSavingReminder(true);setReminderMessage('');
   try{
-   await enableDailyInspectionReminder(userId,reminderTime);
+   await enableDailyInspectionReminder(userId,selectedTime);
+   setReminderTime(selectedTime);
    setReminderEnabled(true);
-   setReminderMessage(`매일 ${formatReminderTimeLabel(reminderTime)}에 업무 전 점검 알림이 울립니다.`);
+   setReminderMessage(`매일 ${formatReminderTimeLabel(selectedTime)}에 업무 전 점검 알림이 울립니다.`);
+   setIsReminderSettingsOpen(false);
   }catch(error){
    setReminderMessage(error.message||'알림을 설정하지 못했습니다.');
   }finally{setIsSavingReminder(false);}
@@ -303,7 +313,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   <div className="flex items-center gap-2 mb-4 pt-2">
    <button type="button" onClick={onBack} aria-label="뒤로" className={`p-2 rounded-full ${dark?'hover:bg-slate-800 text-slate-200':'hover:bg-slate-100 text-slate-700'}`}><ArrowLeft size={22}/></button>
    <div className="min-w-0 flex-1"><h2 className="text-lg sm:text-xl font-black break-keep">화물자동차 안전사고 예방을 위한 일상점검표</h2><p className={`mt-0.5 text-xs ${mutedClass}`}>{formatDateLabel(date)}</p></div>
-   <button type="button" onClick={()=>setIsReminderSettingsOpen(true)} aria-label="알림 설정" title="알림 설정" aria-expanded={isReminderSettingsOpen} className={`relative flex h-10 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-sm font-bold ${dark?'border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700':'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
+   <button type="button" onClick={openReminderSettings} aria-label="알림 설정" title="알림 설정" aria-expanded={isReminderSettingsOpen} className={`relative flex h-10 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-sm font-bold ${dark?'border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700':'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
     <Bell size={18}/>
     <span>알림</span>
     {reminderEnabled&&<span className="absolute right-2 top-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500"/>}
@@ -415,67 +425,50 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
    <p className="mt-1 text-xs leading-5">모바일 기록만으로 모든 단속·제출 요건을 충족한다고 단정할 수 없습니다. 운수회사와 관할 기관에 모바일 기록 인정 여부를 확인하고, 보수적으로는 월별 점검표를 정기적으로 출력해 차량 내 서류함(글로브박스)에 함께 보관하세요.</p>
   </section>
   <p className={`mt-3 text-center text-[11px] leading-5 ${mutedClass}`}>현재 기록은 이 기기의 앱 저장소에 보관됩니다. 기기 시각은 서버가 인증한 타임스탬프가 아니며, 앱 삭제·기기 변경 시 기록이 사라질 수 있으므로 출력본도 보관하세요.</p>
-  {isReminderSettingsOpen&&<div className="fixed inset-0 z-[10050] flex items-center justify-center bg-black/50 p-4" onClick={()=>setIsReminderSettingsOpen(false)}>
-   <div role="dialog" aria-modal="true" aria-label="업무 전 점검 알림 설정" className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl p-3 shadow-2xl ${dark?'bg-slate-800 text-white':'bg-white text-slate-900'}`} onClick={e=>e.stopPropagation()}>
-    <section className={`rounded-2xl border p-3 ${panelClass}`}>
-       <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-         <h3 className="font-black text-sm">업무 전 점검 알림</h3>
-         <span className={`rounded-full px-2 py-1 text-xs font-bold ${reminderEnabled?'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300':'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300'}`}>{reminderEnabled?'알림 켜짐':'알림 꺼짐'}</span>
-        </div>
-        <button type="button" onClick={()=>setIsReminderSettingsOpen(false)} aria-label="알림 설정 닫기" className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${dark?'text-slate-300 hover:bg-slate-700':'text-slate-500 hover:bg-slate-100'}`}><X size={18}/></button>
-       </div>
-       <div className="mt-2 flex items-end gap-2">
-        <label className="min-w-0 flex-1 text-xs font-semibold">알림 시간
-         <button type="button" onClick={openReminderTimePicker} className={`mt-1 flex h-10 w-full items-center justify-between rounded-lg border px-3 text-sm font-bold tabular-nums ${dark?'border-slate-600 bg-slate-900 text-white':'border-slate-300 bg-white text-slate-900'}`}>
-          <span>{formatReminderTimeLabel(reminderTime)}</span>
-          <span className={mutedClass}>변경</span>
-         </button>
-        </label>
-        <button type="button" onClick={handleEnableReminder} disabled={isSavingReminder} className="h-10 shrink-0 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white disabled:opacity-50">{isSavingReminder?'설정 중...':reminderEnabled?'시간 변경':'알림 켜기'}</button>
-       </div>
-       {reminderEnabled&&<button type="button" onClick={handleDisableReminder} disabled={isSavingReminder} className={`mt-2 text-xs font-semibold ${mutedClass} underline disabled:opacity-50`}>알림 끄기</button>}
-       <p className={`mt-2 text-xs leading-5 ${mutedClass}`}>설정한 시간에 매일 알림을 보냅니다. Android에서는 첫 설정 시 알림 및 정확한 알람 권한을 허용해야 합니다. 휴무일에도 알림이 울립니다.</p>
-       {reminderMessage&&<p className={`mt-2 text-xs font-semibold ${reminderMessage.includes('울립니다')||reminderMessage.includes('껐습니다')?'text-emerald-600 dark:text-emerald-400':'text-red-500'}`}>{reminderMessage}</p>}
-      </section>
-   </div>
+  {isReminderSettingsOpen&&<div className={`fixed inset-0 z-[10050] flex min-h-[100dvh] flex-col ${dark?'bg-black text-white':'bg-[#f4f4f5] text-[#202124]'}`}>
+   <header className="flex items-center justify-between gap-3 px-5 pb-3 pt-[max(env(safe-area-inset-top),1.25rem)]">
+    <div className="min-w-0">
+     <h3 className="text-lg font-black">알림 시간 설정</h3>
+     <p className={`mt-1 text-xs ${dark?'text-zinc-400':'text-zinc-500'}`}>{reminderEnabled?'현재 알림이 켜져 있습니다.':'원하는 알림 시간을 선택하세요.'}</p>
+    </div>
+    <button type="button" onClick={()=>setIsReminderSettingsOpen(false)} aria-label="알림 시간 설정 닫기" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${dark?'text-zinc-300 hover:bg-zinc-800':'text-zinc-600 hover:bg-zinc-200'}`}><X size={22}/></button>
+   </header>
+   <main className="flex flex-1 items-center justify-center px-3">
+    <div className="mx-auto w-full max-w-xl">
+     <div className="grid items-center" style={{gridTemplateColumns:'1.15fr 0.72fr 0.16fr 1fr'}}>
+      <div ref={periodWheelRef} onScroll={e=>handleWheelScroll(e,PERIOD_OPTIONS,setReminderPeriod)} className={`h-[264px] min-w-0 overflow-y-auto snap-y snap-mandatory overscroll-contain ${dark?'bg-black':'bg-[#f4f4f5]'}`} style={{paddingTop:WHEEL_ROW_HEIGHT,paddingBottom:WHEEL_ROW_HEIGHT,scrollbarWidth:'none'}}>
+       {PERIOD_WHEEL_OPTIONS.map((value,index)=>{
+        const centeredIndex=Math.round((periodWheelRef.current?.scrollTop||0)/WHEEL_ROW_HEIGHT);
+        const selected=centeredIndex===index;
+        return <button key={index} type="button" onClick={()=>selectWheelValue(periodWheelRef,index,setReminderPeriod,PERIOD_OPTIONS)} className={`flex h-[88px] w-full snap-center items-center justify-center whitespace-nowrap font-bold tracking-tight ${selected?'text-[clamp(2.5rem,8vw,4.6rem)] text-black dark:text-white':'text-[clamp(1.9rem,6.4vw,3.5rem)] text-[#d2d2d6] dark:text-zinc-600'}`}>{value}</button>;
+       })}
+      </div>
+      <div ref={hourWheelRef} onScroll={e=>handleWheelScroll(e,HOUR_OPTIONS,setReminderHour)} className={`h-[264px] min-w-0 overflow-y-auto snap-y snap-mandatory overscroll-contain ${dark?'bg-black':'bg-[#f4f4f5]'}`} style={{paddingTop:WHEEL_ROW_HEIGHT,paddingBottom:WHEEL_ROW_HEIGHT,scrollbarWidth:'none'}}>
+       {HOUR_WHEEL_OPTIONS.map((value,index)=>{
+        const centeredIndex=Math.round((hourWheelRef.current?.scrollTop||0)/WHEEL_ROW_HEIGHT);
+        const selected=centeredIndex===index;
+        return <button key={index} type="button" onClick={()=>selectWheelValue(hourWheelRef,index,setReminderHour,HOUR_OPTIONS)} className={`flex h-[88px] w-full snap-center items-center justify-center font-medium tabular-nums ${selected?'text-[clamp(3.5rem,11vw,5.5rem)] text-black dark:text-white':'text-[clamp(2.7rem,8vw,4.4rem)] text-[#d2d2d6] dark:text-zinc-600'}`}>{value}</button>;
+       })}
+      </div>
+      <div className={`flex h-[264px] items-center justify-center pb-1 text-[clamp(2.8rem,8vw,4.5rem)] font-medium ${dark?'text-white':'text-[#202124]'}`}>:</div>
+      <div ref={minuteWheelRef} onScroll={e=>handleWheelScroll(e,MINUTE_OPTIONS,setReminderMinute)} className={`h-[264px] min-w-0 overflow-y-auto snap-y snap-mandatory overscroll-contain ${dark?'bg-black':'bg-[#f4f4f5]'}`} style={{paddingTop:WHEEL_ROW_HEIGHT,paddingBottom:WHEEL_ROW_HEIGHT,scrollbarWidth:'none'}}>
+       {MINUTE_WHEEL_OPTIONS.map((value,index)=>{
+        const centeredIndex=Math.round((minuteWheelRef.current?.scrollTop||0)/WHEEL_ROW_HEIGHT);
+        const selected=centeredIndex===index;
+        return <button key={index} type="button" onClick={()=>selectWheelValue(minuteWheelRef,index,setReminderMinute,MINUTE_OPTIONS)} className={`flex h-[88px] w-full snap-center items-center justify-center font-medium tabular-nums ${selected?'text-[clamp(3.1rem,10vw,5rem)] text-black dark:text-white':'text-[clamp(2.3rem,7.5vw,4rem)] text-[#d2d2d6] dark:text-zinc-600'}`}>{String(value).padStart(2,'0')}</button>;
+       })}
+      </div>
+     </div>
+     <p className={`mt-5 text-center text-sm font-semibold tabular-nums ${dark?'text-zinc-300':'text-zinc-600'}`}>{reminderPeriod} {reminderHour}시 {String(reminderMinute).padStart(2,'0')}분</p>
+     <p className={`mt-2 text-center text-xs ${dark?'text-zinc-500':'text-zinc-500'}`}>매일 설정한 시간에 업무 전 점검 알림을 보냅니다. 휴무일에도 알림이 울립니다.</p>
+    </div>
+   </main>
+   <footer className="px-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] pt-3">
+    {reminderMessage&&<p className={`mb-3 text-center text-xs font-semibold ${reminderMessage.includes('울립니다')?'text-emerald-600 dark:text-emerald-400':'text-red-500'}`}>{reminderMessage}</p>}
+    {reminderEnabled&&<button type="button" onClick={handleDisableReminder} disabled={isSavingReminder} className={`mb-2 w-full rounded-xl py-2.5 text-sm font-semibold ${dark?'text-zinc-400':'text-zinc-500'} disabled:opacity-50`}>알림 끄기</button>}
+    <button type="button" onClick={handleEnableReminder} disabled={isSavingReminder} className="h-14 w-full rounded-2xl bg-blue-600 text-base font-black text-white shadow-sm disabled:opacity-50">{isSavingReminder?'저장 중...':'저장'}</button>
+   </footer>
   </div>}
-  {isTimePickerOpen&&<div className="fixed inset-0 z-[10060] flex items-center justify-center bg-black/50 p-4" onClick={()=>setIsTimePickerOpen(false)}>
-   <div role="dialog" aria-modal="true" aria-label="알림 시간 설정" className={`w-full max-w-sm rounded-2xl p-4 shadow-2xl ${dark?'bg-slate-800 text-white':'bg-white text-slate-900'}`} onClick={e=>e.stopPropagation()}>
-    <div className="mb-1">
-     <h3 className="text-base font-black">알림 시간 설정</h3>
-     <p className={`mt-1 text-xs ${mutedClass}`}>오전·오후와 시·분을 위아래로 움직여 선택하세요.</p>
-    </div>
-    <div className="relative mt-4 grid grid-cols-3 gap-2">
-     <div className="min-w-0">
-      <div className={`mb-2 text-center text-xs font-semibold ${mutedClass}`}>오전 / 오후</div>
-      <div ref={periodWheelRef} onScroll={e=>handleWheelScroll(e,PERIOD_OPTIONS,setReminderPeriod)} className={`h-36 overflow-y-auto snap-y snap-mandatory overscroll-contain rounded-lg ${dark?'bg-black':'bg-white'}`} style={{paddingTop:WHEEL_ROW_HEIGHT,paddingBottom:WHEEL_ROW_HEIGHT,scrollbarWidth:'none'}}>
-       {PERIOD_OPTIONS.map((value,index)=><button key={value} type="button" onClick={()=>selectWheelValue(periodWheelRef,index,()=>setReminderPeriod(value))} className={`flex h-12 w-full snap-center items-center justify-center text-base font-bold text-black dark:text-white ${reminderPeriod===value?'bg-slate-100 dark:bg-neutral-800':'bg-transparent'}`}>{value}</button>)}
-      </div>
-     </div>
-     <div className="min-w-0">
-      <div className={`mb-2 text-center text-xs font-semibold ${mutedClass}`}>시</div>
-      <div ref={hourWheelRef} onScroll={e=>handleWheelScroll(e,HOUR_OPTIONS,setReminderHour)} className={`h-36 overflow-y-auto snap-y snap-mandatory overscroll-contain rounded-lg ${dark?'bg-black':'bg-white'}`} style={{paddingTop:WHEEL_ROW_HEIGHT,paddingBottom:WHEEL_ROW_HEIGHT,scrollbarWidth:'none'}}>
-       {HOUR_OPTIONS.map((value,index)=><button key={value} type="button" onClick={()=>selectWheelValue(hourWheelRef,index,()=>setReminderHour(value))} className={`flex h-12 w-full snap-center items-center justify-center text-xl font-bold tabular-nums text-black dark:text-white ${reminderHour===value?'bg-slate-100 dark:bg-neutral-800':'bg-transparent'}`}>{String(value).padStart(2,'0')}</button>)}
-      </div>
-     </div>
-     <div className="min-w-0">
-      <div className={`mb-2 text-center text-xs font-semibold ${mutedClass}`}>분</div>
-      <div ref={minuteWheelRef} onScroll={e=>handleWheelScroll(e,MINUTE_OPTIONS,setReminderMinute)} className={`h-36 overflow-y-auto snap-y snap-mandatory overscroll-contain rounded-lg ${dark?'bg-black':'bg-white'}`} style={{paddingTop:WHEEL_ROW_HEIGHT,paddingBottom:WHEEL_ROW_HEIGHT,scrollbarWidth:'none'}}>
-       {MINUTE_OPTIONS.map((value,index)=><button key={value} type="button" onClick={()=>selectWheelValue(minuteWheelRef,index,()=>setReminderMinute(value))} className={`flex h-12 w-full snap-center items-center justify-center text-xl font-bold tabular-nums text-black dark:text-white ${reminderMinute===value?'bg-slate-100 dark:bg-neutral-800':'bg-transparent'}`}>{String(value).padStart(2,'0')}</button>)}
-      </div>
-     </div>
-    </div>
-    <div className="mt-4 flex items-center justify-between gap-2">
-     <div className={`text-sm font-black tabular-nums ${dark?'text-blue-300':'text-blue-700'}`}>{reminderPeriod} {String(reminderHour).padStart(2,'0')}:{String(reminderMinute).padStart(2,'0')}</div>
-     <div className="flex gap-2">
-      <button type="button" onClick={()=>setIsTimePickerOpen(false)} className={`h-10 rounded-lg px-4 text-sm font-semibold ${dark?'bg-slate-700 text-slate-100':'bg-slate-100 text-slate-700'}`}>취소</button>
-      <button type="button" onClick={applyReminderTime} className="h-10 rounded-lg bg-blue-600 px-5 text-sm font-bold text-white">적용</button>
-     </div>
-    </div>
-   </div>
-  </div>}
-  
   {isMonthPickerOpen&&<div className="fixed inset-0 z-[10050] flex items-center justify-center bg-black/50 p-4" onClick={()=>setIsMonthPickerOpen(false)}>
    <div role="dialog" aria-modal="true" aria-label="월 선택" className={`w-full max-w-sm rounded-2xl p-4 shadow-2xl ${dark?'bg-slate-800 text-white':'bg-white text-slate-900'}`} onClick={e=>e.stopPropagation()}>
     <div className="mb-4 flex items-center justify-between gap-3">
