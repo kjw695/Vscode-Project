@@ -304,7 +304,6 @@ REVOKE ALL ON FUNCTION public.cleanup_expired_daily_inspection_records()
     FROM PUBLIC, anon, authenticated;
 
 -- Postgres is UTC in this project. Run at 03:10 Korea Standard Time every day.
-SELECT cron.unschedule('daily-inspection-retention');
 SELECT cron.schedule(
     'daily-inspection-retention',
     '10 18 * * *',
