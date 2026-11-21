@@ -435,10 +435,13 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   </section>
   <p className={`mt-3 text-center text-[11px] leading-5 ${mutedClass}`}>현재 기록은 이 기기의 앱 저장소에 보관됩니다. 기기 시각은 서버가 인증한 타임스탬프가 아니며, 앱 삭제·기기 변경 시 기록이 사라질 수 있으므로 출력본도 보관하세요.</p>
   {isReminderSettingsOpen&&<div className={`fixed inset-0 z-[10050] flex min-h-[100dvh] flex-col ${dark?'bg-black text-white':'bg-[#f4f4f5] text-[#202124]'}`}>
-   <header className="flex items-center justify-between gap-3 px-5 pb-3 pt-[max(env(safe-area-inset-top),1.25rem)]">
+   <header className="flex items-center justify-between gap-3 px-5 pb-3 pt-[calc(env(safe-area-inset-top)+2rem)]">
     <div className="min-w-0">
      <h3 className="text-lg font-black">알림 시간 설정</h3>
-     <p className={`mt-1 text-xs ${dark?'text-zinc-400':'text-zinc-500'}`}>{reminderEnabled?'현재 알림이 켜져 있습니다.':'원하는 알림 시간을 선택하세요.'}</p>
+     <span className={`mt-2 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold ${reminderEnabled?'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300':'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300'}`}>
+      <span className={`h-2 w-2 rounded-full ${reminderEnabled?'bg-emerald-500':'bg-red-500'}`}/>
+      {reminderEnabled?'현재 알림이 켜져 있습니다.':'현재 알림이 꺼져 있습니다.'}
+     </span>
     </div>
     <button type="button" onClick={()=>setIsReminderSettingsOpen(false)} aria-label="알림 시간 설정 닫기" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${dark?'text-zinc-300 hover:bg-zinc-800':'text-zinc-600 hover:bg-zinc-200'}`}><X size={22}/></button>
    </header>
