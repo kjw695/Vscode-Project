@@ -10,6 +10,7 @@ import android.graphics.Bitmap;
 import android.graphics.pdf.PdfDocument;
 import android.graphics.pdf.PdfRenderer;
 import android.view.View;
+import android.view.ViewGroup;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
