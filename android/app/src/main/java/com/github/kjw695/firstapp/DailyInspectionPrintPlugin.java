@@ -345,28 +345,31 @@ public class DailyInspectionPrintPlugin extends Plugin {
         webView.invalidate();
         final int pageEnd = nextOffset;
 
-        webView.postVisualStateCallback(pageNumber, requestId -> {
-            try {
-                PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(
-                    pdfPageWidth, pdfPageHeight, pageNumber).create();
-                PdfDocument.Page page = document.startPage(pageInfo);
-                Canvas canvas = page.getCanvas();
-                canvas.drawColor(Color.WHITE);
-                canvas.save();
-                canvas.scale(scale, scale);
-                canvas.clipRect(0, 0, pageWidthPx, pageHeightPx);
-                webView.draw(canvas);
-                canvas.restore();
-                document.finishPage(page);
+        webView.postVisualStateCallback(pageNumber, new WebView.VisualStateCallback() {
+            @Override
+            public void onComplete(long requestId) {
+                try {
+                    PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(
+                        pdfPageWidth, pdfPageHeight, pageNumber).create();
+                    PdfDocument.Page page = document.startPage(pageInfo);
+                    Canvas canvas = page.getCanvas();
+                    canvas.drawColor(Color.WHITE);
+                    canvas.save();
+                    canvas.scale(scale, scale);
+                    canvas.clipRect(0, 0, pageWidthPx, pageHeightPx);
+                    webView.draw(canvas);
+                    canvas.restore();
+                    document.finishPage(page);
 
-                drawNextPdfPage(webView, document, output, jobName, contentHeight,
-                    pageBreaks, pageEnd, pageNumber + 1, pageWidthPx, pageHeightPx,
-                    pdfPageWidth, pdfPageHeight, scale, call, callback);
-            } catch (Exception error) {
-                try { document.close(); } catch (Exception ignored) { }
-                output.delete();
-                releasePrintView(webView);
-                call.reject("PDF 페이지 " + pageNumber + "를 생성하지 못했습니다: " + error.getMessage());
+                    drawNextPdfPage(webView, document, output, jobName, contentHeight,
+                        pageBreaks, pageEnd, pageNumber + 1, pageWidthPx, pageHeightPx,
+                        pdfPageWidth, pdfPageHeight, scale, call, callback);
+                } catch (Exception error) {
+                    try { document.close(); } catch (Exception ignored) { }
+                    output.delete();
+                    releasePrintView(webView);
+                    call.reject("PDF 페이지 " + pageNumber + "를 생성하지 못했습니다: " + error.getMessage());
+                }
             }
         });
     }
