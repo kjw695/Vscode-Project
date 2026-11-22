@@ -410,7 +410,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
                     }
 
                     drawPdfPage(webView, document, output, jobName, contentHeight, detailRowEnds,
-                        pageEndOffset, nextPageHeight, pageNumber + 1,
+                        pageEndOffset, pageHeightPx, pageNumber + 1,
                         pageWidthPx, pageHeightPx, pdfPageWidth, pdfPageHeight,
                         scale, call, callback);
                 } catch (Exception error) {
