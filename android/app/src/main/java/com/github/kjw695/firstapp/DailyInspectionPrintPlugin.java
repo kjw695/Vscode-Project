@@ -361,9 +361,13 @@ public class DailyInspectionPrintPlugin extends Plugin {
         final int pageEndOffset = nextOffset;
         final int clipHeight = Math.min(pageHeightPx, pageEndOffset - offset);
 
-        webView.scrollTo(0, offset);
-        webView.invalidate();
-        webView.postVisualStateCallback(pageNumber, new WebView.VisualStateCallback() {
+        // 페이지 위치는 JavaScript DOM에서 CSS px로 계산됩니다.
+        // Android View.scrollTo()에 그대로 전달하지 않고 WebView 문서 좌표계에서 이동해야
+        // 두 번째 페이지부터 올바른 위치를 캡처할 수 있습니다.
+        webView.evaluateJavascript(
+            "window.scrollTo(0, " + offset + "); window.scrollY.toString();",
+            scrollResult -> {
+                webView.postVisualStateCallback(pageNumber, new WebView.VisualStateCallback() {
             @Override
             public void onComplete(long requestId) {
                 try {
@@ -393,7 +397,9 @@ public class DailyInspectionPrintPlugin extends Plugin {
                     call.reject("PDF 페이지 " + pageNumber + "를 생성하지 못했습니다: " + error.getMessage());
                 }
             }
-        });
+                });
+            }
+        );
     }
 
     private List<Integer> parseBreakPoints(String values) {
