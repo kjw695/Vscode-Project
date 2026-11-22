@@ -585,7 +585,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
             if (!enabled) return;
             log("Android: " + Build.VERSION.RELEASE + " (SDK " + Build.VERSION.SDK_INT + ")");
             log("Device: " + Build.MANUFACTURER + " " + Build.MODEL);
-            log("App package: " + android.os.BuildConfig.APPLICATION_ID);
+            log("App package: " + context.getPackageName());
             log("Started: " + new Date().toString());
         }
 
