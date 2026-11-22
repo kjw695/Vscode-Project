@@ -226,10 +226,13 @@ public class DailyInspectionPrintPlugin extends Plugin {
                 }
             });
 
-            String pdfHtml = html.replace("</style>",
-                ".toolbar{display:none!important}#preview-content{zoom:1!important}" +
-                "html,body{overflow:visible!important;margin:0!important}" +
-                "</style>");
+            // A4 가로 인쇄 폭(1123 CSS px)에 맞춰 모바일 화면 폭이 아닌 고정 뷰포트로 렌더링합니다.
+            String pdfHtml = html
+                .replace("width=device-width", "width=1123")
+                .replace("</style>",
+                    ".toolbar{display:none!important}#preview-content{zoom:1!important}" +
+                    "html,body{overflow:visible!important;margin:0!important}" +
+                    "</style>");
             webView.loadDataWithBaseURL("https://localhost/", pdfHtml, "text/html", "UTF-8", null);
         });
     }
