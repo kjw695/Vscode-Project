@@ -180,8 +180,18 @@ public class DailyInspectionPrintPlugin extends Plugin {
                                 call.reject("서명 이미지 준비가 완료되지 않아 PDF를 만들지 못했습니다. 다시 시도해주세요.");
                                 return;
                             }
-                            int contentHeight = Integer.parseInt(metrics);
-                            writePdfFromWebView(webView, jobName, contentHeight, call, callback);
+                            String[] metricParts = metrics.split("\\|", 2);
+                            int contentHeight = Integer.parseInt(metricParts[0]);
+                            List<Integer> safeBreaks = new ArrayList<>();
+                            if (metricParts.length > 1 && !metricParts[1].isEmpty()) {
+                                for (String value : metricParts[1].split(",")) {
+                                    try {
+                                        int point = Integer.parseInt(value);
+                                        if (point > 0 && point < contentHeight) safeBreaks.add(point);
+                                    } catch (NumberFormatException ignored) { }
+                                }
+                            }
+                            writePdfFromWebView(webView, jobName, contentHeight, safeBreaks, call, callback);
                         } catch (Exception error) {
                             releasePrintView(webView);
                             call.reject("PDF 페이지 정보를 읽지 못했습니다: " + error.getMessage());
@@ -207,7 +217,9 @@ public class DailyInspectionPrintPlugin extends Plugin {
                         ".then(function(){" +
                         "requestAnimationFrame(function(){requestAnimationFrame(function(){" +
                         "var height=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);" +
-                        "window.PdfBridge.onReady(String(height));" +
+                        "var safe=Array.prototype.slice.call(document.querySelectorAll('#preview-content tr, #preview-content .page-break')).map(function(el){return Math.round(el.getBoundingClientRect().top+window.scrollY);}).filter(function(y){return y>0&&y<height;});" +
+                        "safe=Array.from(new Set(safe)).sort(function(a,b){return a-b;});" +
+                        "window.PdfBridge.onReady(String(height)+'|'+safe.join(','));" +
                         "});});" +
                         "});" +
                         "}" +
@@ -235,7 +247,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
      * PrintDocumentAdapter의 내부 콜백은 앱에서 직접 생성할 수 없으므로 사용하지 않습니다.
      */
     private void writePdfFromWebView(WebView webView, String jobName, int contentHeight,
-        PluginCall call, PdfReadyCallback callback) {
+        List<Integer> safeBreaks, PluginCall call, PdfReadyCallback callback) {
         if (contentHeight <= 0) {
             releasePrintView(webView);
             call.reject("PDF에 넣을 점검표 내용이 비어 있습니다.");
@@ -263,7 +275,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
             webView.invalidate();
 
             drawNextPdfPage(webView, document, output, jobName, contentHeight,
-                0, 1, pageWidthPx, pageHeightPx, pdfPageWidth, pdfPageHeight,
+                safeBreaks, 0, 1, pageWidthPx, pageHeightPx, pdfPageWidth, pdfPageHeight,
                 scale, call, callback);
         } catch (Exception error) {
             try { document.close(); } catch (Exception ignored) { }
@@ -278,7 +290,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
      * 임의의 HTML page-break 위치를 이용해 오프셋을 바꾸면 페이지 상단에 큰 공백이 생길 수 있습니다.
      */
     private void drawNextPdfPage(WebView webView, PdfDocument document, File output,
-        String jobName, int contentHeight, int offset, int pageNumber,
+        String jobName, int contentHeight, List<Integer> safeBreaks, int offset, int pageNumber,
         int pageWidthPx, int pageHeightPx, int pdfPageWidth, int pdfPageHeight, float scale,
         PluginCall call, PdfReadyCallback callback) {
 
@@ -317,7 +329,17 @@ public class DailyInspectionPrintPlugin extends Plugin {
             return;
         }
 
-        final int nextOffset = Math.min(offset + pageHeightPx, contentHeight);
+        int nextOffset = Math.min(offset + pageHeightPx, contentHeight);
+        // 페이지 끝이 표의 행 한가운데 오지 않도록 마지막으로 들어가는 행 시작점에서 끊습니다.
+        int earliestSafePoint = offset + (pageHeightPx * 65 / 100);
+        for (Integer safePoint : safeBreaks) {
+            if (safePoint != null && safePoint > earliestSafePoint && safePoint <= nextOffset) {
+                nextOffset = safePoint;
+            }
+        }
+        if (nextOffset <= offset) {
+            nextOffset = Math.min(offset + pageHeightPx, contentHeight);
+        }
         webView.scrollTo(0, offset);
         webView.invalidate();
 
@@ -338,7 +360,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
                     document.finishPage(page);
 
                     drawNextPdfPage(webView, document, output, jobName, contentHeight,
-                        nextOffset, pageNumber + 1, pageWidthPx, pageHeightPx,
+                        safeBreaks, nextOffset, pageNumber + 1, pageWidthPx, pageHeightPx,
                         pdfPageWidth, pdfPageHeight, scale, call, callback);
                 } catch (Exception error) {
                     try { document.close(); } catch (Exception ignored) { }
