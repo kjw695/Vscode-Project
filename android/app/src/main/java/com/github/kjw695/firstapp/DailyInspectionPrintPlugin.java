@@ -6,9 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Canvas;
-import android.graphics.Bitmap;
 import android.graphics.pdf.PdfDocument;
-import android.graphics.pdf.PdfRenderer;
 import android.view.View;
 import android.view.ViewGroup;
 import android.net.Uri;
@@ -297,8 +295,6 @@ public class DailyInspectionPrintPlugin extends Plugin {
                 return;
             }
 
-            // 저장·공유 전에 생성된 PDF의 첫 페이지가 비어 있지 않은지 확인합니다.
-            validatePdfHasVisibleContent(output);
             callback.onReady(output);
         } catch (Exception error) {
             releasePrintView(webView);
@@ -316,58 +312,6 @@ public class DailyInspectionPrintPlugin extends Plugin {
             } catch (NumberFormatException ignored) { }
         }
         return points;
-    }
-
-    /**
-     * 파일 크기뿐 아니라 PDF 페이지와 첫 페이지의 실제 픽셀도 확인해
-     * 빈 PDF가 저장되거나 공유되는 것을 차단합니다.
-     */
-    private void validatePdfHasVisibleContent(File pdfFile) throws IOException {
-        if (!pdfFile.exists() || pdfFile.length() < 500) {
-            throw new IOException("PDF 파일이 비어 있습니다. 다시 시도해주세요.");
-        }
-
-        ParcelFileDescriptor descriptor = null;
-        PdfRenderer renderer = null;
-        PdfRenderer.Page firstPage = null;
-        Bitmap previewBitmap = null;
-        try {
-            descriptor = ParcelFileDescriptor.open(pdfFile, ParcelFileDescriptor.MODE_READ_ONLY);
-            renderer = new PdfRenderer(descriptor);
-            if (renderer.getPageCount() <= 0) {
-                throw new IOException("PDF에 페이지가 없습니다. 다시 시도해주세요.");
-            }
-
-            firstPage = renderer.openPage(0);
-            previewBitmap = Bitmap.createBitmap(480, 340, Bitmap.Config.ARGB_8888);
-            firstPage.render(previewBitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
-
-            int visibleSamples = 0;
-            for (int y = 0; y < previewBitmap.getHeight() && visibleSamples < 20; y += 3) {
-                for (int x = 0; x < previewBitmap.getWidth() && visibleSamples < 20; x += 3) {
-                    int pixel = previewBitmap.getPixel(x, y);
-                    if (Color.red(pixel) < 248 || Color.green(pixel) < 248
-                        || Color.blue(pixel) < 248) {
-                        visibleSamples += 1;
-                    }
-                }
-            }
-            if (visibleSamples < 20) {
-                throw new IOException("PDF 첫 페이지에 점검표 내용이 보이지 않습니다. 다시 시도해주세요.");
-            }
-        } catch (IOException error) {
-            throw error;
-        } catch (Exception error) {
-            throw new IOException("PDF 내용 확인에 실패했습니다: " + error.getMessage(), error);
-        } finally {
-            if (firstPage != null) firstPage.close();
-            if (previewBitmap != null) previewBitmap.recycle();
-            if (renderer != null) {
-                renderer.close();
-            } else {
-                closeQuietly(descriptor);
-            }
-        }
     }
 
     private WebView createPrintWebView() {
@@ -486,11 +430,6 @@ public class DailyInspectionPrintPlugin extends Plugin {
         int length;
         while ((length = input.read(buffer)) != -1) output.write(buffer, 0, length);
         output.flush();
-    }
-
-    private void closeQuietly(ParcelFileDescriptor descriptor) {
-        if (descriptor == null) return;
-        try { descriptor.close(); } catch (IOException ignored) { }
     }
 
     private void releasePrintView(WebView view) {
