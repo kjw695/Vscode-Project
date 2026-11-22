@@ -482,9 +482,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
                     call.reject("PDF 페이지 " + pageNumber + "를 생성하지 못했습니다: " + error.getMessage());
                 }
             }
-                });
-            }
-        );
+        });
     }
 
     private String summarizeNumbers(List<Integer> values, int limit) {
