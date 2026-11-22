@@ -603,32 +603,51 @@ public class DailyInspectionPrintPlugin extends Plugin {
                 log("PAGE " + pageNumber + " screenshot skipped (capture limit=4)");
                 return;
             }
-            long pixelCount = (long) width * (long) height;
-            if (width <= 0 || height <= 0 || pixelCount > 7000000L) {
-                log("PAGE " + pageNumber + " screenshot skipped: unsafe bitmap size "
+
+            long sourcePixelCount = (long) width * (long) height;
+            if (width <= 0 || height <= 0 || sourcePixelCount > 100000000L) {
+                log("PAGE " + pageNumber + " screenshot skipped: invalid source size "
                     + width + "x" + height);
                 return;
             }
 
-            Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            // Keep diagnostic screenshots small to avoid an additional full-resolution bitmap
+            // and a second width*height pixel array while the full-height WebView is in memory.
+            final double maxScreenshotPixels = 1200000.0;
+            float renderScale = Math.min(0.75f,
+                (float) Math.sqrt(maxScreenshotPixels / (double) sourcePixelCount));
+            int bitmapWidth = Math.max(1, Math.round(width * renderScale));
+            int bitmapHeight = Math.max(1, Math.round(height * renderScale));
+
+            Bitmap bitmap;
+            try {
+                bitmap = Bitmap.createBitmap(bitmapWidth, bitmapHeight, Bitmap.Config.ARGB_8888);
+            } catch (OutOfMemoryError memoryError) {
+                log("PAGE " + pageNumber + " screenshot skipped: insufficient memory allocating "
+                    + bitmapWidth + "x" + bitmapHeight);
+                return;
+            }
+
             try {
                 Canvas bitmapCanvas = new Canvas(bitmap);
                 bitmapCanvas.drawColor(Color.WHITE);
                 bitmapCanvas.save();
+                bitmapCanvas.scale(renderScale, renderScale);
                 bitmapCanvas.translate(0, -offsetY);
                 webView.draw(bitmapCanvas);
                 bitmapCanvas.restore();
 
-                int[] pixels = new int[width * height];
-                bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
-                int minX = width, minY = height, maxX = -1, maxY = -1;
-                long nonWhitePixels = 0;
-                for (int y = 0; y < height; y++) {
-                    int row = y * width;
-                    for (int x = 0; x < width; x++) {
-                        int color = pixels[row + x];
+                // Sample pixels instead of allocating a second full-size int[] array.
+                int sampleStep = Math.max(4, Math.min(bitmapWidth, bitmapHeight) / 160);
+                long sampledPixels = 0;
+                long nonWhiteSamples = 0;
+                int minX = bitmapWidth, minY = bitmapHeight, maxX = -1, maxY = -1;
+                for (int y = 0; y < bitmapHeight; y += sampleStep) {
+                    for (int x = 0; x < bitmapWidth; x += sampleStep) {
+                        sampledPixels++;
+                        int color = bitmap.getPixel(x, y);
                         if (Color.red(color) < 245 || Color.green(color) < 245 || Color.blue(color) < 245) {
-                            nonWhitePixels++;
+                            nonWhiteSamples++;
                             if (x < minX) minX = x;
                             if (x > maxX) maxX = x;
                             if (y < minY) minY = y;
@@ -639,13 +658,21 @@ public class DailyInspectionPrintPlugin extends Plugin {
 
                 File image = new File(directory, String.format(Locale.US, "page-%02d.png", pageNumber));
                 try (FileOutputStream output = new FileOutputStream(image)) {
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, output);
+                    if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
+                        throw new IOException("PNG screenshot compression failed");
+                    }
                 }
                 snapshots.add(image);
-                String bounds = maxX < 0 ? "none" : minX + "," + minY + " - " + maxX + "," + maxY;
-                log("PAGE " + pageNumber + " screenshot: " + width + "x" + height
-                    + ", nonWhitePixels=" + nonWhitePixels + ", contentBounds=" + bounds
+                String bounds = maxX < 0 ? "none"
+                    : minX + "," + minY + " - " + maxX + "," + maxY;
+                log("PAGE " + pageNumber + " screenshot: source=" + width + "x" + height
+                    + ", saved=" + bitmapWidth + "x" + bitmapHeight
+                    + ", scale=" + renderScale
+                    + ", sampledNonWhite=" + nonWhiteSamples + "/" + sampledPixels
+                    + ", sampledContentBounds=" + bounds
                     + ", file=" + image.getName());
+            } catch (OutOfMemoryError memoryError) {
+                log("PAGE " + pageNumber + " screenshot stopped: memory pressure during rendering");
             } finally {
                 bitmap.recycle();
             }
