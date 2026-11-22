@@ -10,7 +10,6 @@ import android.graphics.Bitmap;
 import android.graphics.pdf.PdfDocument;
 import android.graphics.pdf.PdfRenderer;
 import android.view.View;
-import android.view.ViewGroup;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -157,19 +156,8 @@ public class DailyInspectionPrintPlugin extends Plugin {
 
     private void renderPdf(String html, String jobName, PluginCall call, PdfReadyCallback callback) {
         getActivity().runOnUiThread(() -> {
-            // WebView를 창에 연결한 상태로 인쇄 엔진이 전체 문서를 렌더링하게 합니다.
-            // 직접 스크롤하거나 화면을 잘라 그리지 않고 정식 PDF 페이지 분할을 사용합니다.
+            // 11월 21일 정상 출력 버전처럼 WebView를 별도 캡처 뷰로 생성합니다.
             final WebView webView = createPrintWebView(true);
-            final ViewGroup contentRoot = getActivity().findViewById(android.R.id.content);
-            if (contentRoot == null) {
-                releasePrintView(webView);
-                call.reject("PDF 렌더링 화면을 준비하지 못했습니다.");
-                return;
-            }
-            contentRoot.addView(webView, 0,
-                new ViewGroup.LayoutParams(1123, 794));
-            webView.setFocusable(false);
-            webView.setFocusableInTouchMode(false);
             webView.addJavascriptInterface(new Object() {
                 @JavascriptInterface
                 public void onReady(String metrics) {
@@ -184,7 +172,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
                             int contentHeight = Integer.parseInt(parts[0]);
                             List<Integer> pageBreaks = parseBreakPoints(
                                 parts.length > 1 ? parts[1] : "");
-                            writePdfFromWebView(webView, jobName, contentHeight, pageBreaks, call, callback);
+                            writePdfFromWebView(webView, contentHeight, pageBreaks, call, callback);
                         } catch (Exception error) {
                             releasePrintView(webView);
                             call.reject("PDF 페이지 정보를 읽지 못했습니다: " + error.getMessage());
@@ -221,31 +209,21 @@ public class DailyInspectionPrintPlugin extends Plugin {
                 }
             });
 
-            // A4 가로 인쇄 폭(1123 CSS px)에 맞춰 모바일 화면 폭이 아닌 고정 뷰포트로 렌더링합니다.
-            String pdfHtml = html
-                .replace("width=device-width", "width=1123")
-                .replace("</style>",
-                    ".toolbar{display:none!important}#preview-content{zoom:1!important}" +
-                    "html,body{overflow:visible!important;margin:0!important}" +
-                    "</style>");
+            String pdfHtml = html.replace("</style>",
+                ".toolbar{display:none!important}#preview-content{zoom:1!important}" +
+                "html,body{overflow:visible!important;margin:0!important}" +
+                "</style>");
             webView.loadDataWithBaseURL("https://localhost/", pdfHtml, "text/html", "UTF-8", null);
         });
     }
 
-    /**
-     * 2026-11-21 정상 출력 버전과 동일하게 전체 문서 높이와 .page-break 위치를 기준으로
-     * A4 페이지를 순서대로 나눕니다. WebView는 화면에 연결한 상태에서 페이지마다 캡처합니다.
-     */
-    private void writePdfFromWebView(WebView webView, String jobName, int contentHeight,
-        List<Integer> pageBreaks, PluginCall call, PdfReadyCallback callback) {
+    private void writePdfFromWebView(WebView webView, int contentHeight, List<Integer> pageBreaks,
+        PluginCall call, PdfReadyCallback callback) {
         final int pageWidthPx = 1123;
         final int pageHeightPx = 794;
         final int pdfPageWidth = 842;
         final int pdfPageHeight = 595;
         final float scale = (float) pdfPageWidth / (float) pageWidthPx;
-        final File output = new File(getContext().getCacheDir(),
-            "daily-inspection-" + System.currentTimeMillis() + ".pdf");
-        final PdfDocument document = new PdfDocument();
 
         if (contentHeight <= 0) {
             releasePrintView(webView);
@@ -254,6 +232,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
         }
 
         try {
+            // 정상 출력되던 기존 방식: WebView의 전체 높이를 기준으로 각 페이지를 순서대로 캡처합니다.
             webView.measure(
                 View.MeasureSpec.makeMeasureSpec(pageWidthPx, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(pageHeightPx, View.MeasureSpec.EXACTLY)
@@ -261,110 +240,69 @@ public class DailyInspectionPrintPlugin extends Plugin {
             webView.layout(0, 0, pageWidthPx, pageHeightPx);
             webView.setHorizontalScrollBarEnabled(false);
             webView.setVerticalScrollBarEnabled(false);
-            webView.requestLayout();
-            webView.invalidate();
 
-            drawNextPdfPage(webView, document, output, jobName, contentHeight, pageBreaks,
-                0, 1, pageWidthPx, pageHeightPx, pdfPageWidth, pdfPageHeight,
-                scale, call, callback);
-        } catch (Exception error) {
-            try { document.close(); } catch (Exception ignored) { }
-            output.delete();
-            releasePrintView(webView);
-            call.reject("PDF 페이지를 준비하지 못했습니다: " + error.getMessage());
-        }
-    }
-
-    /**
-     * 기존 정상 출력 방식처럼 문서 전체를 연속 분할하고,
-     * .page-break 지점이 페이지 후반에 있으면 그 지점에서 다음 장으로 넘깁니다.
-     */
-    private void drawNextPdfPage(WebView webView, PdfDocument document, File output,
-        String jobName, int contentHeight, List<Integer> pageBreaks,
-        int offset, int pageNumber, int pageWidthPx, int pageHeightPx,
-        int pdfPageWidth, int pdfPageHeight, float scale,
-        PluginCall call, PdfReadyCallback callback) {
-
-        if (offset >= contentHeight) {
-            try {
-                try (FileOutputStream stream = new FileOutputStream(output)) {
-                    document.writeTo(stream);
+            PdfDocument document = new PdfDocument();
+            int offset = 0;
+            int pageNumber = 1;
+            while (offset < contentHeight && pageNumber <= 100) {
+                int nextOffset = Math.min(offset + pageHeightPx, contentHeight);
+                for (Integer pageBreak : pageBreaks) {
+                    if (pageBreak != null
+                        && pageBreak > offset + (pageHeightPx * 65 / 100)
+                        && pageBreak <= nextOffset
+                        && pageBreak < contentHeight) {
+                        nextOffset = pageBreak;
+                        break;
+                    }
                 }
+                if (nextOffset <= offset) nextOffset = Math.min(offset + pageHeightPx, contentHeight);
+
+                PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(
+                    pdfPageWidth, pdfPageHeight, pageNumber).create();
+                PdfDocument.Page page = document.startPage(pageInfo);
+                Canvas canvas = page.getCanvas();
+                canvas.drawColor(Color.WHITE);
+                canvas.save();
+                canvas.scale(scale, scale);
+                canvas.clipRect(0, 0, pageWidthPx, nextOffset - offset);
+                webView.scrollTo(0, offset);
+                webView.draw(canvas);
+                canvas.restore();
+                document.finishPage(page);
+
+                offset = nextOffset;
+                pageNumber += 1;
+            }
+
+            if (offset < contentHeight) {
                 document.close();
                 releasePrintView(webView);
+                call.reject("점검표가 너무 길어 PDF 페이지를 모두 만들지 못했습니다.");
+                return;
+            }
 
-                if (!output.exists() || output.length() < 500) {
-                    output.delete();
-                    call.reject("PDF 파일이 비어 있습니다. 다시 시도해주세요.");
-                    return;
-                }
-
-                validatePdfHasVisibleContent(output);
-                callback.onReady(output);
-            } catch (Exception error) {
-                try { document.close(); } catch (Exception ignored) { }
-                output.delete();
+            File output = new File(getContext().getCacheDir(),
+                "daily-inspection-" + System.currentTimeMillis() + ".pdf");
+            try (FileOutputStream stream = new FileOutputStream(output)) {
+                document.writeTo(stream);
+            } finally {
+                document.close();
                 releasePrintView(webView);
-                call.reject(error.getMessage() == null
-                    ? "PDF 파일을 완성하지 못했습니다."
-                    : error.getMessage());
             }
-            return;
-        }
 
-        if (pageNumber > 100) {
-            try { document.close(); } catch (Exception ignored) { }
-            output.delete();
+            if (!output.exists() || output.length() < 500) {
+                output.delete();
+                call.reject("PDF 파일이 비어 있습니다. 다시 시도해주세요.");
+                return;
+            }
+
+            // 저장·공유 전에 생성된 PDF의 첫 페이지가 비어 있지 않은지 확인합니다.
+            validatePdfHasVisibleContent(output);
+            callback.onReady(output);
+        } catch (Exception error) {
             releasePrintView(webView);
-            call.reject("점검표가 너무 길어 PDF 페이지를 모두 만들지 못했습니다.");
-            return;
+            call.reject("PDF 파일 생성에 실패했습니다: " + error.getMessage());
         }
-
-        int nextOffset = Math.min(offset + pageHeightPx, contentHeight);
-        for (Integer pageBreak : pageBreaks) {
-            if (pageBreak != null
-                && pageBreak > offset + (pageHeightPx * 65 / 100)
-                && pageBreak <= nextOffset
-                && pageBreak < contentHeight) {
-                nextOffset = pageBreak;
-                break;
-            }
-        }
-        if (nextOffset <= offset) {
-            nextOffset = Math.min(offset + pageHeightPx, contentHeight);
-        }
-
-        final int pageEndOffset = nextOffset;
-        webView.scrollTo(0, offset);
-        webView.invalidate();
-
-        webView.postVisualStateCallback(pageNumber, new WebView.VisualStateCallback() {
-            @Override
-            public void onComplete(long requestId) {
-                try {
-                    PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(
-                        pdfPageWidth, pdfPageHeight, pageNumber).create();
-                    PdfDocument.Page page = document.startPage(pageInfo);
-                    Canvas canvas = page.getCanvas();
-                    canvas.drawColor(Color.WHITE);
-                    canvas.save();
-                    canvas.scale(scale, scale);
-                    canvas.clipRect(0, 0, pageWidthPx, pageEndOffset - offset);
-                    webView.draw(canvas);
-                    canvas.restore();
-                    document.finishPage(page);
-
-                    drawNextPdfPage(webView, document, output, jobName, contentHeight, pageBreaks,
-                        pageEndOffset, pageNumber + 1, pageWidthPx, pageHeightPx,
-                        pdfPageWidth, pdfPageHeight, scale, call, callback);
-                } catch (Exception error) {
-                    try { document.close(); } catch (Exception ignored) { }
-                    output.delete();
-                    releasePrintView(webView);
-                    call.reject("PDF 페이지 " + pageNumber + "를 생성하지 못했습니다: " + error.getMessage());
-                }
-            }
-        });
     }
 
     private List<Integer> parseBreakPoints(String values) {
