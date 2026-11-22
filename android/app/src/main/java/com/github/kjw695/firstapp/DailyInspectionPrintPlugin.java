@@ -209,7 +209,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
                         "Promise.all(images.map(function(img){return img.complete?Promise.resolve():new Promise(function(resolve){img.addEventListener('load',resolve,{once:true});img.addEventListener('error',resolve,{once:true});});}))" +
                         ".then(function(){" +
                         "requestAnimationFrame(function(){requestAnimationFrame(function(){" +
-                        "var pages=Array.prototype.slice.call(document.querySelectorAll('#preview-content > .pdf-page'));" +
+                        "var pages=Array.prototype.slice.call(document.querySelectorAll('#preview-content .pdf-page'));" +
                         "var offsets=pages.map(function(page){return Math.round(page.getBoundingClientRect().top+window.scrollY);});" +
                         "window.PdfBridge.onReady(offsets.join(','));" +
                         "});});" +
