@@ -352,6 +352,8 @@ public class DailyInspectionPrintPlugin extends Plugin {
         if (nextOffset <= offset) {
             nextOffset = Math.min(offset + pageHeightPx, contentHeight);
         }
+        // 콜백 내부에서 사용할 페이지 다음 시작 위치를 확정해 둡니다.
+        final int pageEndOffset = nextOffset;
         webView.scrollTo(0, offset);
         webView.invalidate();
 
@@ -372,7 +374,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
                     document.finishPage(page);
 
                     drawNextPdfPage(webView, document, output, jobName, contentHeight,
-                        sectionBreaks, safeBreaks, nextOffset, pageNumber + 1, pageWidthPx, pageHeightPx,
+                        sectionBreaks, safeBreaks, pageEndOffset, pageNumber + 1, pageWidthPx, pageHeightPx,
                         pdfPageWidth, pdfPageHeight, scale, call, callback);
                 } catch (Exception error) {
                     try { document.close(); } catch (Exception ignored) { }
