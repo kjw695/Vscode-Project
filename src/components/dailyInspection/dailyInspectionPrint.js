@@ -181,7 +181,6 @@ export const printDailyInspectionMonth = (records, year, month) => {
                 <p class="footnote">선택한 월의 점검 기록을 기준으로 생성한 PDF입니다.</p>
             </section>
         </div>
-        <div id="detail-pages"></div>
     `;
 
     const html = `<!doctype html>
@@ -421,7 +420,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
             const paginateDetailRows = () => {
                 const source = document.getElementById('detail-source');
                 const sourceTable = document.getElementById('detail-source-table');
-                const target = document.getElementById('detail-pages');
+                const target = content();
                 if (!source || !sourceTable || !target) return;
 
                 const sourceTitle = source.querySelector('h2');
@@ -432,7 +431,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
 
                 const createPage = () => {
                     const page = document.createElement('section');
-                    page.className = 'detail pdf-page';
+                    page.className = 'detail pdf-page generated-detail-page';
                     page.appendChild(sourceTitle.cloneNode(true));
                     page.appendChild(sourceIdentity.cloneNode(true));
 
