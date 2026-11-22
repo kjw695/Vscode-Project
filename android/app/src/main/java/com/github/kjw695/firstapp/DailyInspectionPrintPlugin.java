@@ -565,12 +565,14 @@ public class DailyInspectionPrintPlugin extends Plugin {
 
     private static class DiagnosticSession {
         final boolean enabled;
+        final Context context;
         final StringBuilder report = new StringBuilder();
         final List<File> snapshots = new ArrayList<>();
         final File directory;
         int pageCount = 0;
 
         DiagnosticSession(Context context, String jobName, boolean enabled) {
+            this.context = context.getApplicationContext();
             this.enabled = enabled;
             this.directory = enabled
                 ? new File(context.getCacheDir(), "daily-inspection-diagnostic-" + System.currentTimeMillis())
