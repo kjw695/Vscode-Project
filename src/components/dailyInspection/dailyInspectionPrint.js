@@ -138,51 +138,48 @@ export const printDailyInspectionMonth = (records, year, month) => {
         </tr>`;
     }).join('');
     const detailPages = `
-        <div id="detail-source" class="detail-source" aria-hidden="true">
-            <section class="detail">
-                <h2>불량 점검 및 조치 기록</h2>
-                <table class="identity-table detail-identity-table">
-                    <colgroup>
-                        <col style="width:12.5%"><col style="width:12.5%">
-                        <col style="width:12.5%"><col style="width:12.5%">
-                        <col style="width:12.5%"><col style="width:12.5%">
-                        <col style="width:12.5%"><col style="width:12.5%">
-                    </colgroup>
-                    <tbody><tr>
-                        <td class="identity-label">점검연월</td>
-                        <td class="identity-value">${year}년 ${month}월</td>
-                        <td class="identity-label">운송사업자명</td>
-                        <td class="identity-value">${escapeHtml(companyName)}</td>
-                        <td class="identity-label">차량번호</td>
-                        <td class="identity-value">${escapeHtml(first.vehicleNumber || '')}</td>
-                        <td class="identity-label">운수종사자명</td>
-                        <td class="identity-value">${escapeHtml(first.driverName || '')}</td>
-                    </tr></tbody>
-                </table>
-                <table id="detail-source-table" class="detail-table">
-                    <colgroup>
-                        <col style="width:8mm" />
-                        <col style="width:31mm" />
-                        <col style="width:63mm" />
-                        <col style="width:14mm" />
-                        <col style="width:105mm" />
-                        <col style="width:66mm" />
-                    </colgroup>
-                    <thead><tr>
-                        <th>번호</th>
-                        <th>날짜·작성시간</th>
-                        <th>불량내용</th>
-                        <th>점검결과</th>
-                        <th>조치기록</th>
-                        <th>서명</th>
-                    </tr></thead>
-                    <tbody>${detailTableRows || '<tr><td colspan="6" class="no-defects">해당 월 불량 점검 기록 없음</td></tr>'}</tbody>
-                </table>
-                <p class="footnote">선택한 월의 점검 기록을 기준으로 생성한 PDF입니다.</p>
-            </section>
-        </div>
+        <section class="detail page-break">
+            <h2>불량 점검 및 조치 기록</h2>
+            <table class="identity-table detail-identity-table">
+                <colgroup>
+                    <col style="width:12.5%"><col style="width:12.5%">
+                    <col style="width:12.5%"><col style="width:12.5%">
+                    <col style="width:12.5%"><col style="width:12.5%">
+                    <col style="width:12.5%"><col style="width:12.5%">
+                </colgroup>
+                <tbody><tr>
+                    <td class="identity-label">점검연월</td>
+                    <td class="identity-value">${year}년 ${month}월</td>
+                    <td class="identity-label">운송사업자명</td>
+                    <td class="identity-value">${escapeHtml(companyName)}</td>
+                    <td class="identity-label">차량번호</td>
+                    <td class="identity-value">${escapeHtml(first.vehicleNumber || '')}</td>
+                    <td class="identity-label">운수종사자명</td>
+                    <td class="identity-value">${escapeHtml(first.driverName || '')}</td>
+                </tr></tbody>
+            </table>
+            <table class="detail-table">
+                <colgroup>
+                    <col style="width:8mm" />
+                    <col style="width:31mm" />
+                    <col style="width:63mm" />
+                    <col style="width:14mm" />
+                    <col style="width:105mm" />
+                    <col style="width:66mm" />
+                </colgroup>
+                <thead><tr>
+                    <th>번호</th>
+                    <th>날짜·작성시간</th>
+                    <th>불량내용</th>
+                    <th>점검결과</th>
+                    <th>조치기록</th>
+                    <th>서명</th>
+                </tr></thead>
+                <tbody>${detailTableRows || '<tr><td colspan="6" class="no-defects">해당 월 불량 점검 기록 없음</td></tr>'}</tbody>
+            </table>
+            <p class="footnote">선택한 월의 점검 기록을 기준으로 생성한 PDF입니다.</p>
+        </section>
     `;
-
     const html = `<!doctype html>
 <html lang="ko">
 <head>
@@ -202,10 +199,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .toolbar button:disabled { opacity: .55; }
     .toolbar .zoom-hint { width: 100%; margin: 0; color: #475569; font-size: 11px; line-height: 1.25; text-align: center; }
     .toolbar .print-status { display: block; width: 100%; min-height: 14px; color: #334155; font-size: 11px; line-height: 1.25; text-align: center; }
-    #preview-content { width: 297mm; min-width: 297mm; box-sizing: border-box; padding: 0; transform-origin: top left; }
-    .pdf-page { width: 297mm; min-width: 297mm; height: 210mm; min-height: 210mm; box-sizing: border-box; padding: 5mm; margin: 0 auto 12px; overflow: hidden; background: #fff; }
-    .inspection-page { position: relative; }
-    .detail-source { position: absolute; left: -100000px; top: 0; visibility: hidden; pointer-events: none; }
+    #preview-content { width: 297mm; min-width: 297mm; box-sizing: border-box; padding: 5mm; transform-origin: top left; }
     .form-caption { min-height: 5mm; margin: 0 0 1mm 1mm; font-family: 'Malgun Gothic', sans-serif; font-size: 8.5pt; line-height: 1.2; white-space: nowrap; }
     .form-caption .new-date { color: #0645ad; }
     h1 { margin: 0 0 3mm; text-align: center; font-size: 12pt; line-height: 1.25; font-weight: 400; }
@@ -231,10 +225,8 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .inspection-table .action-content { height: auto; min-height: 15mm; text-align: left; vertical-align: middle; padding: 2mm 3mm; font-size: 9pt; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
     .example-text { color: #999; }
     .page-break { break-before: page; page-break-before: always; }
-    #preview-content { width: 297mm; min-width: 297mm; box-sizing: border-box; padding: 0; transform-origin: top left; }
+    #preview-content { width: 297mm; min-width: 297mm; box-sizing: border-box; padding: 5mm; transform-origin: top left; }
     .detail { margin: 0; padding: 0; font-family: Arial, 'Malgun Gothic', sans-serif; }
-    .detail.pdf-page { margin: 0 auto 12px; }
-    .detail.pdf-page .identity-table { margin-bottom: 3mm; }
     .detail h2 { font-size: 15px; margin: 0 0 8px; }
     .detail h3 { font-size: 11px; margin: 12px 0 5px; }
     .detail-table { width: 100%; margin: 7px 0; border-collapse: collapse; table-layout: fixed; }
@@ -247,7 +239,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .detail-table .defect-content, .detail-table .defect-action { text-align: left; }
     .detail-table .defect-signature { padding: 0; vertical-align: middle; }
     .defect-signature-image { display: block; width: 100%; height: 11mm; min-height: 11mm; object-fit: fill; object-position: center; background: #fff; margin: 0; padding: 0; }
-    .inspection-table tr, .detail-table tr { break-inside: avoid; page-break-inside: avoid; }
+    .detail-table tr { break-inside: avoid; page-break-inside: avoid; }
     .no-defects { padding: 8mm; text-align: center !important; color: #666; font-size: 9pt !important; }
 
     .meta { display: flex; gap: 18px; flex-wrap: wrap; margin: 8px 0; }
@@ -258,7 +250,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .footnote { font-size: 8px; color: #555; margin-top: 8px; }
     @page { size: A4 landscape; margin: 0; }
     @media screen { body { width: 297mm; min-width: 297mm; max-width: none; margin: 0 auto; padding: 0; } .inspection-table { min-width: 0; } .detail { border-top: 2px dashed #cbd5e1; padding-top: 12px; margin-top: 24px; } }
-    @media print { html, body { width: 297mm; min-width: 297mm; min-height: 210mm; padding: 0; margin: 0; background: #fff !important; color: #111 !important; } #preview-content { width: 297mm; min-width: 297mm; padding: 0; zoom: 1 !important; } .toolbar, .detail-source { display: none !important; } .pdf-page { width: 297mm; height: 210mm; margin: 0 !important; padding: 5mm; overflow: hidden; break-after: page; page-break-after: always; } .pdf-page:last-child { break-after: auto; page-break-after: auto; } .form-caption, h1, .identity-table, .inspection-table { break-inside: avoid; page-break-inside: avoid; } .detail { margin: 0; padding: 0; border: 0; } table, tr, img { break-inside: avoid; page-break-inside: avoid; } * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    @media print { html, body { width: 297mm; min-width: 297mm; min-height: 210mm; padding: 0; margin: 0; background: #fff !important; color: #111 !important; } #preview-content { width: 297mm; min-width: 297mm; padding: 5mm; zoom: 1 !important; } .toolbar { display: none !important; } .form-caption, h1, .identity-table, .inspection-table { break-inside: avoid; page-break-inside: avoid; } .page-break { break-before: page; page-break-before: always; } .detail { margin: 0; padding: 0; border: 0; } table, tr, img { break-inside: avoid; page-break-inside: avoid; } * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style>
 </head>
 <body>
@@ -276,7 +268,6 @@ export const printDailyInspectionMonth = (records, year, month) => {
     </div>
 
     <div id="preview-content">
-    <section class="pdf-page inspection-page">
     <div class="form-caption">■ 화물자동차 운수사업법 시행규칙 [별지 제14호의5서식] <span class="new-date">&lt;신설 2025. 12. 29.&gt;</span></div>
     <h1>운수종사자 일상점검표</h1>
 
@@ -318,7 +309,6 @@ export const printDailyInspectionMonth = (records, year, month) => {
             <tr><td class="action-title" colspan="2">불량상태 조치 기록</td><td class="action-content" colspan="31">${actionNotes}</td></tr>
         </tbody>
     </table>
-    </section>
 
     ${detailPages}
     </div>
@@ -417,61 +407,12 @@ export const printDailyInspectionMonth = (records, year, month) => {
                     console.warn('[DailyInspection] 서명 이미지 자르기 실패:', error);
                 }
             };
-            const paginateDetailRows = () => {
-                const source = document.getElementById('detail-source');
-                const sourceTable = document.getElementById('detail-source-table');
-                const target = content();
-                if (!source || !sourceTable || !target) return;
-
-                const sourceTitle = source.querySelector('h2');
-                const sourceIdentity = source.querySelector('.detail-identity-table');
-                const sourceColumns = sourceTable.querySelector('colgroup');
-                const sourceHead = sourceTable.querySelector('thead');
-                const rows = Array.from(sourceTable.querySelectorAll('tbody > tr'));
-
-                const createPage = () => {
-                    const page = document.createElement('section');
-                    page.className = 'detail pdf-page generated-detail-page';
-                    page.appendChild(sourceTitle.cloneNode(true));
-                    page.appendChild(sourceIdentity.cloneNode(true));
-
-                    const table = document.createElement('table');
-                    table.className = 'detail-table';
-                    table.appendChild(sourceColumns.cloneNode(true));
-                    table.appendChild(sourceHead.cloneNode(true));
-                    const body = document.createElement('tbody');
-                    table.appendChild(body);
-                    page.appendChild(table);
-
-                    const footnote = source.querySelector('.footnote');
-                    if (footnote) page.appendChild(footnote.cloneNode(true));
-                    target.appendChild(page);
-                    return { page, body };
-                };
-
-                let currentPage = createPage();
-                rows.forEach((row) => {
-                    currentPage.body.appendChild(row);
-                    const overflows = currentPage.page.scrollHeight > currentPage.page.clientHeight + 2;
-                    if (overflows && currentPage.body.children.length > 1) {
-                        currentPage.body.removeChild(row);
-                        currentPage = createPage();
-                        currentPage.body.appendChild(row);
-                    } else if (overflows) {
-                        row.classList.add('oversized-detail-row');
-                    }
-                });
-
-                source.remove();
-            };
-
             const preparePrint = async () => {
                 const images = Array.from(document.querySelectorAll('.signature-cell img, .signature-detail-image, .defect-signature-image'));
                 await Promise.all(images.map(async (image) => {
                     await waitForImage(image);
                     await cropSignatureImage(image);
                 }));
-                paginateDetailRows();
                 printReady = true;
                 window.__dailyInspectionPrintReady = true;
                 exportButtons().forEach((button) => { button.disabled = false; });
