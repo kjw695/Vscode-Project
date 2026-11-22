@@ -180,11 +180,11 @@ public class DailyInspectionPrintPlugin extends Plugin {
                                 call.reject("서명 이미지 준비가 완료되지 않아 PDF를 만들지 못했습니다. 다시 시도해주세요.");
                                 return;
                             }
-                            List<Integer> pageOffsets = parsePageOffsets(metrics);
-                            if (pageOffsets.size() < 2) {
-                                throw new IOException("일상점검표 다음에 불량 점검 및 조치 기록 페이지가 만들어지지 않았습니다. 다시 시도해주세요.");
-                            }
-                            writePdfFromWebView(webView, jobName, pageOffsets, call, callback);
+                            String[] parts = metrics.split("\\|", 2);
+                            int contentHeight = Integer.parseInt(parts[0]);
+                            List<Integer> pageBreaks = parseBreakPoints(
+                                parts.length > 1 ? parts[1] : "");
+                            writePdfFromWebView(webView, jobName, contentHeight, pageBreaks, call, callback);
                         } catch (Exception error) {
                             releasePrintView(webView);
                             call.reject("PDF 페이지 정보를 읽지 못했습니다: " + error.getMessage());
@@ -209,9 +209,9 @@ public class DailyInspectionPrintPlugin extends Plugin {
                         "Promise.all(images.map(function(img){return img.complete?Promise.resolve():new Promise(function(resolve){img.addEventListener('load',resolve,{once:true});img.addEventListener('error',resolve,{once:true});});}))" +
                         ".then(function(){" +
                         "requestAnimationFrame(function(){requestAnimationFrame(function(){" +
-                        "var pages=Array.prototype.slice.call(document.querySelectorAll('#preview-content > .pdf-page'));" +
-                        "var offsets=pages.map(function(page){return Math.round(page.getBoundingClientRect().top+window.scrollY);});" +
-                        "window.PdfBridge.onReady(offsets.join(','));" +
+                        "var height=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);" +
+                        "var breaks=Array.prototype.slice.call(document.querySelectorAll('.page-break')).map(function(el){return Math.round(el.getBoundingClientRect().top);});" +
+                        "window.PdfBridge.onReady(String(height)+'|'+breaks.join(','));" +
                         "});});" +
                         "});" +
                         "}" +
@@ -227,25 +227,17 @@ public class DailyInspectionPrintPlugin extends Plugin {
                 .replace("</style>",
                     ".toolbar{display:none!important}#preview-content{zoom:1!important}" +
                     "html,body{overflow:visible!important;margin:0!important}" +
-                    ".pdf-page{margin:0!important;box-shadow:none!important}" +
-                    ".detail-source{display:none!important}" +
                     "</style>");
             webView.loadDataWithBaseURL("https://localhost/", pdfHtml, "text/html", "UTF-8", null);
         });
     }
 
     /**
-     * HTML에서 미리 구성한 A4 페이지들을 각각 PDF 한 장으로 저장합니다.
-     * 첫 장은 일상점검표, 이후 장은 실제 불량·조치 기록 행으로 구성됩니다.
+     * 2026-11-21 정상 출력 버전과 동일하게 전체 문서 높이와 .page-break 위치를 기준으로
+     * A4 페이지를 순서대로 나눕니다. WebView는 화면에 연결한 상태에서 페이지마다 캡처합니다.
      */
-    private void writePdfFromWebView(WebView webView, String jobName,
-        List<Integer> pageOffsets, PluginCall call, PdfReadyCallback callback) {
-        if (pageOffsets == null || pageOffsets.isEmpty()) {
-            releasePrintView(webView);
-            call.reject("PDF로 만들 페이지가 없습니다.");
-            return;
-        }
-
+    private void writePdfFromWebView(WebView webView, String jobName, int contentHeight,
+        List<Integer> pageBreaks, PluginCall call, PdfReadyCallback callback) {
         final int pageWidthPx = 1123;
         final int pageHeightPx = 794;
         final int pdfPageWidth = 842;
@@ -254,6 +246,12 @@ public class DailyInspectionPrintPlugin extends Plugin {
         final File output = new File(getContext().getCacheDir(),
             "daily-inspection-" + System.currentTimeMillis() + ".pdf");
         final PdfDocument document = new PdfDocument();
+
+        if (contentHeight <= 0) {
+            releasePrintView(webView);
+            call.reject("PDF에 넣을 점검표 내용이 비어 있습니다.");
+            return;
+        }
 
         try {
             webView.measure(
@@ -266,8 +264,8 @@ public class DailyInspectionPrintPlugin extends Plugin {
             webView.requestLayout();
             webView.invalidate();
 
-            drawNextPdfPage(webView, document, output, jobName, pageOffsets,
-                0, pageWidthPx, pageHeightPx, pdfPageWidth, pdfPageHeight,
+            drawNextPdfPage(webView, document, output, jobName, contentHeight, pageBreaks,
+                0, 1, pageWidthPx, pageHeightPx, pdfPageWidth, pdfPageHeight,
                 scale, call, callback);
         } catch (Exception error) {
             try { document.close(); } catch (Exception ignored) { }
@@ -278,15 +276,16 @@ public class DailyInspectionPrintPlugin extends Plugin {
     }
 
     /**
-     * 페이지별 HTML 위치로 이동해 A4 크기 그대로 한 장씩 캡처합니다.
-     * 페이지 경계 계산은 HTML의 실제 페이지 컨테이너가 담당합니다.
+     * 기존 정상 출력 방식처럼 문서 전체를 연속 분할하고,
+     * .page-break 지점이 페이지 후반에 있으면 그 지점에서 다음 장으로 넘깁니다.
      */
     private void drawNextPdfPage(WebView webView, PdfDocument document, File output,
-        String jobName, List<Integer> pageOffsets, int pageIndex,
-        int pageWidthPx, int pageHeightPx, int pdfPageWidth, int pdfPageHeight, float scale,
+        String jobName, int contentHeight, List<Integer> pageBreaks,
+        int offset, int pageNumber, int pageWidthPx, int pageHeightPx,
+        int pdfPageWidth, int pdfPageHeight, float scale,
         PluginCall call, PdfReadyCallback callback) {
 
-        if (pageIndex >= pageOffsets.size()) {
+        if (offset >= contentHeight) {
             try {
                 try (FileOutputStream stream = new FileOutputStream(output)) {
                     document.writeTo(stream);
@@ -313,7 +312,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
             return;
         }
 
-        if (pageIndex >= 100) {
+        if (pageNumber > 100) {
             try { document.close(); } catch (Exception ignored) { }
             output.delete();
             releasePrintView(webView);
@@ -321,9 +320,22 @@ public class DailyInspectionPrintPlugin extends Plugin {
             return;
         }
 
-        final int pageNumber = pageIndex + 1;
-        final int pageOffset = pageOffsets.get(pageIndex);
-        webView.scrollTo(0, pageOffset);
+        int nextOffset = Math.min(offset + pageHeightPx, contentHeight);
+        for (Integer pageBreak : pageBreaks) {
+            if (pageBreak != null
+                && pageBreak > offset + (pageHeightPx * 65 / 100)
+                && pageBreak <= nextOffset
+                && pageBreak < contentHeight) {
+                nextOffset = pageBreak;
+                break;
+            }
+        }
+        if (nextOffset <= offset) {
+            nextOffset = Math.min(offset + pageHeightPx, contentHeight);
+        }
+
+        final int pageEndOffset = nextOffset;
+        webView.scrollTo(0, offset);
         webView.invalidate();
 
         webView.postVisualStateCallback(pageNumber, new WebView.VisualStateCallback() {
@@ -337,13 +349,13 @@ public class DailyInspectionPrintPlugin extends Plugin {
                     canvas.drawColor(Color.WHITE);
                     canvas.save();
                     canvas.scale(scale, scale);
-                    canvas.clipRect(0, 0, pageWidthPx, pageHeightPx);
+                    canvas.clipRect(0, 0, pageWidthPx, pageEndOffset - offset);
                     webView.draw(canvas);
                     canvas.restore();
                     document.finishPage(page);
 
-                    drawNextPdfPage(webView, document, output, jobName, pageOffsets,
-                        pageIndex + 1, pageWidthPx, pageHeightPx,
+                    drawNextPdfPage(webView, document, output, jobName, contentHeight, pageBreaks,
+                        pageEndOffset, pageNumber + 1, pageWidthPx, pageHeightPx,
                         pdfPageWidth, pdfPageHeight, scale, call, callback);
                 } catch (Exception error) {
                     try { document.close(); } catch (Exception ignored) { }
@@ -355,16 +367,16 @@ public class DailyInspectionPrintPlugin extends Plugin {
         });
     }
 
-    private List<Integer> parsePageOffsets(String values) {
-        List<Integer> offsets = new ArrayList<>();
-        if (values == null || values.trim().isEmpty()) return offsets;
+    private List<Integer> parseBreakPoints(String values) {
+        List<Integer> points = new ArrayList<>();
+        if (values == null || values.trim().isEmpty()) return points;
         for (String value : values.split(",")) {
             try {
-                int offset = Integer.parseInt(value.trim());
-                if (offset >= 0 && !offsets.contains(offset)) offsets.add(offset);
+                int point = Integer.parseInt(value.trim());
+                if (point > 0 && !points.contains(point)) points.add(point);
             } catch (NumberFormatException ignored) { }
         }
-        return offsets;
+        return points;
     }
 
     /**
