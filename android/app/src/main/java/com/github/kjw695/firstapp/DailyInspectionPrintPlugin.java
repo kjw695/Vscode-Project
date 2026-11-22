@@ -269,21 +269,24 @@ public class DailyInspectionPrintPlugin extends Plugin {
         final PdfDocument document = new PdfDocument();
 
         try {
-            webView.measure(
-                View.MeasureSpec.makeMeasureSpec(pageWidthPx, View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(pageHeightPx, View.MeasureSpec.EXACTLY)
-            );
-            webView.layout(0, 0, pageWidthPx, pageHeightPx);
-            webView.requestLayout();
-            webView.invalidate();
-
-            // 1쪽은 운수종사자 일상점검표 전체만 출력하고,
-            // 2쪽부터 불량 점검 및 조치 기록을 이어서 출력합니다.
-            int firstPageHeight = Math.min(pageHeightPx, detailTop);
+            // 첫 페이지의 실제 끝은 불량 점검 기록(.detail)이 시작되는 위치입니다.
+            // 794px로 잘라 버리지 않고, 첫 페이지 전체를 캡처할 수 있도록 WebView 높이를 늘립니다.
+            int firstPageHeight = detailTop;
             if (firstPageHeight <= 0) {
                 throw new IOException("일상점검표의 첫 페이지 높이를 확인하지 못했습니다.");
             }
+            int firstPageViewHeight = Math.max(pageHeightPx, firstPageHeight);
+            webView.setLayoutParams(new ViewGroup.LayoutParams(pageWidthPx, firstPageViewHeight));
+            webView.measure(
+                View.MeasureSpec.makeMeasureSpec(pageWidthPx, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(firstPageViewHeight, View.MeasureSpec.EXACTLY)
+            );
+            webView.layout(0, 0, pageWidthPx, firstPageViewHeight);
+            webView.requestLayout();
+            webView.invalidate();
 
+            // 1쪽은 운수종사자 일상점검표 전체를 한 장에 맞춰 출력하고,
+            // 2쪽부터 불량 점검 및 조치 기록을 출력합니다.
             drawPdfPage(webView, document, output, jobName, contentHeight, detailRowEnds,
                 0, firstPageHeight, 1, pageWidthPx, pageHeightPx,
                 pdfPageWidth, pdfPageHeight, scale, call, callback);
@@ -359,7 +362,10 @@ public class DailyInspectionPrintPlugin extends Plugin {
         }
 
         final int pageEndOffset = nextOffset;
-        final int clipHeight = Math.min(pageHeightPx, pageEndOffset - offset);
+        // 첫 페이지는 .detail 시작점까지 전체를 캡처합니다. 후속 페이지는 A4 높이만큼 캡처합니다.
+        final int clipHeight = pageNumber == 1
+            ? pageContentHeight
+            : Math.min(pageHeightPx, pageEndOffset - offset);
 
         // 페이지 위치는 JavaScript DOM에서 CSS px로 계산됩니다.
         // Android View.scrollTo()에 그대로 전달하지 않고 WebView 문서 좌표계에서 이동해야
@@ -377,15 +383,32 @@ public class DailyInspectionPrintPlugin extends Plugin {
                     Canvas canvas = page.getCanvas();
                     canvas.drawColor(Color.WHITE);
                     canvas.save();
-                    canvas.scale(scale, scale);
+                    // 첫 페이지 높이가 A4를 넘으면 가로·세로 비율을 유지해 한 장에 축소합니다.
+                    // 불량 조치 기록 페이지는 기존 A4 배율을 그대로 사용합니다.
+                    float pageScale = pageNumber == 1
+                        ? Math.min(scale, (float) pdfPageHeight / (float) clipHeight)
+                        : scale;
+                    float pageLeft = (pdfPageWidth - (pageWidthPx * pageScale)) / 2.0f;
+                    canvas.translate(pageLeft, 0);
+                    canvas.scale(pageScale, pageScale);
                     canvas.clipRect(0, 0, pageWidthPx, clipHeight);
                     webView.draw(canvas);
                     canvas.restore();
                     document.finishPage(page);
 
-                    int nextPageHeight = pageNumber == 1
-                        ? pageHeightPx
-                        : pageHeightPx;
+                    // 첫 페이지 전체를 캡처한 뒤 WebView 높이를 일반 페이지 크기로 복원합니다.
+                    // 이후 페이지는 정상적인 794px 뷰포트에서 스크롤 위치를 계산합니다.
+                    if (pageNumber == 1 && pageContentHeight > pageHeightPx) {
+                        webView.setLayoutParams(new ViewGroup.LayoutParams(pageWidthPx, pageHeightPx));
+                        webView.measure(
+                            View.MeasureSpec.makeMeasureSpec(pageWidthPx, View.MeasureSpec.EXACTLY),
+                            View.MeasureSpec.makeMeasureSpec(pageHeightPx, View.MeasureSpec.EXACTLY)
+                        );
+                        webView.layout(0, 0, pageWidthPx, pageHeightPx);
+                        webView.requestLayout();
+                        webView.invalidate();
+                    }
+
                     drawPdfPage(webView, document, output, jobName, contentHeight, detailRowEnds,
                         pageEndOffset, nextPageHeight, pageNumber + 1,
                         pageWidthPx, pageHeightPx, pdfPageWidth, pdfPageHeight,
