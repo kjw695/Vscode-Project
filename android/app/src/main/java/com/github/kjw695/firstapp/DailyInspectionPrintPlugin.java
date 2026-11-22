@@ -156,8 +156,8 @@ public class DailyInspectionPrintPlugin extends Plugin {
 
     private void renderPdf(String html, String jobName, PluginCall call, PdfReadyCallback callback) {
         getActivity().runOnUiThread(() -> {
-            // WebView를 창에 연결한 상태로 렌더링해야 PDF 캡처 시 빈 화면을 방지할 수 있습니다.
-            // 각 PDF 페이지를 scrollTo로 보이는 영역에 맞춰 캡처하므로 전체 문서 강제 그리기는 사용하지 않습니다.
+            // WebView를 창에 연결한 상태로 인쇄 엔진이 전체 문서를 렌더링하게 합니다.
+            // 직접 스크롤하거나 화면을 잘라 그리지 않고 정식 PDF 페이지 분할을 사용합니다.
             final WebView webView = createPrintWebView(true);
             final ViewGroup contentRoot = getActivity().findViewById(android.R.id.content);
             if (contentRoot == null) {
