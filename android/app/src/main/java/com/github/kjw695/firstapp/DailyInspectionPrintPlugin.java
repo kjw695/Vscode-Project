@@ -181,8 +181,8 @@ public class DailyInspectionPrintPlugin extends Plugin {
                                 return;
                             }
                             List<Integer> pageOffsets = parsePageOffsets(metrics);
-                            if (pageOffsets.isEmpty()) {
-                                throw new IOException("PDF로 만들 페이지가 없습니다.");
+                            if (pageOffsets.size() < 2) {
+                                throw new IOException("일상점검표 다음에 불량 점검 및 조치 기록 페이지가 만들어지지 않았습니다. 다시 시도해주세요.");
                             }
                             writePdfFromWebView(webView, jobName, pageOffsets, call, callback);
                         } catch (Exception error) {
@@ -209,7 +209,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
                         "Promise.all(images.map(function(img){return img.complete?Promise.resolve():new Promise(function(resolve){img.addEventListener('load',resolve,{once:true});img.addEventListener('error',resolve,{once:true});});}))" +
                         ".then(function(){" +
                         "requestAnimationFrame(function(){requestAnimationFrame(function(){" +
-                        "var pages=Array.prototype.slice.call(document.querySelectorAll('#preview-content .pdf-page'));" +
+                        "var pages=Array.prototype.slice.call(document.querySelectorAll('#preview-content > .pdf-page'));" +
                         "var offsets=pages.map(function(page){return Math.round(page.getBoundingClientRect().top+window.scrollY);});" +
                         "window.PdfBridge.onReady(offsets.join(','));" +
                         "});});" +
