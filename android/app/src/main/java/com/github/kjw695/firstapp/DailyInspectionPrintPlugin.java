@@ -5,8 +5,12 @@ import android.content.ClipData;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.Canvas;
 import android.graphics.Bitmap;
+import android.graphics.pdf.PdfDocument;
 import android.graphics.pdf.PdfRenderer;
+import android.view.View;
+import android.view.ViewGroup;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -16,7 +20,6 @@ import android.os.ParcelFileDescriptor;
 import android.print.PageRange;
 import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
-import android.print.PrintDocumentInfo;
 import android.print.PrintManager;
 import android.provider.MediaStore;
 import android.webkit.JavascriptInterface;
@@ -154,7 +157,19 @@ public class DailyInspectionPrintPlugin extends Plugin {
 
     private void renderPdf(String html, String jobName, PluginCall call, PdfReadyCallback callback) {
         getActivity().runOnUiThread(() -> {
+            // WebView를 창에 연결한 상태로 렌더링해야 PDF 캡처 시 빈 화면을 방지할 수 있습니다.
+            WebView.enableSlowWholeDocumentDraw();
             final WebView webView = createPrintWebView(true);
+            final ViewGroup contentRoot = getActivity().findViewById(android.R.id.content);
+            if (contentRoot == null) {
+                releasePrintView(webView);
+                call.reject("PDF 렌더링 화면을 준비하지 못했습니다.");
+                return;
+            }
+            contentRoot.addView(webView, 0,
+                new ViewGroup.LayoutParams(1123, 794));
+            webView.setFocusable(false);
+            webView.setFocusableInTouchMode(false);
             webView.addJavascriptInterface(new Object() {
                 @JavascriptInterface
                 public void onReady(String metrics) {
@@ -165,7 +180,16 @@ public class DailyInspectionPrintPlugin extends Plugin {
                                 call.reject("서명 이미지 준비가 완료되지 않아 PDF를 만들지 못했습니다. 다시 시도해주세요.");
                                 return;
                             }
-                            writePdfFromWebView(webView, jobName, call, callback);
+                            String[] parts = metrics.split("\\|", 2);
+                            int contentHeight = Integer.parseInt(parts[0]);
+                            List<Integer> pageBreaks = new ArrayList<>();
+                            if (parts.length > 1 && !parts[1].isEmpty()) {
+                                for (String value : parts[1].split(",")) {
+                                    try { pageBreaks.add(Integer.parseInt(value)); }
+                                    catch (NumberFormatException ignored) { }
+                                }
+                            }
+                            writePdfFromWebView(webView, jobName, contentHeight, pageBreaks, call, callback);
                         } catch (Exception error) {
                             releasePrintView(webView);
                             call.reject("PDF 페이지 정보를 읽지 못했습니다: " + error.getMessage());
@@ -211,120 +235,137 @@ public class DailyInspectionPrintPlugin extends Plugin {
     }
 
     /**
-     * WebView를 직접 Canvas에 그리는 방식은 Android WebView의 렌더링 시점에 따라
-     * 빈 페이지가 만들어질 수 있습니다. 공식 PrintDocumentAdapter로 PDF 스트림을 생성합니다.
+     * PDF를 파일로 직접 생성합니다.
+     *
+     * PrintDocumentAdapter의 콜백은 Android 인쇄 시스템이 전달하는 객체이므로
+     * 앱에서 new LayoutResultCallback()으로 생성할 수 없습니다.
+     * 여기서는 창에 연결된 전용 WebView를 페이지 단위로 캡처해 PdfDocument에 기록합니다.
      */
-    private void writePdfFromWebView(WebView webView, String jobName, PluginCall call,
-        PdfReadyCallback callback) {
-        final File output = new File(getContext().getCacheDir(),
-            "daily-inspection-" + System.currentTimeMillis() + ".pdf");
-        final PrintDocumentAdapter adapter;
-
-        try {
-            adapter = webView.createPrintDocumentAdapter(jobName);
-            adapter.onStart();
-        } catch (Exception error) {
+    private void writePdfFromWebView(WebView webView, String jobName, int contentHeight,
+        List<Integer> pageBreaks, PluginCall call, PdfReadyCallback callback) {
+        if (contentHeight <= 0) {
             releasePrintView(webView);
-            call.reject("PDF 인쇄 엔진을 시작하지 못했습니다: " + error.getMessage());
+            call.reject("PDF에 넣을 점검표 내용이 비어 있습니다.");
             return;
         }
 
-        final CancellationSignal cancellationSignal = new CancellationSignal();
+        final int pageWidthPx = 1123;
+        final int pageHeightPx = 794;
+        final int pdfPageWidth = 842;
+        final int pdfPageHeight = 595;
+        final float scale = (float) pdfPageWidth / (float) pageWidthPx;
+        final File output = new File(getContext().getCacheDir(),
+            "daily-inspection-" + System.currentTimeMillis() + ".pdf");
+        final PdfDocument document = new PdfDocument();
+
         try {
-            adapter.onLayout(null, createPrintAttributes(), cancellationSignal,
-                new PrintDocumentAdapter.LayoutResultCallback() {
-                    @Override
-                    public void onLayoutFinished(PrintDocumentInfo info, boolean changed) {
-                        if (info == null || info.getPageCount() == 0) {
-                            output.delete();
-                            finishPdfAdapter(adapter, webView);
-                            call.reject("PDF에 포함할 페이지를 찾지 못했습니다.");
-                            return;
-                        }
+            webView.measure(
+                View.MeasureSpec.makeMeasureSpec(pageWidthPx, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(pageHeightPx, View.MeasureSpec.EXACTLY)
+            );
+            webView.layout(0, 0, pageWidthPx, pageHeightPx);
+            webView.setHorizontalScrollBarEnabled(false);
+            webView.setVerticalScrollBarEnabled(false);
+            webView.requestLayout();
+            webView.invalidate();
 
-                        final ParcelFileDescriptor destination;
-                        try {
-                            destination = ParcelFileDescriptor.open(output,
-                                ParcelFileDescriptor.MODE_CREATE
-                                    | ParcelFileDescriptor.MODE_TRUNCATE
-                                    | ParcelFileDescriptor.MODE_READ_WRITE);
-                        } catch (IOException error) {
-                            output.delete();
-                            finishPdfAdapter(adapter, webView);
-                            call.reject("PDF 임시 파일을 만들지 못했습니다: " + error.getMessage());
-                            return;
-                        }
-
-                        try {
-                            adapter.onWrite(new PageRange[]{PageRange.ALL_PAGES}, destination,
-                                cancellationSignal, new PrintDocumentAdapter.WriteResultCallback() {
-                                    @Override
-                                    public void onWriteFinished(PageRange[] pages) {
-                                        closeQuietly(destination);
-                                        finishPdfAdapter(adapter, webView);
-                                        try {
-                                            validatePdfHasVisibleContent(output);
-                                            callback.onReady(output);
-                                        } catch (Exception error) {
-                                            output.delete();
-                                            call.reject(error.getMessage() == null
-                                                ? "PDF 내용 확인에 실패했습니다."
-                                                : error.getMessage());
-                                        }
-                                    }
-
-                                    @Override
-                                    public void onWriteFailed(CharSequence error) {
-                                        closeQuietly(destination);
-                                        output.delete();
-                                        finishPdfAdapter(adapter, webView);
-                                        call.reject("PDF 내용을 기록하지 못했습니다: " + error);
-                                    }
-
-                                    @Override
-                                    public void onWriteCancelled() {
-                                        closeQuietly(destination);
-                                        output.delete();
-                                        finishPdfAdapter(adapter, webView);
-                                        call.reject("PDF 생성이 취소되었습니다.");
-                                    }
-                                });
-                        } catch (Exception error) {
-                            closeQuietly(destination);
-                            output.delete();
-                            finishPdfAdapter(adapter, webView);
-                            call.reject("PDF 기록을 시작하지 못했습니다: " + error.getMessage());
-                        }
-                    }
-
-                    @Override
-                    public void onLayoutFailed(CharSequence error) {
-                        output.delete();
-                        finishPdfAdapter(adapter, webView);
-                        call.reject("PDF 페이지 구성을 만들지 못했습니다: " + error);
-                    }
-
-                    @Override
-                    public void onLayoutCancelled() {
-                        output.delete();
-                        finishPdfAdapter(adapter, webView);
-                        call.reject("PDF 페이지 구성 작업이 취소되었습니다.");
-                    }
-                }, null);
+            drawNextPdfPage(webView, document, output, jobName, contentHeight,
+                pageBreaks, 0, 1, pageWidthPx, pageHeightPx,
+                pdfPageWidth, pdfPageHeight, scale, call, callback);
         } catch (Exception error) {
+            try { document.close(); } catch (Exception ignored) { }
             output.delete();
-            finishPdfAdapter(adapter, webView);
-            call.reject("PDF 레이아웃을 시작하지 못했습니다: " + error.getMessage());
+            releasePrintView(webView);
+            call.reject("PDF 페이지를 준비하지 못했습니다: " + error.getMessage());
         }
     }
 
-    private void finishPdfAdapter(PrintDocumentAdapter adapter, WebView webView) {
-        try {
-            adapter.onFinish();
-        } catch (Exception ignored) {
-            // 인쇄 엔진 정리 오류가 이미 완료된 PDF 결과를 바꾸지 않도록 무시합니다.
+    /**
+     * 각 페이지의 스크롤 위치가 WebView 렌더러에 반영된 뒤 캡처합니다.
+     * postVisualStateCallback을 통해 스크롤 직후 이전 화면이 저장되는 문제를 피합니다.
+     */
+    private void drawNextPdfPage(WebView webView, PdfDocument document, File output,
+        String jobName, int contentHeight, List<Integer> pageBreaks, int offset, int pageNumber,
+        int pageWidthPx, int pageHeightPx, int pdfPageWidth, int pdfPageHeight, float scale,
+        PluginCall call, PdfReadyCallback callback) {
+
+        if (offset >= contentHeight) {
+            try {
+                try (FileOutputStream stream = new FileOutputStream(output)) {
+                    document.writeTo(stream);
+                }
+                document.close();
+                releasePrintView(webView);
+
+                if (!output.exists() || output.length() < 500) {
+                    output.delete();
+                    call.reject("PDF 파일이 비어 있습니다. 다시 시도해주세요.");
+                    return;
+                }
+
+                validatePdfHasVisibleContent(output);
+                callback.onReady(output);
+            } catch (Exception error) {
+                try { document.close(); } catch (Exception ignored) { }
+                output.delete();
+                releasePrintView(webView);
+                call.reject(error.getMessage() == null
+                    ? "PDF 파일을 완성하지 못했습니다."
+                    : error.getMessage());
+            }
+            return;
         }
-        releasePrintView(webView);
+
+        if (pageNumber > 100) {
+            try { document.close(); } catch (Exception ignored) { }
+            output.delete();
+            releasePrintView(webView);
+            call.reject("점검표가 너무 길어 PDF 페이지를 모두 만들지 못했습니다.");
+            return;
+        }
+
+        int nextOffset = Math.min(offset + pageHeightPx, contentHeight);
+        for (Integer pageBreak : pageBreaks) {
+            if (pageBreak != null
+                && pageBreak > offset + (pageHeightPx * 65 / 100)
+                && pageBreak <= nextOffset
+                && pageBreak < contentHeight) {
+                nextOffset = pageBreak;
+                break;
+            }
+        }
+        if (nextOffset <= offset) {
+            nextOffset = Math.min(offset + pageHeightPx, contentHeight);
+        }
+
+        webView.scrollTo(0, offset);
+        webView.invalidate();
+        final int pageEnd = nextOffset;
+
+        webView.postVisualStateCallback(pageNumber, requestId -> {
+            try {
+                PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(
+                    pdfPageWidth, pdfPageHeight, pageNumber).create();
+                PdfDocument.Page page = document.startPage(pageInfo);
+                Canvas canvas = page.getCanvas();
+                canvas.drawColor(Color.WHITE);
+                canvas.save();
+                canvas.scale(scale, scale);
+                canvas.clipRect(0, 0, pageWidthPx, pageHeightPx);
+                webView.draw(canvas);
+                canvas.restore();
+                document.finishPage(page);
+
+                drawNextPdfPage(webView, document, output, jobName, contentHeight,
+                    pageBreaks, pageEnd, pageNumber + 1, pageWidthPx, pageHeightPx,
+                    pdfPageWidth, pdfPageHeight, scale, call, callback);
+            } catch (Exception error) {
+                try { document.close(); } catch (Exception ignored) { }
+                output.delete();
+                releasePrintView(webView);
+                call.reject("PDF 페이지 " + pageNumber + "를 생성하지 못했습니다: " + error.getMessage());
+            }
+        });
     }
 
     /**
@@ -505,6 +546,9 @@ public class DailyInspectionPrintPlugin extends Plugin {
     private void releasePrintView(WebView view) {
         if (view == null) return;
         activePrintViews.remove(view);
+        if (view.getParent() instanceof ViewGroup) {
+            ((ViewGroup) view.getParent()).removeView(view);
+        }
         view.post(() -> {
             try {
                 view.stopLoading();
