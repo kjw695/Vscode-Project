@@ -145,30 +145,25 @@ public class DailyInspectionPrintPlugin extends Plugin {
 
     @PluginMethod
     public void diagnosePdf(PluginCall call) {
-        final String html = call.getString("html");
         final String jobName = safeName(call.getString("name"));
-        if (html == null || html.trim().isEmpty()) {
-            call.reject("진단할 점검표 내용이 없습니다.");
-            return;
+        final String metricsJson = call.getString("metrics", "{}");
+        File zipFile = null;
+        try {
+            // 안전 진단은 PDF 렌더러나 대형 WebView/Bitmap을 실행하지 않습니다.
+            // 미리보기 DOM의 크기와 표/서명 배치 정보만 작은 ZIP으로 저장합니다.
+            String stamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+            zipFile = createLightweightDiagnosticZip(jobName, metricsJson);
+            String zipName = jobName + "_PDF구조진단_" + stamp + ".zip";
+            Uri savedUri = saveZipToDownloads(zipFile, zipName);
+            JSObject result = new JSObject();
+            result.put("uri", savedUri.toString());
+            result.put("fileName", zipName);
+            call.resolve(result);
+        } catch (Exception error) {
+            call.reject("PDF 구조 진단 파일을 저장하지 못했습니다: " + error.getMessage());
+        } finally {
+            if (zipFile != null && zipFile.exists()) zipFile.delete();
         }
-
-        renderPdf(html, jobName, call, true, (pdfFile, diagnostics) -> {
-            File zipFile = null;
-            try {
-                String stamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
-                zipFile = createDiagnosticZip(pdfFile, diagnostics, jobName);
-                String zipName = jobName + "_PDF진단_" + stamp + ".zip";
-                Uri savedUri = saveZipToDownloads(zipFile, zipName);
-                JSObject result = new JSObject();
-                result.put("uri", savedUri.toString());
-                result.put("fileName", zipName);
-                call.resolve(result);
-            } catch (Exception error) {
-                call.reject("PDF 진단 파일을 저장하지 못했습니다: " + error.getMessage());
-            } finally {
-                if (zipFile != null && zipFile.exists()) zipFile.delete();
-            }
-        });
     }
 
     @PluginMethod
@@ -493,6 +488,27 @@ public class DailyInspectionPrintPlugin extends Plugin {
         }
         if (values.size() > limit) summary.append("...(+").append(values.size() - limit).append(")");
         return summary.toString();
+    }
+
+    private File createLightweightDiagnosticZip(String jobName, String metricsJson)
+        throws IOException {
+        File zipFile = new File(getContext().getCacheDir(),
+            "daily-inspection-structure-diagnostic-" + System.currentTimeMillis() + ".zip");
+        String report =
+            "Daily Inspection PDF Structure Diagnostic\\n" +
+            "Job: " + jobName + "\\n" +
+            "Generated: " + new Date().toString() + "\\n" +
+            "Android: " + Build.VERSION.RELEASE + " (SDK " + Build.VERSION.SDK_INT + ")\\n" +
+            "Device: " + Build.MANUFACTURER + " " + Build.MODEL + "\\n" +
+            "App package: " + getContext().getPackageName() + "\\n" +
+            "Renderer: NOT EXECUTED (safe DOM-only diagnostic)\\n\\n" +
+            "Preview metrics JSON:\\n" + metricsJson + "\\n";
+        try (ZipOutputStream zip = new ZipOutputStream(new FileOutputStream(zipFile))) {
+            zip.putNextEntry(new ZipEntry("diagnostics.txt"));
+            zip.write(report.getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        return zipFile;
     }
 
     private File createDiagnosticZip(File pdfFile, DiagnosticSession diagnostics, String jobName)
