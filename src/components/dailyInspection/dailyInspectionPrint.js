@@ -223,7 +223,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .signature-cell img { display: block; width: 100%; height: 7.5mm; object-fit: fill; background: #fff; }
     .signature-detail-image { display: block; width: 100%; max-width: 700px; height: 145px; object-fit: contain; object-position: left center; background: #fff; margin-top: 8px; }
     .inspection-table .action-title { height: 15mm; font-size: 9pt; padding: 1.5mm; }
-    .inspection-table .action-content { height: 15mm; text-align: left; vertical-align: middle; padding: 2mm 3mm; font-size: 9pt; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .inspection-table .action-content { height: auto; min-height: 15mm; text-align: left; vertical-align: middle; padding: 2mm 3mm; font-size: 9pt; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
     .example-text { color: #999; }
     .page-break { break-before: page; page-break-before: always; }
     #preview-content { width: 297mm; min-width: 297mm; box-sizing: border-box; padding: 5mm; transform-origin: top left; }
@@ -233,14 +233,14 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .detail-table { width: 100%; margin: 7px 0; border-collapse: collapse; table-layout: fixed; }
     .detail-table thead { display: table-header-group; }
     .detail-table th, .detail-table td { border: 1px solid #555; padding: 0.8mm 1.2mm; text-align: center; vertical-align: middle; font-size: 8pt; line-height: 1.15; overflow-wrap: anywhere; }
-    .detail-table th { font-weight: 700; white-space: nowrap; background: #f4f4f4; }
+    .detail-table th { display: table-cell; color: #111 !important; font-weight: 700; white-space: nowrap; background: #fff !important; }
     .detail-table .defect-number, .detail-table .defect-result { padding-left: 0.5mm; padding-right: 0.5mm; font-size: 8pt; white-space: nowrap; }
     .detail-table .defect-datetime { padding-top: 0.7mm; padding-bottom: 0.7mm; font-size: 7.5pt; line-height: 1.1; white-space: nowrap; }
     .detail-meta { display: flex; flex-wrap: wrap; gap: 12mm; margin: 0 0 5mm; padding: 2.5mm 3mm; border: 1px solid #777; font-size: 8.5pt; }
     .detail-table .defect-content, .detail-table .defect-action { text-align: left; }
     .detail-table .defect-signature { padding: 0; vertical-align: middle; }
     .defect-signature-image { display: block; width: 100%; height: 11mm; min-height: 11mm; object-fit: fill; object-position: center; background: #fff; margin: 0; padding: 0; }
-    .detail-table tr { break-inside: avoid; page-break-inside: avoid; }
+    .inspection-table tr, .detail-table tr { break-inside: avoid; page-break-inside: avoid; }
     .no-defects { padding: 8mm; text-align: center !important; color: #666; font-size: 9pt !important; }
 
     .meta { display: flex; gap: 18px; flex-wrap: wrap; margin: 8px 0; }
