@@ -325,17 +325,19 @@ public class DailyInspectionPrintPlugin extends Plugin {
             if (firstPageHeight <= 0) {
                 throw new IOException("일상점검표의 첫 페이지 높이를 확인하지 못했습니다.");
             }
-            int firstPageViewHeight = Math.max(pageHeightPx, firstPageHeight);
+            // 문서 전체 높이로 WebView를 한 번만 확장합니다.
+            // 이후 페이지는 WebView 스크롤 대신 Canvas의 문서 좌표 이동으로 캡처합니다.
+            int fullViewHeight = Math.max(pageHeightPx, Math.min(contentHeight, 16000));
             diagnostics.log("PDF setup: contentHeight=" + contentHeight + ", firstPageHeight="
-                + firstPageHeight + ", firstPageViewHeight=" + firstPageViewHeight
+                + firstPageHeight + ", fullViewHeight=" + fullViewHeight
                 + ", pageViewport=" + pageWidthPx + "x" + pageHeightPx
                 + ", pdfPage=" + pdfPageWidth + "x" + pdfPageHeight);
-            webView.setLayoutParams(new ViewGroup.LayoutParams(pageWidthPx, firstPageViewHeight));
+            webView.setLayoutParams(new ViewGroup.LayoutParams(pageWidthPx, fullViewHeight));
             webView.measure(
                 View.MeasureSpec.makeMeasureSpec(pageWidthPx, View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(firstPageViewHeight, View.MeasureSpec.EXACTLY)
+                View.MeasureSpec.makeMeasureSpec(fullViewHeight, View.MeasureSpec.EXACTLY)
             );
-            webView.layout(0, 0, pageWidthPx, firstPageViewHeight);
+            webView.layout(0, 0, pageWidthPx, fullViewHeight);
             webView.requestLayout();
             webView.invalidate();
 
@@ -427,27 +429,20 @@ public class DailyInspectionPrintPlugin extends Plugin {
             : scale;
         diagnostics.log("PAGE " + pageNumber + " plan: offset=" + offset
             + ", pageEndOffset=" + pageEndOffset
-            + ", requestedScroll=" + offset
+            + ", canvasOffsetY=" + (-offset)
             + ", clipHeight=" + clipHeight
             + ", view=" + webView.getWidth() + "x" + webView.getHeight()
+            + ", nativeScrollY=" + webView.getScrollY()
             + ", pageScale=" + diagnosticScale
             + ", rowCount=" + detailRowEnds.size());
 
-        // 페이지 위치는 JavaScript DOM에서 CSS px로 계산됩니다.
-        // Android View.scrollTo()에 그대로 전달하지 않고 WebView 문서 좌표계에서 이동해야
-        // 두 번째 페이지부터 올바른 위치를 캡처할 수 있습니다.
-        webView.evaluateJavascript(
-            "window.scrollTo(0, " + offset + "); window.scrollY.toString();",
-            scrollResult -> {
-                diagnostics.log("PAGE " + pageNumber + " scroll: jsResult=" + scrollResult
-                    + ", nativeScrollY=" + webView.getScrollY()
-                    + ", view=" + webView.getWidth() + "x" + webView.getHeight());
-                webView.postVisualStateCallback(pageNumber, new WebView.VisualStateCallback() {
+        // WebView는 문서 전체 높이로 유지하고, 페이지별 캡처 위치는 Canvas에서 이동합니다.
+        webView.postVisualStateCallback(pageNumber, new WebView.VisualStateCallback() {
             @Override
             public void onComplete(long requestId) {
                 try {
                     try {
-                        diagnostics.capturePage(webView, pageNumber, pageWidthPx, clipHeight);
+                        diagnostics.capturePage(webView, pageNumber, pageWidthPx, clipHeight, offset);
                     } catch (Exception captureError) {
                         diagnostics.log("PAGE " + pageNumber + " captureError: " + captureError.getMessage());
                     }
@@ -467,25 +462,13 @@ public class DailyInspectionPrintPlugin extends Plugin {
                     canvas.translate(pageLeft, 0);
                     canvas.scale(pageScale, pageScale);
                     canvas.clipRect(0, 0, pageWidthPx, clipHeight);
+                    canvas.translate(0, -offset);
                     webView.draw(canvas);
                     canvas.restore();
                     document.finishPage(page);
                     diagnostics.log("PAGE " + pageNumber + " PDF canvas completed: "
                         + pdfPageWidth + "x" + pdfPageHeight + ", clip=" + clipHeight
                         + ", canvasScale=" + pageScale + ", canvasTranslateX=" + pageLeft);
-
-                    // 첫 페이지 전체를 캡처한 뒤 WebView 높이를 일반 페이지 크기로 복원합니다.
-                    // 이후 페이지는 정상적인 794px 뷰포트에서 스크롤 위치를 계산합니다.
-                    if (pageNumber == 1 && pageContentHeight > pageHeightPx) {
-                        webView.setLayoutParams(new ViewGroup.LayoutParams(pageWidthPx, pageHeightPx));
-                        webView.measure(
-                            View.MeasureSpec.makeMeasureSpec(pageWidthPx, View.MeasureSpec.EXACTLY),
-                            View.MeasureSpec.makeMeasureSpec(pageHeightPx, View.MeasureSpec.EXACTLY)
-                        );
-                        webView.layout(0, 0, pageWidthPx, pageHeightPx);
-                        webView.requestLayout();
-                        webView.invalidate();
-                    }
 
                     drawPdfPage(webView, document, output, jobName, contentHeight, detailRowEnds,
                         diagnostics, pageEndOffset, pageHeightPx, pageNumber + 1,
@@ -614,7 +597,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
             Log.i(TAG, message);
         }
 
-        void capturePage(WebView webView, int pageNumber, int width, int height) throws IOException {
+        void capturePage(WebView webView, int pageNumber, int width, int height, int offsetY) throws IOException {
             pageCount = Math.max(pageCount, pageNumber);
             if (!enabled || pageNumber > 4) {
                 log("PAGE " + pageNumber + " screenshot skipped (capture limit=4)");
@@ -631,7 +614,10 @@ public class DailyInspectionPrintPlugin extends Plugin {
             try {
                 Canvas bitmapCanvas = new Canvas(bitmap);
                 bitmapCanvas.drawColor(Color.WHITE);
+                bitmapCanvas.save();
+                bitmapCanvas.translate(0, -offsetY);
                 webView.draw(bitmapCanvas);
+                bitmapCanvas.restore();
 
                 int[] pixels = new int[width * height];
                 bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
