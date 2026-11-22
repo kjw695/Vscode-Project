@@ -28,9 +28,12 @@ if (typeof window !== 'undefined') {
         throw new Error('휴대폰 앱에서 PDF 저장 및 공유를 이용해주세요.');
     };
 
-    window.__dailyInspectionDiagnosePdf = async (html, name) => {
+    window.__dailyInspectionDiagnosePdf = async (html, name, metrics) => {
         if (Capacitor.getPlatform() === 'android' && Capacitor.isPluginAvailable('DailyInspectionPrint')) {
-            return DailyInspectionPrint.diagnosePdf({ html, name });
+            return DailyInspectionPrint.diagnosePdf({
+                name,
+                metrics: JSON.stringify({ ...metrics, htmlLength: String(html || '').length })
+            });
         }
         throw new Error('PDF 진단 파일 생성은 Android 앱에서 이용해주세요.');
     };
@@ -271,7 +274,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
             <button type="button" class="secondary" onclick="window.adjustDailyInspectionZoom(0.1)">확대</button>
             <button type="button" class="secondary" onclick="window.parent.document.getElementById('daily-inspection-print-frame')?.remove()">닫기</button>
         </div>
-        <button id="daily-inspection-diagnostic-button" class="diagnostic-button" type="button" onclick="window.exportDailyInspectionPdf('diagnostic')" disabled>PDF 오류 진단 파일 만들기</button>
+        <button id="daily-inspection-diagnostic-button" class="diagnostic-button" type="button" onclick="window.exportDailyInspectionPdf('diagnostic')" disabled>PDF 구조 진단 파일 만들기</button>
         <div class="zoom-hint"><span id="preview-zoom-label">맞춤</span> · 두 손가락으로 벌리거나 모아 확대·축소</div>
         <span id="daily-inspection-print-status" class="print-status" aria-live="polite">PDF 준비 중...</span>
     </div>
@@ -443,8 +446,55 @@ export const printDailyInspectionMonth = (records, year, month) => {
                         if (typeof window.parent?.__dailyInspectionDiagnosePdf !== 'function') {
                             throw new Error('PDF 진단 기능을 찾지 못했습니다. 앱을 최신 버전으로 업데이트해주세요.');
                         }
-                        if (printStatus()) printStatus().textContent = 'PDF 페이지를 캡처하고 진단 파일을 만들고 있습니다...';
-                        result = await window.parent.__dailyInspectionDiagnosePdf(html, document.title);
+                        const rect = (element) => {
+                            if (!element) return null;
+                            const box = element.getBoundingClientRect();
+                            return {
+                                top: Math.round(box.top + window.scrollY),
+                                bottom: Math.round(box.bottom + window.scrollY),
+                                width: Math.round(box.width),
+                                height: Math.round(box.height)
+                            };
+                        };
+                        const detail = document.querySelector('.detail');
+                        const detailRows = Array.from(document.querySelectorAll('.detail-table tbody tr'));
+                        const signatures = Array.from(document.querySelectorAll('.signature-cell img, .defect-signature-image'));
+                        const metrics = {
+                            capturedAt: new Date().toISOString(),
+                            userAgent: navigator.userAgent,
+                            viewport: {
+                                innerWidth: window.innerWidth,
+                                innerHeight: window.innerHeight,
+                                devicePixelRatio: window.devicePixelRatio
+                            },
+                            document: {
+                                scrollWidth: document.documentElement.scrollWidth,
+                                scrollHeight: document.documentElement.scrollHeight,
+                                bodyScrollWidth: document.body?.scrollWidth || 0,
+                                bodyScrollHeight: document.body?.scrollHeight || 0
+                            },
+                            preview: rect(document.querySelector('#preview-content')),
+                            detail: {
+                                present: Boolean(detail),
+                                bounds: rect(detail),
+                                tableRows: detailRows.length,
+                                rowBounds: detailRows.map(rect)
+                            },
+                            signatureImages: signatures.map(image => ({
+                                complete: image.complete,
+                                naturalWidth: image.naturalWidth,
+                                naturalHeight: image.naturalHeight,
+                                rendered: rect(image)
+                            })),
+                            tables: Array.from(document.querySelectorAll('table')).map(table => ({
+                                className: String(table.className || ''),
+                                bounds: rect(table),
+                                rows: table.rows?.length || 0,
+                                columns: table.rows?.[0]?.cells?.length || 0
+                            }))
+                        };
+                        if (printStatus()) printStatus().textContent = 'PDF 화면의 구조 정보만 수집해 진단 파일을 만들고 있습니다...';
+                        result = await window.parent.__dailyInspectionDiagnosePdf(html, document.title, metrics);
                     } else {
                         if (typeof window.parent?.__dailyInspectionExportPdf !== 'function') {
                             throw new Error('PDF 저장 및 공유 기능을 찾지 못했습니다. 앱을 최신 버전으로 업데이트해주세요.');
@@ -452,7 +502,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
                         result = await window.parent.__dailyInspectionExportPdf(html, document.title, action);
                     }
                     if (action === 'diagnostic') {
-                        if (printStatus()) printStatus().textContent = '진단 파일 저장 완료 · 다운로드/택배메이트 폴더의 ZIP 파일을 보내주세요.';
+                        if (printStatus()) printStatus().textContent = 'PDF 구조 진단 완료 · 다운로드/택배메이트 폴더의 ZIP 파일을 보내주세요. (PDF 렌더링은 실행하지 않았습니다.)';
                     } else if (action === 'save') {
                         if (result?.webFallback) {
                             if (printStatus()) printStatus().textContent = '인쇄 화면에서 PDF로 저장해주세요.';
