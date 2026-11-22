@@ -28,6 +28,13 @@ if (typeof window !== 'undefined') {
         throw new Error('휴대폰 앱에서 PDF 저장 및 공유를 이용해주세요.');
     };
 
+    window.__dailyInspectionDiagnosePdf = async (html, name) => {
+        if (Capacitor.getPlatform() === 'android' && Capacitor.isPluginAvailable('DailyInspectionPrint')) {
+            return DailyInspectionPrint.diagnosePdf({ html, name });
+        }
+        throw new Error('PDF 진단 파일 생성은 Android 앱에서 이용해주세요.');
+    };
+
     window.__dailyInspectionOpenPdf = async (uri) => {
         if (Capacitor.getPlatform() === 'android' && Capacitor.isPluginAvailable('DailyInspectionPrint')) {
             return DailyInspectionPrint.openPdf({ uri });
@@ -197,6 +204,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
     .toolbar button.secondary { background: #475569; }
     .toolbar button.kakao { background: #f4d900; color: #191919; }
     .toolbar button:disabled { opacity: .55; }
+    .toolbar .diagnostic-button { width: 100%; background: #7c3aed; }
     .toolbar .zoom-hint { width: 100%; margin: 0; color: #475569; font-size: 11px; line-height: 1.25; text-align: center; }
     .toolbar .print-status { display: block; width: 100%; min-height: 14px; color: #334155; font-size: 11px; line-height: 1.25; text-align: center; }
     #preview-content { width: 297mm; min-width: 297mm; box-sizing: border-box; padding: 5mm; transform-origin: top left; }
@@ -263,6 +271,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
             <button type="button" class="secondary" onclick="window.adjustDailyInspectionZoom(0.1)">확대</button>
             <button type="button" class="secondary" onclick="window.parent.document.getElementById('daily-inspection-print-frame')?.remove()">닫기</button>
         </div>
+        <button id="daily-inspection-diagnostic-button" class="diagnostic-button" type="button" onclick="window.exportDailyInspectionPdf('diagnostic')" disabled>PDF 오류 진단 파일 만들기</button>
         <div class="zoom-hint"><span id="preview-zoom-label">맞춤</span> · 두 손가락으로 벌리거나 모아 확대·축소</div>
         <span id="daily-inspection-print-status" class="print-status" aria-live="polite">PDF 준비 중...</span>
     </div>
@@ -322,7 +331,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
             const content = () => document.getElementById('preview-content');
             const label = () => document.getElementById('preview-zoom-label');
             const printButton = () => document.getElementById('daily-inspection-print-button');
-            const exportButtons = () => Array.from(document.querySelectorAll('#daily-inspection-save-button, #daily-inspection-kakao-button, #daily-inspection-sms-button'));
+            const exportButtons = () => Array.from(document.querySelectorAll('#daily-inspection-save-button, #daily-inspection-kakao-button, #daily-inspection-sms-button, #daily-inspection-diagnostic-button'));
             const printStatus = () => document.getElementById('daily-inspection-print-status');
             const getTouchDistance = (touches) => {
                 const dx = touches[0].clientX - touches[1].clientX;
@@ -428,13 +437,23 @@ export const printDailyInspectionMonth = (records, year, month) => {
                 buttons.forEach((button) => { button.disabled = true; });
                 if (printStatus()) printStatus().textContent = action === 'save' ? '휴대폰에 PDF를 저장하고 있습니다...' : 'PDF 공유 화면을 준비하고 있습니다...';
                 try {
-                    if (typeof window.parent?.__dailyInspectionExportPdf !== 'function') {
-                        throw new Error('PDF 저장 및 공유 기능을 찾지 못했습니다. 앱을 최신 버전으로 업데이트해주세요.');
+                    const html = document.documentElement.outerHTML;
+                    let result;
+                    if (action === 'diagnostic') {
+                        if (typeof window.parent?.__dailyInspectionDiagnosePdf !== 'function') {
+                            throw new Error('PDF 진단 기능을 찾지 못했습니다. 앱을 최신 버전으로 업데이트해주세요.');
+                        }
+                        if (printStatus()) printStatus().textContent = 'PDF 페이지를 캡처하고 진단 파일을 만들고 있습니다...';
+                        result = await window.parent.__dailyInspectionDiagnosePdf(html, document.title);
+                    } else {
+                        if (typeof window.parent?.__dailyInspectionExportPdf !== 'function') {
+                            throw new Error('PDF 저장 및 공유 기능을 찾지 못했습니다. 앱을 최신 버전으로 업데이트해주세요.');
+                        }
+                        result = await window.parent.__dailyInspectionExportPdf(html, document.title, action);
                     }
-                    const result = await window.parent.__dailyInspectionExportPdf(
-                        document.documentElement.outerHTML, document.title, action
-                    );
-                    if (action === 'save') {
+                    if (action === 'diagnostic') {
+                        if (printStatus()) printStatus().textContent = '진단 파일 저장 완료 · 다운로드/택배메이트 폴더의 ZIP 파일을 보내주세요.';
+                    } else if (action === 'save') {
                         if (result?.webFallback) {
                             if (printStatus()) printStatus().textContent = '인쇄 화면에서 PDF로 저장해주세요.';
                         } else {
