@@ -1,6 +1,8 @@
 -- Change daily inspection retention from two years to one year.
 -- Preserve the existing signature-version retention behavior and cron schedule.
 
+BEGIN;
+
 CREATE OR REPLACE FUNCTION public.cleanup_expired_daily_inspection_records()
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -41,3 +43,5 @@ REVOKE ALL ON FUNCTION public.cleanup_expired_daily_inspection_records()
 
 COMMENT ON TABLE public.daily_inspection_records IS
     '화물자동차 일상점검표 서버 기록. 마지막 완료/수정 시각 기준 1년 보관 후 자동 삭제됩니다.';
+
+COMMIT;
