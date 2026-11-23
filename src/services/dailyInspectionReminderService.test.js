@@ -11,6 +11,7 @@ jest.mock('@capacitor/local-notifications', () => ({
   }
 }));
 
+import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { clearDailyInspectionReminder } from './dailyInspectionReminderService';
 
@@ -18,6 +19,8 @@ describe('dailyInspectionReminderService account cleanup', () => {
   beforeEach(() => {
     localStorage.clear();
     jest.clearAllMocks();
+    Capacitor.isNativePlatform.mockReturnValue(true);
+    Capacitor.getPlatform.mockReturnValue('android');
     LocalNotifications.cancel.mockResolvedValue(undefined);
   });
 
