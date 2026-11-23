@@ -32,7 +32,7 @@ export const readDailyInspectionReminder = (userId) => {
         const parsed = raw ? JSON.parse(raw) : null;
         return {
             enabled: Boolean(parsed?.enabled),
-            time: /^([01]\\d|2[0-3]):[0-5]\\d$/.test(parsed?.time || '') ? parsed.time : '07:00',
+            time: /^([01]\d|2[0-3]):[0-5]\d$/.test(parsed?.time || '') ? parsed.time : '07:00',
             includeOffDays: Boolean(parsed?.includeOffDays),
             notificationIds: Array.isArray(parsed?.notificationIds)
                 ? parsed.notificationIds.filter((id) => Number.isInteger(id))
@@ -167,7 +167,7 @@ const ensurePermission = async () => {
 };
 
 export const enableDailyInspectionReminder = async (userId, time, options = {}) => {
-    if (!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(time || '')) {
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time || '')) {
         throw new Error('알림 시간을 올바르게 선택해주세요.');
     }
 
