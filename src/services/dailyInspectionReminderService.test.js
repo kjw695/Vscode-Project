@@ -20,6 +20,7 @@ import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import {
   clearDailyInspectionReminder,
+  DAILY_INSPECTION_NOTIFICATION_CHANNEL_ID,
   enableDailyInspectionReminder,
   readDailyInspectionReminder
 } from './dailyInspectionReminderService';
@@ -64,6 +65,7 @@ describe('dailyInspectionReminderService', () => {
     });
 
     const scheduled = LocalNotifications.schedule.mock.calls[0][0].notifications;
+    expect(scheduled.every((notification) => notification.channelId === DAILY_INSPECTION_NOTIFICATION_CHANNEL_ID)).toBe(true);
     expect(scheduled.some((notification) => notification.extra.dateKey === tomorrowKey)).toBe(false);
     expect(scheduled.length).toBeGreaterThan(0);
     expect(readDailyInspectionReminder('account-a').includeOffDays).toBe(false);
