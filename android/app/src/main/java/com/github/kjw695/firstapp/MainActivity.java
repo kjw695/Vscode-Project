@@ -1,7 +1,12 @@
 package com.kjw.deliverytracker;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.graphics.Color;
+import android.media.AudioAttributes;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -15,6 +20,8 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    private static final String DAILY_INSPECTION_NOTIFICATION_CHANNEL_ID = "daily_inspection_reminder_v1";
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         
@@ -23,6 +30,7 @@ public class MainActivity extends BridgeActivity {
         EdgeToEdge.enable(this);
 
         super.onCreate(savedInstanceState);
+        ensureDailyInspectionNotificationChannel();
 
         // 2. 상단바 및 하단바 색상 강제 지정 (흰색 띠 방지)
         int myDarkColor = Color.parseColor("#111827");
@@ -53,5 +61,33 @@ public class MainActivity extends BridgeActivity {
                 return windowInsets;
             });
         }
+    }
+
+    private void ensureDailyInspectionNotificationChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+
+        NotificationManager notificationManager = getSystemService(NotificationManager.class);
+        if (notificationManager == null
+                || notificationManager.getNotificationChannel(DAILY_INSPECTION_NOTIFICATION_CHANNEL_ID) != null) {
+            return;
+        }
+
+        NotificationChannel channel = new NotificationChannel(
+                DAILY_INSPECTION_NOTIFICATION_CHANNEL_ID,
+                "일상점검표 알림",
+                NotificationManager.IMPORTANCE_DEFAULT
+        );
+        channel.setDescription("업무 시작 전 일상점검표 작성 알림");
+        channel.enableVibration(true);
+        channel.setVibrationPattern(new long[] { 0, 300, 200, 300 });
+        channel.setSound(
+                Settings.System.DEFAULT_NOTIFICATION_URI,
+                new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+        );
+
+        notificationManager.createNotificationChannel(channel);
     }
 }
