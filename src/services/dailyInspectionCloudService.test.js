@@ -1,3 +1,5 @@
+jest.mock('../lib/supabaseClient', () => ({ supabase: {} }));
+
 import { getKoreaDateKey, getKoreaDateYearsAgo } from './dailyInspectionCloudService';
 
 describe('dailyInspectionCloudService Korea date handling', () => {
