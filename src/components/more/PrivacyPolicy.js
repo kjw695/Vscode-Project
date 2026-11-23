@@ -97,7 +97,7 @@ const PrivacyPolicy = ({ onBack, isDarkMode }) => {
           <p className={bodyText}>
             개인정보 관련 문의, 열람·정정·삭제 요청은 아래 연락처로 접수할 수 있습니다.
           </p>
-          <p className="mt-2 font-semibold">이메일: zzz695@naver.com</p>
+          <p className="mt-2 font-semibold">이메일: kjw891224@gmail.com</p>
         </section>
 
         <section className="pb-4">
