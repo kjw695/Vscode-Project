@@ -7,32 +7,101 @@ jest.mock('@capacitor/core', () => ({
 
 jest.mock('@capacitor/local-notifications', () => ({
   LocalNotifications: {
-    cancel: jest.fn()
+    cancel: jest.fn(),
+    schedule: jest.fn(),
+    checkPermissions: jest.fn(),
+    requestPermissions: jest.fn(),
+    checkExactNotificationSetting: jest.fn(),
+    changeExactNotificationSetting: jest.fn()
   }
 }));
 
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { clearDailyInspectionReminder } from './dailyInspectionReminderService';
+import {
+  clearDailyInspectionReminder,
+  enableDailyInspectionReminder,
+  readDailyInspectionReminder
+} from './dailyInspectionReminderService';
 
-describe('dailyInspectionReminderService account cleanup', () => {
+const getDateKey = (date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+const getNextHourTime = () => {
+  const nextHour = (new Date().getHours() + 1) % 24;
+  return `${String(nextHour).padStart(2, '0')}:00`;
+};
+
+describe('dailyInspectionReminderService', () => {
   beforeEach(() => {
     localStorage.clear();
     jest.clearAllMocks();
     Capacitor.isNativePlatform.mockReturnValue(true);
     Capacitor.getPlatform.mockReturnValue('android');
     LocalNotifications.cancel.mockResolvedValue(undefined);
+    LocalNotifications.schedule.mockResolvedValue({ notifications: [] });
+    LocalNotifications.checkPermissions.mockResolvedValue({ display: 'granted' });
+    LocalNotifications.requestPermissions.mockResolvedValue({ display: 'granted' });
+    LocalNotifications.checkExactNotificationSetting.mockResolvedValue({ exact_alarm: 'granted' });
+    LocalNotifications.changeExactNotificationSetting.mockResolvedValue(undefined);
   });
 
-  test('cancels the account notification and removes only that account setting', async () => {
-    localStorage.setItem('dailyInspectionReminder:v1:user:account-a', JSON.stringify({ enabled: true, time: '07:30' }));
+  test('reminders remain disabled until the user saves a setting', () => {
+    expect(readDailyInspectionReminder('account-a')).toMatchObject({
+      enabled: false,
+      includeOffDays: false,
+      notificationIds: []
+    });
+  });
+
+  test('does not schedule notifications on registered off-days by default', async () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowKey = getDateKey(tomorrow);
+
+    await enableDailyInspectionReminder('account-a', getNextHourTime(), {
+      offDates: [tomorrowKey]
+    });
+
+    const scheduled = LocalNotifications.schedule.mock.calls[0][0].notifications;
+    expect(scheduled.some((notification) => notification.extra.dateKey === tomorrowKey)).toBe(false);
+    expect(scheduled.length).toBeGreaterThan(0);
+    expect(readDailyInspectionReminder('account-a').includeOffDays).toBe(false);
+    expect(readDailyInspectionReminder('account-a').notificationIds).toHaveLength(scheduled.length);
+  });
+
+  test('includes off-days when the user checks the option', async () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowKey = getDateKey(tomorrow);
+
+    await enableDailyInspectionReminder('account-a', getNextHourTime(), {
+      includeOffDays: true,
+      offDates: [tomorrowKey]
+    });
+
+    const scheduled = LocalNotifications.schedule.mock.calls[0][0].notifications;
+    expect(scheduled.some((notification) => notification.extra.dateKey === tomorrowKey)).toBe(true);
+    expect(readDailyInspectionReminder('account-a').includeOffDays).toBe(true);
+  });
+
+  test('cancels the account notifications and removes only that account setting', async () => {
+    localStorage.setItem('dailyInspectionReminder:v1:user:account-a', JSON.stringify({
+      enabled: true,
+      time: '07:30',
+      notificationIds: [12345, 23456]
+    }));
     localStorage.setItem('dailyInspectionReminder:v1:user:account-b', JSON.stringify({ enabled: true, time: '08:00' }));
 
     const result = await clearDailyInspectionReminder('account-a');
 
     expect(result.cancelled).toBe(true);
     expect(LocalNotifications.cancel).toHaveBeenCalledWith({
-      notifications: [{ id: expect.any(Number) }]
+      notifications: expect.arrayContaining([
+        { id: expect.any(Number) },
+        { id: 12345 },
+        { id: 23456 }
+      ])
     });
     expect(localStorage.getItem('dailyInspectionReminder:v1:user:account-a')).toBeNull();
     expect(localStorage.getItem('dailyInspectionReminder:v1:user:account-b')).not.toBeNull();
