@@ -371,7 +371,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   const normalizedName=driverName.trim(),normalizedVehicle=vehicleNumber.trim();
   try{
    const payload={
-    answers:Object.fromEntries(ALL_ITEMS.map(item=>[item.id,answers[item.id]])),actionNotes:actionNotes.trim(),transportCompanyName:normalizedCompanyName,driverName:normalizedName,vehicleNumber:normalizedVehicle,
+    answers:Object.fromEntries(ALL_ITEMS.map(item=>[item.id,answers[item.id]])),actionNotes:badItems.length>0?actionNotes.trim():'',transportCompanyName:normalizedCompanyName,driverName:normalizedName,vehicleNumber:normalizedVehicle,
     driverSignature,correctionReason:correctionReason.trim(),supersedesId:currentRecord?.id||null,
     isNotOperated:false,completed:true
    };
@@ -440,7 +440,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
 
    if(!record)throw new Error('점검 기록을 저장하지 못했습니다.');
    try{saveSavedTransportCompanyName(userId,normalizedCompanyName);}catch(storageError){console.warn('[DailyInspection] 운송사업자명 자동 저장 실패:',storageError);}
-   setCurrentRecord(record);setIsSaved(true);setCorrectionReason('');
+   setCurrentRecord(record);setIsSaved(true);setCorrectionReason('');setActionNotes(payload.actionNotes);
    const [selectedYear,selectedMonthNumber]=selectedMonth.split('-');
    if(authUser?.id&&record.storageMode==='server'){
     try{
@@ -613,12 +613,12 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
    {allGoodSelected?'✓ 모두 양호 선택됨':'모두 양호로 선택'}
   </button>
 
-  <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
+  {badItems.length>0&&<section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
    <label htmlFor="daily-inspection-action-notes" className="block font-black text-sm">불량상태 조치 기록 <span className={`ml-1 text-xs font-medium ${mutedClass}`}>불량 항목이 있을 때 필수</span></label>
    <textarea id="daily-inspection-action-notes" value={actionNotes} onChange={e=>{markFormTouched();setActionNotes(e.target.value);setIsSaved(false);setSaveNotice('');}} rows={3} placeholder="(예시) 00일 창닦이기 불량 － 00일 창닦이기 교체" className={`mt-2 w-full rounded-lg border p-3 text-sm ${dark?'bg-slate-900 border-slate-600 text-white':'bg-white border-slate-300 text-slate-900'}`}/> 
 
-   {badItems.length>0&&<p className="mt-2 text-xs text-red-500">불량 항목 {badItems.length}개가 있습니다. 조치 내용까지 입력해야 완료 처리됩니다.</p>}
-  </section>
+   <p className="mt-2 text-xs text-red-500">불량 항목 {badItems.length}개가 있습니다. 조치 내용까지 입력해야 완료 처리됩니다.</p>
+  </section>}
 
   <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
    <h3 className="font-black text-sm mb-3">전자서명</h3>
