@@ -21,6 +21,8 @@ const getReminderNotificationIdForDate = (userId, dateKey) => {
     return 70000 + ((hash >>> 0) % 2000000000);
 };
 
+export const DAILY_INSPECTION_NOTIFICATION_CHANNEL_ID = 'daily_inspection_reminder_v1';
+
 const STORAGE_KEY_PREFIX = 'dailyInspectionReminder:v1:user:';
 const REMINDER_LOOKAHEAD_DAYS = 30;
 
@@ -74,6 +76,7 @@ const buildReminderNotifications = (userId, time, offDates = [], includeOffDays 
 
         notifications.push({
             id: getReminderNotificationIdForDate(userId, dateKey),
+            channelId: DAILY_INSPECTION_NOTIFICATION_CHANNEL_ID,
             title: '택배메이트 · 업무 전 차량 점검',
             body: '업무를 시작하기 전에 일상점검표를 작성해주세요.',
             smallIcon: 'ic_stat_app_icon',
