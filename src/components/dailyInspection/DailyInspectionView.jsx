@@ -173,10 +173,10 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   if(authUser?.id){
    try{
     await syncPendingLocalRecords();
-    // 기존 기기 기록을 로그인 계정의 서버로 한 번 이전합니다(최근 2년만).
+    // 기존 기기 기록을 로그인 계정의 서버로 한 번 이전합니다(최근 1년만).
     if(!legacySyncDoneRef.current){
      const localRecords=listAllLocalDailyInspectionRecords(userId);
-     const cutoffKey=getKoreaDateYearsAgo(2);
+     const cutoffKey=getDeviceDateYearsAgo(1);
      const existingRecords=await listRecentDailyInspectionRecordsFromServer(cutoffKey);
      const existingDates=new Set(existingRecords.map(item=>item.inspectionDate));
      const legacySignature=savedSignature;
