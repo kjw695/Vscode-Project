@@ -113,3 +113,27 @@ export const disableDailyInspectionReminder = async (userId, time) => {
     }
     saveReminderSetting(userId, { enabled: false, time: time || '07:00' });
 };
+
+/**
+ * Removes the account-scoped reminder preference and cancels its scheduled
+ * local notification after the server confirms account deletion.
+ */
+export const clearDailyInspectionReminder = async (userId) => {
+    let cancelled = true;
+    if (Capacitor.isNativePlatform()) {
+        try {
+            await LocalNotifications.cancel({
+                notifications: [{ id: getReminderNotificationId(userId) }]
+            });
+        } catch (error) {
+            cancelled = false;
+            console.warn('[DailyInspectionReminder] 탈퇴 후 예약 알림 취소 실패:', error);
+        }
+    }
+    try {
+        localStorage.removeItem(getStorageKey(userId));
+    } catch (error) {
+        console.warn('[DailyInspectionReminder] 탈퇴 후 알림 설정 정리 실패:', error);
+    }
+    return { cancelled };
+};
