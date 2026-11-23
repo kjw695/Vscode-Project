@@ -11,6 +11,7 @@ import android.util.Log;
 import android.graphics.pdf.PdfDocument;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -200,7 +201,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
                 return;
             }
 
-            contentRoot.addView(webView, 0, new ViewGroup.LayoutParams(1123, 794));
+            contentRoot.addView(webView, 0, new FrameLayout.LayoutParams(1123, 794));
             webView.setFocusable(false);
             webView.setFocusableInTouchMode(false);
             webView.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
@@ -327,7 +328,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
                 + firstPageHeight + ", fullViewHeight=" + fullViewHeight
                 + ", pageViewport=" + pageWidthPx + "x" + pageHeightPx
                 + ", pdfPage=" + pdfPageWidth + "x" + pdfPageHeight);
-            webView.setLayoutParams(new ViewGroup.LayoutParams(pageWidthPx, fullViewHeight));
+            webView.setLayoutParams(new FrameLayout.LayoutParams(pageWidthPx, fullViewHeight));
             webView.measure(
                 View.MeasureSpec.makeMeasureSpec(pageWidthPx, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(fullViewHeight, View.MeasureSpec.EXACTLY)
