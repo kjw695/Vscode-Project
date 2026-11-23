@@ -7,7 +7,8 @@ import {
     readSavedTransportCompanyName,
     saveSavedTransportCompanyName,
     readDailyInspectionRecord,
-    saveDailyInspectionRecord
+    saveDailyInspectionRecord,
+    clearDailyInspectionLocalRecords
 } from './dailyInspectionService';
 
 describe('dailyInspectionService offline persistence', () => {
@@ -115,4 +116,21 @@ describe('dailyInspectionService offline persistence', () => {
         expect(listAllLocalDailyInspectionRecords(userId)).toHaveLength(1);
         expect(listPendingDailyInspectionRecords(userId)).toHaveLength(0);
     });
+    test('clears both current and legacy inspection data for only the deleted account', () => {
+        localStorage.setItem(`dailyInspection:v2:user:${userId}:2026-11-23`, '{"version":2}');
+        localStorage.setItem(`dailyInspection:v1:user:${userId}:2026-11-20`, '{"version":1}');
+        localStorage.setItem('dailyInspection:v2:user:another-user:2026-11-23', '{"version":2}');
+        localStorage.setItem('dailyInspection:v1:user:another-user:2026-11-20', '{"version":1}');
+        localStorage.setItem('dailyInspection:v2:user:guest:2026-11-23', '{"guest":true}');
+
+        const removedCount = clearDailyInspectionLocalRecords(userId);
+
+        expect(removedCount).toBe(2);
+        expect(localStorage.getItem(`dailyInspection:v2:user:${userId}:2026-11-23`)).toBeNull();
+        expect(localStorage.getItem(`dailyInspection:v1:user:${userId}:2026-11-20`)).toBeNull();
+        expect(localStorage.getItem('dailyInspection:v2:user:another-user:2026-11-23')).not.toBeNull();
+        expect(localStorage.getItem('dailyInspection:v1:user:another-user:2026-11-20')).not.toBeNull();
+        expect(localStorage.getItem('dailyInspection:v2:user:guest:2026-11-23')).not.toBeNull();
+    });
+
 });
