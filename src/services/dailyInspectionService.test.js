@@ -2,6 +2,8 @@ import {
     listAllLocalDailyInspectionRecords,
     listPendingDailyInspectionRecords,
     markDailyInspectionRecordSynced,
+    readSavedDriverIdentity,
+    saveSavedDriverIdentity,
     readDailyInspectionRecord,
     saveDailyInspectionRecord
 } from './dailyInspectionService';
@@ -21,6 +23,31 @@ describe('dailyInspectionService offline persistence', () => {
 
     beforeEach(() => {
         localStorage.clear();
+    });
+
+    test('keeps driver name and vehicle number cached per account while offline', () => {
+        saveSavedDriverIdentity(userId, {
+            driverName: '캐시된 운전자',
+            vehicleNumber: '34나5678'
+        });
+
+        expect(readSavedDriverIdentity(userId)).toMatchObject({
+            driverName: '캐시된 운전자',
+            vehicleNumber: '34나5678'
+        });
+        expect(readSavedDriverIdentity('another-user')).toEqual({
+            driverName: '',
+            vehicleNumber: ''
+        });
+    });
+
+    test('restores driver identity from an older local inspection record', async () => {
+        await saveDailyInspectionRecord(userId, date, sampleRecord);
+
+        expect(readSavedDriverIdentity(userId)).toMatchObject({
+            driverName: '테스트 운전자',
+            vehicleNumber: '12가3456'
+        });
     });
 
     test('keeps an authenticated offline record in the pending queue', async () => {
