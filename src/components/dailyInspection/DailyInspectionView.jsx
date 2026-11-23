@@ -6,7 +6,7 @@ import { printDailyInspectionMonth } from './dailyInspectionPrint';
 import SignaturePad from './DailyInspectionSignaturePad';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../contexts/AuthContext';
-import { enableDailyInspectionReminder, disableDailyInspectionReminder, readDailyInspectionReminder, refreshDailyInspectionReminder } from '../../services/dailyInspectionReminderService';
+import { enableDailyInspectionReminder, disableDailyInspectionReminder, readDailyInspectionReminder } from '../../services/dailyInspectionReminderService';
 
 const INSPECTION_GROUPS = [
  { title:'외관점검', items:[
@@ -257,12 +257,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   setReminderEnabled(setting.enabled);
   setReminderIncludeOffDays(setting.includeOffDays);
   setReminderMessage('');
-  if(setting.enabled){
-   refreshDailyInspectionReminder(userId,reminderOffDates).catch(error=>{
-    console.warn('[DailyInspectionReminder] 근무일 기준 알림 재등록 실패:',error);
-   });
-  }
- },[userId,reminderOffDates]);
+ },[userId]);
 
  useEffect(()=>{
   if(!isReminderSettingsOpen)return undefined;
