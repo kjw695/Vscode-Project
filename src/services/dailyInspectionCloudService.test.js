@@ -1,17 +1,23 @@
 jest.mock('../lib/supabaseClient', () => ({ supabase: {} }));
 
-import { getKoreaDateKey, getKoreaDateYearsAgo } from './dailyInspectionCloudService';
+import { getDeviceDateKey, getDeviceDateYearsAgo } from './dailyInspectionCloudService';
 
-describe('dailyInspectionCloudService Korea date handling', () => {
-  test('uses Korea calendar date after UTC midnight boundary', () => {
-    expect(getKoreaDateKey(new Date('2026-11-23T15:30:00.000Z'))).toBe('2026-11-24');
+describe('dailyInspectionCloudService device-local date handling', () => {
+  test('uses the device local calendar date, not a fixed Korea timezone', () => {
+    const localDate = new Date(2026, 10, 24, 0, 30, 0);
+    const expected = `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, '0')}-${String(localDate.getDate()).padStart(2, '0')}`;
+    expect(getDeviceDateKey(localDate)).toBe(expected);
   });
 
-  test('uses Korea calendar date before UTC date changes', () => {
-    expect(getKoreaDateKey(new Date('2026-11-23T14:59:59.000Z'))).toBe('2026-11-23');
+  test('calculates a one-year cutoff using device-local calendar date', () => {
+    const localDate = new Date(2026, 10, 24, 0, 30, 0);
+    const expectedYear = localDate.getFullYear() - 1;
+    const expected = `${expectedYear}-${String(localDate.getMonth() + 1).padStart(2, '0')}-${String(localDate.getDate()).padStart(2, '0')}`;
+    expect(getDeviceDateYearsAgo(1, localDate)).toBe(expected);
   });
 
-  test('calculates the two-year cutoff using Korea date and clamps leap day', () => {
-    expect(getKoreaDateYearsAgo(2, new Date('2024-02-28T15:00:00.000Z'))).toBe('2022-02-28');
+  test('clamps leap day when the previous year is not a leap year', () => {
+    const leapDay = new Date(2024, 1, 29, 12, 0, 0);
+    expect(getDeviceDateYearsAgo(1, leapDay)).toBe('2023-02-28');
   });
 });
