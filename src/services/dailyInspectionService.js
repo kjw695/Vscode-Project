@@ -1,6 +1,7 @@
 const STORAGE_PREFIX = 'dailyInspection:v2:user:';
 const getOwnerKey = (userId) => encodeURIComponent(String(userId || 'guest').trim() || 'guest');
 const getHistoryKey = (userId) => `${STORAGE_PREFIX}${getOwnerKey(userId)}:history`;
+const getSavedDriverIdentityKey = (userId) => `${getDailyInspectionStoragePrefix(userId)}saved-driver-identity`;
 export const getDailyInspectionStoragePrefix = (userId) => `${STORAGE_PREFIX}${getOwnerKey(userId)}:`;
 export const getDailyInspectionStorageKey = (userId, date) => `${getDailyInspectionStoragePrefix(userId)}${String(date || '').slice(0, 10)}`;
 
@@ -97,6 +98,50 @@ export const saveDailyInspectionRecord = async (userId, date, record, options = 
         throw new Error('점검 기록을 기기에 저장하지 못했습니다. 저장 공간을 확인해주세요.');
     }
     return payload;
+};
+
+export const readSavedDriverIdentity = (userId) => {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(getSavedDriverIdentityKey(userId)) || 'null');
+        const cached = {
+            driverName: String(parsed?.driverName || '').trim(),
+            vehicleNumber: String(parsed?.vehicleNumber || '').trim()
+        };
+        if (cached.driverName || cached.vehicleNumber) return cached;
+
+        // Older app versions did not keep a separate identity cache. Reuse the
+        // most recent locally saved inspection record as a migration fallback.
+        const latestRecord = readHistory(userId)
+            .filter((record) => record && (record.driverName || record.vehicleNumber))
+            .sort((a, b) =>
+                String(b.inspectionDate || b.date || b.completedAt || '')
+                    .localeCompare(String(a.inspectionDate || a.date || a.completedAt || ''))
+            )[0];
+        return {
+            driverName: String(latestRecord?.driverName || '').trim(),
+            vehicleNumber: String(latestRecord?.vehicleNumber || '').trim()
+        };
+    } catch (error) {
+        console.warn('[DailyInspection] 저장된 운전자 정보를 읽지 못했습니다.', error);
+        return { driverName: '', vehicleNumber: '' };
+    }
+};
+
+export const saveSavedDriverIdentity = (userId, identity = {}) => {
+    try {
+        const previous = readSavedDriverIdentity(userId);
+        const next = {
+            driverName: String(identity.driverName || previous.driverName || '').trim(),
+            vehicleNumber: String(identity.vehicleNumber || previous.vehicleNumber || '').trim(),
+            updatedAt: new Date().toISOString()
+        };
+        if (!next.driverName && !next.vehicleNumber) return false;
+        localStorage.setItem(getSavedDriverIdentityKey(userId), JSON.stringify(next));
+        return true;
+    } catch (error) {
+        console.warn('[DailyInspection] 운전자 정보 기기 저장 실패:', error);
+        return false;
+    }
 };
 
 const getSavedTransportCompanyNameKey = (userId) => `${getDailyInspectionStoragePrefix(userId)}saved-transport-company-name`;
