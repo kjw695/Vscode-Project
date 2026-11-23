@@ -5,6 +5,28 @@ const getSavedDriverIdentityKey = (userId) => `${getDailyInspectionStoragePrefix
 export const getDailyInspectionStoragePrefix = (userId) => `${STORAGE_PREFIX}${getOwnerKey(userId)}:`;
 export const getDailyInspectionStorageKey = (userId, date) => `${getDailyInspectionStoragePrefix(userId)}${String(date || '').slice(0, 10)}`;
 
+export const getLegacyDailyInspectionStoragePrefix = (userId) =>
+    `dailyInspection:v1:user:${getOwnerKey(userId)}:`;
+
+export const clearDailyInspectionLocalRecords = (userId) => {
+    if (!userId) return 0;
+
+    const prefixes = [
+        getDailyInspectionStoragePrefix(userId),
+        getLegacyDailyInspectionStoragePrefix(userId)
+    ];
+    let removedCount = 0;
+
+    Object.keys(localStorage).forEach((key) => {
+        if (prefixes.some((prefix) => key.startsWith(prefix))) {
+            localStorage.removeItem(key);
+            removedCount += 1;
+        }
+    });
+
+    return removedCount;
+};
+
 const readHistory = (userId) => {
     try {
         const parsed = JSON.parse(localStorage.getItem(getHistoryKey(userId)) || '[]');
