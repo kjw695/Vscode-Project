@@ -269,7 +269,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
         <div class="toolbar-controls">
             <button id="daily-inspection-save-button" type="button" onclick="window.exportDailyInspectionPdf('save')" disabled>휴대폰 저장</button>
             <button id="daily-inspection-kakao-button" class="kakao" type="button" onclick="window.exportDailyInspectionPdf('kakao')" disabled>카카오톡</button>
-            <button id="daily-inspection-sms-button" class="secondary" type="button" onclick="window.exportDailyInspectionPdf('sms')" disabled>문자 보내기</button>
+            <button id="daily-inspection-share-button" class="secondary" type="button" onclick="window.exportDailyInspectionPdf('share')" disabled>공유하기</button>
             <button type="button" class="secondary" onclick="window.adjustDailyInspectionZoom(-0.1)">축소</button>
             <button type="button" class="secondary" onclick="window.adjustDailyInspectionZoom(0.1)">확대</button>
             <button type="button" class="secondary" onclick="window.parent.document.getElementById('daily-inspection-print-frame')?.remove()">닫기</button>
@@ -334,7 +334,7 @@ export const printDailyInspectionMonth = (records, year, month) => {
             const content = () => document.getElementById('preview-content');
             const label = () => document.getElementById('preview-zoom-label');
             const printButton = () => document.getElementById('daily-inspection-print-button');
-            const exportButtons = () => Array.from(document.querySelectorAll('#daily-inspection-save-button, #daily-inspection-kakao-button, #daily-inspection-sms-button, #daily-inspection-diagnostic-button'));
+            const exportButtons = () => Array.from(document.querySelectorAll('#daily-inspection-save-button, #daily-inspection-kakao-button, #daily-inspection-share-button, #daily-inspection-diagnostic-button'));
             const printStatus = () => document.getElementById('daily-inspection-print-status');
             const getTouchDistance = (touches) => {
                 const dx = touches[0].clientX - touches[1].clientX;
@@ -521,8 +521,8 @@ export const printDailyInspectionMonth = (records, year, month) => {
                         }
                     } else if (action === 'kakao') {
                         if (printStatus()) printStatus().textContent = '카카오톡에서 대화방을 선택하고 PDF를 전송해주세요.';
-                    } else if (printStatus()) {
-                        printStatus().textContent = '문자 앱을 열었습니다. 받는 사람과 PDF 첨부를 확인한 뒤 전송해주세요.';
+                    } else if (action === 'share') {
+                        if (printStatus()) printStatus().textContent = '공유할 앱을 선택해주세요.';
                     }
                 } catch (error) {
                     console.error('[DailyInspection] PDF 저장/공유 실패:', error);
