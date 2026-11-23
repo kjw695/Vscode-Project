@@ -132,7 +132,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
                     result.put("uri", savedUri.toString());
                     result.put("fileName", jobName + ".pdf");
                     call.resolve(result);
-                } else if ("kakao".equals(action) || "sms".equals(action)) {
+                } else if ("kakao".equals(action) || "share".equals(action)) {
                     sharePdf(pdfFile, jobName + ".pdf", action);
                     call.resolve();
                 } else {
@@ -797,14 +797,14 @@ public class DailyInspectionPrintPlugin extends Plugin {
             return;
         }
 
-        if ("sms".equals(action)) {
-            // smsto 스킴으로 문자 앱만 대상으로 지정하고 PDF를 첨부합니다.
-            intent.setDataAndType(Uri.parse("smsto:"), "application/pdf");
-            intent.putExtra("sms_body", "운수종사자 일상점검표 PDF 파일입니다.");
+        if ("share".equals(action)) {
+            // Android 기본 공유창을 열어 Quick Share, 메시지, 메일, 클라우드 앱 등을 선택할 수 있게 합니다.
+            Intent chooser = Intent.createChooser(intent, "PDF 공유");
+            chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             try {
-                getActivity().startActivity(intent);
+                getActivity().startActivity(chooser);
             } catch (android.content.ActivityNotFoundException unsupported) {
-                throw new IOException("이 기기의 문자 앱이 PDF 첨부를 지원하지 않습니다. PDF를 저장한 뒤 문자 앱에서 직접 첨부해주세요.");
+                throw new IOException("PDF를 공유할 수 있는 앱을 찾지 못했습니다.");
             }
             return;
         }
