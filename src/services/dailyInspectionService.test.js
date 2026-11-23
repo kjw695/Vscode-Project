@@ -4,6 +4,8 @@ import {
     markDailyInspectionRecordSynced,
     readSavedDriverIdentity,
     saveSavedDriverIdentity,
+    readSavedTransportCompanyName,
+    saveSavedTransportCompanyName,
     readDailyInspectionRecord,
     saveDailyInspectionRecord
 } from './dailyInspectionService';
@@ -48,6 +50,26 @@ describe('dailyInspectionService offline persistence', () => {
             driverName: '테스트 운전자',
             vehicleNumber: '12가3456'
         });
+    });
+
+    test('recovers the transport company name instantly from older local inspection history', async () => {
+        await saveDailyInspectionRecord(userId, '2026-11-20', {
+            ...sampleRecord,
+            transportCompanyName: '기존 기록 운송사'
+        });
+
+        expect(readSavedTransportCompanyName(userId)).toBe('기존 기록 운송사');
+        expect(localStorage.getItem('dailyInspection:v2:user:daily-inspection-test-user:saved-transport-company-name'))
+            .toBe('기존 기록 운송사');
+        expect(readSavedTransportCompanyName('another-user')).toBe('');
+    });
+
+    test('persists transport company name immediately and preserves an intentional clear', () => {
+        saveSavedTransportCompanyName(userId, '즉시 저장 운송사');
+        expect(readSavedTransportCompanyName(userId)).toBe('즉시 저장 운송사');
+
+        saveSavedTransportCompanyName(userId, '');
+        expect(readSavedTransportCompanyName(userId)).toBe('');
     });
 
     test('keeps an authenticated offline record in the pending queue', async () => {
