@@ -348,18 +348,21 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
    }
 
    let record=localRecord;
+   if(localRecord){
+    try{
+     // 오프라인 저장이어도 다음 점검 때 같은 서명을 다시 사용할 수 있게 기기에 보관합니다.
+     saveSavedDriverSignature(userId,driverSignature);
+     setSavedDriverSignature(driverSignature);
+    }catch(signatureStorageError){
+     console.warn('[DailyInspection] 서명 기기 캐시 저장 실패:',signatureStorageError);
+    }
+   }
    if(authUser?.id){
     try{
      const signatureVersion=await saveDailyInspectionSignatureToServer(driverSignature);
      const serverRecord=await saveDailyInspectionRecordToServer(authUser.id,date,payload,signatureVersion.signature_id);
      record=serverRecord;
      if(localRecord)markDailyInspectionRecordSynced(userId,date,serverRecord);
-     try{
-      saveSavedDriverSignature(userId,driverSignature);
-      setSavedDriverSignature(driverSignature);
-     }catch(signatureStorageError){
-      console.warn('[DailyInspection] 서명 기기 캐시 저장 실패:',signatureStorageError);
-     }
     }catch(syncError){
      console.warn('[DailyInspection] 서버 연결 실패. 점검 기록은 기기에 보관합니다.',syncError);
      if(!localRecord){
