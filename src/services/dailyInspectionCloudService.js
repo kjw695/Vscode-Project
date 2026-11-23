@@ -1,20 +1,13 @@
 import { supabase } from '../lib/supabaseClient';
 
-export const getKoreaDateKey = (value = new Date()) => {
+export const getDeviceDateKey = (value = new Date()) => {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) throw new Error('올바르지 않은 날짜입니다.');
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).formatToParts(date);
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${values.year}-${values.month}-${values.day}`;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
-export const getKoreaDateYearsAgo = (years, value = new Date()) => {
-  const [year, month, day] = getKoreaDateKey(value).split('-').map(Number);
+export const getDeviceDateYearsAgo = (years, value = new Date()) => {
+  const [year, month, day] = getDeviceDateKey(value).split('-').map(Number);
   const targetYear = year - Number(years);
   const lastDay = new Date(Date.UTC(targetYear, month, 0)).getUTCDate();
   return `${targetYear}-${String(month).padStart(2, '0')}-${String(Math.min(day, lastDay)).padStart(2, '0')}`;
@@ -119,7 +112,7 @@ export const saveDailyInspectionRecordToServer = async (userId, date, record, si
 };
 
 export const listRecentDailyInspectionRecordsFromServer = async (fromDate) => {
-  const today = getKoreaDateKey();
+  const today = getDeviceDateKey();
   const { data, error } = await supabase
     .from('daily_inspection_records')
     .select('*')
