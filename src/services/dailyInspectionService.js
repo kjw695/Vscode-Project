@@ -148,7 +148,22 @@ const getSavedTransportCompanyNameKey = (userId) => `${getDailyInspectionStorage
 
 export const readSavedTransportCompanyName = (userId) => {
     try {
-        return localStorage.getItem(getSavedTransportCompanyNameKey(userId)) || '';
+        const key = getSavedTransportCompanyNameKey(userId);
+        const cachedValue = localStorage.getItem(key);
+        // An existing empty value means the user deliberately cleared the field.
+        if (cachedValue !== null) return cachedValue;
+
+        // Older versions only saved the company name inside completed inspection
+        // records. Recover the newest locally available value immediately.
+        const latestRecord = readHistory(userId)
+            .filter((record) => record && String(record.transportCompanyName || '').trim())
+            .sort((a, b) =>
+                String(b.inspectionDate || b.date || b.completedAt || '')
+                    .localeCompare(String(a.inspectionDate || a.date || a.completedAt || ''))
+            )[0];
+        const recoveredName = String(latestRecord?.transportCompanyName || '').trim();
+        if (recoveredName) localStorage.setItem(key, recoveredName);
+        return recoveredName;
     } catch (error) {
         console.warn('[DailyInspection] 저장된 운송사업자명을 읽지 못했습니다.', error);
         return '';
@@ -158,8 +173,9 @@ export const readSavedTransportCompanyName = (userId) => {
 export const saveSavedTransportCompanyName = (userId, companyName) => {
     try {
         const value = String(companyName || '').trim();
-        if (value) localStorage.setItem(getSavedTransportCompanyNameKey(userId), value);
-        else localStorage.removeItem(getSavedTransportCompanyNameKey(userId));
+        // Keep an empty marker too, so a deliberate clear is not replaced by
+        // an older company name recovered from inspection history.
+        localStorage.setItem(getSavedTransportCompanyNameKey(userId), value);
         return true;
     } catch (error) {
         console.warn('[DailyInspection] 운송사업자명 저장 실패:', error);
