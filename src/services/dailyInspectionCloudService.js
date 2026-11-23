@@ -1,5 +1,10 @@
 import { supabase } from '../lib/supabaseClient';
 
+const getLocalDateKey = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
 const mapRecord = (row, signature = null) => ({
   id: row.id,
   date: row.inspection_date,
@@ -99,7 +104,7 @@ export const saveDailyInspectionRecordToServer = async (userId, date, record, si
 };
 
 export const listRecentDailyInspectionRecordsFromServer = async (fromDate) => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getLocalDateKey();
   const { data, error } = await supabase
     .from('daily_inspection_records')
     .select('*')
