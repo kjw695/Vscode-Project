@@ -203,7 +203,11 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   }
   setAnswers(latest?.answers&&typeof latest.answers==='object'?latest.answers:{});
   setActionNotes(latest?.actionNotes||'');
-  setTransportCompanyName(latest?.transportCompanyName||localLatest?.transportCompanyName||cachedCompanyName||'');
+  const resolvedCompanyName=latest?.transportCompanyName||localLatest?.transportCompanyName||cachedCompanyName||'';
+  setTransportCompanyName(resolvedCompanyName);
+  if(resolvedCompanyName){
+   try{saveSavedTransportCompanyName(userId,resolvedCompanyName);}catch(storageError){console.warn('[DailyInspection] 운송사업자명 캐시 저장 실패:',storageError);}
+  }
   setSavedDriverSignature(savedSignature);
   setDriverSignature(latest?.driverSignature||savedSignature||'');
   setSignatureMessage('');
@@ -277,6 +281,11 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const identityChanged=driverName.trim()!==profileName.trim()||vehicleNumber.trim()!==profileVehicleNumber.trim();
  const canSave=allAnswered&&(badItems.length===0||actionNotes.trim().length>0)&&Boolean(transportCompanyName.trim())&&Boolean(driverName.trim())&&Boolean(vehicleNumber.trim())&&Boolean(driverSignature)&&(!currentRecord||Boolean(correctionReason.trim()));
 
+ const handleTransportCompanyNameChange=(value)=>{
+  setTransportCompanyName(value);
+  try{saveSavedTransportCompanyName(userId,value);}catch(storageError){console.warn('[DailyInspection] 운송사업자명 임시 저장 실패:',storageError);}
+  setIsSaved(false);setSaveError('');setSaveNotice('');
+ };
  const chooseAnswer=(id,value)=>{setAnswers(prev=>({...prev,[id]:value}));setIsSaved(false);setSaveError('');setSaveNotice('');};
  const markAllAsGood=()=>{
   const allGood=Object.fromEntries(ALL_ITEMS.map(item=>[item.id,'good']));
@@ -532,7 +541,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
     </label>
     <label className="flex w-full min-w-0 flex-col items-stretch text-center text-[11px] font-semibold">
      <span className="mb-1 text-center whitespace-nowrap">운송사업자명</span>
-     <input value={transportCompanyName} onChange={e=>setTransportCompanyName(e.target.value)} maxLength={100} placeholder="사업자명" className={`${fieldClass} block w-full !mt-1 !px-1.5 text-center text-xs`} style={{textAlign:"center"}}/>
+     <input value={transportCompanyName} onChange={e=>handleTransportCompanyNameChange(e.target.value)} maxLength={100} placeholder="사업자명" className={`${fieldClass} block w-full !mt-1 !px-1.5 text-center text-xs`} style={{textAlign:"center"}}/>
     </label>
     <label className="flex w-full min-w-0 flex-col items-stretch text-center text-[11px] font-semibold">
      <span className="mb-1 text-center whitespace-nowrap">차량번호</span>
