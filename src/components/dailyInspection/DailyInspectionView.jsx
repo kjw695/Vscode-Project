@@ -309,23 +309,6 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   const normalizedCompanyName=transportCompanyName.trim();
   const normalizedName=driverName.trim(),normalizedVehicle=vehicleNumber.trim();
   try{
-   // 프로필 갱신은 점검 기록 저장과 분리하여 네트워크 장애가 점검표 저장을 막지 않게 합니다.
-   if(authUser?.id&&(hasMissingIdentity||identityChanged)){
-    setIsSavingProfile(true);
-    try{
-     const {error}=await supabase.from('profiles').update({full_name:normalizedName,vehicle_number:normalizedVehicle}).eq('id',authUser.id);
-     if(error)throw error;
-     await refreshProfile();
-     setProfileSaveMessage('이름과 차량번호가 내정보에 자동 저장되었습니다.');
-     setProfileSaveError('');
-    }catch(profileError){
-     console.warn('[DailyInspection] 내정보 자동 저장 실패. 점검 기록은 별도로 저장합니다.',profileError);
-     setProfileSaveError('내정보는 인터넷 연결 후 다시 저장해주세요. 점검 기록 저장은 계속 진행합니다.');
-    }finally{
-     setIsSavingProfile(false);
-    }
-   }
-
    const payload={
     answers:Object.fromEntries(ALL_ITEMS.map(item=>[item.id,answers[item.id]])),actionNotes:actionNotes.trim(),transportCompanyName:normalizedCompanyName,driverName:normalizedName,vehicleNumber:normalizedVehicle,
     driverSignature,correctionReason:correctionReason.trim(),supersedesId:currentRecord?.id||null,
@@ -355,6 +338,22 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
      setSavedDriverSignature(driverSignature);
     }catch(signatureStorageError){
      console.warn('[DailyInspection] 서명 기기 캐시 저장 실패:',signatureStorageError);
+    }
+   }
+   // 프로필 갱신은 점검 기록 저장과 분리하여 네트워크 장애가 점검표 저장을 막지 않게 합니다.
+   if(authUser?.id&&(hasMissingIdentity||identityChanged)){
+    setIsSavingProfile(true);
+    try{
+     const {error}=await supabase.from('profiles').update({full_name:normalizedName,vehicle_number:normalizedVehicle}).eq('id',authUser.id);
+     if(error)throw error;
+     await refreshProfile();
+     setProfileSaveMessage('이름과 차량번호가 내정보에 자동 저장되었습니다.');
+     setProfileSaveError('');
+    }catch(profileError){
+     console.warn('[DailyInspection] 내정보 자동 저장 실패. 점검 기록은 별도로 저장합니다.',profileError);
+     setProfileSaveError('내정보는 인터넷 연결 후 다시 저장해주세요. 점검 기록 저장은 계속 진행합니다.');
+    }finally{
+     setIsSavingProfile(false);
     }
    }
    if(authUser?.id){
