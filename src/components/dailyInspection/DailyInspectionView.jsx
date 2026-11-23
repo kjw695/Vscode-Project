@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, ClipboardCheck, Printer, History, CalendarDays, ChevronLeft, ChevronRight, Bell, X } from 'lucide-react';
 import { listDailyInspectionRecords, readDailyInspectionRecord, saveDailyInspectionRecord, readSavedDriverSignature, saveSavedDriverSignature, readSavedTransportCompanyName, saveSavedTransportCompanyName, readSavedDriverIdentity, saveSavedDriverIdentity, listAllLocalDailyInspectionRecords, listPendingDailyInspectionRecords, markDailyInspectionRecordSynced } from '../../services/dailyInspectionService';
-import { readLatestDailyInspectionSignatureFromServer, saveDailyInspectionSignatureToServer, readDailyInspectionRecordFromServer, listDailyInspectionRecordsFromServer, listRecentDailyInspectionRecordsFromServer, saveDailyInspectionRecordToServer } from '../../services/dailyInspectionCloudService';
+import { readLatestDailyInspectionSignatureFromServer, saveDailyInspectionSignatureToServer, readDailyInspectionRecordFromServer, listDailyInspectionRecordsFromServer, listRecentDailyInspectionRecordsFromServer, saveDailyInspectionRecordToServer, getKoreaDateYearsAgo } from '../../services/dailyInspectionCloudService';
 import { printDailyInspectionMonth } from './dailyInspectionPrint';
 import SignaturePad from './DailyInspectionSignaturePad';
 import { supabase } from '../../lib/supabaseClient';
@@ -176,8 +176,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
     // 기존 기기 기록을 로그인 계정의 서버로 한 번 이전합니다(최근 2년만).
     if(!legacySyncDoneRef.current){
      const localRecords=listAllLocalDailyInspectionRecords(userId);
-     const cutoff=new Date();cutoff.setFullYear(cutoff.getFullYear()-2);
-     const cutoffKey=`${cutoff.getFullYear()}-${String(cutoff.getMonth()+1).padStart(2,'0')}-${String(cutoff.getDate()).padStart(2,'0')}`;
+     const cutoffKey=getKoreaDateYearsAgo(2);
      const existingRecords=await listRecentDailyInspectionRecordsFromServer(cutoffKey);
      const existingDates=new Set(existingRecords.map(item=>item.inspectionDate));
      const legacySignature=savedSignature;
