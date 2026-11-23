@@ -43,6 +43,11 @@ jobs:
           CI: 'true'
         run: npm test -- --watchAll=false --runInBand src/services/dailyInspectionService.test.js
 
+      - name: Run daily inspection Korea date tests
+        env:
+          CI: 'true'
+        run: npm test -- --watchAll=false --runInBand src/services/dailyInspectionCloudService.test.js
+
       - name: Run account isolation tests
         env:
           CI: 'true'
