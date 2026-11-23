@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, ClipboardCheck, Printer, History, CalendarDays, ChevronLeft, ChevronRight, Bell, X } from 'lucide-react';
 import { listDailyInspectionRecords, readDailyInspectionRecord, saveDailyInspectionRecord, readSavedDriverSignature, saveSavedDriverSignature, readSavedTransportCompanyName, saveSavedTransportCompanyName, readSavedDriverIdentity, saveSavedDriverIdentity, listAllLocalDailyInspectionRecords, listPendingDailyInspectionRecords, markDailyInspectionRecordSynced } from '../../services/dailyInspectionService';
-import { readLatestDailyInspectionSignatureFromServer, saveDailyInspectionSignatureToServer, readDailyInspectionRecordFromServer, listDailyInspectionRecordsFromServer, listRecentDailyInspectionRecordsFromServer, saveDailyInspectionRecordToServer, getKoreaDateYearsAgo } from '../../services/dailyInspectionCloudService';
+import { readLatestDailyInspectionSignatureFromServer, saveDailyInspectionSignatureToServer, readDailyInspectionRecordFromServer, listDailyInspectionRecordsFromServer, listRecentDailyInspectionRecordsFromServer, saveDailyInspectionRecordToServer, getDeviceDateYearsAgo } from '../../services/dailyInspectionCloudService';
 import { printDailyInspectionMonth } from './dailyInspectionPrint';
 import SignaturePad from './DailyInspectionSignaturePad';
 import { supabase } from '../../lib/supabaseClient';
