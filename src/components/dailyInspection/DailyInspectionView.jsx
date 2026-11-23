@@ -73,7 +73,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const [saveError,setSaveError]=useState('');
  const [saveNotice,setSaveNotice]=useState('');
  const [isSaved,setIsSaved]=useState(false);
- const [transportCompanyName,setTransportCompanyName]=useState('');
+ const [transportCompanyName,setTransportCompanyName]=useState(()=>readSavedTransportCompanyName(userId));
  const [driverName,setDriverName]=useState(()=>profile?.full_name||profile?.display_name||readSavedDriverIdentity(userId).driverName||'');
  const [vehicleNumber,setVehicleNumber]=useState(()=>profile?.vehicle_number||readSavedDriverIdentity(userId).vehicleNumber||'');
  const [driverSignature,setDriverSignature]=useState('');
@@ -145,6 +145,12 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  };
 
  const refreshRecords=async()=>{
+  // 화면 진입 즉시 로컬 점검 기록과 저장값을 표시하고 서버 조회는 백그라운드에서 이어갑니다.
+  const localLatest=readDailyInspectionRecord(userId,date);
+  const cachedCompanyName=readSavedTransportCompanyName(userId);
+  if(localLatest?.transportCompanyName||cachedCompanyName){
+   setTransportCompanyName(localLatest?.transportCompanyName||cachedCompanyName);
+  }
   let latest=null;
   let savedSignature=readSavedDriverSignature(userId);
   if(authUser?.id){
@@ -197,7 +203,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   }
   setAnswers(latest?.answers&&typeof latest.answers==='object'?latest.answers:{});
   setActionNotes(latest?.actionNotes||'');
-  setTransportCompanyName(latest?.transportCompanyName||readSavedTransportCompanyName(userId)||'');
+  setTransportCompanyName(latest?.transportCompanyName||localLatest?.transportCompanyName||cachedCompanyName||'');
   setSavedDriverSignature(savedSignature);
   setDriverSignature(latest?.driverSignature||savedSignature||'');
   setSignatureMessage('');
