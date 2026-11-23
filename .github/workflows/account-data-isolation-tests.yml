@@ -48,6 +48,11 @@ jobs:
           CI: 'true'
         run: npm test -- --watchAll=false --runInBand src/services/dailyInspectionCloudService.test.js
 
+      - name: Run daily inspection reminder cleanup tests
+        env:
+          CI: 'true'
+        run: npm test -- --watchAll=false --runInBand src/services/dailyInspectionReminderService.test.js
+
       - name: Run account isolation tests
         env:
           CI: 'true'
