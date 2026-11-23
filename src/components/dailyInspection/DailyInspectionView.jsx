@@ -67,7 +67,7 @@ const formatTimestamp=(value)=>{
  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 };
 
-const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,scheduleStatus='work'})=>{
+const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,scheduleStatus='work',reminderOffDates=[]})=>{
  const [answers,setAnswers]=useState({});
  const [actionNotes,setActionNotes]=useState('');
  const [saveError,setSaveError]=useState('');
@@ -86,6 +86,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const [isMonthPickerOpen,setIsMonthPickerOpen]=useState(false);
  const [monthPickerYear,setMonthPickerYear]=useState(Number(String(date||'').slice(0,4))||new Date().getFullYear());
  const [reminderTime,setReminderTime]=useState('07:00');
+ const [reminderIncludeOffDays,setReminderIncludeOffDays]=useState(false);
  const [isReminderSettingsOpen,setIsReminderSettingsOpen]=useState(false);
  const [reminderPeriod,setReminderPeriod]=useState('오전');
  const [reminderHour,setReminderHour]=useState(7);
@@ -254,13 +255,14 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   setReminderHour(parts.hour);
   setReminderMinute(parts.minute);
   setReminderEnabled(setting.enabled);
+  setReminderIncludeOffDays(setting.includeOffDays);
   setReminderMessage('');
   if(setting.enabled){
-   refreshDailyInspectionReminder(userId).catch(error=>{
-    console.warn('[DailyInspectionReminder] 아이콘 적용을 위한 알림 재등록 실패:',error);
+   refreshDailyInspectionReminder(userId,reminderOffDates).catch(error=>{
+    console.warn('[DailyInspectionReminder] 근무일 기준 알림 재등록 실패:',error);
    });
   }
- },[userId]);
+ },[userId,reminderOffDates]);
 
  useEffect(()=>{
   if(!isReminderSettingsOpen)return undefined;
@@ -494,10 +496,15 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   const selectedTime=formatReminderTime(reminderPeriod,reminderHour,reminderMinute);
   setIsSavingReminder(true);setReminderMessage('');
   try{
-   await enableDailyInspectionReminder(userId,selectedTime);
+   await enableDailyInspectionReminder(userId,selectedTime,{
+    includeOffDays:reminderIncludeOffDays,
+    offDates:reminderOffDates
+   });
    setReminderTime(selectedTime);
    setReminderEnabled(true);
-   setReminderMessage(`매일 ${formatReminderTimeLabel(selectedTime)}에 업무 전 점검 알림이 울립니다.`);
+   setReminderMessage(reminderIncludeOffDays
+    ? `매일 ${formatReminderTimeLabel(selectedTime)}에 업무 전 점검 알림이 울립니다.`
+    : `휴무일을 제외하고 ${formatReminderTimeLabel(selectedTime)}에 점검 알림이 울립니다.`);
    setIsReminderSettingsOpen(false);
   }catch(error){
    setReminderMessage(error.message||'알림을 설정하지 못했습니다.');
@@ -703,11 +710,15 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
       </div>
      </div>
      <p className={`mt-5 text-center text-sm font-semibold tabular-nums ${dark?'text-zinc-300':'text-zinc-600'}`}>{reminderPeriod} {reminderHour}시 {String(reminderMinute).padStart(2,'0')}분</p>
-     <p className={`mt-2 text-center text-xs ${dark?'text-zinc-500':'text-zinc-500'}`}>매일 설정한 시간에 업무 전 점검 알림을 보냅니다. 휴무일에도 알림이 울립니다.</p>
+     <p className={`mt-2 text-center text-xs ${dark?'text-zinc-500':'text-zinc-500'}`}>{reminderIncludeOffDays?'매일 설정한 시간에 알림을 보냅니다.':'휴무일에는 알림을 건너뜁니다.'}</p>
     </div>
    </main>
    <footer className="px-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] pt-3">
-    {reminderMessage&&<p className={`mb-3 text-center text-xs font-semibold ${reminderMessage.includes('울립니다')?'text-emerald-600 dark:text-emerald-400':'text-red-500'}`}>{reminderMessage}</p>}
+    <label className={`mb-3 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${dark?'border-zinc-700 bg-zinc-900 text-zinc-100':'border-zinc-200 bg-white text-zinc-800'}`}>
+     <input type="checkbox" className="h-5 w-5 shrink-0 accent-blue-600" checked={reminderIncludeOffDays} onChange={event=>setReminderIncludeOffDays(event.target.checked)}/>
+     <span>휴무날에도 알림을 받겠습니까?</span>
+    </label>
+    {reminderMessage&&<p className={`mb-3 text-center text-xs font-semibold ${reminderMessage.includes('알림이 울립니다')?'text-emerald-600 dark:text-emerald-400':'text-red-500'}`}>{reminderMessage}</p>}
     {reminderEnabled&&<button type="button" onClick={handleDisableReminder} disabled={isSavingReminder} className={`mb-2 w-full rounded-xl py-2.5 text-sm font-semibold ${dark?'text-zinc-400':'text-zinc-500'} disabled:opacity-50`}>알림 끄기</button>}
     <button type="button" onClick={handleEnableReminder} disabled={isSavingReminder} className="h-14 w-full rounded-2xl bg-blue-600 text-base font-black text-white shadow-sm disabled:opacity-50">{isSavingReminder?'저장 중...':'저장'}</button>
    </footer>
