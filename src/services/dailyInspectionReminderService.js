@@ -2,7 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 
 const getReminderNotificationId = (userId) => {
-    const source = `${String(userId || 'guest')}:daily-inspection:legacy`;
+    const source = String(userId || 'guest');
     let hash = 2166136261;
     for (let index = 0; index < source.length; index += 1) {
         hash ^= source.charCodeAt(index);
