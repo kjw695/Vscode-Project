@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, ClipboardCheck, Printer, History, CalendarDays, ChevronLeft, ChevronRight, Bell, X } from 'lucide-react';
-import { listDailyInspectionRecords, readDailyInspectionRecord, saveDailyInspectionRecord, readSavedDriverSignature, saveSavedDriverSignature, readSavedTransportCompanyName, saveSavedTransportCompanyName, listAllLocalDailyInspectionRecords, listPendingDailyInspectionRecords, markDailyInspectionRecordSynced } from '../../services/dailyInspectionService';
+import { listDailyInspectionRecords, readDailyInspectionRecord, saveDailyInspectionRecord, readSavedDriverSignature, saveSavedDriverSignature, readSavedTransportCompanyName, saveSavedTransportCompanyName, readSavedDriverIdentity, saveSavedDriverIdentity, listAllLocalDailyInspectionRecords, listPendingDailyInspectionRecords, markDailyInspectionRecordSynced } from '../../services/dailyInspectionService';
 import { readLatestDailyInspectionSignatureFromServer, saveDailyInspectionSignatureToServer, readDailyInspectionRecordFromServer, listDailyInspectionRecordsFromServer, listRecentDailyInspectionRecordsFromServer, saveDailyInspectionRecordToServer } from '../../services/dailyInspectionCloudService';
 import { printDailyInspectionMonth } from './dailyInspectionPrint';
 import SignaturePad from './DailyInspectionSignaturePad';
@@ -74,8 +74,8 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const [saveNotice,setSaveNotice]=useState('');
  const [isSaved,setIsSaved]=useState(false);
  const [transportCompanyName,setTransportCompanyName]=useState('');
- const [driverName,setDriverName]=useState(profile?.full_name||profile?.display_name||'');
- const [vehicleNumber,setVehicleNumber]=useState(profile?.vehicle_number||'');
+ const [driverName,setDriverName]=useState(()=>profile?.full_name||profile?.display_name||readSavedDriverIdentity(userId).driverName||'');
+ const [vehicleNumber,setVehicleNumber]=useState(()=>profile?.vehicle_number||readSavedDriverIdentity(userId).vehicleNumber||'');
  const [driverSignature,setDriverSignature]=useState('');
  const [savedDriverSignature,setSavedDriverSignature]=useState('');
  const [signatureMessage,setSignatureMessage]=useState('');
@@ -106,10 +106,19 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const {user:authUser,refreshProfile}=useAuth();
 
  useEffect(()=>{
-  setDriverName(profile?.full_name||profile?.display_name||'');
-  setVehicleNumber(profile?.vehicle_number||'');
+  const cachedIdentity=readSavedDriverIdentity(userId);
+  const resolvedName=profile?.full_name||profile?.display_name||cachedIdentity.driverName||'';
+  const resolvedVehicle=profile?.vehicle_number||cachedIdentity.vehicleNumber||'';
+  setDriverName(resolvedName);
+  setVehicleNumber(resolvedVehicle);
+  if(profile?.full_name||profile?.display_name||profile?.vehicle_number){
+   saveSavedDriverIdentity(userId,{
+    driverName:profile?.full_name||profile?.display_name||'',
+    vehicleNumber:profile?.vehicle_number||''
+   });
+  }
   setProfileSaveMessage('');setProfileSaveError('');
- },[profile?.full_name,profile?.display_name,profile?.vehicle_number]);
+ },[userId,profile?.full_name,profile?.display_name,profile?.vehicle_number]);
 
  const syncPendingLocalRecords = async () => {
   if (!authUser?.id || pendingSyncInProgressRef.current) return;
@@ -178,6 +187,14 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   }
   if(!latest)latest=readDailyInspectionRecord(userId,date);
   setCurrentRecord(latest);
+  const cachedIdentity=readSavedDriverIdentity(userId);
+  const resolvedDriverName=latest?.driverName||profile?.full_name||profile?.display_name||cachedIdentity.driverName||'';
+  const resolvedVehicleNumber=latest?.vehicleNumber||profile?.vehicle_number||cachedIdentity.vehicleNumber||'';
+  setDriverName(resolvedDriverName);
+  setVehicleNumber(resolvedVehicleNumber);
+  if(resolvedDriverName||resolvedVehicleNumber){
+   saveSavedDriverIdentity(userId,{driverName:resolvedDriverName,vehicleNumber:resolvedVehicleNumber});
+  }
   setAnswers(latest?.answers&&typeof latest.answers==='object'?latest.answers:{});
   setActionNotes(latest?.actionNotes||'');
   setTransportCompanyName(latest?.transportCompanyName||readSavedTransportCompanyName(userId)||'');
@@ -295,6 +312,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   if(!name||!vehicle){setProfileSaveError('이름과 차량번호를 모두 입력해주세요.');return;}
   setIsSavingProfile(true);setProfileSaveError('');setProfileSaveMessage('');
   try{
+   saveSavedDriverIdentity(userId,{driverName:name,vehicleNumber:vehicle});
    const {error}=await supabase.from('profiles').update({full_name:name,vehicle_number:vehicle}).eq('id',authUser.id);
    if(error)throw error;
    await refreshProfile();setProfileSaveMessage('이름과 차량번호가 내정보에 저장되었습니다.');
@@ -314,6 +332,9 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
     driverSignature,correctionReason:correctionReason.trim(),supersedesId:currentRecord?.id||null,
     isNotOperated:false,completed:true
    };
+
+   // 운전자명과 차량번호도 계정별로 먼저 기기에 보존합니다.
+   saveSavedDriverIdentity(userId,{driverName:normalizedName,vehicleNumber:normalizedVehicle});
 
    // 기기에 먼저 저장합니다. 로그인한 사용자의 오프라인 기록은 별도 재시도 대기열에 넣습니다.
    let localRecord=null;
