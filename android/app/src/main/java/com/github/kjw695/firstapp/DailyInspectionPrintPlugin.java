@@ -1,5 +1,6 @@
 package com.kjw.deliverytracker;
 
+import android.Manifest;
 import android.content.ContentValues;
 import android.content.ClipData;
 import android.content.Context;
@@ -9,6 +10,7 @@ import android.graphics.Color;
 import android.graphics.Canvas;
 import android.graphics.pdf.PdfDocument;
 import android.net.Uri;
+import android.media.MediaScannerConnection;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.CancellationSignal;
@@ -29,7 +31,10 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -41,7 +46,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-@CapacitorPlugin(name = "DailyInspectionPrint")
+@CapacitorPlugin(
+    name = "DailyInspectionPrint",
+    permissions = {
+        @Permission(
+            alias = "legacyStorage",
+            strings = { Manifest.permission.WRITE_EXTERNAL_STORAGE }
+        )
+    }
+)
 public class DailyInspectionPrintPlugin extends Plugin {
     private final List<WebView> activePrintViews = new ArrayList<>();
 
@@ -106,6 +119,29 @@ public class DailyInspectionPrintPlugin extends Plugin {
 
     @PluginMethod
     public void exportPdf(PluginCall call) {
+        if (requiresLegacyDownloadsPermission(call)
+            && getPermissionState("legacyStorage") != PermissionState.GRANTED) {
+            requestPermissionForAlias("legacyStorage", call, "legacyStoragePermissionCallback");
+            return;
+        }
+        exportPdfAfterPermission(call);
+    }
+
+    @PermissionCallback
+    private void legacyStoragePermissionCallback(PluginCall call) {
+        if (getPermissionState("legacyStorage") != PermissionState.GRANTED) {
+            call.reject("PDF를 다운로드 폴더에 저장하려면 저장 권한이 필요합니다.");
+            return;
+        }
+        exportPdfAfterPermission(call);
+    }
+
+    private boolean requiresLegacyDownloadsPermission(PluginCall call) {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+            && "save".equals(call.getString("action", "save"));
+    }
+
+    private void exportPdfAfterPermission(PluginCall call) {
         final String html = call.getString("html");
         final String jobName = safeName(call.getString("name"));
         final String action = call.getString("action", "save");
@@ -350,9 +386,14 @@ public class DailyInspectionPrintPlugin extends Plugin {
             return uri;
         }
 
-        File downloads = new File(getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
-            "택배메이트");
-        if (!downloads.exists() && !downloads.mkdirs()) {
+        File downloadsRoot = Environment.getExternalStoragePublicDirectory(
+            Environment.DIRECTORY_DOWNLOADS);
+        if (downloadsRoot == null) {
+            throw new IOException("공용 다운로드 폴더를 찾지 못했습니다.");
+        }
+        File downloads = new File(downloadsRoot, "택배메이트");
+        if ((!downloadsRoot.exists() && !downloadsRoot.mkdirs())
+            || (!downloads.exists() && !downloads.mkdirs())) {
             throw new IOException("다운로드 폴더를 만들지 못했습니다.");
         }
         File destination = new File(downloads, fileName);
@@ -360,6 +401,12 @@ public class DailyInspectionPrintPlugin extends Plugin {
              OutputStream output = new FileOutputStream(destination)) {
             copy(input, output);
         }
+        MediaScannerConnection.scanFile(
+            getContext(),
+            new String[] { destination.getAbsolutePath() },
+            new String[] { "application/pdf" },
+            null
+        );
         return FileProvider.getUriForFile(getContext(),
             getContext().getPackageName() + ".fileprovider", destination);
     }
