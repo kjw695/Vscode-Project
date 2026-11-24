@@ -1,8 +1,31 @@
 const STORAGE_PREFIX = 'dailyInspection:v2:user:';
 const getOwnerKey = (userId) => encodeURIComponent(String(userId || 'guest').trim() || 'guest');
 const getHistoryKey = (userId) => `${STORAGE_PREFIX}${getOwnerKey(userId)}:history`;
+const getSavedDriverIdentityKey = (userId) => `${getDailyInspectionStoragePrefix(userId)}saved-driver-identity`;
 export const getDailyInspectionStoragePrefix = (userId) => `${STORAGE_PREFIX}${getOwnerKey(userId)}:`;
 export const getDailyInspectionStorageKey = (userId, date) => `${getDailyInspectionStoragePrefix(userId)}${String(date || '').slice(0, 10)}`;
+
+export const getLegacyDailyInspectionStoragePrefix = (userId) =>
+    `dailyInspection:v1:user:${getOwnerKey(userId)}:`;
+
+export const clearDailyInspectionLocalRecords = (userId) => {
+    if (!userId) return 0;
+
+    const prefixes = [
+        getDailyInspectionStoragePrefix(userId),
+        getLegacyDailyInspectionStoragePrefix(userId)
+    ];
+    let removedCount = 0;
+
+    Object.keys(localStorage).forEach((key) => {
+        if (prefixes.some((prefix) => key.startsWith(prefix))) {
+            localStorage.removeItem(key);
+            removedCount += 1;
+        }
+    });
+
+    return removedCount;
+};
 
 const readHistory = (userId) => {
     try {
@@ -55,7 +78,7 @@ export const readDailyInspectionRecord = (userId, date) => {
     }
 };
 
-export const saveDailyInspectionRecord = async (userId, date, record) => {
+export const saveDailyInspectionRecord = async (userId, date, record, options = {}) => {
     if (!date || !record || typeof record !== 'object') throw new Error('저장할 점검 날짜 또는 내용이 없습니다.');
     const history = readHistory(userId);
     const dayKey = String(date).slice(0, 10);
@@ -71,7 +94,8 @@ export const saveDailyInspectionRecord = async (userId, date, record) => {
         date: dayKey,
         inspectionDate: dayKey,
         completedAt: new Date().toISOString(),
-        storageMode: 'device-only',
+        storageMode: options.storageMode || 'device-only',
+        ...(options.syncStatus ? { syncStatus: options.syncStatus } : {}),
         revision: previousRevision + 1
     };
     try {
@@ -98,11 +122,70 @@ export const saveDailyInspectionRecord = async (userId, date, record) => {
     return payload;
 };
 
+export const readSavedDriverIdentity = (userId) => {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(getSavedDriverIdentityKey(userId)) || 'null');
+        const cached = {
+            driverName: String(parsed?.driverName || '').trim(),
+            vehicleNumber: String(parsed?.vehicleNumber || '').trim()
+        };
+        if (cached.driverName || cached.vehicleNumber) return cached;
+
+        // Older app versions did not keep a separate identity cache. Reuse the
+        // most recent locally saved inspection record as a migration fallback.
+        const latestRecord = readHistory(userId)
+            .filter((record) => record && (record.driverName || record.vehicleNumber))
+            .sort((a, b) =>
+                String(b.inspectionDate || b.date || b.completedAt || '')
+                    .localeCompare(String(a.inspectionDate || a.date || a.completedAt || ''))
+            )[0];
+        return {
+            driverName: String(latestRecord?.driverName || '').trim(),
+            vehicleNumber: String(latestRecord?.vehicleNumber || '').trim()
+        };
+    } catch (error) {
+        console.warn('[DailyInspection] 저장된 운전자 정보를 읽지 못했습니다.', error);
+        return { driverName: '', vehicleNumber: '' };
+    }
+};
+
+export const saveSavedDriverIdentity = (userId, identity = {}) => {
+    try {
+        const previous = readSavedDriverIdentity(userId);
+        const next = {
+            driverName: String(identity.driverName || previous.driverName || '').trim(),
+            vehicleNumber: String(identity.vehicleNumber || previous.vehicleNumber || '').trim(),
+            updatedAt: new Date().toISOString()
+        };
+        if (!next.driverName && !next.vehicleNumber) return false;
+        localStorage.setItem(getSavedDriverIdentityKey(userId), JSON.stringify(next));
+        return true;
+    } catch (error) {
+        console.warn('[DailyInspection] 운전자 정보 기기 저장 실패:', error);
+        return false;
+    }
+};
+
 const getSavedTransportCompanyNameKey = (userId) => `${getDailyInspectionStoragePrefix(userId)}saved-transport-company-name`;
 
 export const readSavedTransportCompanyName = (userId) => {
     try {
-        return localStorage.getItem(getSavedTransportCompanyNameKey(userId)) || '';
+        const key = getSavedTransportCompanyNameKey(userId);
+        const cachedValue = localStorage.getItem(key);
+        // An existing empty value means the user deliberately cleared the field.
+        if (cachedValue !== null) return cachedValue;
+
+        // Older versions only saved the company name inside completed inspection
+        // records. Recover the newest locally available value immediately.
+        const latestRecord = readHistory(userId)
+            .filter((record) => record && String(record.transportCompanyName || '').trim())
+            .sort((a, b) =>
+                String(b.inspectionDate || b.date || b.completedAt || '')
+                    .localeCompare(String(a.inspectionDate || a.date || a.completedAt || ''))
+            )[0];
+        const recoveredName = String(latestRecord?.transportCompanyName || '').trim();
+        if (recoveredName) localStorage.setItem(key, recoveredName);
+        return recoveredName;
     } catch (error) {
         console.warn('[DailyInspection] 저장된 운송사업자명을 읽지 못했습니다.', error);
         return '';
@@ -112,8 +195,9 @@ export const readSavedTransportCompanyName = (userId) => {
 export const saveSavedTransportCompanyName = (userId, companyName) => {
     try {
         const value = String(companyName || '').trim();
-        if (value) localStorage.setItem(getSavedTransportCompanyNameKey(userId), value);
-        else localStorage.removeItem(getSavedTransportCompanyNameKey(userId));
+        // Keep an empty marker too, so a deliberate clear is not replaced by
+        // an older company name recovered from inspection history.
+        localStorage.setItem(getSavedTransportCompanyNameKey(userId), value);
         return true;
     } catch (error) {
         console.warn('[DailyInspection] 운송사업자명 저장 실패:', error);
@@ -156,6 +240,42 @@ export const clearSavedDriverSignature = (userId) => {
 };
 
 
-// Used once when moving this device's existing records to the cloud.
-export const listAllLocalDailyInspectionRecords = (userId) => readHistory(userId);
+// Logged-in records saved while offline are kept in a separate retry queue.
+export const listPendingDailyInspectionRecords = (userId) =>
+    readHistory(userId).filter((record) => record.syncStatus === 'pending');
+
+export const markDailyInspectionRecordSynced = (userId, date, serverRecord) => {
+    const dayKey = String(date || '').slice(0, 10);
+    if (!dayKey) return false;
+
+    let syncedRecord = null;
+    const nextHistory = readHistory(userId).map((record) => {
+        const recordDate = String(record.inspectionDate || record.date || '').slice(0, 10);
+        if (recordDate !== dayKey) return record;
+        syncedRecord = {
+            ...record,
+            ...(serverRecord || {}),
+            driverSignature: serverRecord?.driverSignature || record.driverSignature || '',
+            storageMode: 'server-cache',
+            syncStatus: 'synced',
+            syncedAt: new Date().toISOString()
+        };
+        return syncedRecord;
+    });
+
+    if (!syncedRecord) return false;
+    try {
+        localStorage.setItem(getHistoryKey(userId), JSON.stringify(nextHistory));
+        localStorage.setItem(getDailyInspectionStorageKey(userId, dayKey), JSON.stringify(syncedRecord));
+        return true;
+    } catch (error) {
+        console.warn('[DailyInspection] 서버 동기화 상태를 기기에 반영하지 못했습니다:', error);
+        return false;
+    }
+};
+
+// Used once when moving legacy device-only records to the cloud.
+// Pending records are handled by the retry queue; synced records no longer need migration.
+export const listAllLocalDailyInspectionRecords = (userId) =>
+    readHistory(userId).filter((record) => !['pending', 'synced'].includes(record.syncStatus));
 

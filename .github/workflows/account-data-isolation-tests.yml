@@ -10,6 +10,7 @@ on:
     branches:
       - feature/account-data-isolation
       - feature/shared-company-admin-data
+      - feature/daily-inspection-mobile-pdf-share
 
 permissions:
   contents: read
@@ -36,6 +37,21 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Run daily inspection local persistence tests
+        env:
+          CI: 'true'
+        run: npm test -- --watchAll=false --runInBand src/services/dailyInspectionService.test.js
+
+      - name: Run daily inspection device-local date tests
+        env:
+          CI: 'true'
+        run: npm test -- --watchAll=false --runInBand src/services/dailyInspectionCloudService.test.js
+
+      - name: Run daily inspection reminder cleanup tests
+        env:
+          CI: 'true'
+        run: npm test -- --watchAll=false --runInBand src/services/dailyInspectionReminderService.test.js
 
       - name: Run account isolation tests
         env:

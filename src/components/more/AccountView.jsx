@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, UserX, AlertCircle, Cloud, LogOut, Eye, EyeOff, FileText, ArrowRight } from 'lucide-react';
 import LoginPage from '../auth/LoginPage';
 import GuestLedgerImportView from './GuestLedgerImportView';
-import { getDailyInspectionStoragePrefix } from '../../services/dailyInspectionService';
+import { clearDailyInspectionLocalRecords } from '../../services/dailyInspectionService';
+import { clearDailyInspectionReminder } from '../../services/dailyInspectionReminderService';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabaseClient'; 
 import RegionCampModal from '../common/RegionCampModal';
@@ -296,16 +297,17 @@ const handleEditClick = () => {
         throw new Error(data?.error || '회원 탈퇴를 완료하지 못했습니다.');
       }
 
+      // Remove this account's scheduled reminder and preference after server deletion succeeds.
+      const reminderCleanup = await clearDailyInspectionReminder(user.id);
+      if (!reminderCleanup.cancelled) {
+        console.warn('[Account] 서버 계정은 삭제됐지만 예약 알림 취소 여부를 확인하지 못했습니다.');
+      }
+
       // Remove only this account's local records. Guest and other-account data stay untouched.
       localStorage.removeItem(`deliveryEntries:v2:user:${user.id}`);
       localStorage.removeItem(`appSettings:v2:user:${user.id}`);
       localStorage.removeItem(`migration_state:v2:${user.id}`);
-      const dailyInspectionPrefix = getDailyInspectionStoragePrefix(user.id);
-      Object.keys(localStorage).forEach((key) => {
-        if (key.startsWith(dailyInspectionPrefix)) {
-          localStorage.removeItem(key);
-        }
-      });
+      clearDailyInspectionLocalRecords(user.id);
 
       await supabase.auth.signOut({ scope: 'local' });
       onBack?.();

@@ -15,6 +15,7 @@ on:
       - security-audit
       - feature/account-data-isolation
       - feature/shared-company-admin-data
+      - feature/daily-inspection-mobile-pdf-share
   workflow_dispatch:
 
 permissions:

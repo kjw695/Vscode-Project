@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, ClipboardCheck, Printer, History, CalendarDays, ChevronLeft, ChevronRight, Bell, X } from 'lucide-react';
-import { listDailyInspectionRecords, readDailyInspectionRecord, saveDailyInspectionRecord, readSavedDriverSignature, saveSavedDriverSignature, readSavedTransportCompanyName, saveSavedTransportCompanyName, listAllLocalDailyInspectionRecords } from '../../services/dailyInspectionService';
-import { readLatestDailyInspectionSignatureFromServer, saveDailyInspectionSignatureToServer, readDailyInspectionRecordFromServer, listDailyInspectionRecordsFromServer, listRecentDailyInspectionRecordsFromServer, saveDailyInspectionRecordToServer } from '../../services/dailyInspectionCloudService';
+import { listDailyInspectionRecords, readDailyInspectionRecord, saveDailyInspectionRecord, readSavedDriverSignature, saveSavedDriverSignature, readSavedTransportCompanyName, saveSavedTransportCompanyName, readSavedDriverIdentity, saveSavedDriverIdentity, listAllLocalDailyInspectionRecords, listPendingDailyInspectionRecords, markDailyInspectionRecordSynced } from '../../services/dailyInspectionService';
+import { readLatestDailyInspectionSignatureFromServer, saveDailyInspectionSignatureToServer, readDailyInspectionRecordFromServer, listDailyInspectionRecordsFromServer, listRecentDailyInspectionRecordsFromServer, saveDailyInspectionRecordToServer, getDeviceDateYearsAgo } from '../../services/dailyInspectionCloudService';
 import { printDailyInspectionMonth } from './dailyInspectionPrint';
 import SignaturePad from './DailyInspectionSignaturePad';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../contexts/AuthContext';
-import { enableDailyInspectionReminder, disableDailyInspectionReminder, readDailyInspectionReminder, refreshDailyInspectionReminder } from '../../services/dailyInspectionReminderService';
+import { enableDailyInspectionReminder, disableDailyInspectionReminder, readDailyInspectionReminder } from '../../services/dailyInspectionReminderService';
 
 const INSPECTION_GROUPS = [
  { title:'외관점검', items:[
@@ -67,14 +67,15 @@ const formatTimestamp=(value)=>{
  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 };
 
-const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,scheduleStatus='work'})=>{
+const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,scheduleStatus='work',reminderOffDates=[]})=>{
  const [answers,setAnswers]=useState({});
  const [actionNotes,setActionNotes]=useState('');
  const [saveError,setSaveError]=useState('');
+ const [saveNotice,setSaveNotice]=useState('');
  const [isSaved,setIsSaved]=useState(false);
- const [transportCompanyName,setTransportCompanyName]=useState('');
- const [driverName,setDriverName]=useState(profile?.full_name||profile?.display_name||'');
- const [vehicleNumber,setVehicleNumber]=useState(profile?.vehicle_number||'');
+ const [transportCompanyName,setTransportCompanyName]=useState(()=>readSavedTransportCompanyName(userId));
+ const [driverName,setDriverName]=useState(()=>profile?.full_name||profile?.display_name||readSavedDriverIdentity(userId).driverName||'');
+ const [vehicleNumber,setVehicleNumber]=useState(()=>profile?.vehicle_number||readSavedDriverIdentity(userId).vehicleNumber||'');
  const [driverSignature,setDriverSignature]=useState('');
  const [savedDriverSignature,setSavedDriverSignature]=useState('');
  const [signatureMessage,setSignatureMessage]=useState('');
@@ -85,6 +86,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const [isMonthPickerOpen,setIsMonthPickerOpen]=useState(false);
  const [monthPickerYear,setMonthPickerYear]=useState(Number(String(date||'').slice(0,4))||new Date().getFullYear());
  const [reminderTime,setReminderTime]=useState('07:00');
+ const [reminderIncludeOffDays,setReminderIncludeOffDays]=useState(false);
  const [isReminderSettingsOpen,setIsReminderSettingsOpen]=useState(false);
  const [reminderPeriod,setReminderPeriod]=useState('오전');
  const [reminderHour,setReminderHour]=useState(7);
@@ -100,24 +102,82 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const [profileSaveMessage,setProfileSaveMessage]=useState('');
  const [profileSaveError,setProfileSaveError]=useState('');
  const legacySyncDoneRef=useRef(false);
+ const pendingSyncInProgressRef=useRef(false);
+ const refreshRecordsRef=useRef(null);
+ const refreshRequestIdRef=useRef(0);
+ const formTouchedRef=useRef(false);
+ const markFormTouched=()=>{formTouchedRef.current=true;};
  const {user:authUser,refreshProfile}=useAuth();
 
  useEffect(()=>{
-  setDriverName(profile?.full_name||profile?.display_name||'');
-  setVehicleNumber(profile?.vehicle_number||'');
+  if(!formTouchedRef.current){
+   const cachedIdentity=readSavedDriverIdentity(userId);
+   const resolvedName=profile?.full_name||profile?.display_name||cachedIdentity.driverName||'';
+   const resolvedVehicle=profile?.vehicle_number||cachedIdentity.vehicleNumber||'';
+   setDriverName(resolvedName);
+   setVehicleNumber(resolvedVehicle);
+   if(profile?.full_name||profile?.display_name||profile?.vehicle_number){
+    saveSavedDriverIdentity(userId,{
+     driverName:profile?.full_name||profile?.display_name||'',
+     vehicleNumber:profile?.vehicle_number||''
+    });
+   }
+  }
   setProfileSaveMessage('');setProfileSaveError('');
- },[profile?.full_name,profile?.display_name,profile?.vehicle_number]);
+ },[userId,profile?.full_name,profile?.display_name,profile?.vehicle_number]);
+
+ const syncPendingLocalRecords = async () => {
+  if (!authUser?.id || pendingSyncInProgressRef.current) return;
+  const pendingRecords = listPendingDailyInspectionRecords(userId);
+  if (!pendingRecords.length) return;
+  pendingSyncInProgressRef.current = true;
+  try {
+   for (const localRecord of pendingRecords) {
+    const recordDate = String(localRecord.inspectionDate || localRecord.date || '').slice(0, 10);
+    const signature = localRecord.driverSignature || readSavedDriverSignature(userId);
+    if (!recordDate || !signature) continue;
+    try {
+     const signatureVersion = await saveDailyInspectionSignatureToServer(signature);
+     const serverRecord = await saveDailyInspectionRecordToServer(authUser.id, recordDate, localRecord, signatureVersion.signature_id);
+     markDailyInspectionRecordSynced(userId, recordDate, serverRecord);
+    } catch (error) {
+     console.warn('[DailyInspection] 오프라인 점검 기록 동기화를 다음 연결 시 재시도합니다.', error);
+     break;
+    }
+   }
+  } finally {
+   pendingSyncInProgressRef.current = false;
+  }
+ };
 
  const refreshRecords=async()=>{
-  let latest=null;
+  const refreshRequestId=++refreshRequestIdRef.current;
+  // 기기 기록은 서버 요청 전에 즉시 표시합니다. 이미 입력을 시작했다면 화면의 값을 건드리지 않습니다.
+  const localLatest=readDailyInspectionRecord(userId,date);
+  const cachedCompanyName=readSavedTransportCompanyName(userId);
   let savedSignature=readSavedDriverSignature(userId);
+  const localIdentity=readSavedDriverIdentity(userId);
+  if(!formTouchedRef.current){
+   setCurrentRecord(localLatest);
+   setAnswers(localLatest?.answers&&typeof localLatest.answers==='object'?localLatest.answers:{});
+   setActionNotes(localLatest?.actionNotes||'');
+   setTransportCompanyName(localLatest?.transportCompanyName||cachedCompanyName||'');
+   setDriverName(localLatest?.driverName||profile?.full_name||profile?.display_name||localIdentity.driverName||'');
+   setVehicleNumber(localLatest?.vehicleNumber||profile?.vehicle_number||localIdentity.vehicleNumber||'');
+   setSavedDriverSignature(savedSignature);
+   setDriverSignature(localLatest?.driverSignature||savedSignature||'');
+   setSignatureMessage('');
+   setIsSaved(Boolean(localLatest?.completedAt||localLatest?.updatedAt));
+   setCorrectionReason('');
+  }
+  let latest=null;
   if(authUser?.id){
    try{
-    // 기존 기기 기록을 로그인 계정의 서버로 한 번 이전합니다(최근 2년만).
+    await syncPendingLocalRecords();
+    // 기존 기기 기록을 로그인 계정의 서버로 한 번 이전합니다(최근 1년만).
     if(!legacySyncDoneRef.current){
      const localRecords=listAllLocalDailyInspectionRecords(userId);
-     const cutoff=new Date();cutoff.setFullYear(cutoff.getFullYear()-2);
-     const cutoffKey=cutoff.toISOString().slice(0,10);
+     const cutoffKey=getDeviceDateYearsAgo(1);
      const existingRecords=await listRecentDailyInspectionRecordsFromServer(cutoffKey);
      const existingDates=new Set(existingRecords.map(item=>item.inspectionDate));
      const legacySignature=savedSignature;
@@ -126,7 +186,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
      );
      for(const localRecord of orderedLocalRecords){
       const recordDate=String(localRecord.inspectionDate||localRecord.date||'').slice(0,10);
-      if(!recordDate||new Date(recordDate)<cutoff||existingDates.has(recordDate))continue;
+      if(!recordDate||recordDate<cutoffKey||existingDates.has(recordDate))continue;
       // 서버에 이미 존재하는 날짜는 건너뛰어 오래된 기기 캐시가 최신 서버 기록을 덮지 않게 합니다.
       const signature=localRecord.driverSignature||legacySignature;
       if(!signature)continue;
@@ -148,18 +208,44 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
     console.warn('[DailyInspection] 서버 기록 조회 실패. 기기 저장 기록을 표시합니다.',error);
    }
   }
+  // 날짜/계정이 바뀌었거나 새 입력이 시작된 뒤 도착한 응답은 현재 화면에 적용하지 않습니다.
+  if(refreshRequestId!==refreshRequestIdRef.current||formTouchedRef.current)return;
   if(!latest)latest=readDailyInspectionRecord(userId,date);
   setCurrentRecord(latest);
+  const cachedIdentity=readSavedDriverIdentity(userId);
+  const resolvedDriverName=latest?.driverName||profile?.full_name||profile?.display_name||cachedIdentity.driverName||'';
+  const resolvedVehicleNumber=latest?.vehicleNumber||profile?.vehicle_number||cachedIdentity.vehicleNumber||'';
+  setDriverName(resolvedDriverName);
+  setVehicleNumber(resolvedVehicleNumber);
+  if(resolvedDriverName||resolvedVehicleNumber){
+   saveSavedDriverIdentity(userId,{driverName:resolvedDriverName,vehicleNumber:resolvedVehicleNumber});
+  }
   setAnswers(latest?.answers&&typeof latest.answers==='object'?latest.answers:{});
   setActionNotes(latest?.actionNotes||'');
-  setTransportCompanyName(latest?.transportCompanyName||readSavedTransportCompanyName(userId)||'');
+  const resolvedCompanyName=latest?.transportCompanyName||localLatest?.transportCompanyName||cachedCompanyName||'';
+  setTransportCompanyName(resolvedCompanyName);
+  if(resolvedCompanyName){
+   try{saveSavedTransportCompanyName(userId,resolvedCompanyName);}catch(storageError){console.warn('[DailyInspection] 운송사업자명 캐시 저장 실패:',storageError);}
+  }
   setSavedDriverSignature(savedSignature);
   setDriverSignature(latest?.driverSignature||savedSignature||'');
   setSignatureMessage('');
   setIsSaved(Boolean(latest?.completedAt||latest?.updatedAt));
   setCorrectionReason('');
  };
- useEffect(()=>{refreshRecords();setSaveError('');},[userId,date,authUser?.id]);
+ refreshRecordsRef.current = refreshRecords;
+ useEffect(()=>{
+  // 새 날짜 또는 계정의 화면을 열 때만 입력 보호 상태를 초기화합니다.
+  formTouchedRef.current=false;
+  refreshRequestIdRef.current+=1;
+  refreshRecords();
+  setSaveError('');setSaveNotice('');
+ },[userId,date,authUser?.id]);
+ useEffect(()=>{
+  const handleOnline=()=>{refreshRecordsRef.current?.();};
+  window.addEventListener('online',handleOnline);
+  return()=>window.removeEventListener('online',handleOnline);
+ },[]);
  useEffect(()=>{setSelectedMonth(String(date||'').slice(0,7));},[date]);
  useEffect(()=>{
   const setting=readDailyInspectionReminder(userId);
@@ -169,12 +255,8 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   setReminderHour(parts.hour);
   setReminderMinute(parts.minute);
   setReminderEnabled(setting.enabled);
+  setReminderIncludeOffDays(setting.includeOffDays);
   setReminderMessage('');
-  if(setting.enabled){
-   refreshDailyInspectionReminder(userId).catch(error=>{
-    console.warn('[DailyInspectionReminder] 아이콘 적용을 위한 알림 재등록 실패:',error);
-   });
-  }
  },[userId]);
 
  useEffect(()=>{
@@ -220,12 +302,20 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const identityChanged=driverName.trim()!==profileName.trim()||vehicleNumber.trim()!==profileVehicleNumber.trim();
  const canSave=allAnswered&&(badItems.length===0||actionNotes.trim().length>0)&&Boolean(transportCompanyName.trim())&&Boolean(driverName.trim())&&Boolean(vehicleNumber.trim())&&Boolean(driverSignature)&&(!currentRecord||Boolean(correctionReason.trim()));
 
- const chooseAnswer=(id,value)=>{setAnswers(prev=>({...prev,[id]:value}));setIsSaved(false);setSaveError('');};
+ const handleTransportCompanyNameChange=(value)=>{
+  markFormTouched();
+  setTransportCompanyName(value);
+  try{saveSavedTransportCompanyName(userId,value);}catch(storageError){console.warn('[DailyInspection] 운송사업자명 임시 저장 실패:',storageError);}
+  setIsSaved(false);setSaveError('');setSaveNotice('');
+ };
+ const chooseAnswer=(id,value)=>{markFormTouched();setAnswers(prev=>({...prev,[id]:value}));setIsSaved(false);setSaveError('');setSaveNotice('');};
  const markAllAsGood=()=>{
+  markFormTouched();
   const allGood=Object.fromEntries(ALL_ITEMS.map(item=>[item.id,'good']));
   setAnswers(allGood);
   setIsSaved(false);
   setSaveError('');
+  setSaveNotice('');
  };
  const handleSaveSignature=async()=>{
   if(!driverSignature){
@@ -250,6 +340,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
    setSignatureMessage('저장된 서명이 없습니다. 먼저 서명한 뒤 저장해주세요.');
    return;
   }
+  markFormTouched();
   setDriverSignature(savedDriverSignature);
   setIsSaved(false);
   setSignatureMessage('저장된 서명을 불러왔습니다.');
@@ -260,6 +351,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   if(!name||!vehicle){setProfileSaveError('이름과 차량번호를 모두 입력해주세요.');return;}
   setIsSavingProfile(true);setProfileSaveError('');setProfileSaveMessage('');
   try{
+   saveSavedDriverIdentity(userId,{driverName:name,vehicleNumber:vehicle});
    const {error}=await supabase.from('profiles').update({full_name:name,vehicle_number:vehicle}).eq('id',authUser.id);
    if(error)throw error;
    await refreshProfile();setProfileSaveMessage('이름과 차량번호가 내정보에 저장되었습니다.');
@@ -270,42 +362,101 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
  const handleSave=async()=>{
   if(!canSave)return;
   setSaveError('');
+  setSaveNotice('');
   const normalizedCompanyName=transportCompanyName.trim();
   const normalizedName=driverName.trim(),normalizedVehicle=vehicleNumber.trim();
   try{
-   if(authUser?.id&&(hasMissingIdentity||identityChanged)){
-    setIsSavingProfile(true);
-    const {error}=await supabase.from('profiles').update({full_name:normalizedName,vehicle_number:normalizedVehicle}).eq('id',authUser.id);
-    if(error)throw error;
-    await refreshProfile();
-    setProfileSaveMessage('이름과 차량번호가 내정보에 자동 저장되었습니다.');
-   }
    const payload={
-    answers:Object.fromEntries(ALL_ITEMS.map(item=>[item.id,answers[item.id]])),actionNotes:actionNotes.trim(),transportCompanyName:normalizedCompanyName,driverName:normalizedName,vehicleNumber:normalizedVehicle,
+    answers:Object.fromEntries(ALL_ITEMS.map(item=>[item.id,answers[item.id]])),actionNotes:badItems.length>0?actionNotes.trim():'',transportCompanyName:normalizedCompanyName,driverName:normalizedName,vehicleNumber:normalizedVehicle,
     driverSignature,correctionReason:correctionReason.trim(),supersedesId:currentRecord?.id||null,
     isNotOperated:false,completed:true
    };
-   let record;
-   if(authUser?.id){
-    const signatureVersion=await saveDailyInspectionSignatureToServer(driverSignature);
-    record=await saveDailyInspectionRecordToServer(authUser.id,date,payload,signatureVersion.signature_id);
-    saveSavedDriverSignature(userId,driverSignature);
-    setSavedDriverSignature(driverSignature);
-   }else{
-    record=await saveDailyInspectionRecord(userId,date,payload);
-   }
-   try{saveSavedTransportCompanyName(userId,normalizedCompanyName);}catch(storageError){console.warn("[DailyInspection] 운송사업자명 자동 저장 실패:",storageError);}
-   setCurrentRecord(record);setIsSaved(true);setCorrectionReason('');
-   const [selectedYear,selectedMonthNumber]=selectedMonth.split('-');
-   if(authUser?.id){
-    const cloudRecords=await listDailyInspectionRecordsFromServer(selectedYear,selectedMonthNumber);
-    setMonthRecords(cloudRecords);
-   }else setMonthRecords(listDailyInspectionRecords(userId,selectedYear,selectedMonthNumber));
-   onSaved?.(record);
-  }catch(error){console.error('[DailyInspection] 점검 기록 저장 실패:',error);setSaveError(error.message||'점검 기록을 저장하지 못했습니다.');}
-  finally{setIsSavingProfile(false);}
- };
 
+   // 운전자명과 차량번호도 계정별로 먼저 기기에 보존합니다.
+   saveSavedDriverIdentity(userId,{driverName:normalizedName,vehicleNumber:normalizedVehicle});
+
+   // 기기에 먼저 저장합니다. 로그인한 사용자의 오프라인 기록은 별도 재시도 대기열에 넣습니다.
+   let localRecord=null;
+   let localSaveError=null;
+   try{
+    localRecord=await saveDailyInspectionRecord(
+     userId,
+     date,
+     payload,
+     authUser?.id?{storageMode:'device-pending',syncStatus:'pending'}:undefined
+    );
+   }catch(storageError){
+    localSaveError=storageError;
+    console.warn('[DailyInspection] 기기 임시 저장 실패:',storageError);
+   }
+
+   let record=localRecord;
+   if(localRecord){
+    try{
+     // 오프라인 저장이어도 다음 점검 때 같은 서명을 다시 사용할 수 있게 기기에 보관합니다.
+     saveSavedDriverSignature(userId,driverSignature);
+     setSavedDriverSignature(driverSignature);
+    }catch(signatureStorageError){
+     console.warn('[DailyInspection] 서명 기기 캐시 저장 실패:',signatureStorageError);
+    }
+   }
+   // 프로필 갱신은 점검 기록 저장과 분리하여 네트워크 장애가 점검표 저장을 막지 않게 합니다.
+   if(authUser?.id&&(hasMissingIdentity||identityChanged)){
+    setIsSavingProfile(true);
+    try{
+     const {error}=await supabase.from('profiles').update({full_name:normalizedName,vehicle_number:normalizedVehicle}).eq('id',authUser.id);
+     if(error)throw error;
+     await refreshProfile();
+     setProfileSaveMessage('이름과 차량번호가 내정보에 자동 저장되었습니다.');
+     setProfileSaveError('');
+    }catch(profileError){
+     console.warn('[DailyInspection] 내정보 자동 저장 실패. 점검 기록은 별도로 저장합니다.',profileError);
+     setProfileSaveError('내정보는 인터넷 연결 후 다시 저장해주세요. 점검 기록 저장은 계속 진행합니다.');
+    }finally{
+     setIsSavingProfile(false);
+    }
+   }
+   if(authUser?.id){
+    try{
+     const signatureVersion=await saveDailyInspectionSignatureToServer(driverSignature);
+     const serverRecord=await saveDailyInspectionRecordToServer(authUser.id,date,payload,signatureVersion.signature_id);
+     record=serverRecord;
+     if(localRecord)markDailyInspectionRecordSynced(userId,date,serverRecord);
+    }catch(syncError){
+     console.warn('[DailyInspection] 서버 연결 실패. 점검 기록은 기기에 보관합니다.',syncError);
+     if(!localRecord){
+      throw new Error(`기기 저장에 실패했고 서버 저장도 완료하지 못했습니다. 저장 공간과 인터넷 연결을 확인해주세요. (${localSaveError?.message||syncError.message||'저장 실패'})`);
+     }
+     record={...localRecord,storageMode:'device-pending',syncStatus:'pending'};
+     setSaveNotice('점검 내용은 휴대폰에 저장했습니다. 인터넷 연결이 복구되면 서버로 자동 동기화됩니다.');
+    }
+   }else if(!localRecord){
+    throw localSaveError||new Error('점검 기록을 기기에 저장하지 못했습니다.');
+   }
+
+   if(!record)throw new Error('점검 기록을 저장하지 못했습니다.');
+   try{saveSavedTransportCompanyName(userId,normalizedCompanyName);}catch(storageError){console.warn('[DailyInspection] 운송사업자명 자동 저장 실패:',storageError);}
+   setCurrentRecord(record);setIsSaved(true);setCorrectionReason('');setActionNotes(payload.actionNotes);
+   const [selectedYear,selectedMonthNumber]=selectedMonth.split('-');
+   if(authUser?.id&&record.storageMode==='server'){
+    try{
+     const cloudRecords=await listDailyInspectionRecordsFromServer(selectedYear,selectedMonthNumber);
+     setMonthRecords(cloudRecords);
+    }catch(listError){
+     console.warn('[DailyInspection] 저장 후 월별 서버 기록 조회 실패:',listError);
+     setMonthRecords(listDailyInspectionRecords(userId,selectedYear,selectedMonthNumber));
+    }
+   }else{
+    setMonthRecords(listDailyInspectionRecords(userId,selectedYear,selectedMonthNumber));
+   }
+   onSaved?.(record);
+  }catch(error){
+   console.error('[DailyInspection] 점검 기록 저장 실패:',error);
+   setSaveError(error.message||'점검 기록을 저장하지 못했습니다.');
+  }finally{
+   setIsSavingProfile(false);
+  }
+ };
  const openReminderSettings=()=>{
   const parts=getTimePickerParts(reminderTime);
   setReminderPeriod(parts.period);
@@ -340,10 +491,15 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   const selectedTime=formatReminderTime(reminderPeriod,reminderHour,reminderMinute);
   setIsSavingReminder(true);setReminderMessage('');
   try{
-   await enableDailyInspectionReminder(userId,selectedTime);
+   await enableDailyInspectionReminder(userId,selectedTime,{
+    includeOffDays:reminderIncludeOffDays,
+    offDates:reminderOffDates
+   });
    setReminderTime(selectedTime);
    setReminderEnabled(true);
-   setReminderMessage(`매일 ${formatReminderTimeLabel(selectedTime)}에 업무 전 점검 알림이 울립니다.`);
+   setReminderMessage(reminderIncludeOffDays
+    ? `매일 ${formatReminderTimeLabel(selectedTime)}에 업무 전 점검 알림이 울립니다.`
+    : `휴무일을 제외하고 ${formatReminderTimeLabel(selectedTime)}에 점검 알림이 울립니다.`);
    setIsReminderSettingsOpen(false);
   }catch(error){
    setReminderMessage(error.message||'알림을 설정하지 못했습니다.');
@@ -410,15 +566,15 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
    <div className="grid grid-cols-3 gap-1.5">
     <label className="flex w-full min-w-0 flex-col items-stretch text-center text-[11px] font-semibold">
      <span className="mb-1 text-center whitespace-nowrap">운전자명</span>
-     <input value={driverName} onChange={e=>setDriverName(e.target.value)} maxLength={60} placeholder="이름" className={`${fieldClass} block w-full !mt-1 !px-1.5 text-center text-xs`} style={{textAlign:"center"}}/>
+     <input value={driverName} onChange={e=>{markFormTouched();setDriverName(e.target.value);}} maxLength={60} placeholder="이름" className={`${fieldClass} block w-full !mt-1 !px-1.5 text-center text-xs`} style={{textAlign:"center"}}/>
     </label>
     <label className="flex w-full min-w-0 flex-col items-stretch text-center text-[11px] font-semibold">
      <span className="mb-1 text-center whitespace-nowrap">운송사업자명</span>
-     <input value={transportCompanyName} onChange={e=>setTransportCompanyName(e.target.value)} maxLength={100} placeholder="사업자명" className={`${fieldClass} block w-full !mt-1 !px-1.5 text-center text-xs`} style={{textAlign:"center"}}/>
+     <input value={transportCompanyName} onChange={e=>handleTransportCompanyNameChange(e.target.value)} maxLength={100} placeholder="사업자명" className={`${fieldClass} block w-full !mt-1 !px-1.5 text-center text-xs`} style={{textAlign:"center"}}/>
     </label>
     <label className="flex w-full min-w-0 flex-col items-stretch text-center text-[11px] font-semibold">
      <span className="mb-1 text-center whitespace-nowrap">차량번호</span>
-     <input value={vehicleNumber} onChange={e=>setVehicleNumber(e.target.value)} maxLength={30} placeholder="차량번호" className={`${fieldClass} block w-full !mt-1 !px-1.5 text-center text-xs`} style={{textAlign:"center"}}/>
+     <input value={vehicleNumber} onChange={e=>{markFormTouched();setVehicleNumber(e.target.value);}} maxLength={30} placeholder="차량번호" className={`${fieldClass} block w-full !mt-1 !px-1.5 text-center text-xs`} style={{textAlign:"center"}}/>
     </label>
    </div>
    {(hasMissingIdentity||identityChanged)&&<div className="mt-3">
@@ -458,16 +614,16 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
    {allGoodSelected?'✓ 모두 양호 선택됨':'모두 양호로 선택'}
   </button>
 
-  <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
+  {badItems.length>0&&<section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
    <label htmlFor="daily-inspection-action-notes" className="block font-black text-sm">불량상태 조치 기록 <span className={`ml-1 text-xs font-medium ${mutedClass}`}>불량 항목이 있을 때 필수</span></label>
-   <textarea id="daily-inspection-action-notes" value={actionNotes} onChange={e=>{setActionNotes(e.target.value);setIsSaved(false);}} rows={3} placeholder="(예시) 00일 창닦이기 불량 － 00일 창닦이기 교체" className={`mt-2 w-full rounded-lg border p-3 text-sm ${dark?'bg-slate-900 border-slate-600 text-white':'bg-white border-slate-300 text-slate-900'}`}/> 
+   <textarea id="daily-inspection-action-notes" value={actionNotes} onChange={e=>{markFormTouched();setActionNotes(e.target.value);setIsSaved(false);setSaveNotice('');}} rows={3} placeholder="(예시) 00일 창닦이기 불량 － 00일 창닦이기 교체" className={`mt-2 w-full rounded-lg border p-3 text-sm ${dark?'bg-slate-900 border-slate-600 text-white':'bg-white border-slate-300 text-slate-900'}`}/> 
 
-   {badItems.length>0&&<p className="mt-2 text-xs text-red-500">불량 항목 {badItems.length}개가 있습니다. 조치 내용까지 입력해야 완료 처리됩니다.</p>}
-  </section>
+   <p className="mt-2 text-xs text-red-500">불량 항목 {badItems.length}개가 있습니다. 조치 내용까지 입력해야 완료 처리됩니다.</p>
+  </section>}
 
   <section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
    <h3 className="font-black text-sm mb-3">전자서명</h3>
-   <div className="mb-3"><SignaturePad value={driverSignature} onChange={v=>{setDriverSignature(v);setIsSaved(false);setSignatureMessage('');}} label="운전자(점검자) 자필 서명" isDarkMode={dark}/></div>
+   <div className="mb-3"><SignaturePad value={driverSignature} onChange={v=>{markFormTouched();setDriverSignature(v);setIsSaved(false);setSignatureMessage('');setSaveNotice('');}} label="운전자(점검자) 자필 서명" isDarkMode={dark}/></div>
    <div className="grid grid-cols-2 gap-2">
     <button type="button" onClick={handleSaveSignature} disabled={!driverSignature} className="min-h-10 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-40">서명 저장</button>
     <button type="button" onClick={handleLoadSavedSignature} disabled={!savedDriverSignature} className={`min-h-10 rounded-lg border px-3 py-2 text-sm font-bold disabled:opacity-40 ${dark?'border-slate-600 text-slate-200':'border-slate-300 text-slate-700'}`}>서명 불러오기</button>
@@ -479,11 +635,12 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
   {currentRecord&&<section className={`rounded-2xl border p-3 mb-3 ${panelClass}`}>
    <h3 className="font-black text-sm">기존 완료 기록 수정</h3>
    <p className={`mt-1 text-xs ${mutedClass}`}>같은 날짜로 다시 저장하면 이전 점검 기록은 삭제되고 최신 기록 하나만 남습니다. 변경 사유를 입력해주세요.</p>
-   <label className="block mt-2 text-xs">정정 사유(필수)<textarea value={correctionReason} onChange={e=>setCorrectionReason(e.target.value)} rows={2} placeholder="정정이 필요한 이유를 입력하세요." className={fieldClass}/></label>
+   <label className="block mt-2 text-xs">정정 사유(필수)<textarea value={correctionReason} onChange={e=>{markFormTouched();setCorrectionReason(e.target.value);}} rows={2} placeholder="정정이 필요한 이유를 입력하세요." className={fieldClass}/></label>
   </section>}
 
+  {saveNotice&&<p className="mb-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-700 dark:text-amber-300">{saveNotice}</p>}
   {saveError&&<p className="mb-3 rounded-lg bg-red-50 dark:bg-red-950/30 p-3 text-sm text-red-600">{saveError}</p>}
-  {isSaved&&<p className="mb-3 flex items-center gap-2 text-sm font-semibold text-emerald-600"><CheckCircle2 size={17}/> {currentRecord?.storageMode==='server'?'점검 기록이 서버에 저장되어 있습니다.':'점검 기록이 이 기기에 저장되어 있습니다.'}</p>}
+  {isSaved&&<p className="mb-3 flex items-center gap-2 text-sm font-semibold text-emerald-600"><CheckCircle2 size={17}/> {currentRecord?.syncStatus==='pending'?'점검 기록이 휴대폰에 저장되었으며 서버 동기화를 기다리고 있습니다.':(['server','server-cache'].includes(currentRecord?.storageMode)?'점검 기록이 서버에 저장되어 있습니다.':'점검 기록이 이 기기에 저장되어 있습니다.')}</p>}
   <button type="button" onClick={handleSave} disabled={!canSave||isSavingProfile} className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-black text-white disabled:opacity-40">{isSavingProfile?'저장 중...':currentRecord?'기존 기록 덮어쓰기':'점검 완료 저장'}</button>
   {!canSave&&<p className={`mt-2 text-center text-xs ${mutedClass}`}>운송사업자명, 모든 점검 항목, 운전자 서명 및 필수 조치·정정 내용을 입력해야 저장됩니다.</p>}
   {currentRecord&&<p className={`mt-2 text-center text-xs ${mutedClass}`}>최근 저장 시각: {formatTimestamp(currentRecord.completedAt||currentRecord.updatedAt)} · 같은 날짜 기록은 최신본 1건만 보관</p>}
@@ -509,7 +666,7 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
    <p className="text-xs font-bold">현장 보관 안내</p>
    <p className="mt-1 text-xs leading-5">모바일 기록만으로 모든 단속·제출 요건을 충족한다고 단정할 수 없습니다. 운수회사와 관할 기관에 모바일 기록 인정 여부를 확인하고, 보수적으로는 월별 점검표를 정기적으로 출력해 차량 내 서류함(글로브박스)에 함께 보관하세요.</p>
   </section>
-  <p className={`mt-3 text-center text-[11px] leading-5 ${mutedClass}`}>로그인 상태에서는 점검 기록이 서버에 저장되어 다른 기기에서도 확인할 수 있습니다. 비로그인 상태의 기록은 이 기기에 저장됩니다.</p>
+  <p className={`mt-3 text-center text-[11px] leading-5 ${mutedClass}`}>로그인 상태에서는 점검 기록이 서버에 저장됩니다. 인터넷이 끊기면 휴대폰에 먼저 보관하고 연결이 복구되면 동기화합니다. 비로그인 상태의 기록은 이 기기에 저장됩니다.</p>
   {isReminderSettingsOpen&&<div className={`fixed inset-0 z-[10050] flex min-h-[100dvh] flex-col ${dark?'bg-black text-white':'bg-[#f4f4f5] text-[#202124]'}`}>
    <header className="flex items-center justify-between gap-3 px-5 pb-3 pt-[calc(env(safe-area-inset-top)+2rem)]">
     <div className="min-w-0">
@@ -548,11 +705,15 @@ const DailyInspectionView=({onBack,onSaved,date,userId,profile,isDarkMode,schedu
       </div>
      </div>
      <p className={`mt-5 text-center text-sm font-semibold tabular-nums ${dark?'text-zinc-300':'text-zinc-600'}`}>{reminderPeriod} {reminderHour}시 {String(reminderMinute).padStart(2,'0')}분</p>
-     <p className={`mt-2 text-center text-xs ${dark?'text-zinc-500':'text-zinc-500'}`}>매일 설정한 시간에 업무 전 점검 알림을 보냅니다. 휴무일에도 알림이 울립니다.</p>
+     <p className={`mt-2 text-center text-xs ${dark?'text-zinc-500':'text-zinc-500'}`}>{reminderIncludeOffDays?'매일 설정한 시간에 알림을 보냅니다.':'휴무일에는 알림을 건너뜁니다.'}</p>
     </div>
    </main>
    <footer className="px-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] pt-3">
-    {reminderMessage&&<p className={`mb-3 text-center text-xs font-semibold ${reminderMessage.includes('울립니다')?'text-emerald-600 dark:text-emerald-400':'text-red-500'}`}>{reminderMessage}</p>}
+    <label className={`mb-3 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${dark?'border-zinc-700 bg-zinc-900 text-zinc-100':'border-zinc-200 bg-white text-zinc-800'}`}>
+     <input type="checkbox" className="h-5 w-5 shrink-0 accent-blue-600" checked={reminderIncludeOffDays} onChange={event=>setReminderIncludeOffDays(event.target.checked)}/>
+     <span>휴무날에도 알림을 받겠습니까?</span>
+    </label>
+    {reminderMessage&&<p className={`mb-3 text-center text-xs font-semibold ${reminderMessage.includes('알림이 울립니다')?'text-emerald-600 dark:text-emerald-400':'text-red-500'}`}>{reminderMessage}</p>}
     {reminderEnabled&&<button type="button" onClick={handleDisableReminder} disabled={isSavingReminder} className={`mb-2 w-full rounded-xl py-2.5 text-sm font-semibold ${dark?'text-zinc-400':'text-zinc-500'} disabled:opacity-50`}>알림 끄기</button>}
     <button type="button" onClick={handleEnableReminder} disabled={isSavingReminder} className="h-14 w-full rounded-2xl bg-blue-600 text-base font-black text-white shadow-sm disabled:opacity-50">{isSavingReminder?'저장 중...':'저장'}</button>
    </footer>

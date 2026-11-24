@@ -1,5 +1,18 @@
 import { supabase } from '../lib/supabaseClient';
 
+export const getDeviceDateKey = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error('올바르지 않은 날짜입니다.');
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
+export const getDeviceDateYearsAgo = (years, value = new Date()) => {
+  const [year, month, day] = getDeviceDateKey(value).split('-').map(Number);
+  const targetYear = year - Number(years);
+  const lastDay = new Date(Date.UTC(targetYear, month, 0)).getUTCDate();
+  return `${targetYear}-${String(month).padStart(2, '0')}-${String(Math.min(day, lastDay)).padStart(2, '0')}`;
+};
+
 const mapRecord = (row, signature = null) => ({
   id: row.id,
   date: row.inspection_date,
@@ -99,7 +112,7 @@ export const saveDailyInspectionRecordToServer = async (userId, date, record, si
 };
 
 export const listRecentDailyInspectionRecordsFromServer = async (fromDate) => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getDeviceDateKey();
   const { data, error } = await supabase
     .from('daily_inspection_records')
     .select('*')

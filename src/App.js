@@ -61,6 +61,7 @@ import {
     fetchMyOrganizationWeeklySchedules,
     fetchMyOrganizationScheduleSyncFrom
 } from './services/organizationScheduleService';
+import { refreshDailyInspectionReminder } from './services/dailyInspectionReminderService';
 //로그인
 import { useAuth } from './contexts/AuthContext';
 import { getAppSettingsStorageKey } from './utils/accountDataStorage';
@@ -237,6 +238,9 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     // 홈 달력은 기존 배송 실적을 유지하면서 휴무 페이지와 같은 회사 일정/신청 상태를 읽습니다.
     const [homePublishedSchedules, setHomePublishedSchedules] = useState([]);
     const [homeScheduleSyncFrom, setHomeScheduleSyncFrom] = useState(null);
+    const [reminderPublishedSchedules, setReminderPublishedSchedules] = useState([]);
+    const [reminderScheduleSyncFrom, setReminderScheduleSyncFrom] = useState(null);
+    const [reminderScheduleReady, setReminderScheduleReady] = useState(false);
     const [homeExtraDayOffRequests, setHomeExtraDayOffRequests] = useState([]);
     const [todayInspectionRecord, setTodayInspectionRecord] = useState(null);
     const todayInspectionDate = getTodayLocal();
@@ -1091,6 +1095,153 @@ const handleTodayClick = () => {
         homeScheduleSyncFrom
     ]);
 
+    // 알림용 근무표는 홈 달력의 현재 조회 월과 무관하게 오늘부터 30일을 따로 확인합니다.
+    useEffect(() => {
+        if (!user?.id || !profile?.organization_id) {
+            setReminderPublishedSchedules([]);
+            setReminderScheduleSyncFrom(null);
+            setReminderScheduleReady(true);
+            return undefined;
+        }
+
+        let isActive = true;
+        let isDisposed = false;
+        let appStateListener = null;
+
+        const loadReminderSchedule = async () => {
+            const startDate = getTodayLocal();
+            const endDateObject = new Date();
+            endDateObject.setDate(endDateObject.getDate() + 29);
+            const endDate = `${endDateObject.getFullYear()}-${String(endDateObject.getMonth() + 1).padStart(2, '0')}-${String(endDateObject.getDate()).padStart(2, '0')}`;
+
+            try {
+                const [rows, syncFrom] = await Promise.all([
+                    fetchMyOrganizationWeeklySchedules(startDate, endDate),
+                    fetchMyOrganizationScheduleSyncFrom()
+                ]);
+                if (!isActive) return;
+                setReminderPublishedSchedules(Array.isArray(rows) ? rows : []);
+                setReminderScheduleSyncFrom(syncFrom || null);
+                setReminderScheduleReady(true);
+            } catch (error) {
+                console.warn('[DailyInspectionReminder] 향후 근무표 조회 실패. 기존 예약을 유지합니다.', error);
+                if (isActive) setReminderScheduleReady(false);
+            }
+        };
+
+        setReminderScheduleReady(false);
+        loadReminderSchedule();
+        const interval = window.setInterval(loadReminderSchedule, 15 * 60 * 1000);
+
+        CapacitorApp.addListener('appStateChange', ({ isActive: appIsActive }) => {
+            if (appIsActive) loadReminderSchedule();
+        }).then((handle) => {
+            if (isDisposed) handle.remove();
+            else appStateListener = handle;
+        }).catch((error) => {
+            console.warn('[DailyInspectionReminder] 앱 복귀 감지 연결 실패:', error);
+        });
+
+        return () => {
+            isActive = false;
+            isDisposed = true;
+            window.clearInterval(interval);
+            if (appStateListener) appStateListener.remove();
+        };
+    }, [user?.id, profile?.organization_id]);
+
+    const reminderOffDates = useMemo(() => {
+        const offDates = [];
+        const now = new Date();
+        const hasOrganization = Boolean(profile?.organization_id);
+        const currentUserId = String(user?.id || '');
+
+        const isPersonalDayOff = (dateKey) => (Array.isArray(entries) ? entries : []).some((entry) => {
+            if (entry?.date !== dateKey) return false;
+            const customItems = Array.isArray(entry.customItems)
+                ? entry.customItems
+                : Array.isArray(entry.custom_items)
+                    ? entry.custom_items
+                    : [];
+            return Boolean(entry.memo && String(entry.memo).includes('휴무')) ||
+                entry.isDayOff === true ||
+                customItems.some((item) => item?.key === 'dayOff' || item?.key === '휴무');
+        });
+
+        for (let offset = 0; offset < 30; offset += 1) {
+            const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+            const dateKey = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+            const isBeforeScheduleSync = Boolean(
+                hasOrganization &&
+                reminderScheduleSyncFrom &&
+                dateKey < reminderScheduleSyncFrom
+            );
+
+            if (!hasOrganization || isBeforeScheduleSync) {
+                if (isPersonalDayOff(dateKey)) offDates.push(dateKey);
+                continue;
+            }
+
+            let managerStatus = null;
+            reminderPublishedSchedules.forEach((published) => {
+                if (!published.employee_details?.[currentUserId]) return;
+                if (published.status !== 'confirmed') return;
+
+                const dayRecord = published.schedule?.[dateKey];
+                if (!dayRecord) return;
+
+                let status = ['off', 'backup', 'work', 'pending'].includes(dayRecord?.status)
+                    ? dayRecord.status
+                    : null;
+
+                if (!status) {
+                    const offIds = Array.isArray(dayRecord?.offEmployeeIds)
+                        ? dayRecord.offEmployeeIds
+                        : [];
+                    const isOff = offIds.some((item) => {
+                        const id = item && typeof item === 'object'
+                            ? (item.employeeId || item.employee_id || item.id)
+                            : item;
+                        return String(id) === currentUserId;
+                    });
+                    const assignment = dayRecord?.assignment ||
+                        (Array.isArray(dayRecord?.subs)
+                            ? dayRecord.subs.find((item) => String(item.subId) === currentUserId) || null
+                            : null);
+                    status = isOff ? 'off' : assignment ? 'backup' : 'work';
+                }
+
+                managerStatus = status;
+            });
+
+            if (managerStatus === 'off') offDates.push(dateKey);
+        }
+
+        return offDates;
+    }, [
+        entries,
+        user?.id,
+        profile?.organization_id,
+        reminderScheduleSyncFrom,
+        reminderPublishedSchedules
+    ]);
+
+    useEffect(() => {
+        if (!isAuthReady || !isDataLoaded) return;
+        if (profile?.organization_id && !reminderScheduleReady) return;
+
+        refreshDailyInspectionReminder(user?.id || 'guest', reminderOffDates).catch((error) => {
+            console.warn('[DailyInspectionReminder] 근무일 기준 알림 갱신 실패:', error);
+        });
+    }, [
+        user?.id,
+        profile?.organization_id,
+        isAuthReady,
+        isDataLoaded,
+        reminderScheduleReady,
+        reminderOffDates
+    ]);
+
     const dailyInspectionScheduleStatus = useMemo(() => {
         const personalIsDayOff = (Array.isArray(entries) ? entries : []).some((entry) => {
             if (entry?.date !== todayInspectionDate) return false;
@@ -1352,6 +1503,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 profile={profile}
                                 isDarkMode={isDarkMode}
                                 scheduleStatus={dailyInspectionScheduleStatus}
+                                reminderOffDates={reminderOffDates}
                                 onSaved={setTodayInspectionRecord}
                                 onBack={() => setActiveContentTab('bluecoinsDailySummary')}
                             />
