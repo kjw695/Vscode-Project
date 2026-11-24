@@ -1,18 +1,16 @@
 package com.kjw.deliverytracker;
 
+import android.Manifest;
 import android.content.ContentValues;
 import android.content.ClipData;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Canvas;
-import android.graphics.Bitmap;
-import android.util.Log;
 import android.graphics.pdf.PdfDocument;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.FrameLayout;
 import android.net.Uri;
+import android.media.MediaScannerConnection;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.CancellationSignal;
@@ -33,7 +31,10 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -41,18 +42,20 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
+import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
-@CapacitorPlugin(name = "DailyInspectionPrint")
+@CapacitorPlugin(
+    name = "DailyInspectionPrint",
+    permissions = {
+        @Permission(
+            alias = "legacyStorage",
+            strings = { Manifest.permission.WRITE_EXTERNAL_STORAGE }
+        )
+    }
+)
 public class DailyInspectionPrintPlugin extends Plugin {
-    private static final String TAG = "DailyInspectionPDF";
     private final List<WebView> activePrintViews = new ArrayList<>();
 
     @PluginMethod
@@ -116,6 +119,29 @@ public class DailyInspectionPrintPlugin extends Plugin {
 
     @PluginMethod
     public void exportPdf(PluginCall call) {
+        if (requiresLegacyDownloadsPermission(call)
+            && getPermissionState("legacyStorage") != PermissionState.GRANTED) {
+            requestPermissionForAlias("legacyStorage", call, "legacyStoragePermissionCallback");
+            return;
+        }
+        exportPdfAfterPermission(call);
+    }
+
+    @PermissionCallback
+    private void legacyStoragePermissionCallback(PluginCall call) {
+        if (getPermissionState("legacyStorage") != PermissionState.GRANTED) {
+            call.reject("PDF를 다운로드 폴더에 저장하려면 저장 권한이 필요합니다.");
+            return;
+        }
+        exportPdfAfterPermission(call);
+    }
+
+    private boolean requiresLegacyDownloadsPermission(PluginCall call) {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+            && "save".equals(call.getString("action", "save"));
+    }
+
+    private void exportPdfAfterPermission(PluginCall call) {
         final String html = call.getString("html");
         final String jobName = safeName(call.getString("name"));
         final String action = call.getString("action", "save");
@@ -124,7 +150,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
             return;
         }
 
-        renderPdf(html, jobName, call, false, (pdfFile, diagnostics) -> {
+        renderPdf(html, jobName, call, pdfFile -> {
             try {
                 if ("save".equals(action)) {
                     Uri savedUri = savePdfToDownloads(pdfFile, jobName + ".pdf");
@@ -132,7 +158,7 @@ public class DailyInspectionPrintPlugin extends Plugin {
                     result.put("uri", savedUri.toString());
                     result.put("fileName", jobName + ".pdf");
                     call.resolve(result);
-                } else if ("kakao".equals(action) || "share".equals(action)) {
+                } else if ("kakao".equals(action) || "sms".equals(action)) {
                     sharePdf(pdfFile, jobName + ".pdf", action);
                     call.resolve();
                 } else {
@@ -142,29 +168,6 @@ public class DailyInspectionPrintPlugin extends Plugin {
                 call.reject("PDF 파일 처리에 실패했습니다: " + error.getMessage());
             }
         });
-    }
-
-    @PluginMethod
-    public void diagnosePdf(PluginCall call) {
-        final String jobName = safeName(call.getString("name"));
-        final String metricsJson = call.getString("metrics", "{}");
-        File zipFile = null;
-        try {
-            // 안전 진단은 PDF 렌더러나 대형 WebView/Bitmap을 실행하지 않습니다.
-            // 미리보기 DOM의 크기와 표/서명 배치 정보만 작은 ZIP으로 저장합니다.
-            String stamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
-            zipFile = createLightweightDiagnosticZip(jobName, metricsJson);
-            String zipName = jobName + "_PDF구조진단_" + stamp + ".zip";
-            Uri savedUri = saveZipToDownloads(zipFile, zipName);
-            JSObject result = new JSObject();
-            result.put("uri", savedUri.toString());
-            result.put("fileName", zipName);
-            call.resolve(result);
-        } catch (Exception error) {
-            call.reject("PDF 구조 진단 파일을 저장하지 못했습니다: " + error.getMessage());
-        } finally {
-            if (zipFile != null && zipFile.exists()) zipFile.delete();
-        }
     }
 
     @PluginMethod
@@ -186,68 +189,24 @@ public class DailyInspectionPrintPlugin extends Plugin {
         }
     }
 
-    private void renderPdf(String html, String jobName, PluginCall call, boolean diagnosticMode,
-        PdfReadyCallback callback) {
-        final DiagnosticSession diagnostics = new DiagnosticSession(getContext(), jobName, diagnosticMode);
-        diagnostics.logEnvironment();
+    private void renderPdf(String html, String jobName, PluginCall call, PdfReadyCallback callback) {
         getActivity().runOnUiThread(() -> {
-            // 화면에 연결된 WebView만 PDF 캡처합니다. Android WebView는 분리된 상태에서
-            // draw(Canvas)를 호출하면 페이지 전체 또는 다음 페이지가 비어 나올 수 있습니다.
             final WebView webView = createPrintWebView(true);
-            final ViewGroup contentRoot = getActivity().findViewById(android.R.id.content);
-            if (contentRoot == null) {
-                releasePrintView(webView);
-                call.reject("PDF 렌더링 화면을 준비하지 못했습니다.");
-                return;
-            }
-
-            contentRoot.addView(webView, 0, new FrameLayout.LayoutParams(1123, 794));
-            webView.setFocusable(false);
-            webView.setFocusableInTouchMode(false);
-            webView.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
-            webView.setHorizontalScrollBarEnabled(false);
-            webView.setVerticalScrollBarEnabled(false);
-
             webView.addJavascriptInterface(new Object() {
                 @JavascriptInterface
                 public void onReady(String metrics) {
                     getActivity().runOnUiThread(() -> {
                         try {
-                            if ("timeout".equals(metrics)) {
-                                diagnostics.log("ERROR: timed out while waiting for print-ready flag");
-                                releasePrintView(webView);
-                                call.reject("서명 이미지 준비가 완료되지 않아 PDF를 만들지 못했습니다. 다시 시도해주세요.");
-                                return;
-                            }
-
-                            String[] parts = metrics.split("\\|", 3);
-                            if (parts.length < 2) {
-                                diagnostics.log("ERROR: invalid DOM metrics: " + metrics);
-                                releasePrintView(webView);
-                                call.reject("PDF 페이지 정보를 읽지 못했습니다.");
-                                return;
-                            }
-
+                            String[] parts = metrics.split("\\|", 2);
                             int contentHeight = Integer.parseInt(parts[0]);
-                            int detailTop = Integer.parseInt(parts[1]);
-                            List<Integer> detailRowEnds = parseBreakPoints(
-                                parts.length > 2 ? parts[2] : "");
-                            diagnostics.log("DOM metrics: contentHeight=" + contentHeight
-                                + ", detailTop=" + detailTop
-                                + ", detailRows=" + detailRowEnds.size()
-                                + ", firstRows=" + summarizeNumbers(detailRowEnds, 8));
-                            diagnostics.log("WebView UA: " + webView.getSettings().getUserAgentString());
-
-                            if (contentHeight <= 0 || detailTop <= 0 || contentHeight <= detailTop) {
-                                diagnostics.log("ERROR: invalid page dimensions: contentHeight="
-                                    + contentHeight + ", detailTop=" + detailTop);
-                                releasePrintView(webView);
-                                call.reject("불량 점검 및 조치 기록 영역을 PDF 원본에서 찾지 못했습니다.");
-                                return;
+                            List<Integer> pageBreaks = new ArrayList<>();
+                            if (parts.length > 1 && !parts[1].isEmpty()) {
+                                for (String value : parts[1].split(",")) {
+                                    try { pageBreaks.add(Integer.parseInt(value)); }
+                                    catch (NumberFormatException ignored) { }
+                                }
                             }
-
-                            writePdfFromWebView(webView, jobName, contentHeight, detailTop,
-                                detailRowEnds, diagnostics, call, callback);
+                            writePdfFromWebView(webView, contentHeight, pageBreaks, call, callback);
                         } catch (Exception error) {
                             releasePrintView(webView);
                             call.reject("PDF 페이지 정보를 읽지 못했습니다: " + error.getMessage());
@@ -263,23 +222,18 @@ public class DailyInspectionPrintPlugin extends Plugin {
                 public void onPageFinished(WebView view, String url) {
                     if (started) return;
                     started = true;
-
                     String readyScript =
                         "(function(){" +
                         "var attempts=0;" +
                         "function waitForReady(){" +
-                        "if(!window.__dailyInspectionPrintReady){if(attempts++<200){setTimeout(waitForReady,50);return;}window.PdfBridge.onReady('timeout');return;}" +
+                        "if(!window.__dailyInspectionPrintReady&&attempts++<200){setTimeout(waitForReady,50);return;}" +
                         "var images=Array.prototype.slice.call(document.images||[]);" +
                         "Promise.all(images.map(function(img){return img.complete?Promise.resolve():new Promise(function(resolve){img.addEventListener('load',resolve,{once:true});img.addEventListener('error',resolve,{once:true});});}))" +
                         ".then(function(){" +
                         "requestAnimationFrame(function(){requestAnimationFrame(function(){" +
-                        "var detail=document.querySelector('.detail');" +
-                        "var detailTop=detail?Math.round(detail.getBoundingClientRect().top+window.scrollY):0;" +
-                        "var detailBottom=detail?Math.round(detail.getBoundingClientRect().bottom+window.scrollY):0;" +
-                        "var rows=Array.prototype.slice.call(document.querySelectorAll('.detail-table tbody tr'));" +
-                        "var rowEnds=rows.map(function(row){return Math.round(row.getBoundingClientRect().bottom+window.scrollY);}).filter(function(v){return v>detailTop;});" +
-                        "var height=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0,detailBottom);" +
-                        "window.PdfBridge.onReady(String(height)+'|'+String(detailTop)+'|'+rowEnds.join(','));" +
+                        "var height=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);" +
+                        "var breaks=Array.prototype.slice.call(document.querySelectorAll('.page-break')).map(function(el){return Math.round(el.getBoundingClientRect().top);});" +
+                        "window.PdfBridge.onReady(String(height)+'|'+breaks.join(','));" +
                         "});});" +
                         "});" +
                         "}" +
@@ -289,425 +243,96 @@ public class DailyInspectionPrintPlugin extends Plugin {
                 }
             });
 
-            // A4 가로 용지 폭을 고정해 앱 화면 크기와 무관하게 PDF를 만듭니다.
-            String pdfHtml = html
-                .replace("width=device-width", "width=1123")
-                .replace("</style>",
-                    ".toolbar{display:none!important}" +
-                    "#preview-content{zoom:1!important;height:auto!important}" +
-                    "html,body{height:auto!important;overflow:visible!important;margin:0!important}" +
-                    ".detail{border:0!important;margin:0!important;padding:0!important}" +
-                    "</style>");
+            String pdfHtml = html.replace("</style>",
+                ".toolbar{display:none!important}#preview-content{zoom:1!important}" +
+                "html,body{overflow:visible!important;margin:0!important}" +
+                "</style>");
             webView.loadDataWithBaseURL("https://localhost/", pdfHtml, "text/html", "UTF-8", null);
         });
     }
 
-    private void writePdfFromWebView(WebView webView, String jobName, int contentHeight,
-        int detailTop, List<Integer> detailRowEnds, DiagnosticSession diagnostics,
+    private void writePdfFromWebView(WebView webView, int contentHeight, List<Integer> pageBreaks,
         PluginCall call, PdfReadyCallback callback) {
         final int pageWidthPx = 1123;
         final int pageHeightPx = 794;
         final int pdfPageWidth = 842;
         final int pdfPageHeight = 595;
         final float scale = (float) pdfPageWidth / (float) pageWidthPx;
-        final File output = new File(getContext().getCacheDir(),
-            "daily-inspection-" + System.currentTimeMillis() + ".pdf");
-        final PdfDocument document = new PdfDocument();
+
+        if (contentHeight <= 0) {
+            releasePrintView(webView);
+            call.reject("PDF에 넣을 점검표 내용이 비어 있습니다.");
+            return;
+        }
 
         try {
-            // 첫 페이지의 실제 끝은 불량 점검 기록(.detail)이 시작되는 위치입니다.
-            // 794px로 잘라 버리지 않고, 첫 페이지 전체를 캡처할 수 있도록 WebView 높이를 늘립니다.
-            int firstPageHeight = detailTop;
-            if (firstPageHeight <= 0) {
-                throw new IOException("일상점검표의 첫 페이지 높이를 확인하지 못했습니다.");
-            }
-            // 문서 전체 높이로 WebView를 한 번만 확장합니다.
-            // 이후 페이지는 WebView 스크롤 대신 Canvas의 문서 좌표 이동으로 캡처합니다.
-            int fullViewHeight = Math.max(pageHeightPx, Math.min(contentHeight, 16000));
-            diagnostics.log("PDF setup: contentHeight=" + contentHeight + ", firstPageHeight="
-                + firstPageHeight + ", fullViewHeight=" + fullViewHeight
-                + ", pageViewport=" + pageWidthPx + "x" + pageHeightPx
-                + ", pdfPage=" + pdfPageWidth + "x" + pdfPageHeight);
-            webView.setLayoutParams(new FrameLayout.LayoutParams(pageWidthPx, fullViewHeight));
             webView.measure(
-                View.MeasureSpec.makeMeasureSpec(pageWidthPx, View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(fullViewHeight, View.MeasureSpec.EXACTLY)
+                android.view.View.MeasureSpec.makeMeasureSpec(pageWidthPx, android.view.View.MeasureSpec.EXACTLY),
+                android.view.View.MeasureSpec.makeMeasureSpec(pageHeightPx, android.view.View.MeasureSpec.EXACTLY)
             );
-            webView.layout(0, 0, pageWidthPx, fullViewHeight);
-            webView.requestLayout();
-            webView.invalidate();
+            webView.layout(0, 0, pageWidthPx, pageHeightPx);
+            webView.setHorizontalScrollBarEnabled(false);
+            webView.setVerticalScrollBarEnabled(false);
 
-            // 1쪽은 운수종사자 일상점검표 전체를 한 장에 맞춰 출력하고,
-            // 2쪽부터 불량 점검 및 조치 기록을 출력합니다.
-            drawPdfPage(webView, document, output, jobName, contentHeight, detailRowEnds,
-                diagnostics, 0, firstPageHeight, 1, pageWidthPx, pageHeightPx,
-                pdfPageWidth, pdfPageHeight, scale, call, callback);
-        } catch (Exception error) {
-            diagnostics.log("ERROR: PDF page preparation failed: " + error.getMessage());
-            try { document.close(); } catch (Exception ignored) { }
-            output.delete();
-            releasePrintView(webView);
-            call.reject("PDF 페이지를 준비하지 못했습니다: " + error.getMessage());
-        }
-    }
-
-    private void drawPdfPage(WebView webView, PdfDocument document, File output,
-        String jobName, int contentHeight, List<Integer> detailRowEnds,
-        DiagnosticSession diagnostics, int offset, int pageContentHeight, int pageNumber,
-        int pageWidthPx, int pageHeightPx, int pdfPageWidth, int pdfPageHeight,
-        float scale, PluginCall call, PdfReadyCallback callback) {
-
-        if (offset >= contentHeight) {
-            try {
-                try (FileOutputStream stream = new FileOutputStream(output)) {
-                    document.writeTo(stream);
+            PdfDocument document = new PdfDocument();
+            int offset = 0;
+            int pageNumber = 1;
+            while (offset < contentHeight && pageNumber <= 100) {
+                int nextOffset = Math.min(offset + pageHeightPx, contentHeight);
+                for (Integer pageBreak : pageBreaks) {
+                    if (pageBreak != null
+                        && pageBreak > offset + (pageHeightPx * 65 / 100)
+                        && pageBreak <= nextOffset
+                        && pageBreak < contentHeight) {
+                        nextOffset = pageBreak;
+                        break;
+                    }
                 }
+                if (nextOffset <= offset) nextOffset = Math.min(offset + pageHeightPx, contentHeight);
+
+                PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(
+                    pdfPageWidth, pdfPageHeight, pageNumber).create();
+                PdfDocument.Page page = document.startPage(pageInfo);
+                Canvas canvas = page.getCanvas();
+                canvas.drawColor(Color.WHITE);
+                canvas.save();
+                canvas.scale(scale, scale);
+                canvas.clipRect(0, 0, pageWidthPx, nextOffset - offset);
+                webView.scrollTo(0, offset);
+                webView.draw(canvas);
+                canvas.restore();
+                document.finishPage(page);
+
+                offset = nextOffset;
+                pageNumber += 1;
+            }
+
+            if (offset < contentHeight) {
                 document.close();
                 releasePrintView(webView);
-
-                if (!output.exists() || output.length() < 500) {
-                    output.delete();
-                    call.reject("PDF 파일이 비어 있습니다. 다시 시도해주세요.");
-                    return;
-                }
-                diagnostics.log("PDF write complete: bytes=" + output.length() + ", pages=" + diagnostics.pageCount);
-                callback.onReady(output, diagnostics);
-            } catch (Exception error) {
-                try { document.close(); } catch (Exception ignored) { }
-                output.delete();
-                releasePrintView(webView);
-                call.reject("PDF 파일을 완성하지 못했습니다: " + error.getMessage());
-            }
-            return;
-        }
-
-        if (pageNumber > 100) {
-            try { document.close(); } catch (Exception ignored) { }
-            output.delete();
-            releasePrintView(webView);
-            call.reject("점검표가 너무 길어 PDF 페이지를 모두 만들지 못했습니다.");
-            return;
-        }
-
-        int nextOffset;
-        if (pageNumber == 1) {
-            nextOffset = pageContentHeight;
-        } else {
-            nextOffset = Math.min(offset + pageHeightPx, contentHeight);
-
-            // 조치 기록 표의 행이 페이지 중간에서 잘리지 않도록 가능한 경우
-            // 현재 페이지 끝보다 앞선 마지막 행 끝으로 페이지 경계를 이동합니다.
-            int lastSafeRowEnd = -1;
-            for (Integer rowEnd : detailRowEnds) {
-                if (rowEnd == null || rowEnd <= offset) continue;
-                if (rowEnd <= nextOffset) {
-                    lastSafeRowEnd = rowEnd;
-                } else {
-                    break;
-                }
-            }
-            if (lastSafeRowEnd > offset + 160 && lastSafeRowEnd < nextOffset) {
-                nextOffset = lastSafeRowEnd;
-            }
-        }
-
-        if (nextOffset <= offset) {
-            nextOffset = Math.min(offset + pageHeightPx, contentHeight);
-        }
-
-        final int pageEndOffset = nextOffset;
-        // 첫 페이지는 .detail 시작점까지 전체를 캡처합니다. 후속 페이지는 A4 높이만큼 캡처합니다.
-        final int clipHeight = pageNumber == 1
-            ? pageContentHeight
-            : Math.min(pageHeightPx, pageEndOffset - offset);
-        final float diagnosticScale = pageNumber == 1
-            ? Math.min(scale, (float) pdfPageHeight / (float) clipHeight)
-            : scale;
-        diagnostics.log("PAGE " + pageNumber + " plan: offset=" + offset
-            + ", pageEndOffset=" + pageEndOffset
-            + ", canvasOffsetY=" + (-offset)
-            + ", clipHeight=" + clipHeight
-            + ", view=" + webView.getWidth() + "x" + webView.getHeight()
-            + ", nativeScrollY=" + webView.getScrollY()
-            + ", pageScale=" + diagnosticScale
-            + ", rowCount=" + detailRowEnds.size());
-
-        // WebView는 문서 전체 높이로 유지하고, 페이지별 캡처 위치는 Canvas에서 이동합니다.
-        webView.postVisualStateCallback(pageNumber, new WebView.VisualStateCallback() {
-            @Override
-            public void onComplete(long requestId) {
-                try {
-                    try {
-                        diagnostics.capturePage(webView, pageNumber, pageWidthPx, clipHeight, offset);
-                    } catch (Exception captureError) {
-                        diagnostics.log("PAGE " + pageNumber + " captureError: " + captureError.getMessage());
-                    }
-
-                    PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(
-                        pdfPageWidth, pdfPageHeight, pageNumber).create();
-                    PdfDocument.Page page = document.startPage(pageInfo);
-                    Canvas canvas = page.getCanvas();
-                    canvas.drawColor(Color.WHITE);
-                    canvas.save();
-                    // 첫 페이지 높이가 A4를 넘으면 가로·세로 비율을 유지해 한 장에 축소합니다.
-                    // 불량 조치 기록 페이지는 기존 A4 배율을 그대로 사용합니다.
-                    float pageScale = pageNumber == 1
-                        ? Math.min(scale, (float) pdfPageHeight / (float) clipHeight)
-                        : scale;
-                    float pageLeft = (pdfPageWidth - (pageWidthPx * pageScale)) / 2.0f;
-                    canvas.translate(pageLeft, 0);
-                    canvas.scale(pageScale, pageScale);
-                    canvas.clipRect(0, 0, pageWidthPx, clipHeight);
-                    canvas.translate(0, -offset);
-                    webView.draw(canvas);
-                    canvas.restore();
-                    document.finishPage(page);
-                    diagnostics.log("PAGE " + pageNumber + " PDF canvas completed: "
-                        + pdfPageWidth + "x" + pdfPageHeight + ", clip=" + clipHeight
-                        + ", canvasScale=" + pageScale + ", canvasTranslateX=" + pageLeft);
-
-                    drawPdfPage(webView, document, output, jobName, contentHeight, detailRowEnds,
-                        diagnostics, pageEndOffset, pageHeightPx, pageNumber + 1,
-                        pageWidthPx, pageHeightPx, pdfPageWidth, pdfPageHeight,
-                        scale, call, callback);
-                } catch (Exception error) {
-                    diagnostics.log("ERROR: page " + pageNumber + " drawing failed: " + error.getMessage());
-                    try { document.close(); } catch (Exception ignored) { }
-                    output.delete();
-                    releasePrintView(webView);
-                    call.reject("PDF 페이지 " + pageNumber + "를 생성하지 못했습니다: " + error.getMessage());
-                }
-            }
-        });
-    }
-
-    private String summarizeNumbers(List<Integer> values, int limit) {
-        StringBuilder summary = new StringBuilder();
-        for (int i = 0; i < values.size() && i < limit; i++) {
-            if (i > 0) summary.append(",");
-            summary.append(values.get(i));
-        }
-        if (values.size() > limit) summary.append("...(+").append(values.size() - limit).append(")");
-        return summary.toString();
-    }
-
-    private File createLightweightDiagnosticZip(String jobName, String metricsJson)
-        throws IOException {
-        File zipFile = new File(getContext().getCacheDir(),
-            "daily-inspection-structure-diagnostic-" + System.currentTimeMillis() + ".zip");
-        String report =
-            "Daily Inspection PDF Structure Diagnostic\\n" +
-            "Job: " + jobName + "\\n" +
-            "Generated: " + new Date().toString() + "\\n" +
-            "Android: " + Build.VERSION.RELEASE + " (SDK " + Build.VERSION.SDK_INT + ")\\n" +
-            "Device: " + Build.MANUFACTURER + " " + Build.MODEL + "\\n" +
-            "App package: " + getContext().getPackageName() + "\\n" +
-            "Renderer: NOT EXECUTED (safe DOM-only diagnostic)\\n\\n" +
-            "Preview metrics JSON:\\n" + metricsJson + "\\n";
-        try (ZipOutputStream zip = new ZipOutputStream(new FileOutputStream(zipFile))) {
-            zip.putNextEntry(new ZipEntry("diagnostics.txt"));
-            zip.write(report.getBytes(StandardCharsets.UTF_8));
-            zip.closeEntry();
-        }
-        return zipFile;
-    }
-
-    private File createDiagnosticZip(File pdfFile, DiagnosticSession diagnostics, String jobName)
-        throws IOException {
-        File zipFile = new File(getContext().getCacheDir(),
-            "daily-inspection-diagnostic-" + System.currentTimeMillis() + ".zip");
-        try (ZipOutputStream zip = new ZipOutputStream(new FileOutputStream(zipFile))) {
-            byte[] report = diagnostics.report.toString().getBytes(StandardCharsets.UTF_8);
-            zip.putNextEntry(new ZipEntry("diagnostics.txt"));
-            zip.write(report);
-            zip.closeEntry();
-            addFileToZip(zip, pdfFile, "generated.pdf");
-            for (int i = 0; i < diagnostics.snapshots.size(); i++) {
-                File image = diagnostics.snapshots.get(i);
-                addFileToZip(zip, image, "screenshots/" + image.getName());
-            }
-        }
-        return zipFile;
-    }
-
-    private void addFileToZip(ZipOutputStream zip, File file, String entryName) throws IOException {
-        if (file == null || !file.exists()) return;
-        zip.putNextEntry(new ZipEntry(entryName));
-        try (InputStream input = new FileInputStream(file)) {
-            byte[] buffer = new byte[8192];
-            int length;
-            while ((length = input.read(buffer)) != -1) zip.write(buffer, 0, length);
-        }
-        zip.closeEntry();
-    }
-
-    private Uri saveZipToDownloads(File source, String fileName) throws IOException {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ContentValues values = new ContentValues();
-            values.put(MediaStore.Downloads.DISPLAY_NAME, fileName);
-            values.put(MediaStore.Downloads.MIME_TYPE, "application/zip");
-            values.put(MediaStore.Downloads.RELATIVE_PATH,
-                Environment.DIRECTORY_DOWNLOADS + "/택배메이트");
-            values.put(MediaStore.Downloads.IS_PENDING, 1);
-            Uri uri = getContext().getContentResolver().insert(
-                MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
-            if (uri == null) throw new IOException("다운로드 폴더에 진단 파일을 만들지 못했습니다.");
-            try (InputStream input = new FileInputStream(source);
-                 OutputStream output = getContext().getContentResolver().openOutputStream(uri)) {
-                if (output == null) throw new IOException("진단 파일을 저장할 수 없습니다.");
-                copy(input, output);
-            } catch (IOException error) {
-                getContext().getContentResolver().delete(uri, null, null);
-                throw error;
-            }
-            ContentValues completed = new ContentValues();
-            completed.put(MediaStore.Downloads.IS_PENDING, 0);
-            getContext().getContentResolver().update(uri, completed, null, null);
-            return uri;
-        }
-
-        File downloads = new File(getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
-            "택배메이트");
-        if (!downloads.exists() && !downloads.mkdirs()) {
-            throw new IOException("진단 파일 다운로드 폴더를 만들지 못했습니다.");
-        }
-        File destination = new File(downloads, fileName);
-        try (InputStream input = new FileInputStream(source);
-             OutputStream output = new FileOutputStream(destination)) {
-            copy(input, output);
-        }
-        return FileProvider.getUriForFile(getContext(),
-            getContext().getPackageName() + ".fileprovider", destination);
-    }
-
-    private static class DiagnosticSession {
-        final boolean enabled;
-        final Context context;
-        final StringBuilder report = new StringBuilder();
-        final List<File> snapshots = new ArrayList<>();
-        final File directory;
-        int pageCount = 0;
-
-        DiagnosticSession(Context context, String jobName, boolean enabled) {
-            this.context = context.getApplicationContext();
-            this.enabled = enabled;
-            this.directory = enabled
-                ? new File(context.getCacheDir(), "daily-inspection-diagnostic-" + System.currentTimeMillis())
-                : null;
-            if (enabled && !directory.exists()) directory.mkdirs();
-            log("Daily Inspection PDF Diagnostic");
-            log("Job: " + jobName);
-            log("Diagnostic mode: " + enabled);
-        }
-
-        void logEnvironment() {
-            if (!enabled) return;
-            log("Android: " + Build.VERSION.RELEASE + " (SDK " + Build.VERSION.SDK_INT + ")");
-            log("Device: " + Build.MANUFACTURER + " " + Build.MODEL);
-            log("App package: " + context.getPackageName());
-            log("Started: " + new Date().toString());
-        }
-
-        void log(String message) {
-            if (!enabled) return;
-            report.append(message).append('\n');
-            Log.i(TAG, message);
-        }
-
-        void capturePage(WebView webView, int pageNumber, int width, int height, int offsetY) throws IOException {
-            pageCount = Math.max(pageCount, pageNumber);
-            if (!enabled || pageNumber > 4) {
-                log("PAGE " + pageNumber + " screenshot skipped (capture limit=4)");
+                call.reject("점검표가 너무 길어 PDF 페이지를 모두 만들지 못했습니다.");
                 return;
             }
 
-            long sourcePixelCount = (long) width * (long) height;
-            if (width <= 0 || height <= 0 || sourcePixelCount > 100000000L) {
-                log("PAGE " + pageNumber + " screenshot skipped: invalid source size "
-                    + width + "x" + height);
-                return;
-            }
-
-            // Keep diagnostic screenshots small to avoid an additional full-resolution bitmap
-            // and a second width*height pixel array while the full-height WebView is in memory.
-            final double maxScreenshotPixels = 1200000.0;
-            float renderScale = Math.min(0.75f,
-                (float) Math.sqrt(maxScreenshotPixels / (double) sourcePixelCount));
-            int bitmapWidth = Math.max(1, Math.round(width * renderScale));
-            int bitmapHeight = Math.max(1, Math.round(height * renderScale));
-
-            Bitmap bitmap;
-            try {
-                bitmap = Bitmap.createBitmap(bitmapWidth, bitmapHeight, Bitmap.Config.ARGB_8888);
-            } catch (OutOfMemoryError memoryError) {
-                log("PAGE " + pageNumber + " screenshot skipped: insufficient memory allocating "
-                    + bitmapWidth + "x" + bitmapHeight);
-                return;
-            }
-
-            try {
-                Canvas bitmapCanvas = new Canvas(bitmap);
-                bitmapCanvas.drawColor(Color.WHITE);
-                bitmapCanvas.save();
-                bitmapCanvas.scale(renderScale, renderScale);
-                bitmapCanvas.translate(0, -offsetY);
-                webView.draw(bitmapCanvas);
-                bitmapCanvas.restore();
-
-                // Sample pixels instead of allocating a second full-size int[] array.
-                int sampleStep = Math.max(4, Math.min(bitmapWidth, bitmapHeight) / 160);
-                long sampledPixels = 0;
-                long nonWhiteSamples = 0;
-                int minX = bitmapWidth, minY = bitmapHeight, maxX = -1, maxY = -1;
-                for (int y = 0; y < bitmapHeight; y += sampleStep) {
-                    for (int x = 0; x < bitmapWidth; x += sampleStep) {
-                        sampledPixels++;
-                        int color = bitmap.getPixel(x, y);
-                        if (Color.red(color) < 245 || Color.green(color) < 245 || Color.blue(color) < 245) {
-                            nonWhiteSamples++;
-                            if (x < minX) minX = x;
-                            if (x > maxX) maxX = x;
-                            if (y < minY) minY = y;
-                            if (y > maxY) maxY = y;
-                        }
-                    }
-                }
-
-                File image = new File(directory, String.format(Locale.US, "page-%02d.png", pageNumber));
-                try (FileOutputStream output = new FileOutputStream(image)) {
-                    if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
-                        throw new IOException("PNG screenshot compression failed");
-                    }
-                }
-                snapshots.add(image);
-                String bounds = maxX < 0 ? "none"
-                    : minX + "," + minY + " - " + maxX + "," + maxY;
-                log("PAGE " + pageNumber + " screenshot: source=" + width + "x" + height
-                    + ", saved=" + bitmapWidth + "x" + bitmapHeight
-                    + ", scale=" + renderScale
-                    + ", sampledNonWhite=" + nonWhiteSamples + "/" + sampledPixels
-                    + ", sampledContentBounds=" + bounds
-                    + ", file=" + image.getName());
-            } catch (OutOfMemoryError memoryError) {
-                log("PAGE " + pageNumber + " screenshot stopped: memory pressure during rendering");
+            File output = new File(getContext().getCacheDir(),
+                "daily-inspection-" + System.currentTimeMillis() + ".pdf");
+            try (FileOutputStream stream = new FileOutputStream(output)) {
+                document.writeTo(stream);
             } finally {
-                bitmap.recycle();
+                document.close();
+                releasePrintView(webView);
             }
+
+            if (!output.exists() || output.length() == 0) {
+                call.reject("PDF 파일이 비어 있습니다. 다시 시도해주세요.");
+                return;
+            }
+            callback.onReady(output);
+        } catch (Exception error) {
+            releasePrintView(webView);
+            call.reject("PDF 파일 생성에 실패했습니다: " + error.getMessage());
         }
     }
-
-    private List<Integer> parseBreakPoints(String values) {
-        List<Integer> points = new ArrayList<>();
-        if (values == null || values.trim().isEmpty()) return points;
-        for (String value : values.split(",")) {
-            try {
-                int point = Integer.parseInt(value.trim());
-                if (point > 0 && !points.contains(point)) points.add(point);
-            } catch (NumberFormatException ignored) { }
-        }
-        return points;
-    }
-
     private WebView createPrintWebView() {
         return createPrintWebView(false);
     }
@@ -761,9 +386,14 @@ public class DailyInspectionPrintPlugin extends Plugin {
             return uri;
         }
 
-        File downloads = new File(getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
-            "택배메이트");
-        if (!downloads.exists() && !downloads.mkdirs()) {
+        File downloadsRoot = Environment.getExternalStoragePublicDirectory(
+            Environment.DIRECTORY_DOWNLOADS);
+        if (downloadsRoot == null) {
+            throw new IOException("공용 다운로드 폴더를 찾지 못했습니다.");
+        }
+        File downloads = new File(downloadsRoot, "택배메이트");
+        if ((!downloadsRoot.exists() && !downloadsRoot.mkdirs())
+            || (!downloads.exists() && !downloads.mkdirs())) {
             throw new IOException("다운로드 폴더를 만들지 못했습니다.");
         }
         File destination = new File(downloads, fileName);
@@ -771,6 +401,12 @@ public class DailyInspectionPrintPlugin extends Plugin {
              OutputStream output = new FileOutputStream(destination)) {
             copy(input, output);
         }
+        MediaScannerConnection.scanFile(
+            getContext(),
+            new String[] { destination.getAbsolutePath() },
+            new String[] { "application/pdf" },
+            null
+        );
         return FileProvider.getUriForFile(getContext(),
             getContext().getPackageName() + ".fileprovider", destination);
     }
@@ -778,7 +414,6 @@ public class DailyInspectionPrintPlugin extends Plugin {
     private void sharePdf(File pdfFile, String fileName, String action) throws Exception {
         Uri uri = FileProvider.getUriForFile(getContext(),
             getContext().getPackageName() + ".fileprovider", pdfFile);
-
         Intent intent = new Intent(Intent.ACTION_SEND);
         intent.setType("application/pdf");
         intent.putExtra(Intent.EXTRA_STREAM, uri);
@@ -787,29 +422,21 @@ public class DailyInspectionPrintPlugin extends Plugin {
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
         if ("kakao".equals(action)) {
-            // 일반 공유창으로 빠지지 않도록 카카오톡 앱을 수신 대상으로 고정합니다.
-            intent.setPackage("com.kakao.talk");
             try {
+                getContext().getPackageManager().getPackageInfo("com.kakao.talk", PackageManager.GET_ACTIVITIES);
+                intent.setPackage("com.kakao.talk");
                 getActivity().startActivity(intent);
-            } catch (android.content.ActivityNotFoundException notInstalled) {
-                throw new IOException("카카오톡을 찾을 수 없습니다. 카카오톡 설치 상태를 확인해주세요.");
+                return;
+            } catch (PackageManager.NameNotFoundException notInstalled) {
+                intent.setPackage(null);
+            } catch (Exception launchError) {
+                intent.setPackage(null);
             }
+            getActivity().startActivity(Intent.createChooser(intent, "카카오톡 또는 다른 앱으로 PDF 공유"));
             return;
         }
 
-        if ("share".equals(action)) {
-            // Android 기본 공유창을 열어 Quick Share, 메시지, 메일, 클라우드 앱 등을 선택할 수 있게 합니다.
-            Intent chooser = Intent.createChooser(intent, "PDF 공유");
-            chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            try {
-                getActivity().startActivity(chooser);
-            } catch (android.content.ActivityNotFoundException unsupported) {
-                throw new IOException("PDF를 공유할 수 있는 앱을 찾지 못했습니다.");
-            }
-            return;
-        }
-
-        throw new IllegalArgumentException("지원하지 않는 공유 방식입니다.");
+        getActivity().startActivity(Intent.createChooser(intent, "PDF를 첨부할 문자 앱 선택"));
     }
 
     private String safeName(String requestedName) {
@@ -826,12 +453,14 @@ public class DailyInspectionPrintPlugin extends Plugin {
         output.flush();
     }
 
+    private void closeQuietly(ParcelFileDescriptor descriptor) {
+        if (descriptor == null) return;
+        try { descriptor.close(); } catch (IOException ignored) { }
+    }
+
     private void releasePrintView(WebView view) {
         if (view == null) return;
         activePrintViews.remove(view);
-        if (view.getParent() instanceof ViewGroup) {
-            ((ViewGroup) view.getParent()).removeView(view);
-        }
         view.post(() -> {
             try {
                 view.stopLoading();
@@ -843,6 +472,6 @@ public class DailyInspectionPrintPlugin extends Plugin {
     }
 
     private interface PdfReadyCallback {
-        void onReady(File file, DiagnosticSession diagnostics);
+        void onReady(File file);
     }
 }
