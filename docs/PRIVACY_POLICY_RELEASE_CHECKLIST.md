@@ -26,9 +26,10 @@
 - [x] Supabase 안내상 미국 계열사 Supabase Inc.는 기술지원·운영에 관여할 수 있으며, 글로벌 지원인력의 접근은 지원요청/사고 대응 등 필요한 경우 제한되고 기록됨.
 - [x] Supabase 운영 로그·사용량 텔레메트리는 주 DB 리전 밖에서 처리될 수 있고 Supabase는 로그·텔레메트리의 EU 데이터센터 저장을 안내함. DB 리전이 모든 운영정보의 처리 위치를 의미하지 않음.
 - [x] Supabase Edge Functions: `delete-account`와 `analyze-camp-return-form` 모두 ACTIVE, `verify_jwt=true`. 앱 호출에 `FunctionRegion.ApNortheast2`를 지정해 서울(`ap-northeast-2`) 리전을 요청하도록 변경함. 함수 CORS 허용 헤더에 `x-region`을 추가함.
-- [ ] 실제 호출 응답의 `x-sb-edge-region` 또는 함수 로그의 `SB_REGION`이 `ap-northeast-2`인지 운영 기기에서 확인. 코드가 서울을 요청하는 것과 실제 실행 리전 확인은 구분함.
+- [x] 2026-11-25 운영 로그에서 `analyze-camp-return-form` 실제 응답의 `x-sb-edge-region=ap-northeast-2` 및 함수 실행 `region=ap-northeast-2` 확인.
+- [ ] `delete-account`는 실제 계정 삭제를 실행하지 않아 개별 런타임 리전은 미검증. 실제 이용자 계정을 삭제하는 테스트는 하지 않고, 별도 테스트 계정으로 검증할 때 확인.
 - [x] 변경 후 운영 함수 배포 확인: `delete-account` v4 ACTIVE, `analyze-camp-return-form` v14 ACTIVE, 두 함수 모두 `verify_jwt=true` 유지.
-- [ ] 서울 리전을 고정하면 해당 리전 장애 시 자동으로 다른 리전으로 우회하지 않는 점을 장애 대응 절차에 반영.
+- [x] 서울 리전을 고정하면 해당 리전 장애 시 자동으로 다른 리전으로 우회하지 않을 수 있다는 점을 장애 대응 절차에 반영.
 - [ ] Supabase 로그의 실제 보유기간, 프로젝트별 글로벌 지원 접근 설정, 계약에 적용되는 전체 하위처리자 목록을 DPA/계정에서 확인. Supabase 공통 하위처리자 명단은 프로젝트별 실제 사용을 의미하지 않음.
 - [x] Google Mobile Ads SDK 계약 법인: 사용자가 제공한 AdSense Online Terms 제1조에 Google Asia Pacific Pte. Ltd.라고 명시되어 있고 제16조에 AdMob 서비스별 약관이 연결됨. Google 공식 AdSense 도움말도 APAC 계약 법인이 AdSense·AdMob에 적용될 수 있음을 확인함. 주소: Mapletree Business City II, 70 Pasir Panjang Road, #03-71, Singapore 117371.
 - [x] Google Mobile Ads SDK 자동 수집 항목: IP 주소, 앱 실행·탭·광고 영상 시청 등 앱 상호작용, 진단·성능 정보, 기기·계정 식별자. 목적: 광고, 분석/측정, 부정 사용 방지.
@@ -60,11 +61,12 @@
 - [ ] Google/Apple OAuth 인증 과정에서 인증 제공자에게 전달되는 식별정보·처리 법인·국가·보유기간과 Supabase Auth 연계 구조를 별도로 확인.
 
 ## 보관 기간 및 삭제
-- [ ] 일상점검표 서버 기록의 1년 보관기간을 UI·정책·실제 cleanup cron과 일치시킴
-- [ ] 최신 재사용 서명 및 기록에 참조된 이전 서명의 보관·삭제 기준을 사용자에게 명확히 안내
+- [x] 일상점검표 서버 기록 보관기간을 2년으로 일치시킴. 운영 DB의 `cleanup_expired_daily_inspection_records()`가 2년 초과 기록을 삭제하고, `daily-inspection-retention` cron이 매일 실행 중인 것을 확인.
+- [x] 최신 서명 버전은 재사용을 위해 유지하고, 이전 서명은 보존 중인 점검 기록이 참조하는 동안 유지하는 기준을 정책에 반영.
 - [ ] 회사 공유 근무표/이력 익명화와 개인정보 삭제 이후 남는 회사 데이터 범위를 확인
 - [ ] 사용자 CSV/PDF 내보내기 및 외부 Google Forms 제출 데이터는 앱 계정 삭제만으로 외부 저장본까지 지워지지 않는다는 점을 명시
 - [ ] 게스트/오프라인 로컬 데이터가 계정 삭제와 앱 삭제에서 어떻게 처리되는지 실제 기기에서 검증
+- [x] 계정 삭제 DB trigger가 `auth.users` 삭제 전 회사 소유권·소속을 재검사하고, 개인 계정 데이터는 삭제하며 회사 공유 이력의 작성자 식별자는 NULL로 익명화하는 것을 운영 DB 함수 정의로 확인. 일상점검표 기록·서명과 개인 채번 기록은 `auth.users` 참조 FK의 ON DELETE CASCADE로 삭제되며, 공유 Google Forms 메타데이터는 작성자 ID를 NULL로 바꾸어 공유 목록에 남을 수 있음.
 
 ## 앱 스토어 및 실제 공개
 - [ ] 개인정보 처리방침 페이지의 최종 URL을 Firebase Hosting에 배포
