@@ -160,7 +160,8 @@ const AdBanner = ({ isVisible, activeTab }) => {
 
     return (
         <div
-            className="fixed top-0 left-0 right-0 z-[9998] px-2 pt-1 pointer-events-none"
+            className="fixed left-0 right-0 z-[9998] px-2 pt-1 pointer-events-none"
+            style={{ top: 'max(env(safe-area-inset-top, 0px), 28px)' }}
             aria-label="배너 광고 제휴 문의"
         >
             <div className="mx-auto flex h-9 max-w-[520px] items-center justify-between rounded-lg border border-gray-200 bg-white/95 px-3 shadow-sm pointer-events-auto dark:border-gray-700 dark:bg-gray-800/95">
