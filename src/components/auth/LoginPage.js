@@ -73,7 +73,7 @@ const LoginPage = ({ onBack, isDarkMode, onMigrationComplete }) => {
                             onClick={() => handleLogin(signInWithKakao, '카카오')}
                             className="w-full py-3.5 rounded-xl font-bold bg-yellow-400 text-gray-900 shadow-sm active:scale-95 transition-transform disabled:opacity-50"
                         >
-                            카카오로 계속하기 (준비 중)
+                            카카오로 계속하기
                         </button>
                     </div>
                 )}
