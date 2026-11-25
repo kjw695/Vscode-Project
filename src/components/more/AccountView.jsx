@@ -4,7 +4,8 @@ import LoginPage from '../auth/LoginPage';
 import GuestLedgerImportView from './GuestLedgerImportView';
 import { getDailyInspectionStoragePrefix } from '../../services/dailyInspectionService';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabaseClient'; 
+import { supabase } from '../../lib/supabaseClient';
+import { FunctionRegion } from '@supabase/supabase-js'; 
 import RegionCampModal from '../common/RegionCampModal';
 import { useDelivery } from '../../contexts/DeliveryContext';
 import {
@@ -277,7 +278,8 @@ const handleEditClick = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke('delete-account', {
-        body: { confirmation: '탈퇴합니다' }
+        body: { confirmation: '탈퇴합니다' },
+        region: FunctionRegion.ApNortheast2
       });
 
       if (error) {
