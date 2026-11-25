@@ -70,7 +70,7 @@ function normalizeGoogleFormsUrl(input: string): { formId: string; url: string }
   const formId = match[1];
   return {
     formId,
-    url: \`https://docs.google.com/forms/d/e/\${formId}/viewform\`,
+    url: `https://docs.google.com/forms/d/e/${formId}/viewform`,
   };
 }
 
@@ -140,7 +140,7 @@ async function fetchGoogleFormsPage(
     }
 
     if (!response.ok) {
-      throw new Error(\`Google Forms 페이지를 열지 못했습니다. (HTTP \${response.status})\`);
+      throw new Error(`Google Forms 페이지를 열지 못했습니다. (HTTP ${response.status})`);
     }
 
     const finalUrl = response.url ? new URL(response.url) : currentParsedUrl;
