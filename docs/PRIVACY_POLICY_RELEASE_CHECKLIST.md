@@ -57,3 +57,14 @@
 - Google Drive backup/restore helper code exists, but current DataSettingsView buttons only show a development notice. The current UI does not perform Google Drive backup/restore; do not disclose it as an active transfer until enabled.
 - KMA requests currently originate in the client using `REACT_APP_KMA_API_KEY`; migration to a Supabase Edge Function and key rotation must happen after a staged app rollout.
 - No direct Kakao Local API request was found in the current weather hook; it uses the Cordova native geocoder plugin. Do not list Kakao Local as an active location processor unless another current code path is verified.
+
+
+## 성인 전용(만 18세 이상) 설정
+- [ ] Google Play Console에서 타겟 연령을 **18세 이상만** 선택하고, 동일 화면의 **Restrict minor access(미성년자 접근 제한)** 옵션을 활성화
+- [ ] Play Console 저장 후 타겟 연령 변경 심사 상태와 스토어 표시를 확인
+- [ ] 앱 최초 실행 시 성인 연령 확인 화면이 계정 로그인, 게스트 기능, Supabase 세션 초기화 및 AdMob SDK 초기화보다 먼저 표시되는지 확인
+- [ ] 만 18세 미만 생년월일은 앱 진입을 차단하고, 만 18세 이상 생년월일은 진행되는지 확인(생일 당일 포함)
+- [ ] 연령 확인에 입력한 날짜가 서버·로그·분석 도구로 전송되지 않고, 성인 확인 완료 여부만 기기에 저장되는지 확인
+- [ ] 앱 재실행·로그아웃·게스트 사용에서도 연령 확인이 유지되는지 확인하고, 앱 데이터 초기화·재설치 후에는 다시 확인되는지 검증
+- [ ] 계정 프로필의 선택 생년월일 저장 기능과 연령 확인 입력값을 혼동하지 않도록 개인정보 처리방침 및 Data safety 답변을 대조
+- [ ] Play Store 소개·스크린샷·광고 문구가 성인 배송기사 전용 앱이라는 타겟과 일치하는지 검토
