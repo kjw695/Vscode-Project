@@ -193,6 +193,11 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
             setChungjuDefaultHidden(isBuiltInChungjuHidden);
             setDriverId(userId ? accountDriverId : fetchGuestDriverId());
             const availableForms = Array.isArray(forms) ? forms : [];
+            const registeredChungjuForm = availableForms.find(
+                form => String(form.form_id) === CHUNGJU_DEFAULT_FORM.form_id
+            ) || null;
+            const defaultChungjuSelection = registeredChungjuForm?.id ||
+                (isBuiltInChungjuHidden ? '' : CHUNGJU_FORM_OPTION);
             const savedDefaultForm = availableForms.find(form => form.id === profile?.default_form_id) || null;
             const latestRecord = Array.isArray(history) ? history[0] : null;
             const latestFormKey = String(latestRecord?.form_key || '');
@@ -207,13 +212,13 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                     preferredFormSelection = savedDefaultForm?.id || '';
                 } else {
                     // A profile with no regional form was created by the previous Chungju flow.
-                    preferredFormSelection = isBuiltInChungjuHidden ? '' : CHUNGJU_FORM_OPTION;
+                    preferredFormSelection = defaultChungjuSelection;
                 }
             } else if (lastUsedRegionalForm) {
                 preferredFormSelection = lastUsedRegionalForm.id;
             } else if (latestRecord && !latestFormKey.startsWith('regional:')) {
                 // Restore the former built-in form for users whose profile row is missing.
-                preferredFormSelection = isBuiltInChungjuHidden ? '' : CHUNGJU_FORM_OPTION;
+                preferredFormSelection = defaultChungjuSelection;
             }
 
             const defaultCamp = CAMPS.includes(profile?.default_camp) ? profile.default_camp : CAMPS[0];
