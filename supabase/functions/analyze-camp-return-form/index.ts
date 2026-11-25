@@ -49,8 +49,14 @@ function normalizeGoogleFormsUrl(input: string): { formId: string; url: string }
     throw new Error("Google Forms 링크를 올바르게 입력해주세요.");
   }
 
-  if (parsed.protocol !== "https:" || parsed.hostname !== "docs.google.com") {
-    throw new Error("docs.google.com의 Google Forms 링크만 등록할 수 있습니다.");
+  if (
+    parsed.protocol !== "https:" ||
+    parsed.hostname !== "docs.google.com" ||
+    parsed.username ||
+    parsed.password ||
+    parsed.port
+  ) {
+    throw new Error("최종 주소가 안전한 Google Forms 주소가 아닙니다.");
   }
 
   const match = parsed.pathname.match(
@@ -64,8 +70,85 @@ function normalizeGoogleFormsUrl(input: string): { formId: string; url: string }
   const formId = match[1];
   return {
     formId,
-    url: `https://docs.google.com/forms/d/e/${formId}/viewform`,
+    url: \`https://docs.google.com/forms/d/e/\${formId}/viewform\`,
   };
+}
+
+async function fetchGoogleFormsPage(
+  input: string,
+): Promise<{ formId: string; url: string; response: Response }> {
+  let initialUrl: URL;
+  try {
+    initialUrl = new URL(input.trim());
+  } catch {
+    throw new Error("Google Forms 링크를 올바르게 입력해주세요.");
+  }
+
+  const allowedHosts = new Set(["forms.gle", "docs.google.com"]);
+  const isAllowedUrl = (url: URL) =>
+    url.protocol === "https:" &&
+    allowedHosts.has(url.hostname) &&
+    !url.username &&
+    !url.password &&
+    !url.port;
+
+  if (!isAllowedUrl(initialUrl)) {
+    throw new Error("docs.google.com 또는 forms.gle의 HTTPS 링크만 등록할 수 있습니다.");
+  }
+
+  // Normalize long URLs directly. Resolve short links manually and validate
+  // each redirect hop so the Edge Function never fetches an external host.
+  let currentUrl = initialUrl.hostname === "docs.google.com"
+    ? normalizeGoogleFormsUrl(initialUrl.toString()).url
+    : initialUrl.toString();
+
+  const redirectStatuses = new Set([301, 302, 303, 307, 308]);
+  const headers = {
+    Accept: "text/html,application/xhtml+xml",
+    "User-Agent": "Mozilla/5.0 (compatible; DeliveryTrackerFormAnalyzer/1.0)",
+  };
+
+  for (let redirectCount = 0; redirectCount <= 5; redirectCount += 1) {
+    const currentParsedUrl = new URL(currentUrl);
+    if (!isAllowedUrl(currentParsedUrl)) {
+      throw new Error("Google Forms가 아닌 외부 주소로 이동되어 분석을 중단했습니다.");
+    }
+
+    const response = await fetch(currentUrl, {
+      method: "GET",
+      redirect: "manual",
+      headers,
+    });
+
+    if (redirectStatuses.has(response.status)) {
+      const location = response.headers.get("location");
+      await response.body?.cancel();
+
+      if (!location) {
+        throw new Error("Google Forms 단축 링크의 이동 주소를 확인할 수 없습니다.");
+      }
+      if (redirectCount === 5) {
+        throw new Error("Google Forms 단축 링크의 이동 단계가 너무 많습니다.");
+      }
+
+      const nextUrl = new URL(location, currentParsedUrl);
+      if (!isAllowedUrl(nextUrl)) {
+        throw new Error("Google Forms가 아닌 외부 주소로 이동되어 분석을 중단했습니다.");
+      }
+      currentUrl = nextUrl.toString();
+      continue;
+    }
+
+    if (!response.ok) {
+      throw new Error(\`Google Forms 페이지를 열지 못했습니다. (HTTP \${response.status})\`);
+    }
+
+    const finalUrl = response.url ? new URL(response.url) : currentParsedUrl;
+    const normalized = normalizeGoogleFormsUrl(finalUrl.toString());
+    return { ...normalized, response };
+  }
+
+  throw new Error("Google Forms 단축 링크를 확인하지 못했습니다.");
 }
 
 function extractAssignedJsonArray(html: string, variableName: string): unknown[] | null {
@@ -559,26 +642,10 @@ Deno.serve(async (request) => {
       throw new Error("캠프명은 80자 이내로 입력해주세요.");
     }
 
-    const normalized = normalizeGoogleFormsUrl(formUrl);
-    formId = normalized.formId;
-
-    const response = await fetch(normalized.url, {
-      method: "GET",
-      redirect: "follow",
-      headers: {
-        Accept: "text/html,application/xhtml+xml",
-        "User-Agent": "Mozilla/5.0 (compatible; DeliveryTrackerFormAnalyzer/1.0)",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Google Forms 페이지를 열지 못했습니다. (HTTP ${response.status})`);
-    }
-
-    const finalUrl = new URL(response.url);
-    if (finalUrl.hostname !== "docs.google.com") {
-      throw new Error("Google Forms가 아닌 외부 페이지로 이동되어 분석을 중단했습니다.");
-    }
+    const fetched = await fetchGoogleFormsPage(formUrl);
+    formId = fetched.formId;
+    const normalizedUrl = fetched.url;
+    const response = fetched.response;
 
     const html = await response.text();
     if (!html || html.length > 4_000_000) {
@@ -633,7 +700,7 @@ Deno.serve(async (request) => {
     return jsonResponse({
       success: true,
       form_id: formId,
-      form_url: normalized.url,
+      form_url: normalizedUrl,
       title,
       suggested_camp_name: campName || inferredCamp.campName,
       camp_name_source: inferredCamp.source,
