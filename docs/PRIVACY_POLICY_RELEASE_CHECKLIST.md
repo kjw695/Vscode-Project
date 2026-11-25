@@ -88,4 +88,5 @@
 - [x] RLS 정책이 없는 내부 테이블 9개(camp_return_form_admins, 회사 삭제/근무표/백업 관련 테이블)는 anon·authenticated 권한이 없고 postgres·service_role만 테이블 권한을 보유함을 확인. 현재 앱 클라이언트의 직접 Data API 접근은 차단되고 RPC/트리거 경로로만 사용.
 - [x] authenticated 실행 권한이 있는 SECURITY DEFINER 함수 37개를 조회: 모두 함수 본문에서 auth.uid()를 참조하며 anon 실행 권한은 확인되지 않음. 이는 정적 확인이며, 다른 회사 ID·직원 ID를 이용한 부정 접근 시나리오의 실계정 테스트는 별도 필요.
 - [x] 현재 프로젝트 요금제는 Free이며 Leaked Password Protection은 공식 문서상 Pro 이상 기능이라 활성화 불가. 추가 확인 결과 현재 auth.users 2개 계정 모두 Google OAuth이고 encrypted_password가 없어 비밀번호 로그인은 사용하지 않는 상태. 이메일/비밀번호 로그인을 도입하거나 Pro 이상으로 변경할 때 Leaked Password Protection 활성화 검토.
-- [ ] Performance Advisor의 미인덱스 외래키 22건 및 RLS 정책 초기화 재평가 경고 7건은 트래픽이 늘기 전 실제 주요 쿼리와 함께 우선순위를 정해 최적화. 경고만으로 인덱스나 정책을 일괄 변경하지 않음.
+- [x] 게시글·댓글·좋아요의 RLS 정책 7개에서 auth.uid()를 (SELECT auth.uid())로 변경하는 최적화 마이그레이션(20261125063300_optimize_social_rls_auth_uid)을 적용하고 저장소에 동기화함. 재검사에서 auth_rls_initplan 경고 7건이 사라짐.
+- [ ] 미인덱스 외래키 22건과 미사용 인덱스 2건은 쿼리 패턴·데이터 증가를 확인한 뒤 인덱스 추가/삭제 여부를 결정. 현재 빈 테이블도 포함되어 있으므로 경고만으로 일괄 변경하지 않음.
