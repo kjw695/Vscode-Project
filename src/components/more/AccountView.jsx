@@ -3,6 +3,7 @@ import { ChevronLeft, UserX, AlertCircle, Cloud, LogOut, Eye, EyeOff, FileText, 
 import LoginPage from '../auth/LoginPage';
 import GuestLedgerImportView from './GuestLedgerImportView';
 import { getDailyInspectionStoragePrefix } from '../../services/dailyInspectionService';
+import { getCampReturnNumberingStoragePrefix } from '../../services/campReturnNumberingService';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
 import { FunctionRegion } from '@supabase/supabase-js'; 
@@ -305,6 +306,12 @@ const handleEditClick = () => {
       const dailyInspectionPrefix = getDailyInspectionStoragePrefix(user.id);
       Object.keys(localStorage).forEach((key) => {
         if (key.startsWith(dailyInspectionPrefix)) {
+          localStorage.removeItem(key);
+        }
+      });
+      const campReturnPrefix = getCampReturnNumberingStoragePrefix(user.id);
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith(campReturnPrefix)) {
           localStorage.removeItem(key);
         }
       });
