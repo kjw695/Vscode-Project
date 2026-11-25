@@ -63,7 +63,7 @@
 - [ ] Google/Apple OAuth 인증 과정에서 인증 제공자에게 전달되는 식별정보·처리 법인·국가·보유기간과 Supabase Auth 연계 구조를 별도로 확인.
 
 ## 보관 기간 및 삭제
-- [x] 일상점검표 서버 기록 보관기간을 2년으로 일치시킴. 운영 DB의 `cleanup_expired_daily_inspection_records()`가 2년 초과 기록을 삭제하고, `daily-inspection-retention` cron이 매일 실행 중인 것을 확인.
+- [x] 일상점검표 서버 기록 보관기간은 기존 결정대로 1년. 운영 DB의 `cleanup_expired_daily_inspection_records()`가 1년 초과 기록을 삭제하고, `daily-inspection-retention` cron이 매일 실행 중인 것을 확인.
 - [x] 최신 서명 버전은 재사용을 위해 유지하고, 이전 서명은 보존 중인 점검 기록이 참조하는 동안 유지하는 기준을 정책에 반영.
 - [ ] 회사 공유 근무표/이력 익명화와 개인정보 삭제 이후 남는 회사 데이터 범위를 확인
 - [ ] 사용자 CSV/PDF 내보내기 및 외부 Google Forms 제출 데이터는 앱 계정 삭제만으로 외부 저장본까지 지워지지 않는다는 점을 명시
