@@ -4,7 +4,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ArrowUp, ArrowDown, Home, BarChart2, List, MoreHorizontal } from 'lucide-react';
-import { backupToDrive, restoreFromDrive } from './utils/googleDrive';
 import { Preferences } from '@capacitor/preferences';
 import MessageModal from './components/common/MessageModal';
 import StatsDisplay from './StatsDisplay';
@@ -466,18 +465,6 @@ useEffect(() => {
         const updatedSettings = { ...currentSettings, ...newSettings };
         localStorage.setItem(settingsKey, JSON.stringify(updatedSettings));
     };
-const handleCloudRestore = async () => {
-        try {
-            const restoredData = await restoreFromDrive(); // 구글 드라이브에서 데이터 가져오기
-            if (restoredData) {
-                const result = await importStrictly(restoredData); // 데이터 덮어쓰기/병합
-                showMessage(`✅ 복원 완료!\n총 ${result.added}건이 복구되었습니다.`);
-            }
-        } catch (error) {
-            showMessage(`❌ 복원 실패: ${error.message}`);
-        }
-    };
-    
     const handleLocalCsvImport = async (file) => {
         try {
             const parsedData = await parseCsvData(file);
@@ -1541,7 +1528,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
 )}
                                 {moreSubView === 'unitPrice' && <UnitPriceView onBack={() => { setMoreSubView('main'); setTargetItemKey(null); }} isDarkMode={isDarkMode} adminFavoritePricesInput={adminFavoritePricesInput} setAdminFavoritePricesInput={setAdminFavoritePricesInput} handleSaveFavoritePrices={handleSaveFavoritePrices} favoriteUnitPrices={favoriteUnitPrices} targetItemKey={targetItemKey} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} />}
                                 {moreSubView === 'period' && <PeriodView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} adminMonthlyStartDayInput={adminMonthlyStartDayInput} setAdminMonthlyStartDayInput={setAdminMonthlyStartDayInput} adminMonthlyEndDayInput={adminMonthlyEndDayInput} setAdminMonthlyEndDayInput={setAdminMonthlyEndDayInput} handleSaveMonthlyPeriodSettings={handleSaveMonthlyPeriodSettings} monthlyStartDay={monthlyStartDay} monthlyEndDay={monthlyEndDay} />}
-                                {moreSubView === 'data' && <DataSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} handleExportCsv={() => exportDataAsCsv(entries, showMessage)} handleImportCsv={(e) => handleLocalCsvImport(e.target.files[0])} handleDeleteAllData={handleDeleteAllDataRequest} handleBackupToDrive={() => backupToDrive(entries)} handleRestoreFromDrive={handleCloudRestore} />}
+                                {moreSubView === 'data' && <DataSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} handleExportCsv={() => exportDataAsCsv(entries, showMessage)} handleImportCsv={(e) => handleLocalCsvImport(e.target.files[0])} handleDeleteAllData={handleDeleteAllDataRequest} />}
                             {/* ✨ 더보기 메뉴에서 진입할 때는 무조건 '수익(income)' 탭으로 고정! */}
                                 {moreSubView === 'expenseSettings' && <ExpenseSettingsView initialTab="income" onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} expenseConfig={expenseConfig} setExpenseConfig={setExpenseConfig} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} onNavigate={(view, key) => { setMoreSubView(view); if (key) setTargetItemKey(key); }} />}
 {moreSubView === 'calendar_volume_settings' && (
