@@ -2,6 +2,7 @@ import { FunctionRegion } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
 
 const LOCAL_PREFIX = 'campReturnNumbering:v1';
+export const getCampReturnNumberingStoragePrefix = (userId) => `${LOCAL_PREFIX}:${String(userId || 'guest').trim() || 'guest'}:`;
 
 export const CHUNGJU_DEFAULT_FORM = {
     id: 'chungju_default',
