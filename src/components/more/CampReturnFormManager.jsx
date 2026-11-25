@@ -551,7 +551,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
 
     const handleDeleteChungjuDefaultForm = () => {
         if (!userId) return;
-        if (!window.confirm('청주 기본 양식 양식을 삭제할까요?')) return;
+        if (!window.confirm('청주 기본 양식을 삭제할까요?')) return;
 
         try {
             hideChungjuDefaultForm(userId);
