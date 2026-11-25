@@ -17,7 +17,7 @@ const PrivacyPolicy = ({ onBack, isDarkMode }) => {
       <div className={`flex-1 p-5 rounded-lg overflow-y-auto ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} text-sm leading-relaxed space-y-6`}>
         <p className={bodyText}>
           택배메이트는 배송 장부, 회사 직원·근무 관리, 일상점검표 및 반품 채번 기능을 제공하기 위해 필요한 개인정보를 처리합니다.
-          이 방침은 2026년 11월 24일부터 적용됩니다.
+          이 방침은 2026년 11월 25일부터 적용됩니다.
         </p>
 
         <section>
