@@ -30,7 +30,7 @@ const PrivacyPolicy = ({ onBack, isDarkMode }) => {
             <li><strong>반품 채번:</strong> 사용자가 등록한 Google Forms 링크·양식 ID·제목·문항 및 입력값 매핑, 운송장/주문번호, 기사 아이디, 수량, 캠프, 요청 시각 및 처리 결과</li>
             <li><strong>일상점검표:</strong> 점검 날짜와 항목별 결과, 불량 조치 내용, 운송업체명, 운전자명, 차량번호, 정정 사유 및 서명 이미지</li>
             <li><strong>위치·기기:</strong> 사용자가 위치 권한을 허용한 경우 현재 위치 좌표 및 기기 위치 서비스로 얻은 지역명, 앱 오류·진단 정보</li>
-            <li><strong>광고:</strong> Google Mobile Ads SDK가 광고·측정·부정 사용 방지를 위해 처리할 수 있는 IP 주소, 광고/기기 식별자, 앱 상호작용 및 진단 정보</li>
+            <li><strong>광고:</strong> Google Mobile Ads SDK가 광고·측정·부정 사용 방지를 위해 자동 수집·공유할 수 있는 IP 주소, 앱 실행·탭·광고 영상 시청 등 앱 상호작용, 진단·성능 정보, 기기·계정 식별자</li>
           </ul>
           <p className={`mt-2 ${bodyText}`}>
             게스트 사용자의 일부 정보는 기기에만 저장될 수 있습니다. 위치정보는 위치 권한을 허용하고 날씨 기능을 이용할 때 처리됩니다.
@@ -68,7 +68,7 @@ const PrivacyPolicy = ({ onBack, isDarkMode }) => {
           <h3 className={sectionTitle}>4. 제3자 서비스 및 처리 위탁</h3>
           <ul className={`list-disc list-inside space-y-1 ${bodyText}`}>
             <li><strong>Supabase:</strong> 로그인 인증, 클라우드 데이터베이스, 사용자 데이터 동기화 및 계정 삭제 처리. 현재 운영 데이터베이스 프로젝트의 리전은 대한민국 서울(ap-northeast-2)입니다.</li>
-            <li><strong>Google Mobile Ads SDK (AdMob):</strong> 광고 제공·측정 및 부정 사용 방지. SDK는 IP 주소, 앱 상호작용, 진단 정보 및 기기/광고 식별자를 자동 수집·공유할 수 있습니다.</li>
+            <li><strong>Google Mobile Ads SDK (AdMob):</strong> 광고 제공·측정 및 부정 사용 방지. 이 계정의 약관상 계약 법인은 Google Asia Pacific Pte. Ltd.(싱가포르)입니다. SDK는 IP 주소, 앱 실행·탭·광고 영상 시청 등 앱 상호작용, 진단·성능 정보, 기기·계정 식별자를 자동 수집·공유할 수 있습니다.</li>
             <li><strong>기상청 공공데이터포털:</strong> 날씨 정보 제공. 앱은 기기 위치를 기상청 격자 좌표(nx, ny)로 변환해 초단기 실황·단기예보를 직접 요청합니다.</li>
             <li><strong>Android/iOS 운영체제의 네이티브 Geocoder:</strong> 위치 권한을 허용한 경우 좌표에 대응하는 지역명을 얻는 데 사용됩니다. 기기 및 운영체제 제공자의 지오코딩 처리 방식이 적용될 수 있습니다.</li>
             <li><strong>Google Forms 및 양식 작성자:</strong> 사용자가 직접 등록한 양식으로 이동할 때 운송장/주문번호, 기사 아이디, 수량, 캠프 등 사전 입력값이 포함된 URL을 생성합니다. 제출된 응답은 해당 Google Form의 소유자와 Google이 각자의 정책에 따라 처리합니다.</li>
@@ -82,8 +82,10 @@ const PrivacyPolicy = ({ onBack, isDarkMode }) => {
         <section>
           <h3 className={sectionTitle}>5. 국외 이전 관련 안내</h3>
           <p className={bodyText}>
-            Supabase 운영 데이터베이스의 설정 리전은 대한민국 서울입니다. 다만 Google 광고·Forms·운영체제 지오코딩 등 외부 서비스는 서비스 구성 및 제공자 정책에 따라 국외에서 개인정보를 처리할 수 있습니다.
-            각 제공자의 실제 수령 법인, 이전 국가, 이전 항목·시기·방법, 이용 목적 및 보유 기간은 운영 계정의 계약·제품 설정을 기준으로 확인해 공개 페이지에 구체적으로 고지합니다.
+            Supabase 운영 데이터베이스의 설정 리전은 대한민국 서울입니다.
+            AdMob 계정의 AdSense 온라인 서비스 약관에는 Google Asia Pacific Pte. Ltd.(싱가포르)가 계약 당사자로 기재되어 있습니다. 다만 계약 법인의 소재지가 광고 데이터의 유일한 저장·처리 국가를 의미하지는 않습니다. Google은 광고 서비스 트래픽을 전 세계 데이터센터 중 요청 출처와 가까운 곳에서 처리할 수 있다고 안내하므로, 광고 데이터는 싱가포르 외 글로벌 인프라 및 관련 계열사에서 처리될 수 있습니다.
+            Google Mobile Ads SDK는 IP 주소, 앱 실행·탭·광고 영상 시청 등 앱 상호작용, 진단·성능 정보, 기기·계정 식별자를 자동 수집·공유할 수 있습니다. Google은 광고 서버 로그의 IP 주소 일부를 9개월 후, 쿠키 정보를 18개월 후 익명화한다고 공개하지만, 이는 모든 SDK 데이터의 전체 보유기간을 의미하지 않습니다.
+            개별 광고 요청의 실제 처리 국가·전체 수령 법인, Google Forms 및 운영체제 Geocoder의 세부 국외 처리 정보는 추가 확인 후 공개합니다.
           </p>
         </section>
 
