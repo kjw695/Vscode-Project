@@ -6,6 +6,29 @@ function localKey(userId, suffix) {
     return `${LOCAL_PREFIX}:${userId || 'guest'}:${suffix}`;
 }
 
+const legacyMigrationPromises = new Map();
+
+function sortCampReturnRecords(records) {
+    return (Array.isArray(records) ? [...records] : []).sort((a, b) =>
+        new Date(b.user_confirmed_at || b.created_at || 0).getTime() -
+        new Date(a.user_confirmed_at || a.created_at || 0).getTime()
+    );
+}
+
+async function runLegacyMigration(userId, marker, migrate) {
+    if (readLocal(userId, marker, false) === true) return;
+    const lockKey = `${userId}:${marker}`;
+    if (legacyMigrationPromises.has(lockKey)) return legacyMigrationPromises.get(lockKey);
+
+    const pending = (async () => {
+        await migrate();
+        writeLocal(userId, marker, true);
+    })().finally(() => legacyMigrationPromises.delete(lockKey));
+
+    legacyMigrationPromises.set(lockKey, pending);
+    return pending;
+}
+
 function readLocal(userId, suffix, fallback) {
     try {
         const raw = localStorage.getItem(localKey(userId, suffix));
@@ -46,23 +69,45 @@ export async function fetchAccountDriverId(userId) {
     return String(data?.username || '').trim();
 }
 
+
 export async function fetchCampReturnProfile(userId) {
-    if (!userId) {
-        return readLocal(null, 'profile', null);
+    if (!userId) return readLocal(null, 'profile', null);
+
+    const cachedProfile = readLocal(userId, 'profile', null);
+    if (readLocal(userId, 'legacyProfileMigrated', false) === true) return cachedProfile;
+
+    try {
+        await runLegacyMigration(userId, 'legacyProfileMigrated', async () => {
+            const { data, error } = await supabase
+                .from('camp_return_profiles')
+                .select('default_camp, default_form_id, default_mobile_camp, updated_at')
+                .eq('user_id', userId)
+                .maybeSingle();
+            if (error) throw error;
+
+            const legacyProfile = data ? {
+                default_camp: data.default_camp || '학천MB',
+                default_form_id: data.default_form_id || null,
+                default_mobile_camp: data.default_mobile_camp || null
+            } : null;
+
+            const mergedProfile = cachedProfile
+                ? { ...(legacyProfile || {}), ...cachedProfile }
+                : legacyProfile;
+
+            if (mergedProfile) writeLocal(userId, 'profile', mergedProfile);
+        });
+    } catch (error) {
+        if (!cachedProfile) throw error;
+        console.warn('[CampReturnNumbering] 기존 양식 선택 정보의 로컬 이전을 다음 조회로 미룹니다:', error);
+        return cachedProfile;
     }
 
-    const { data, error } = await supabase
-        .from('camp_return_profiles')
-        .select('default_camp, default_form_id, default_mobile_camp, updated_at')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-    if (error) throw error;
-    return data;
+    return readLocal(userId, 'profile', null);
 }
 
+
 export async function saveCampReturnProfile(userId, {
-    driverId,
     defaultCamp,
     defaultFormId = null,
     defaultMobileCamp = null
@@ -72,151 +117,86 @@ export async function saveCampReturnProfile(userId, {
         default_form_id: defaultFormId || null,
         default_mobile_camp: defaultMobileCamp ? String(defaultMobileCamp).trim() : null
     };
-
-    if (!userId) {
-        writeLocal(null, 'profile', profile);
-        return profile;
-    }
-
-    const { data, error } = await supabase
-        .from('camp_return_profiles')
-        .upsert({
-            user_id: userId,
-            ...profile,
-            updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id' })
-        .select('default_camp, default_form_id, default_mobile_camp')
-        .single();
-
-    if (error) throw error;
-    return data;
+    writeLocal(userId || null, 'profile', profile);
+    if (userId) writeLocal(userId, 'legacyProfileMigrated', true);
+    return profile;
 }
+
 
 export async function fetchCampReturnRecords(userId) {
-    if (!userId) {
-        return readLocal(null, 'records', []);
+    if (!userId) return sortCampReturnRecords(readLocal(null, 'records', []));
+
+    try {
+        await runLegacyMigration(userId, 'legacyRecordsMigrated', async () => {
+            const { data, error } = await supabase
+                .from('camp_return_records')
+                .select('id, invoice_text, driver_id, quantity, camp, form_key, user_confirmed_at, created_at')
+                .eq('user_id', userId)
+                .order('user_confirmed_at', { ascending: false })
+                .limit(500);
+            if (error) throw error;
+
+            const localRecords = readLocal(userId, 'records', []);
+            const merged = new Map();
+            [...(Array.isArray(data) ? data : []), ...(Array.isArray(localRecords) ? localRecords : [])]
+                .forEach(record => {
+                    const key = record?.id ? String(record.id) : JSON.stringify(record);
+                    merged.set(key, record);
+                });
+            writeLocal(userId, 'records', sortCampReturnRecords(Array.from(merged.values())).slice(0, 500));
+        });
+    } catch (error) {
+        const existingLocalRecords = readLocal(userId, 'records', []);
+        if (!Array.isArray(existingLocalRecords) || existingLocalRecords.length === 0) throw error;
+        console.warn('[CampReturnNumbering] 기존 기록의 서버 이전을 다음 조회로 미룹니다:', error);
     }
 
-    const { data, error } = await supabase
-        .from('camp_return_records')
-        .select('id, invoice_text, driver_id, quantity, camp, form_key, user_confirmed_at')
-        .eq('user_id', userId)
-        .order('user_confirmed_at', { ascending: false })
-        .limit(500);
-
-    if (error) throw error;
-    return Array.isArray(data) ? data : [];
+    return sortCampReturnRecords(readLocal(userId, 'records', []));
 }
 
-function extractInvoiceIdentifiers(value) {
-    const text = String(value || '').replace(/\s+/g, ' ').trim();
-    const trackingNumber = text.match(/운송장\s*번호\s*[:：]?\s*([0-9]+)/i)?.[1] || '';
-    const orderNumber = text.match(/주문\s*번호\s*[:：]?\s*([0-9]+)/i)?.[1] || '';
-    return { trackingNumber, orderNumber };
-}
-
-function invoiceIdentifiersMatch(candidate, target) {
-    const existing = extractInvoiceIdentifiers(candidate);
-    const hasTracking = Boolean(target?.trackingNumber);
-    const hasOrder = Boolean(target?.orderNumber);
-    if (!hasTracking && !hasOrder) return false;
-    return (!hasTracking || existing.trackingNumber === target.trackingNumber) &&
-        (!hasOrder || existing.orderNumber === target.orderNumber);
-}
 
 export async function findCampReturnDuplicateRecord(userId, invoiceIdentifiers) {
     if (!invoiceIdentifiers?.trackingNumber && !invoiceIdentifiers?.orderNumber) return null;
-
-    if (!userId) {
-        const records = readLocal(null, 'records', []);
-        return records.find(record => invoiceIdentifiersMatch(record.invoice_text, invoiceIdentifiers)) || null;
-    }
-
-    let query = supabase
-        .from('camp_return_records')
-        .select('id, invoice_text, driver_id, quantity, camp, user_confirmed_at')
-        .eq('user_id', userId);
-
-    if (invoiceIdentifiers.trackingNumber) {
-        query = query.ilike('invoice_text', `%${invoiceIdentifiers.trackingNumber}%`);
-    }
-    if (invoiceIdentifiers.orderNumber) {
-        query = query.ilike('invoice_text', `%${invoiceIdentifiers.orderNumber}%`);
-    }
-
-    const { data, error } = await query
-        .order('user_confirmed_at', { ascending: false })
-        .limit(100);
-
-    if (error) throw error;
-    return (Array.isArray(data) ? data : []).find(
-        record => invoiceIdentifiersMatch(record.invoice_text, invoiceIdentifiers)
+    const records = await fetchCampReturnRecords(userId);
+    return records.find(record =>
+        invoiceIdentifiersMatch(record.invoice_text, invoiceIdentifiers)
     ) || null;
 }
 
+
 export async function addCampReturnRecord(userId, request) {
-    const record = {
+    await fetchCampReturnRecords(userId);
+    const now = new Date().toISOString();
+    const localRecord = {
+        id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
         invoice_text: String(request.invoiceText || '').trim(),
         driver_id: String(request.driverId || '').trim(),
         quantity: Number(request.quantity),
-        camp: request.camp,
-        user_confirmed_at: new Date().toISOString()
+        camp: String(request.camp || ''),
+        form_key: String(request.formKey || 'chungju1_return_numbering_v1'),
+        user_confirmed_at: now,
+        created_at: now
     };
-
-    if (!userId) {
-        const records = readLocal(null, 'records', []);
-        const localRecord = {
-            ...record,
-            id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-        };
-        writeLocal(null, 'records', [localRecord, ...records].slice(0, 500));
-        return localRecord;
-    }
-
-    const { data, error } = await supabase
-        .from('camp_return_records')
-        .insert({
-            user_id: userId,
-            ...record,
-            form_key: String(request.formKey || 'chungju1_return_numbering_v1')
-        })
-        .select('id, invoice_text, driver_id, quantity, camp, user_confirmed_at')
-        .single();
-
-    if (error) throw error;
-    return data;
+    const records = readLocal(userId || null, 'records', []);
+    writeLocal(userId || null, 'records', [localRecord, ...records].slice(0, 500));
+    return localRecord;
 }
+
 
 export async function deleteCampReturnRecord(userId, recordId) {
     if (!recordId) throw new Error('삭제할 채번 기록을 찾을 수 없습니다.');
-
-    if (!userId) {
-        const records = readLocal(null, 'records', []);
-        writeLocal(null, 'records', records.filter(record => String(record.id) !== String(recordId)));
-        return;
-    }
-
-    const { error } = await supabase
-        .from('camp_return_records')
-        .delete()
-        .eq('id', recordId)
-        .eq('user_id', userId);
-
-    if (error) throw error;
+    const records = await fetchCampReturnRecords(userId);
+    writeLocal(userId || null, 'records', records.filter(record => String(record.id) !== String(recordId)));
 }
-
 
 
 export async function fetchCampReturnForms(userId) {
     if (!userId) return [];
-
     const { data, error } = await supabase
         .from('camp_return_forms')
-        .select('id, camp_name, form_url, form_id, form_title, field_map, questions, analysis_status, is_active, created_at, updated_at')
-        .eq('user_id', userId)
+        .select('id, user_id, camp_name, form_url, form_id, form_title, field_map, questions, analysis_status, is_active, created_at, updated_at')
         .eq('is_active', true)
-        .order('updated_at', { ascending: false });
-
+        .order('camp_name', { ascending: true });
     if (error) throw error;
     return Array.isArray(data) ? data : [];
 }
@@ -253,15 +233,26 @@ export async function analyzeCampReturnForm(formUrl, campName = '') {
     return data;
 }
 
+
 export async function saveCampReturnForm(userId, form) {
     if (!userId) throw new Error('로그인 후 캠프 양식을 등록할 수 있습니다.');
     if (!form?.formId) throw new Error('분석된 Google Forms ID가 없습니다.');
+
+    const formId = String(form.formId).trim();
+    const selectFields = 'id, user_id, camp_name, form_url, form_id, form_title, field_map, questions, analysis_status, is_active, created_at, updated_at';
+    const { data: existing, error: lookupError } = await supabase
+        .from('camp_return_forms')
+        .select(selectFields)
+        .eq('form_id', formId)
+        .maybeSingle();
+    if (lookupError) throw lookupError;
+    if (existing) return existing;
 
     const payload = {
         user_id: userId,
         camp_name: String(form.campName || '').trim(),
         form_url: String(form.formUrl || '').trim(),
-        form_id: String(form.formId),
+        form_id: formId,
         form_title: String(form.formTitle || ''),
         field_map: form.fieldMap || {},
         questions: Array.isArray(form.questions) ? form.questions : [],
@@ -272,12 +263,20 @@ export async function saveCampReturnForm(userId, form) {
 
     const { data, error } = await supabase
         .from('camp_return_forms')
-        .upsert(payload, { onConflict: 'user_id,form_id' })
-        .select('id, camp_name, form_url, form_id, form_title, field_map, questions, analysis_status, is_active, created_at, updated_at')
+        .insert(payload)
+        .select(selectFields)
         .single();
+    if (!error) return data;
 
-    if (error) throw error;
-    return data;
+    if (error.code === '23505') {
+        const { data: duplicate, error: duplicateLookupError } = await supabase
+            .from('camp_return_forms')
+            .select(selectFields)
+            .eq('form_id', formId)
+            .maybeSingle();
+        if (!duplicateLookupError && duplicate) return duplicate;
+    }
+    throw error;
 }
 
 export async function deleteCampReturnForm(userId, formId) {
@@ -292,19 +291,3 @@ export async function deleteCampReturnForm(userId, formId) {
     if (error) throw error;
 }
 
-export async function checkCampReturnFormAdmin() {
-    const { data, error } = await supabase.rpc('is_camp_return_form_admin');
-    if (error) throw error;
-    return data === true;
-}
-
-export async function fetchCampReturnFormReports() {
-    const { data, error } = await supabase
-        .from('camp_return_form_reports')
-        .select('id, user_email, camp_name, form_url, form_id, form_title, status, questions, suggested_mapping, error_message, created_at')
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-    if (error) throw error;
-    return Array.isArray(data) ? data : [];
-}

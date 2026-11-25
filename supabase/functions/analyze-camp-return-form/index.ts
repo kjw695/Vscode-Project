@@ -531,8 +531,7 @@ Deno.serve(async (request) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+  if (!supabaseUrl || !anonKey) {
     return jsonResponse({ success: false, error: "서버 환경변수가 설정되지 않았습니다." }, 500);
   }
 
@@ -547,35 +546,9 @@ Deno.serve(async (request) => {
     return jsonResponse({ success: false, error: "지역 양식 등록은 로그인 후 이용할 수 있습니다." }, 401);
   }
 
-  const adminClient = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
   let formUrl = "";
   let campName = "";
   let formId: string | null = null;
-
-  const writeReport = async (report: {
-    status: "ready" | "needs_mapping" | "error";
-    title?: string;
-    questions?: FormQuestion[];
-    mapping?: ReturnType<typeof suggestMapping>;
-    errorMessage?: string | null;
-  }) => {
-    const { error } = await adminClient.from("camp_return_form_reports").insert({
-      user_id: user.id,
-      user_email: user.email ?? "",
-      camp_name: campName,
-      form_url: formUrl,
-      form_id: formId,
-      form_title: report.title ?? "",
-      status: report.status,
-      questions: report.questions ?? [],
-      suggested_mapping: report.mapping ?? {},
-      error_message: report.errorMessage ?? null,
-    });
-    if (error) console.error("[analyze-camp-return-form] report insert failed:", error.message);
-  };
 
   try {
     const body = await request.json();
@@ -657,13 +630,6 @@ Deno.serve(async (request) => {
       unresolvedRequiredQuestions.length === 0
     );
 
-    await writeReport({
-      status: ready ? "ready" : "needs_mapping",
-      title,
-      questions,
-      mapping,
-    });
-
     return jsonResponse({
       success: true,
       form_id: formId,
@@ -677,7 +643,6 @@ Deno.serve(async (request) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "양식 분석 중 알 수 없는 오류가 발생했습니다.";
-    await writeReport({ status: "error", errorMessage: message });
     console.error("[analyze-camp-return-form]", message);
     return jsonResponse({ success: false, error: message }, 400);
   }
