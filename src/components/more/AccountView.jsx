@@ -40,7 +40,10 @@ function AccountView({ onBack, isDarkMode, autoEdit = false }) {
   const [showLogin, setShowLogin] = useState(false);
   const [showGuestLedgerImport, setShowGuestLedgerImport] = useState(false);
   const [guestEntryCount, setGuestEntryCount] = useState(0);
-  const { isLoggedIn, user, profile, signOut, isAuthLoading } = useAuth();
+  const {
+    isLoggedIn, user, profile, signOut, isAuthLoading,
+    signInWithGoogle, signInWithApple
+  } = useAuth();
   const { pendingSyncCount, syncPendingData, isDataLoaded } = useDelivery();
   const [unclassifiedCount, setUnclassifiedCount] = useState(0);
   const [hasUnclassifiedSettings, setHasUnclassifiedSettings] = useState(false);
@@ -55,6 +58,7 @@ function AccountView({ onBack, isDarkMode, autoEdit = false }) {
 
   const [isEditing, setIsEditing] = useState(autoEdit);
   const [isSaving, setIsSaving] = useState(false);
+  const [isProviderConnecting, setIsProviderConnecting] = useState(false);
   const [showUnmasked, setShowUnmasked] = useState(false);
 
   const headerRef = useRef(null);
@@ -394,46 +398,75 @@ const handleEditClick = () => {
   // ✨ 현재 로그인한 계정 종류 확인
   const currentProvider = user?.app_metadata?.provider || '';
 
-  // ✨ SNS 연동 박스를 그려주는 전용 함수
- // ✨ 연동 시 칙칙한 회색을 없애고 가장 화사하게 빛나도록 디자인 변경!
+  // SNS 아이콘은 게스트 상태에서 선택한 제공자의 OAuth 로그인을 시작합니다.
+  // 로그인된 계정에 다른 제공자를 추가 연결하는 기능은 별도로 지원하지 않습니다.
+  const handleSnsBoxClick = async (id, isLinked) => {
+      if (isAuthLoading || isProviderConnecting) return;
+
+      if (isLoggedIn) {
+          if (!isLinked) {
+              alert('현재 로그인된 계정과 다른 SNS입니다. 다른 SNS를 추가 연결하는 기능은 아직 지원하지 않습니다. 기존 계정 데이터 보호를 위해 계정을 변경하지 않았습니다.');
+          }
+          return;
+      }
+
+      if (id === 'kakao') {
+          alert('카카오 로그인은 아직 준비 중입니다. Google 또는 Apple을 선택해주세요.');
+          return;
+      }
+
+      const providerAction = id === 'google' ? signInWithGoogle
+          : id === 'apple' ? signInWithApple
+          : null;
+
+      if (!providerAction) {
+          alert('현재 지원하지 않는 로그인 방식입니다.');
+          return;
+      }
+
+      setIsProviderConnecting(true);
+      try {
+          await providerAction();
+      } catch (error) {
+          // AuthContext의 로그인 함수가 사용자에게 오류를 표시합니다.
+          console.warn(`[${id}] SNS 로그인 시작 실패:`, error);
+      } finally {
+          setIsProviderConnecting(false);
+      }
+  };
+
+  // SNS 연동 박스
   const renderSnsBox = (name, id, logoSvg, unlinkedBg, unlinkedText) => {
       const isLinked = isLoggedIn && currentProvider === id;
-      
+
       return (
-          <div 
-              key={id} 
-              onClick={() => {
-                  if (!isLoggedIn) {
-                      // 비로그인 상태일 때는 경고창 없이 바로 로그인 화면으로(기존 유지)
-                  } else if (!isLinked) {
-                      alert('현재 로그인된 계정이 아닙니다.');
-                  }
-              }}
-              className={`flex flex-col items-center justify-center py-2.5 px-2 rounded-xl border transition-all duration-300 cursor-pointer ${
-              isLinked 
-                  // 🟢 연동 시: 화사한 흰색 배경 + 선명한 파란색 테두리 + 그림자 효과로 입체감 부여
-                  ? (isDarkMode ? 'bg-gray-800 border-blue-500 shadow-md' : 'bg-white border-blue-400 ring-1 ring-blue-400 shadow-md') 
-                  // ⚪️ 미연동 시: 오히려 살짝 어두운 배경으로 묻히게 처리
-                  : (isDarkMode ? 'bg-gray-900 border-gray-800 opacity-60' : 'bg-gray-50 border-gray-200 opacity-70 hover:bg-gray-100')
-          }`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xl font-black mb-1.5 shadow-sm ${
-                  isLinked 
-                      // 🟢 연동 시: 로고를 회색으로 죽이지 않고, 구글/카카오 고유의 화사한 색상 100% 보여주기!
-                      ? `${unlinkedBg} ${unlinkedText} border${isDarkMode ? 'border-gray-600' : 'border-gray-100'}` 
-                      // ⚪️ 미연동 시: 브랜드 색상은 유지하되 약간 흐릿한 느낌
-                      : `${unlinkedBg} ${unlinkedText} border${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`
+          <button
+              type="button"
+              key={id}
+              onClick={() => handleSnsBoxClick(id, isLinked)}
+              disabled={isAuthLoading || isProviderConnecting}
+              aria-label={`${name} ${isLinked ? '연동됨' : '로그인'}`}
+              className={`w-full flex flex-col items-center justify-center py-2.5 px-2 rounded-xl border transition-all duration-300 cursor-pointer disabled:cursor-wait disabled:opacity-60 ${
+                  isLinked
+                      ? (isDarkMode ? 'bg-gray-800 border-blue-500 shadow-md' : 'bg-white border-blue-400 ring-1 ring-blue-400 shadow-md')
+                      : (isDarkMode ? 'bg-gray-900 border-gray-800 opacity-60' : 'bg-gray-50 border-gray-200 opacity-70 hover:bg-gray-100')
+              }`}
+          >
+              <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xl font-black mb-1.5 shadow-sm ${
+                  isLinked
+                      ? `${unlinkedBg} ${unlinkedText} border ${isDarkMode ? 'border-gray-600' : 'border-gray-100'}`
+                      : `${unlinkedBg} ${unlinkedText} border ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`
               }`}>
                   {logoSvg}
-              </div>
+              </span>
               <span className={`text-[11px] font-bold ${
-                  isLinked 
-                      // 🟢 글자색도 파란색으로 활기차게!
-                      ? (isDarkMode ? 'text-blue-400' : 'text-blue-600') 
+                  isLinked
+                      ? (isDarkMode ? 'text-blue-400' : 'text-blue-600')
                       : (isDarkMode ? 'text-gray-500' : 'text-gray-400')
               }`}>
                   {name}
               </span>
-          </div>
+          </button>
       );
   };
 
@@ -503,7 +536,7 @@ const handleEditClick = () => {
                 <span>계정 연동 상태</span>
                 {/* ✨ 수정 4: 연동 상태 텍스트를 헤더 영역으로 이동 */}
                 {!isLoggedIn ? (
-                    <span className="text-[10px] text-blue-500 animate-pulse">아이콘을 눌러 연동하기</span>
+                    <span className="text-[10px] text-blue-500 animate-pulse">{isProviderConnecting ? '연결 화면 여는 중...' : 'Google 또는 Apple 아이콘을 눌러 로그인'}</span>
                 ) : (
                     <span className="text-[11px] text-green-600 dark:text-green-400 font-black bg-green-50 dark:bg-green-900/30 px-2 py-0.5 rounded-md">
                         ✓ {currentProvider === 'google' ? 'Google' : currentProvider === 'apple' ? 'Apple' : currentProvider === 'kakao' ? 'Kakao' : ''} 연동 중
