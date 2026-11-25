@@ -15,7 +15,10 @@ import {
     fetchCampReturnForms,
     saveCampReturnForm,
     saveCampReturnProfile,
-    deleteCampReturnForm
+    deleteCampReturnForm,
+    CHUNGJU_DEFAULT_FORM,
+    isChungjuDefaultFormHidden,
+    hideChungjuDefaultForm
 } from '../../services/campReturnNumberingService';
 
 const EMPTY_MAPPING = {
@@ -273,6 +276,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
     const [analysis, setAnalysis] = useState(null);
     const [mapping, setMapping] = useState(EMPTY_MAPPING);
     const [forms, setForms] = useState([]);
+    const [chungjuDefaultHidden, setChungjuDefaultHidden] = useState(false);
     const [loading, setLoading] = useState(true);
     const [analyzing, setAnalyzing] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -296,6 +300,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
         try {
             const savedForms = await fetchCampReturnForms(userId);
             setForms(savedForms);
+            setChungjuDefaultHidden(isChungjuDefaultFormHidden(userId));
         } catch (error) {
             console.error('[CampReturnFormManager] 양식 조회 실패:', error);
         } finally {
@@ -306,6 +311,12 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
     useEffect(() => {
         loadData();
     }, [loadData]);
+
+    const hasRegisteredChungjuForm = forms.some(
+        form => String(form.form_id) === CHUNGJU_DEFAULT_FORM.form_id
+    );
+    const showChungjuDefaultForm = !chungjuDefaultHidden && !hasRegisteredChungjuForm;
+    const availableFormCount = forms.length + (showChungjuDefaultForm ? 1 : 0);
 
     const questions = useMemo(() => analysis?.questions || [], [analysis]);
     const needsCampMapping = questions.some(
@@ -538,6 +549,24 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
         }
     };
 
+    const handleHideChungjuDefaultForm = () => {
+        if (!userId) return;
+        const confirmed = window.confirm(
+            '청주 기본 양식을 이 기기에서 숨길까요? 청주 기본 양식 자체나 다른 사용자의 이용에는 영향이 없습니다. 다시 사용하려면 Google Forms 링크를 등록하면 됩니다.'
+        );
+        if (!confirmed) return;
+
+        try {
+            hideChungjuDefaultForm(userId);
+            setChungjuDefaultHidden(true);
+            setExpandedFormId('');
+            showMessage?.('청주 기본 양식을 이 기기에서 숨겼습니다. 다시 사용하려면 Google Forms 링크로 등록해주세요.');
+        } catch (error) {
+            console.error('[CampReturnFormManager] 청주 기본 양식 숨김 실패:', error);
+            showMessage?.('청주 기본 양식을 숨기지 못했습니다. 기기의 저장 공간을 확인해주세요.');
+        }
+    };
+
     return (
         <div className="w-full max-w-3xl mx-auto pb-8">
             <div className="flex items-center gap-3 mb-4">
@@ -765,15 +794,75 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
 
                     <section className={`rounded-2xl border p-4 mb-4 ${panelClass}`}>
                         <div className="flex items-center justify-between gap-2 mb-3">
-                            <h3 className="font-bold">등록된 캠프 ({forms.length})</h3>
+                            <h3 className="font-bold">사용 가능한 양식 ({availableFormCount})</h3>
                             <span className={`text-xs ${mutedClass}`}>캠프를 누르면 상세 정보가 열립니다.</span>
                         </div>
                         {loading ? (
                             <p className={`text-sm ${mutedClass}`}>등록된 캠프를 불러오는 중입니다.</p>
-                        ) : forms.length === 0 ? (
+                        ) : availableFormCount === 0 ? (
                             <p className={`text-sm ${mutedClass}`}>아직 등록된 캠프가 없습니다. Google Forms 링크를 입력하면 자동 등록됩니다.</p>
                         ) : (
                             <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                                {showChungjuDefaultForm && (
+                                    <div key={CHUNGJU_DEFAULT_FORM.id} className="py-2">
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setExpandedFormId(
+                                                    expandedFormId === CHUNGJU_DEFAULT_FORM.id ? '' : CHUNGJU_DEFAULT_FORM.id
+                                                )}
+                                                className="min-w-0 flex-1 flex items-center justify-between gap-3 rounded-lg py-2 text-left"
+                                                aria-expanded={expandedFormId === CHUNGJU_DEFAULT_FORM.id}
+                                            >
+                                                <span className="min-w-0">
+                                                    <span className="block text-sm font-semibold">{CHUNGJU_DEFAULT_FORM.camp_name}</span>
+                                                    <span className={`block text-xs mt-0.5 truncate ${mutedClass}`}>
+                                                        {CHUNGJU_DEFAULT_FORM.form_title}
+                                                    </span>
+                                                </span>
+                                                {expandedFormId === CHUNGJU_DEFAULT_FORM.id
+                                                    ? <ChevronUp size={17} className={mutedClass} />
+                                                    : <ChevronDown size={17} className={mutedClass} />}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={handleHideChungjuDefaultForm}
+                                                className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                                aria-label="청주 기본 양식 숨기기"
+                                                title="이 기기에서 숨기기"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+
+                                        {expandedFormId === CHUNGJU_DEFAULT_FORM.id && (
+                                            <div className={`mt-2 rounded-xl p-3 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+                                                <p className={`text-xs font-semibold mb-2 ${mutedClass}`}>기본 양식 정보</p>
+                                                <div className="space-y-1.5 text-xs">
+                                                    <div className="flex justify-between gap-3">
+                                                        <span className={mutedClass}>요청 모바일 캠프</span>
+                                                        <span className="font-medium text-right">학천MB · 농소MB</span>
+                                                    </div>
+                                                    <div className="flex justify-between gap-3">
+                                                        <span className={mutedClass}>자동 입력</span>
+                                                        <span className="font-medium text-right">운송장번호 · 기사님 아이디 · 수량</span>
+                                                    </div>
+                                                </div>
+                                                <p className={`mt-3 text-xs leading-5 ${mutedClass}`}>
+                                                    삭제하면 이 기기에서만 목록과 채번 선택지에 표시되지 않습니다. 다시 사용하려면 아래 링크를 등록하면 됩니다.
+                                                </p>
+                                                <a
+                                                    href={CHUNGJU_DEFAULT_FORM.form_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="mt-3 text-xs text-blue-500 inline-flex items-center gap-1"
+                                                >
+                                                    원본 Google Forms 열기 <ExternalLink size={12} />
+                                                </a>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                                 {forms.map(form => {
                                     const isExpanded = expandedFormId === form.id;
                                     const mappedItems = [
