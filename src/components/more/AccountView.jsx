@@ -42,7 +42,7 @@ function AccountView({ onBack, isDarkMode, autoEdit = false }) {
   const [guestEntryCount, setGuestEntryCount] = useState(0);
   const {
     isLoggedIn, user, profile, signOut, isAuthLoading,
-    signInWithGoogle, signInWithApple
+    signInWithGoogle, signInWithApple, signInWithKakao
   } = useAuth();
   const { pendingSyncCount, syncPendingData, isDataLoaded } = useDelivery();
   const [unclassifiedCount, setUnclassifiedCount] = useState(0);
@@ -410,13 +410,9 @@ const handleEditClick = () => {
           return;
       }
 
-      if (id === 'kakao') {
-          alert('카카오 로그인은 아직 준비 중입니다. Google 또는 Apple을 선택해주세요.');
-          return;
-      }
-
       const providerAction = id === 'google' ? signInWithGoogle
           : id === 'apple' ? signInWithApple
+          : id === 'kakao' ? signInWithKakao
           : null;
 
       if (!providerAction) {
@@ -536,7 +532,7 @@ const handleEditClick = () => {
                 <span>계정 연동 상태</span>
                 {/* ✨ 수정 4: 연동 상태 텍스트를 헤더 영역으로 이동 */}
                 {!isLoggedIn ? (
-                    <span className="text-[10px] text-blue-500 animate-pulse">{isProviderConnecting ? '연결 화면 여는 중...' : 'Google 또는 Apple 아이콘을 눌러 로그인'}</span>
+                    <span className="text-[10px] text-blue-500 animate-pulse">{isProviderConnecting ? '연결 화면 여는 중...' : 'Google, Apple 또는 Kakao 아이콘을 눌러 로그인'}</span>
                 ) : (
                     <span className="text-[11px] text-green-600 dark:text-green-400 font-black bg-green-50 dark:bg-green-900/30 px-2 py-0.5 rounded-md">
                         ✓ {currentProvider === 'google' ? 'Google' : currentProvider === 'apple' ? 'Apple' : currentProvider === 'kakao' ? 'Kakao' : ''} 연동 중
