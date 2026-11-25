@@ -47,7 +47,10 @@ import InsuranceView from './components/more/InsuranceView';
 import { AppUpdate } from '@capawesome/capacitor-app-update';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import BluecoinsDailySummaryPreview from './components/BluecoinsDailySummaryPreview';
+import DailyInspectionView from './components/dailyInspection/DailyInspectionView';
+import { readDailyInspectionRecord } from './services/dailyInspectionService';
 import AverageItemsView from './components/more/AverageItemsView';
 import VolumeCalendarSettingsView from './components/more/VolumeCalendarSettingsView';
 import CampReturnNumberingView from './components/more/CampReturnNumberingView';
@@ -235,6 +238,8 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const [homePublishedSchedules, setHomePublishedSchedules] = useState([]);
     const [homeScheduleSyncFrom, setHomeScheduleSyncFrom] = useState(null);
     const [homeExtraDayOffRequests, setHomeExtraDayOffRequests] = useState([]);
+    const [todayInspectionRecord, setTodayInspectionRecord] = useState(null);
+    const todayInspectionDate = getTodayLocal();
     const [filters, setFilters] = useState({ period: 'all', startDate: '', endDate: '', type: 'all' });
 
     // --- 팝업 및 로딩 ---
@@ -253,6 +258,25 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const [selectedMainTab, setSelectedMainTab] = useState('home');
     const [activeContentTab, setActiveContentTab] = useState('bluecoinsDailySummary');
     const [homeVisitKey, setHomeVisitKey] = useState(0);
+
+    // 업무 전 점검 알림을 누르면 바로 일상점검표 입력 화면을 엽니다.
+    useEffect(() => {
+        let listener;
+        let disposed = false;
+        LocalNotifications.addListener('localNotificationActionPerformed', () => {
+            setSelectedMainTab('home');
+            setActiveContentTab('dailyInspection');
+        }).then((handle) => {
+            if (disposed) handle.remove();
+            else listener = handle;
+        }).catch((error) => {
+            console.warn('[DailyInspectionReminder] 알림 클릭 이벤트 연결 실패:', error);
+        });
+        return () => {
+            disposed = true;
+            listener?.remove();
+        };
+    }, []);
         const [moreSubView, setMoreSubView] = useState('main');
     const [autoEditAccountProfile, setAutoEditAccountProfile] = useState(false);
     const [returnToCampNumbering, setReturnToCampNumbering] = useState(false);
@@ -1067,6 +1091,45 @@ const handleTodayClick = () => {
         homeScheduleSyncFrom
     ]);
 
+    const dailyInspectionScheduleStatus = useMemo(() => {
+        const personalIsDayOff = (Array.isArray(entries) ? entries : []).some((entry) => {
+            if (entry?.date !== todayInspectionDate) return false;
+            return Boolean(entry.memo && String(entry.memo).includes('휴무')) ||
+                entry.isDayOff === true ||
+                (Array.isArray(entry.customItems) &&
+                    entry.customItems.some((item) => item?.key === 'dayOff' || item?.key === '휴무'));
+        });
+
+        const hasOrganization = Boolean(profile?.organization_id);
+        const isBeforeScheduleSync = Boolean(
+            hasOrganization &&
+            homeScheduleSyncFrom &&
+            todayInspectionDate < homeScheduleSyncFrom
+        );
+
+        // 회사 연동 전 기록 또는 회사 미소속 사용자는 기존 개인 휴무 기록을 기준으로 판단합니다.
+        if (!hasOrganization || isBeforeScheduleSync) {
+            return personalIsDayOff ? 'off' : 'work';
+        }
+
+        const managerStatus = homeMyPublishedScheduleByDate[todayInspectionDate]?.status;
+        if (managerStatus === 'off') return 'off';
+        if (managerStatus === 'work' || managerStatus === 'backup') return 'work';
+
+        // 회사 근무표가 아직 확정되지 않은 날은 미완료 깜빡임을 표시하지 않습니다.
+        return 'pending';
+    }, [
+        entries,
+        profile?.organization_id,
+        homeScheduleSyncFrom,
+        homeMyPublishedScheduleByDate,
+        todayInspectionDate
+    ]);
+
+    useEffect(() => {
+        setTodayInspectionRecord(readDailyInspectionRecord(user?.id, todayInspectionDate));
+    }, [user?.id, todayInspectionDate]);
+
     // 날짜별로 가장 최근 추가휴무 신청 상태 하나만 표시합니다.
     const homeExtraDayOffRequestStatusByDate = useMemo(() => {
         const statusByDate = {};
@@ -1282,6 +1345,18 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
           >
                 {isAuthReady && (
                     <>
+                        {activeContentTab === 'dailyInspection' && (
+                            <DailyInspectionView
+                                date={todayInspectionDate}
+                                userId={user?.id}
+                                profile={profile}
+                                isDarkMode={isDarkMode}
+                                scheduleStatus={dailyInspectionScheduleStatus}
+                                onSaved={setTodayInspectionRecord}
+                                onBack={() => setActiveContentTab('bluecoinsDailySummary')}
+                            />
+                        )}
+
                         {activeContentTab === 'bluecoinsDailySummary' && (
                             <BluecoinsDailySummaryPreview
                                 entries={entries}
@@ -1290,15 +1365,12 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 selectedMonth={selectedMonth}
                                 monthlyEndDay={monthlyEndDay}
                                 goal={goalAmount}
-                                selectedInsurance={selectedInsurance}
                                 selectedItemsForAverage={selectedItemsForAverage}
                                 itemLabels={itemLabels}
                                 isDarkMode={isDarkMode}
-                                onOpenInsurance={() => {
-                                    setSelectedMainTab('more');
-                                    setActiveContentTab('adminSettings');
-                                    setMoreSubView('insurance');
-                                }}
+                                dailyInspectionScheduleStatus={dailyInspectionScheduleStatus}
+                                dailyInspectionComplete={Boolean(todayInspectionRecord?.completed)}
+                                onOpenDailyInspection={() => setActiveContentTab('dailyInspection')}
                                 currentCalendarDate={currentCalendarDate}
                                 calendarDays={calendarDaysWithDayOff}
                                 calendarMode={calendarMode}

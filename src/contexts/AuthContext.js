@@ -169,32 +169,41 @@ setupDeepLink().catch((error) => {
         };
     }, []);
 
-    // 로그인한 사용자의 profiles 정보를 별도로 불러옵니다 (조직 소속, 관리자 여부 등)
-    useEffect(() => {
-        if (!user) {
+    // 로그인한 사용자의 profiles 정보를 조회하고, 다른 화면에서 저장한 변경도 다시 불러옵니다.
+    const refreshProfile = useCallback(async () => {
+        if (!user?.id) {
             setProfile(null);
-            return;
+            return null;
         }
-        let isMounted = true;
 
-        supabase
+        const { data, error } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', user.id)
-            .single()
-            .then(({ data, error }) => {
-                if (!isMounted) return;
-                if (error) {
-                    // 프로필이 아직 없을 수 있음 (최초 로그인 직후) - 에러로 취급하지 않음
-                    console.warn('[Auth] 프로필 조회 실패 또는 아직 없음:', error.message);
-                    setProfile(null);
-                } else {
-                    setProfile(data);
-                }
-            });
+            .single();
+
+        if (error) {
+            console.warn('[Auth] 프로필 조회 실패 또는 아직 없음:', error.message);
+            throw error;
+        }
+
+        setProfile(data);
+        return data;
+    }, [user?.id]);
+
+    useEffect(() => {
+        let isMounted = true;
+        if (!user?.id) {
+            setProfile(null);
+            return undefined;
+        }
+
+        refreshProfile().catch((error) => {
+            if (isMounted) setProfile(null);
+        });
 
         return () => { isMounted = false; };
-    }, [user]);
+    }, [user?.id, refreshProfile]);
 
     // 구글 로그인
     const signInWithGoogle = useCallback(async () => {
@@ -260,6 +269,7 @@ setupDeepLink().catch((error) => {
     const value = {
         user,
         profile,
+        refreshProfile,
         isAuthLoading,
         isLoggedIn: !!user,
         signInWithGoogle,

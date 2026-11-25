@@ -131,8 +131,8 @@ const DataSettingsView = ({
                 </div>
                 
                 <div className={`text-center text-xs mt-8 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                    데이터는 사용자의 기기에만 저장되며,<br/>
-                    서버로 자동 전송되지 않습니다.
+                    로그인 사용자의 데이터는 Supabase와 동기화됩니다.<br/>
+                    오프라인 임시 데이터와 게스트 데이터는 기기에 저장됩니다.
                 </div>
             </div>
         </div>

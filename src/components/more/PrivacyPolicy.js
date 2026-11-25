@@ -2,91 +2,131 @@ import React from 'react';
 import { ChevronLeft } from 'lucide-react';
 
 const PrivacyPolicy = ({ onBack, isDarkMode }) => {
+  const sectionTitle = "text-lg font-bold mb-2 text-blue-600 dark:text-blue-400";
+  const bodyText = "text-gray-700 dark:text-gray-300";
+
   return (
     <div className={`flex flex-col h-full ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
-      {/* 상단 헤더 */}
       <div className="flex items-center mb-4 shrink-0">
-        <button 
-          onClick={onBack} 
-          className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-        >
+        <button onClick={onBack} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" aria-label="뒤로">
           <ChevronLeft size={24} />
         </button>
         <h2 className="text-xl font-bold ml-2">개인정보 처리방침</h2>
       </div>
 
-      {/* 본문 내용 (스크롤 가능) */}
       <div className={`flex-1 p-5 rounded-lg overflow-y-auto ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} text-sm leading-relaxed space-y-6`}>
-        
+        <p className={bodyText}>
+          택배메이트는 배송 장부, 회사 직원·근무 관리, 일상점검표 및 반품 채번 기능을 제공하기 위해 필요한 개인정보를 처리합니다.
+          이 방침은 2026년 11월 25일부터 적용됩니다.
+        </p>
+
         <section>
-          <h3 className="text-lg font-bold mb-2 text-blue-600 dark:text-blue-400">1. 수집하는 개인정보 항목</h3>
-          <p>본 앱은 별도의 회원가입 없이 이용 가능하며, 서비스 제공을 위해 다음과 같은 정보를 처리합니다.</p>
-          <ul className="list-disc list-inside mt-2 space-y-1 text-gray-700 dark:text-gray-300">
-            <li><strong>기기 내 저장:</strong> 사용자가 입력한 배송 관련 데이터(날짜, 단가, 수량 등)는 사용자의 단말기 내부에만 저장됩니다.</li>
-            <li><strong>광고 식별자:</strong> 앱 수익 창출을 위해 Google AdMob을 통해 광고 식별자(ADID) 및 기기 정보를 자동으로 수집할 수 있습니다.</li>
-            <li><strong>백업 데이터:</strong> 사용자가 '데이터 백업' 기능을 직접 실행할 경우, 암호화된 데이터 파일이 사용자의 개인 구글 드라이브(Google Drive)에 업로드됩니다.</li>
-            <li><strong>위치 정보:</strong> 사용자의 현재 위치 기반 지역명(동네 이름) 제공을 위해 위치 정보를 처리합니다. (서버에 저장되지 않고 기기에서만 사용됨)</li>
+          <h3 className={sectionTitle}>1. 처리하는 개인정보 항목</h3>
+          <ul className={`list-disc list-inside space-y-1 ${bodyText}`}>
+            <li><strong>계정·인증:</strong> 이메일 주소, 인증 제공자 식별정보, Supabase 계정 식별자</li>
+            <li><strong>프로필:</strong> 이름, 기사 아이디, 연락처, 생년월일, 성별, 지역·캠프, 차량번호 등 사용자가 입력한 정보</li>
+            <li><strong>회사·근무 관리:</strong> 회사 및 팀 소속, 직원·노선 정보, 근무표, 휴무·교환·추가휴무 요청, 승인 및 변경 이력</li>
+            <li><strong>배송 장부:</strong> 배송일, 배송·반품·중단·프레시백 수량, 단가, 금액, 지출 및 사용자가 입력한 메모</li>
+            <li><strong>반품 채번:</strong> 사용자가 등록한 Google Forms 링크·양식 ID·제목·문항 및 입력값 매핑, 운송장/주문번호, 기사 아이디, 수량, 캠프, 요청 시각 및 처리 결과</li>
+            <li><strong>일상점검표:</strong> 점검 날짜와 항목별 결과, 불량 조치 내용, 운송업체명, 운전자명, 차량번호, 정정 사유 및 서명 이미지</li>
+            <li><strong>위치·기기:</strong> 사용자가 위치 권한을 허용한 경우 현재 위치 좌표 및 기기 위치 서비스로 얻은 지역명, 앱 오류·진단 정보</li>
+            <li><strong>광고:</strong> Google Mobile Ads SDK가 광고·측정·부정 사용 방지를 위해 자동 수집·공유할 수 있는 IP 주소, 앱 실행·탭·광고 영상 시청 등 앱 상호작용, 진단·성능 정보, 기기·계정 식별자</li>
+          </ul>
+          <p className={`mt-2 ${bodyText}`}>
+            게스트 사용자의 일부 정보는 기기에만 저장될 수 있습니다. 위치정보는 위치 권한을 허용하고 날씨 기능을 이용할 때 처리됩니다.
+          </p>
+        </section>
+
+        <section>
+          <h3 className={sectionTitle}>2. 처리 목적</h3>
+          <ul className={`list-disc list-inside space-y-1 ${bodyText}`}>
+            <li>계정 인증, 사용자 식별, 계정별 데이터 분리 및 클라우드 동기화</li>
+            <li>배송 실적·수익·지출 기록, 통계, CSV 내보내기 및 복원</li>
+            <li>회사 구성원·노선·근무표·휴무·교환 요청 관리와 변경 이력 보존</li>
+            <li>사용자가 선택한 Google Forms 양식의 문항 분석, 사전 입력 URL 생성 및 반품 채번 요청 이력 관리</li>
+            <li>일상점검표의 로컬 임시 저장, 서버 동기화, 서명 재사용 및 기록 관리</li>
+            <li>사용자 동의에 따른 현재 지역 날씨 표시</li>
+            <li>광고 게재·성과 측정, 서비스 안정성 유지 및 고객 문의 대응</li>
           </ul>
         </section>
 
         <section>
-          <h3 className="text-lg font-bold mb-2 text-blue-600 dark:text-blue-400">2. 개인정보의 수집 및 이용 목적</h3>
-          <ul className="list-disc list-inside space-y-1 text-gray-700 dark:text-gray-300">
-            <li><strong>서비스 이용:</strong> 배송 수익 계산 및 기록 관리 (기기 내 자체 처리)</li>
-            <li><strong>광고 게재:</strong> Google AdMob을 통한 맞춤형 광고 제공</li>
-            <li><strong>데이터 백업:</strong> 사용자 요청 시 데이터 보관 및 복구</li>
-            <li><strong>위치 정보 이용:</strong> 카카오 로컬 API를 활용하여 현재 사용자의 위치(지역명)를 화면에 표시하기 위해 사용합니다.</li>
+          <h3 className={sectionTitle}>3. 보관 기간 및 파기</h3>
+          <ul className={`list-disc list-inside space-y-1 ${bodyText}`}>
+            <li><strong>계정 및 개인 클라우드 데이터:</strong> 서비스 이용 기간 동안 보관하며, 계정 삭제가 완료되면 법령상 보존 의무 등 정당한 보존 사유가 있는 정보를 제외하고 삭제합니다.</li>
+            <li><strong>일상점검표 서버 기록:</strong> 마지막 완료 또는 수정 시각을 기준으로 1년이 지나면 자동 삭제됩니다.</li>
+            <li><strong>일상점검표 서명:</strong> 최신 서명은 재사용을 위해 보관하며, 이전 서명은 보존 중인 점검 기록에서 참조하는 동안 유지됩니다. 계정 삭제 시 해당 계정의 서명도 삭제됩니다.</li>
+            <li><strong>회사 공동 이력:</strong> 다른 직원과 회사의 업무 연속성을 위해 확정 근무표·변경 이력 등은 보존될 수 있으며, 탈퇴한 사용자의 식별자는 가능한 범위에서 익명화합니다.</li>
+            <li><strong>기기 내 임시·오프라인 데이터:</strong> 서버 동기화 전까지 기기에 저장됩니다. 앱에서 로그아웃·계정 삭제 절차를 이용하더라도 사용자가 별도로 내보낸 CSV, 공유한 PDF, 외부 양식에 제출한 응답은 해당 저장 위치에서 직접 삭제해야 합니다.</li>
           </ul>
+          <p className={`mt-2 ${bodyText}`}>
+            법령상 보존 의무 또는 분쟁 처리 등 정당한 사유로 별도 보관하는 정보는 해당 근거와 기간이 확인되는 범위에서 분리 보관한 후 파기합니다.
+          </p>
         </section>
 
         <section>
-          <h3 className="text-lg font-bold mb-2 text-blue-600 dark:text-blue-400">3. 개인정보의 보유 및 이용기간</h3>
-          <ul className="list-disc list-inside space-y-1 text-gray-700 dark:text-gray-300">
-            <li><strong>앱 데이터:</strong> 사용자의 기기에만 저장되므로, 앱을 삭제하거나 데이터를 직접 지우면 즉시 소멸됩니다.</li>
-            <li><strong>광고 데이터:</strong> Google AdMob의 정책에 따라 일정 기간 보관 후 파기됩니다.</li>
+          <h3 className={sectionTitle}>4. 제3자 서비스 및 처리 위탁</h3>
+          <ul className={`list-disc list-inside space-y-1 ${bodyText}`}>
+            <li><strong>Supabase:</strong> 로그인 인증, 데이터베이스, Edge Functions 및 사용자 데이터 동기화. 주 데이터베이스 리전은 대한민국 서울(ap-northeast-2)이며, Supabase Pte. Ltd.(싱가포르)가 주요 처리자입니다. 지원·운영 인력과 운영 로그·텔레메트리는 선택한 리전 밖에서 처리될 수 있습니다.</li>
+            <li><strong>Google Mobile Ads SDK (AdMob):</strong> 광고 제공·측정 및 부정 사용 방지. 이 계정의 약관상 계약 법인은 Google Asia Pacific Pte. Ltd.(싱가포르)입니다. SDK는 IP 주소, 앱 실행·탭·광고 영상 시청 등 앱 상호작용, 진단·성능 정보, 기기·계정 식별자를 자동 수집·공유할 수 있습니다.</li>
+            <li><strong>기상청 공공데이터포털:</strong> 날씨 정보 제공. 앱은 기기 위치를 기상청 격자 좌표(nx, ny)로 변환해 초단기 실황·단기예보를 직접 요청합니다.</li>
+            <li><strong>Android/iOS 네이티브 Geocoder:</strong> Android는 기기에서 제공하는 Geocoder 백엔드(제조사·OS별 제공자가 달라질 수 있음)를 사용하고, iOS 빌드는 Apple Core Location의 네트워크 역지오코딩 기능을 사용할 수 있습니다. 실제 Android 백엔드의 제공자·국가 및 iOS 처리 국가·보유기간은 앱 코드에서 특정되지 않습니다.</li>
+            <li><strong>Google Forms 및 양식 작성자:</strong> 사용자가 등록한 양식의 문항을 분석하고, 운송장/주문번호·기사 아이디·수량·캠프 등이 포함된 사전 입력 URL을 엽니다. 양식을 제출하면 응답은 양식 작성자에게 전달되며 저장 국가·보유기간은 작성자의 Google 계정 및 조직 설정에 따릅니다.</li>
+            <li><strong>Firebase Hosting:</strong> 공개 웹페이지와 계정 삭제 안내 페이지를 제공하는 정적 웹 호스팅에 사용됩니다.</li>
           </ul>
+          <p className={`mt-2 ${bodyText}`}>
+            현재 버전의 데이터 관리 화면에서 Google Drive 백업·복원 버튼은 안내 메시지만 표시하며 실제 Google Drive 전송은 수행하지 않습니다.
+          </p>
         </section>
 
         <section>
-          <h3 className="text-lg font-bold mb-2 text-blue-600 dark:text-blue-400">4. 개인정보의 제3자 제공</h3>
-          <p className="mb-2">본 앱은 사용자의 개인정보를 외부 서버에 저장하지 않으나, 다음의 경우에는 제3자의 서비스를 이용합니다.</p>
-          
-          <div className="mb-3 p-3 bg-gray-200 dark:bg-gray-800 rounded">
-            <p className="font-bold mb-1">[Google AdMob]</p>
-            <p>- 제공 목적: 앱 내 배너 광고 게재</p>
-            <p>- 제공 항목: 광고 식별자(ADID), 기기 정보, 앱 이용 기록</p>
-          </div>
-
-          <div className="p-3 bg-gray-200 dark:bg-gray-800 rounded">
-            <p className="font-bold mb-1">[Google Drive (사용자 본인 계정)]</p>
-            <p>- 제공 목적: 데이터 백업 및 복원</p>
-            <p>- 제공 항목: 사용자가 생성한 백업 파일 (개발자는 이 파일에 접근할 수 없습니다.)</p>
-          </div>
-          
-          <div className="p-3 bg-gray-200 dark:bg-gray-800 rounded mt-3">
-            <p className="font-bold mb-1">[Kakao (카카오 로컬 API)]</p>
-            <p>- 제공 목적: 위도/경도 좌표를 행정구역동(지역명)으로 변환</p>
-            <p>- 제공 항목: 위치 좌표 정보 (서버에 저장되지 않고 변환 즉시 폐기됩니다.)</p>
-          </div>
-        </section>  
-
-       
-        <section>
-          <h3 className="text-lg font-bold mb-2 text-blue-600 dark:text-blue-400">5. 이용자의 권리 및 그 행사방법</h3>
-          <p>이용자는 언제든지 앱을 삭제하거나 '데이터 삭제' 메뉴를 통해 기기에 저장된 모든 정보를 파기할 수 있습니다. 또한, 기기 설정에서 광고 추적 제한을 설정하여 맞춤형 광고 수신을 거부할 수 있습니다.</p>
+          <h3 className={sectionTitle}>5. 국외 이전 관련 안내</h3>
+          <p className={bodyText}>
+            Supabase 운영 주 데이터베이스 리전은 대한민국 서울(ap-northeast-2)입니다. Supabase Pte. Ltd.(싱가포르)가 주요 처리자이며, Supabase 안내에 따르면 지원·운영과 사용량 로그·텔레메트리 일부는 선택한 리전 밖에서 처리될 수 있습니다. 현재 앱은 Supabase Edge Functions를 호출하지만 실행 리전을 고정하지 않아 요청자와 가까운 글로벌 Edge 리전에서 일시 처리될 수 있습니다. 실제 호출별 리전은 현재 로그에서 확인되지 않았습니다.
+            AdMob 계약 약관에 표시된 계약 당사자는 Google Asia Pacific Pte. Ltd.(싱가포르)입니다. 다만 광고 요청은 Google의 글로벌 인프라에서 처리될 수 있으며, 계약 법인의 소재지가 유일한 처리 국가를 의미하지 않습니다. SDK는 IP 주소, 앱 상호작용, 진단·성능 정보, 기기·계정 식별자를 자동 수집·공유할 수 있습니다.
+            Google Forms는 사용자가 등록한 양식별로 작성자와 데이터 저장 설정이 달라집니다. 앱은 양식 분석을 위해 Supabase Edge Function에서 공개 양식 페이지를 가져오며, 채번 요청 시에는 운송장/주문번호·기사 아이디·수량·캠프를 포함한 사전 입력 URL을 Google Forms로 엽니다. 양식을 제출하면 해당 작성자가 응답을 받습니다.
+            Android Geocoder는 기기·제조사별 백엔드 제공자가 달라질 수 있고, iOS 빌드는 Apple의 네트워크 역지오코딩을 사용할 수 있습니다. 실제 처리 국가와 보유기간은 앱 코드에서 특정되지 않습니다.
+            Firebase Hosting의 공개 페이지 방문자 IP 및 요청 정보는 Google의 글로벌 인프라에서 악용 방지·이용량 분석 목적으로 처리될 수 있습니다.
+            기상청 요청은 기기에서 계산한 격자 좌표(nx, ny)와 예보 기준 시각을 사용하며, 현재 코드에서는 원시 위도·경도를 기상청 API에 보내지 않습니다.
+            Supabase Edge 실행 리전, Supabase 로그 보유기간, Google Forms 양식별 수령자·보유기간, Android Geocoder 실제 백엔드, Google/Firebase의 개별 수령 법인·처리국가 및 이전 거부 방법은 추가 확인이 필요합니다.
+          </p>
         </section>
 
         <section>
-          <h3 className="text-lg font-bold mb-2 text-blue-600 dark:text-blue-400">6. 개인정보 보호책임자</h3>
-          <p>앱 이용 중 발생하는 개인정보 관련 문의는 아래로 연락 주시기 바랍니다.</p>
-          <p className="mt-1 font-semibold">이메일: zzz695@naver.com</p>
+          <h3 className={sectionTitle}>6. 이용자 및 회사 관리자의 권리</h3>
+          <p className={bodyText}>
+            이용자는 본인의 개인정보 열람·정정·삭제·처리정지를 요청할 수 있습니다. 회사 소속 직원의 프로필 및 근무 정보는 회사의 인사·업무 관리 목적상 회사 관리자에게 표시될 수 있으며, 관리자는 업무상 필요한 범위에서만 해당 정보를 이용해야 합니다.
+          </p>
+        </section>
+
+        <section>
+          <h3 className={sectionTitle}>7. 계정 삭제</h3>
+          <p className={bodyText}>
+            로그인 사용자는 앱의 더보기 → 계정 관리 화면에서 회원 탈퇴를 진행할 수 있습니다. 회사 소유자는 회사 소유권을 이전하고, 회사 구성원은 조직에서 탈퇴한 뒤 계정 삭제를 진행해야 합니다.
+            로그인할 수 없는 경우 아래 공개 안내 페이지에서 이메일 요청 방법을 확인할 수 있습니다.
+          </p>
+          <a className="text-blue-600 dark:text-blue-400 underline font-semibold" href="/delete-account.html" target="_blank" rel="noreferrer">
+            계정 및 개인정보 삭제 요청 안내
+          </a>
+        </section>
+
+        <section>
+          <h3 className={sectionTitle}>8. 개인정보 보호 및 문의</h3>
+          <p className={bodyText}>
+            개인정보 열람·정정·삭제 및 처리 관련 문의는 아래 이메일로 접수할 수 있습니다.
+          </p>
+          <p className="mt-2 font-semibold">이메일: kjw891224@gmail.com</p>
         </section>
 
         <section className="pb-4">
-          <h3 className="text-lg font-bold mb-2 text-blue-600 dark:text-blue-400">7. 부칙</h3>
-          <p>본  처리방침은 2026년 2월 11일부터 시행됩니다.</p>
+          <h3 className={sectionTitle}>9. 변경 사항</h3>
+          <p className={bodyText}>
+            개인정보 처리 방식 또는 제공 서비스가 변경되면 이 방침과 공개 페이지를 갱신하고 적용일을 표시합니다.
+          </p>
+          <a className="block mt-2 text-blue-600 dark:text-blue-400 underline" href="/privacy-policy.html" target="_blank" rel="noreferrer">
+            공개 개인정보 처리방침
+          </a>
         </section>
-
       </div>
     </div>
   );

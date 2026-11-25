@@ -51,3 +51,6 @@
 # Capacitor 데이터 전송 객체 보호 강화
 -keep class com.getcapacitor.JSObject { *; }
 -keep class com.getcapacitor.JSArray { *; }
+
+# Keep the custom native daily inspection print bridge in minified release builds.
+-keep class com.kjw.deliverytracker.DailyInspectionPrintPlugin { *; }
