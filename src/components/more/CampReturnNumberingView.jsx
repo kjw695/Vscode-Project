@@ -599,6 +599,10 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                 </button>
             </div>
 
+            {storageNotice && (
+                <p className={`text-xs mb-3 px-1 ${mutedClass}`}>{storageNotice}</p>
+            )}
+
             {loadError && (
                 <div className={`rounded-xl border p-3 mb-4 text-sm ${isDark ? 'border-red-900 bg-red-950/30 text-red-200' : 'border-red-200 bg-red-50 text-red-700'}`}>
                     <p>{loadError}</p>
