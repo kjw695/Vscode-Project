@@ -155,6 +155,22 @@ export async function fetchCampReturnRecords(userId) {
 }
 
 
+function extractInvoiceIdentifiers(value) {
+    const text = String(value || '').replace(/\s+/g, ' ').trim();
+    const trackingNumber = text.match(/운송장\s*번호\s*[:：]?\s*([0-9]+)/i)?.[1] || '';
+    const orderNumber = text.match(/주문\s*번호\s*[:：]?\s*([0-9]+)/i)?.[1] || '';
+    return { trackingNumber, orderNumber };
+}
+
+function invoiceIdentifiersMatch(candidate, target) {
+    const existing = extractInvoiceIdentifiers(candidate);
+    const hasTracking = Boolean(target?.trackingNumber);
+    const hasOrder = Boolean(target?.orderNumber);
+    if (!hasTracking && !hasOrder) return false;
+    return (!hasTracking || existing.trackingNumber === target.trackingNumber) &&
+        (!hasOrder || existing.orderNumber === target.orderNumber);
+}
+
 export async function findCampReturnDuplicateRecord(userId, invoiceIdentifiers) {
     if (!invoiceIdentifiers?.trackingNumber && !invoiceIdentifiers?.orderNumber) return null;
     const records = await fetchCampReturnRecords(userId);
