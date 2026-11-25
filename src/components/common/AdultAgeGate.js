@@ -109,6 +109,14 @@ export default function AdultAgeGate({ children }) {
 
   if (status === 'verified') return children;
 
+  if (status === 'loading') {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-5 text-gray-600">
+        연령 확인 상태를 확인하고 있습니다.
+      </main>
+    );
+  }
+
   return (
     <main
       className="flex min-h-screen items-center justify-center bg-gray-50 px-5 py-8 text-gray-900"
