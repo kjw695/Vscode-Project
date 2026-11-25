@@ -79,7 +79,10 @@
 - [ ] 계정 삭제 안내 페이지의 이메일, 앱 메뉴 경로, 삭제 범위가 실제 빌드와 일치하는지 재확인
 
 ## 코드와 실제 사용 상태의 구분
-- Google Drive backup/restore helper code exists, but current DataSettingsView buttons only show a development notice. The current UI does not perform Google Drive backup/restore; do not disclose it as an active transfer until enabled.
+- [x] Google Drive backup/restore is removed from the release candidate: DataSettingsView controls, App.js handlers/imports, the dedicated helper module, and `.env.example` variables are removed. The app no longer sends user data to Google Drive AppData. Google Forms and AdMob remain separate Google services.
+- [x] CSV is presented as delivery-ledger export/import, not a full-app backup. Exported CSV contains delivery ledger line items; it does not include app settings, company schedules, daily inspection records, or every other app dataset.
+- [ ] Supabase Free does not provide scheduled daily database backups. The manual application database export procedure and limits are documented in `docs/SUPABASE_BACKUP_RUNBOOK.md`.
+- [ ] Supabase CLI dumps exclude Supabase-managed `auth` and `storage` schemas by default, and database dumps do not include Storage objects. Treat this as an application-schema/data export, not a complete project or Auth disaster-recovery backup. Confirm the account recovery strategy before relying on it.
 - KMA requests currently originate in the client using `REACT_APP_KMA_API_KEY`; migration to a Supabase Edge Function and key rotation must happen after a staged app rollout.
 - No direct Kakao Local API request was found in the current weather hook; it uses the Cordova native geocoder plugin. Do not list Kakao Local as an active location processor unless another current code path is verified.
 
