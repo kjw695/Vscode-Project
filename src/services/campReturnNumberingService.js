@@ -2,6 +2,14 @@ import { supabase } from '../lib/supabaseClient';
 
 const LOCAL_PREFIX = 'campReturnNumbering:v1';
 
+export const CHUNGJU_DEFAULT_FORM = {
+    id: 'chungju_default',
+    camp_name: '청주 기본 양식',
+    form_title: '청주1캠프 반품 송장 발행 / 채번 요청',
+    form_id: '1FAIpQLSd8kBLT6B5iGSTLuG5yyMCbuCJ5l1e5qYpEqbUdtbtCSwUZqg',
+    form_url: 'https://docs.google.com/forms/d/e/1FAIpQLSd8kBLT6B5iGSTLuG5yyMCbuCJ5l1e5qYpEqbUdtbtCSwUZqg/viewform'
+};
+
 function localKey(userId, suffix) {
     return `${LOCAL_PREFIX}:${userId || 'guest'}:${suffix}`;
 }
@@ -54,6 +62,14 @@ export function saveGuestDriverId(driverId) {
     } else {
         localStorage.removeItem(localKey(null, 'driverId'));
     }
+}
+
+export function isChungjuDefaultFormHidden(userId) {
+    return readLocal(userId || null, 'chungjuDefaultFormHidden', false) === true;
+}
+
+export function hideChungjuDefaultForm(userId) {
+    writeLocal(userId || null, 'chungjuDefaultFormHidden', true);
 }
 
 export async function fetchAccountDriverId(userId) {
