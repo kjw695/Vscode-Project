@@ -97,13 +97,16 @@ const PrivacyPolicy = ({ onBack, isDarkMode }) => {
           <h3 className={sectionTitle}>2. 처리 목적</h3>
           <ul className={`list-disc list-inside space-y-1 ${bodyText}`}>
             <li>계정 인증, 사용자 식별, 계정별 데이터 분리 및 클라우드 동기화</li>
-            <li>배송 실적·수익·지출 기록, 통계, CSV 내보내기 및 복원</li>
+            <li>배송 실적·수익·지출 기록, 통계, 배송 장부 CSV 내보내기 및 가져오기</li>
             <li>회사 구성원·노선·근무표·휴무·교환 요청 관리와 변경 이력 보존</li>
             <li>Google Forms 양식 분석과 로그인 사용자 간 공용 양식 관리, 개인 채번 이력·중복 확인·통계의 기기 내 처리</li>
             <li>일상점검표의 로컬 임시 저장, 서버 동기화, 서명 재사용 및 기록 관리</li>
             <li>사용자 동의에 따른 현재 지역 날씨 표시</li>
             <li>광고 게재·성과 측정, 서비스 안정성 유지 및 고객 문의 대응</li>
           </ul>
+          <p className={`mt-2 ${bodyText}`}>
+            CSV 파일에는 배송 장부 내역만 포함되며, 앱 설정·회사 근무표·일상점검표 등 모든 앱 데이터가 포함되지는 않습니다.
+          </p>
         </section>
 
         <section>
@@ -132,9 +135,6 @@ const PrivacyPolicy = ({ onBack, isDarkMode }) => {
             <li><strong>Google Forms 및 양식 작성자:</strong> 사용자가 등록한 양식의 문항을 분석하고, 운송장/주문번호·기사 아이디·수량·캠프 등이 포함된 사전 입력 URL을 엽니다. 양식을 제출하면 응답은 양식 작성자에게 전달되며 저장 국가·보유기간은 작성자의 Google 계정 및 조직 설정에 따릅니다.</li>
             <li><strong>Firebase Hosting:</strong> 공개 웹페이지와 계정 삭제 안내 페이지를 제공하는 정적 웹 호스팅에 사용됩니다.</li>
           </ul>
-          <p className={`mt-2 ${bodyText}`}>
-            현재 버전의 데이터 관리 화면에서 Google Drive 백업·복원 버튼은 안내 메시지만 표시하며 실제 Google Drive 전송은 수행하지 않습니다.
-          </p>
         </section>
 
         <section>
