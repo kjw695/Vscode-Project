@@ -68,16 +68,16 @@
     <table>
       <thead><tr><th>서비스</th><th>사용 목적 및 처리 범위</th></tr></thead>
       <tbody>
-        <tr><td>Supabase</td><td>계정 인증, 클라우드 데이터베이스, Edge Function 및 데이터 동기화. 현재 운영 데이터베이스 프로젝트의 설정 리전은 대한민국 서울(ap-northeast-2)입니다.</td></tr>
-        <tr><td>Google Mobile Ads SDK (AdMob)</td><td>광고 제공·측정 및 부정 사용 방지. 이 계정에 표시된 AdSense 온라인 서비스 약관의 계약 당사자는 Google Asia Pacific Pte. Ltd.입니다(싱가포르 주소: Mapletree Business City II, 70 Pasir Panjang Road, #03-71, Singapore 117371). Google Mobile Ads SDK는 IP 주소, 앱 실행·탭·광고 영상 시청 등 앱 상호작용, 진단·성능 정보, 기기·계정 식별자를 자동 수집·공유할 수 있습니다.</td></tr>
-        <tr><td>기상청 공공데이터포털</td><td>격자 좌표(nx, ny)와 예보 기준 시각을 사용해 초단기 실황 및 단기예보 조회</td></tr>
-        <tr><td>Android/iOS 운영체제의 네이티브 Geocoder</td><td>사용자가 위치 권한을 허용한 경우 좌표에 대응하는 지역명 조회</td></tr>
-        <tr><td>Google Forms 및 양식 작성자</td><td>사용자가 직접 등록한 외부 양식으로 이동할 때 사전 입력값을 포함한 URL을 생성합니다. 제출한 응답은 해당 Google Form 소유자와 Google이 각자의 정책에 따라 처리합니다.</td></tr>
-        <tr><td>Firebase Hosting</td><td>공개 웹페이지, 개인정보 처리방침 및 계정 삭제 안내 페이지의 정적 파일 호스팅</td></tr>
+        <tr><td>Supabase</td><td>계정 인증, 데이터베이스, Edge Functions 및 데이터 동기화. 주 데이터베이스 리전은 대한민국 서울(ap-northeast-2)입니다. 주요 처리자는 Supabase Pte. Ltd.(싱가포르)이며, 지원·운영을 위해 Supabase Inc.(미국) 및 글로벌 운영 인력이 제한적으로 관여할 수 있습니다.</td></tr>
+        <tr><td>Google Mobile Ads SDK (AdMob)</td><td>광고 제공·측정 및 부정 사용 방지. 이 계정에 제공된 AdSense Online Terms 제1조에는 Google Asia Pacific Pte. Ltd.(싱가포르)가 계약 당사자로 표시되어 있습니다. SDK는 IP 주소, 앱 실행·탭·광고 영상 시청 등 앱 상호작용, 진단·성능 정보, 기기·계정 식별자를 자동 수집·공유할 수 있습니다.</td></tr>
+        <tr><td>기상청 공공데이터포털</td><td>기기 좌표를 앱에서 격자 좌표(nx, ny)로 변환한 뒤, 격자 좌표와 예보 기준 시각을 사용해 초단기 실황 및 단기예보 조회</td></tr>
+        <tr><td>Android Geocoder / Apple Core Location Geocoder</td><td>위치 권한을 허용한 경우 기기 좌표를 지역명으로 변환합니다. Android는 기기·제조사의 Geocoder 백엔드, iOS는 Apple의 네트워크 기반 역지오코딩 서비스를 사용할 수 있습니다.</td></tr>
+        <tr><td>Google Forms 및 양식 작성자</td><td>사용자가 등록한 Google Forms의 문항을 분석하고, 앱에서 운송장/주문번호·기사 아이디·수량·캠프 등의 사전 입력값이 포함된 URL을 엽니다. 사용자가 양식을 제출하면 응답은 해당 양식 작성자에게 전달됩니다.</td></tr>
+        <tr><td>Firebase Hosting</td><td>공개 홈페이지, 개인정보 처리방침 및 계정 삭제 안내 페이지의 정적 파일 호스팅. 페이지 방문자의 IP 주소와 요청·진단 정보가 악용 방지 및 이용량 분석 목적으로 처리될 수 있습니다.</td></tr>
       </tbody>
     </table>
   </div>
-  <p>Google Forms에는 양식 설정에 따라 운송장/주문번호, 기사 아이디, 수량, 캠프 등 사용자가 입력한 값이 전달될 수 있습니다. 해당 양식의 응답 보관기간과 열람 권한은 양식 소유자가 설정하므로, 양식 소유자의 안내도 확인해야 합니다.</p>
+  <p>반품 채번 기능에서 로그인 사용자가 양식을 분석하면 Supabase Edge Function이 등록된 Google Forms 공개 페이지를 가져와 문항 정보와 양식 식별자를 읽고, 분석 결과(사용자 계정 식별자·이메일, 캠프명, 양식 URL/ID/제목, 문항 및 입력 매핑, 분석 상태·오류)를 Supabase 데이터베이스에 기록합니다. 이후 사용자가 채번 요청을 열면 운송장/주문번호, 기사 아이디, 수량, 캠프 등의 값이 Google Forms URL의 사전 입력 매개변수로 전달됩니다. 앱은 요청 기록도 Supabase에 저장하고, 실제 설문 제출은 사용자가 내용을 확인한 뒤 직접 수행합니다. 제출된 응답의 열람 권한·보유기간은 각 양식 작성자가 관리합니다.</p>
   <p>현재 앱의 데이터 관리 화면에서 Google Drive 백업·복원 버튼은 개발 중 안내만 표시하며, 이 화면을 통한 Google Drive 전송은 수행하지 않습니다.</p>
 
   <h2>5. 보관 기간 및 파기</h2>
@@ -101,11 +101,16 @@
   <p><a href="/delete-account.html">계정 및 개인정보 삭제 요청 안내</a></p>
 
   <h2>9. 국외 이전 및 제공자별 처리 지역</h2>
-  <p><strong>Supabase:</strong> 운영 데이터베이스 프로젝트의 설정 리전은 대한민국 서울(ap-northeast-2)입니다. 다만 지원·운영·로그 및 Edge Function 실행은 데이터베이스 리전과 별도로 처리될 수 있으므로 세부 위치를 확인하고 있습니다.</p>
-  <p><strong>Google AdMob:</strong> 이 계정의 AdSense 온라인 서비스 약관 제1조에는 Google이 Google Asia Pacific Pte. Ltd.라고 기재되어 있고, 제16조는 AdMob에 서비스별 약관을 적용한다고 명시합니다. Google 공식 도움말도 AdMob의 아시아·태평양 계약 법인으로 Google Asia Pacific Pte. Ltd.를 안내합니다. 확인된 계약 법인 소재지는 싱가포르이며 주소는 Mapletree Business City II, 70 Pasir Panjang Road, #03-71, Singapore 117371입니다. 다만 계약 법인의 소재지가 광고 데이터의 유일한 저장·처리 국가를 의미하지는 않습니다. Google은 광고 서비스 트래픽을 전 세계 데이터센터 중 요청 출처와 가까운 곳에서 처리할 수 있다고 안내하므로, 광고 데이터는 싱가포르 외 Google 글로벌 인프라 및 관련 계열사에서 처리될 수 있습니다. 개별 요청의 실제 처리 국가와 전체 수령 법인 목록은 이 앱의 계정 화면만으로 확정할 수 없어 추가 확인 중입니다.</p>
-  <p><strong>AdMob 자동 처리 항목:</strong> IP 주소(대략적 위치 추정에 사용될 수 있음), 앱 실행·탭·광고 영상 시청 등의 앱 상호작용, 앱·SDK 진단 및 성능 정보, 기기·계정 식별자. 처리 목적은 광고 제공, 광고·성과 측정, 분석 및 부정 사용 방지입니다.</p>
-  <p><strong>보유 기간:</strong> Google은 광고 서버 로그에서 IP 주소 일부를 9개월 후 익명화하고 쿠키 정보를 18개월 후 익명화한다고 공개합니다. 이 기간은 모든 AdMob SDK 정보의 전체 보유기간을 의미하지 않으며, 보안·사기 방지·법적 의무에 따른 정보는 더 오래 보관될 수 있습니다.</p>
-  <p>Google Forms, Android/iOS Geocoder 등 다른 외부 서비스의 수령 법인·국가·보유기간도 해당 계정 및 기기 설정을 확인해 구체화한 뒤 최종 공개합니다. 이 페이지의 국외 이전 정보는 확인이 끝나기 전까지 최종 고지로 사용하지 않습니다.</p>
+  <p><strong>Supabase — 주 데이터베이스:</strong> 운영 프로젝트의 주 리전은 대한민국 서울(ap-northeast-2)입니다. Supabase 안내에 따르면 선택한 리전은 주 데이터베이스와 Auth 데이터 및 Storage 원본·백업의 기본 저장 위치에 적용됩니다. 현재 운영 프로젝트의 Storage bucket은 확인 당시 0개였으므로 Supabase Storage에 이용자 파일을 업로드하는 기능은 사용 중이지 않습니다.</p>
+  <p><strong>Supabase — 처리자 및 국외 처리:</strong> Supabase Data Processing Addendum의 계약 처리자는 Supabase Pte. Ltd.(싱가포르, 65 Chulia Street #38-02/03, OCBC Centre, Singapore 049513)입니다. Supabase는 기술지원·운영을 위해 Supabase Inc.(미국) 및 글로벌 지원 인력이 필요한 경우 제한적으로 데이터에 접근할 수 있다고 안내합니다. 지원 접근은 요청 또는 사고 대응 등 필요한 경우로 제한되고 기록됩니다. 프로젝트 사용량·운영 로그·텔레메트리 등 서비스 운영 정보는 선택한 DB 리전 밖에서 처리될 수 있으며, Supabase는 로그·텔레메트리의 EU 데이터센터 처리·저장을 안내합니다. 이 정보는 주 데이터베이스에 저장되는 앱 업무 데이터와 구분됩니다.</p>
+  <p><strong>Supabase Edge Functions:</strong> 이 앱은 계정 삭제와 Google Forms 양식 분석을 위해 Supabase Edge Functions를 사용합니다. 현재 운영 함수는 <code>delete-account</code>와 <code>analyze-camp-return-form</code>이며 두 함수 모두 JWT 검증이 켜져 있습니다. 앱 호출 코드에는 실행 리전을 고정하는 옵션이 없고, Supabase 기본 동작은 요청자와 가까운 Edge 리전에서 실행하는 방식입니다. 따라서 함수 요청에 포함된 인증·양식 정보가 서울 이외의 Edge 리전에서 일시 처리될 수 있습니다. 현재 프로젝트 로그에서는 개별 함수 실행 리전을 확인할 수 없어 호출별 국가를 특정하지 않습니다. 계정 삭제 함수는 Supabase 계정·DB 내 삭제 처리를 수행하고, 양식 분석 함수는 등록된 Google Forms 페이지를 가져와 문항을 분석한 뒤 결과를 서울 리전의 DB에 기록합니다.</p>
+  <p><strong>Supabase 운영 로그:</strong> 현재 프로젝트의 API 게이트웨이 로그에서 요청 IP 주소, 접속 국가·대략적 도시/지역, 기기 브라우저·운영체제 User-Agent, 요청 경로·시각 및 계정 식별자를 기록하는 항목을 확인했습니다. 이 로그의 실제 보유기간과 모든 하위 처리 국가·수령자는 현재 프로젝트 화면에서 확정되지 않아 Supabase의 최신 DPA·하위처리자 목록 및 계정 설정을 추가 확인합니다. Supabase Storage bucket이 없으므로 Storage 콘텐츠의 글로벌 CDN 제공은 현재 사용 범위에 포함하지 않습니다.</p>
+  <p><strong>Google AdMob:</strong> 이 계정에 제공된 AdSense Online Terms 제1조에는 Google Asia Pacific Pte. Ltd.(싱가포르)가 계약 당사자로 표시되어 있고 제16조는 AdMob 서비스별 약관을 연결합니다. 계약 법인 주소는 Mapletree Business City II, 70 Pasir Panjang Road, #03-71, Singapore 117371입니다. 다만 계약 법인의 소재지가 광고 데이터의 유일한 저장·처리 국가를 의미하지는 않습니다. Google 광고 서비스는 글로벌 데이터센터에서 처리될 수 있으므로 광고 요청 데이터가 싱가포르 외 Google 인프라 또는 관련 법인에서 처리될 수 있습니다. SDK 자동 수집 가능 항목은 IP 주소, 앱 실행·탭·광고 영상 시청 등 앱 상호작용, 진단·성능 정보, 기기·계정 식별자입니다. Google은 광고 서버 로그의 IP 일부를 9개월 후, 쿠키 정보를 18개월 후 익명화한다고 공개하지만 이는 모든 SDK 데이터의 전체 보유기간이 아닙니다.</p>
+  <p><strong>Google Forms:</strong> 앱은 사용자가 선택한 양식의 공개 페이지를 Supabase Edge Function에서 가져와 분석하고, 이후 운송장/주문번호·기사 아이디·수량·캠프 등을 포함한 사전 입력 URL을 이용자 기기에서 Google Forms로 엽니다. 양식을 제출하면 응답은 해당 양식 작성자에게 전달됩니다. Google 계정 유형(개인 또는 Workspace), 양식 작성자 및 조직의 데이터 위치·보관 설정에 따라 저장 국가와 보유기간이 달라질 수 있으며, 사용자가 등록한 양식별 작성자·수령자·응답 보관기간은 앱에서 일괄 통제하지 않습니다. 따라서 각 양식 작성자의 개인정보 안내를 확인해야 합니다.</p>
+  <p><strong>Android/iOS Geocoder:</strong> Android 앱은 <code>cordova-plugin-nativegeocoder 3.5.1</code>을 통해 Android <code>Geocoder.getFromLocation</code>을 호출합니다. Android 공식 API와 플러그인 문서는 기기에서 제공하는 Geocoder 백엔드 서비스가 필요할 수 있다고 설명하지만, 제조사·운영체제별 실제 백엔드 제공자와 처리 국가는 앱 코드에서 식별되지 않습니다. iOS 빌드의 플러그인은 Apple Core Location <code>CLGeocoder</code>의 네트워크 역지오코딩 기능을 사용하므로 좌표가 Apple의 지오코딩 서비스로 전송될 수 있습니다. Apple의 해당 처리 국가·보유기간은 현재 확인한 개발자 문서만으로 특정할 수 없습니다. iOS 버전의 실제 배포 여부와 운영 설정도 출시 전에 확인합니다.</p>
+  <p><strong>Firebase Hosting:</strong> 공개 홈페이지·개인정보 처리방침·계정 삭제 안내는 Firebase Hosting으로 제공합니다. Google/Firebase는 Hosting의 악용 방지·이용량 분석을 위해 방문자 IP 주소와 요청 정보를 처리할 수 있고, IP 관련 로그는 수개월 보관될 수 있다고 안내합니다. Firebase Hosting은 특정 국가 리전을 선택하는 방식이 아닌 Google 글로벌 인프라를 사용하므로 데이터가 Google 또는 그 대리인이 시설을 운영하는 국가에서 처리될 수 있습니다. Firebase 계정의 구체적인 계약 법인·서비스 약관은 운영 계정에서 최종 확인합니다.</p>
+  <p><strong>기상청 공공데이터포털:</strong> 앱은 원시 위도·경도를 기상청 요청에 넣지 않고 기기에서 격자 좌표(nx, ny)로 변환하여 기준일시와 함께 대한민국 기상청 API로 직접 요청합니다. 따라서 현재 코드 흐름상 원시 GPS 좌표의 기상청 전송은 확인되지 않았습니다. API 요청에는 이용자의 네트워크 IP와 API 요청 정보가 노출될 수 있습니다.</p>
+  <p>위 항목 중 Supabase Edge Function의 실제 실행 리전, Supabase 로그의 보유기간, Google Forms별 작성자·국가·보유기간, Android Geocoder의 실제 백엔드, Google/Firebase의 구체적인 수령 법인·개별 처리국가 등은 현재 앱 코드 또는 계정 화면만으로 완전히 특정되지 않았습니다. 이 페이지는 공개 전 확인용 초안이며, 해당 항목의 계약·계정 설정을 확인하고 이전 거부 방법 및 거부 시 영향까지 정리한 후 최종 고지로 확정합니다.</p>
 
   <h2>10. 개인정보 보호 및 문의</h2>
   <p>개인정보 관련 문의, 열람·정정·삭제 요청은 아래 이메일로 접수할 수 있습니다.</p>
