@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { ArrowLeft, Download, Upload, Trash2, Cloud, FileText, AlertTriangle, Save, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Download, Upload, Trash2, FileText, AlertTriangle } from 'lucide-react';
 import DataMigrationTool from './DataMigrationTool';
 
 const DataSettingsView = ({ 
@@ -43,45 +43,14 @@ const DataSettingsView = ({
                 
                 <DataMigrationTool isDarkMode={isDarkMode} />
 
-                {/* 1. 구글 드라이브 섹션 */}
-                <div className={cardClass}>
-                    <div className="flex items-center gap-2 mb-4">
-                        <Cloud className="text-blue-500" size={20} />
-                        <h2 className="text-lg font-bold">클라우드 동기화</h2>
-                    </div>
-                    <p className={`text-sm mb-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        구글 드라이브에 데이터를 안전하게 저장하거나, 저장된 데이터를 불러옵니다.
-                    </p>
-                    
-                    <div className="space-y-3">
-                       <button 
-                            // ✨ 임시 알림창으로 변경
-                            onClick={() => alert('현재 구글 드라이브 백업 기능은 개발(점검) 중입니다. 정식 출시 때 완벽하게 제공될 예정입니다! 🛠️')}
-                            className={`${buttonBaseClass} bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/30`}
-                        >
-                            <Save size={18} />
-                            구글 드라이브에 백업
-                        </button>
-
-                        <button 
-                            // ✨ 임시 알림창으로 변경
-                            onClick={() => alert('현재 구글 드라이브 복원 기능은 개발(점검) 중입니다. 정식 출시 때 완벽하게 제공될 예정입니다! 🛠️')}
-                            className={`${buttonBaseClass} ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}
-                        >
-                            <RefreshCw size={18} />
-                            구글 드라이브에서 복원
-                        </button>
-                    </div>
-                </div>
-
-                {/* 2. CSV 파일 관리 섹션 */}
+                {/* 1. CSV 파일 관리 섹션 */}
                 <div className={cardClass}>
                     <div className="flex items-center gap-2 mb-4">
                         <FileText className="text-green-500" size={20} />
                         <h2 className="text-lg font-bold">파일 관리 (CSV)</h2>
                     </div>
                     <p className={`text-sm mb-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        엑셀 호환 파일(CSV)로 데이터를 내보내거나, 저장된 파일을 불러옵니다.
+                        배송 장부 내역을 엑셀 호환 CSV 파일로 내보내거나, 기존 CSV 기록을 가져옵니다.
                     </p>
                     
                     <div className="space-y-3">
@@ -90,13 +59,13 @@ const DataSettingsView = ({
                             className={`${buttonBaseClass} ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}
                         >
                             <Download size={18} />
-                            CSV 파일로 백업
+                            CSV 파일 내보내기
                         </button>
 
 
                         <input 
                             type="file" 
-                            accept="*/*" 
+                            accept=".csv,text/csv" 
                             ref={fileInputRef} 
                             className="hidden" 
                             onClick={onFileInputClick}
@@ -107,12 +76,12 @@ const DataSettingsView = ({
                             className={`${buttonBaseClass} ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}
                         >
                             <Upload size={18} />
-                            CSV 파일 복원
+                            CSV 파일 가져오기
                         </button>
                     </div>
                 </div>
 
-                {/* 3. 위험 구역 */}
+                {/* 2. 위험 구역 */}
                 <div className={`p-5 rounded-xl shadow-sm border ${isDarkMode ? 'bg-red-900/10 border-red-900/30' : 'bg-red-50 border-red-100'}`}>
                     <div className="flex items-center gap-2 mb-4 text-red-600 dark:text-red-400">
                         <AlertTriangle size={20} />
@@ -131,8 +100,9 @@ const DataSettingsView = ({
                 </div>
                 
                 <div className={`text-center text-xs mt-8 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                    로그인 사용자의 데이터는 Supabase와 동기화됩니다.<br/>
-                    오프라인 임시 데이터와 게스트 데이터는 기기에 저장됩니다.
+                    로그인 계정의 클라우드 동기화 대상 데이터는 Supabase에 저장됩니다.<br/>
+                    게스트 데이터, 오프라인 변경분 및 일부 기기 전용 정보는 기기에 저장됩니다.<br/>
+                    CSV 내보내기는 배송 장부 내역만 포함하며 앱 전체 데이터 백업은 아닙니다.
                 </div>
             </div>
         </div>
