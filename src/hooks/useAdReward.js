@@ -1,6 +1,7 @@
 // src/hooks/useAdReward.js
 import { AdMob } from '@capacitor-community/admob';
 import { Capacitor } from '@capacitor/core';
+import { initializeAdMobWithConsent } from '../services/adMobConsentService';
 
 export const useAdReward = ({ 
     showConfirmation, 
@@ -52,7 +53,15 @@ export const useAdReward = ({
                             return;
                         }
 
-                        // 보상형 광고 로드 (테스트 ID 적용)
+                        // Refresh consent and confirm that an ad request is permitted.
+                        const canRequestAds = await initializeAdMobWithConsent();
+                        if (!canRequestAds) {
+                            setIsLoading(false);
+                            showMessage("현재 광고를 표시할 수 없습니다. 잠시 후 다시 시도해주세요.");
+                            return;
+                        }
+
+                        // 보상형 광고 로드
                         await AdMob.prepareRewardVideoAd({
                             adId: Capacitor.getPlatform() === 'android' 
                                 ? 'ca-app-pub-9892155087017006/6106659870'  
