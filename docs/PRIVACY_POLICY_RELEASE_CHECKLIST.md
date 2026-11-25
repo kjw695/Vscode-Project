@@ -42,7 +42,7 @@
 - [ ] AdMob Console의 Privacy & messaging에서 실제 서비스 지역에 해당하는 개인정보 메시지를 구성·게시하고, 앱 ID 및 메시지 게시 상태를 확인.
 - [ ] Android 테스트 기기를 UMP 테스트 기기로 등록하고 EEA/미국 규제 지역 테스트를 진행. 동의 양식 노출, 동의/거부, `canRequestAds`에 따른 광고 요청 차단·허용 및 개인정보 옵션 변경을 검증.
 - [ ] 동의 API 실패 시 배너·보상형 광고 요청이 차단되는지 Android 실제 빌드에서 확인.
-- [ ] 보상형 광고 Android 광고 단위는 운영 ID와 `isTesting: true` 설정이 함께 사용되고 있어 테스트/운영 의도를 확인한 뒤 출시 설정으로 정리.
+- [x] 보상형 광고 Android는 운영 광고 단위 ID를 사용하지만 현재 `isTesting: true`이므로 내부 기기 테스트용 상태로 유지. Play 프로덕션 빌드 전 `isTesting: false`로 전환하고 테스트 광고가 아닌 실제 광고 요청임을 재검증해야 함.
 - [ ] Google Mobile Ads SDK 버전 및 Android/iOS 실제 빌드별 Data safety 자동 수집 항목을 재확인. iOS 테스트 ID와 Android 운영 광고 ID의 상태를 구분
 - [x] Google Forms 흐름(변경 후): Edge Function은 공개 HTML을 분석하고 새 분석 접수 보고서를 생성하지 않음. 사용자가 양식을 저장할 때 링크·form_id·캠프명·제목·문항 구조·자동 입력 매핑만 공용 양식 메타데이터로 Supabase에 저장함. 로그인 사용자 간 동일 form_id는 한 건으로 통합함.
 - [x] 구버전 `camp_return_form_reports` 36건은 2026-11-25 운영 DB에서 삭제 완료. 삭제 후 잔여 0건을 재조회로 확인함.
