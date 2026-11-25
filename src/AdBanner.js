@@ -160,19 +160,24 @@ const AdBanner = ({ isVisible, activeTab }) => {
 
     return (
         <div
-            className="fixed left-0 right-0 z-[9998] px-2 pt-1 pointer-events-none"
+            className="fixed left-0 right-0 z-[9998] px-0 pointer-events-none"
             style={{ top: 'max(env(safe-area-inset-top, 0px), 28px)' }}
             aria-label="배너 광고 제휴 문의"
         >
-            <div className="mx-auto flex h-9 max-w-[520px] items-center justify-between rounded-lg border border-gray-200 bg-white/95 px-3 shadow-sm pointer-events-auto dark:border-gray-700 dark:bg-gray-800/95">
-                <span className="truncate text-[11px] font-semibold text-gray-700 dark:text-gray-100">
-                    택배메이트 배너 광고 제휴
-                </span>
+            <div className="flex h-[50px] w-full items-center justify-between border-y border-gray-200 bg-white/95 px-4 shadow-sm pointer-events-auto dark:border-gray-700 dark:bg-gray-800/95">
+                <div className="min-w-0 pr-3">
+                    <div className="truncate text-xs font-bold text-gray-800 dark:text-gray-100">
+                        택배메이트 배너 광고
+                    </div>
+                    <div className="truncate text-[10px] text-gray-500 dark:text-gray-300">
+                        이 영역에 광고를 게재해 보세요
+                    </div>
+                </div>
                 <a
                     href={inquiryMailto}
-                    className="ml-3 shrink-0 rounded-md bg-blue-600 px-3 py-1.5 text-[11px] font-semibold text-white active:bg-blue-700"
+                    className="shrink-0 rounded-md bg-blue-600 px-3 py-2 text-xs font-semibold text-white active:bg-blue-700"
                 >
-                    이메일 문의
+                    제휴 문의
                 </a>
             </div>
         </div>
