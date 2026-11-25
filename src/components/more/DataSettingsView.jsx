@@ -7,9 +7,7 @@ const DataSettingsView = ({
     isDarkMode, 
     handleExportCsv, 
     handleImportCsv, 
-    handleDeleteAllData, 
-    handleBackupToDrive,
-    handleRestoreFromDrive
+    handleDeleteAllData
 }) => {
     const fileInputRef = useRef(null);
 
