@@ -140,7 +140,7 @@ const PrivacyPolicy = ({ onBack, isDarkMode }) => {
         <section>
           <h3 className={sectionTitle}>5. 국외 이전 관련 안내</h3>
           <p className={bodyText}>
-            Supabase 운영 주 데이터베이스 리전은 대한민국 서울(ap-northeast-2)입니다. Supabase Pte. Ltd.(싱가포르)가 주요 처리자이며, Supabase 안내에 따르면 지원·운영과 사용량 로그·텔레메트리 일부는 선택한 리전 밖에서 처리될 수 있습니다. 앱은 계정 삭제와 Google Forms 양식 분석을 위해 Supabase Edge Functions를 호출하며, 호출에 서울(ap-northeast-2) 리전을 지정합니다. Supabase의 리전 지정 호출은 해당 리전 장애 시 자동으로 다른 리전으로 우회되지 않을 수 있습니다. 실제 실행 리전은 함수 응답의 x-sb-edge-region 헤더 또는 함수 로그의 SB_REGION으로 확인할 수 있으며, 운영 기기에서 실제 호출 리전을 확인하는 절차는 출시 전 점검 대상으로 남아 있습니다.
+            Supabase 운영 주 데이터베이스 리전은 대한민국 서울(ap-northeast-2)입니다. Supabase Pte. Ltd.(싱가포르)가 주요 처리자이며, Supabase 안내에 따르면 지원·운영과 사용량 로그·텔레메트리 일부는 선택한 리전 밖에서 처리될 수 있습니다. 앱은 계정 삭제와 Google Forms 양식 분석을 위해 Supabase Edge Functions를 호출하며, 두 호출 모두 서울(ap-northeast-2) 리전을 지정합니다. 2026년 11월 25일 운영 로그에서 Google Forms 분석 함수의 실제 실행 리전이 서울로 확인되었습니다. 계정 삭제 함수는 실제 계정 삭제를 발생시키는 테스트를 하지 않아 실행 리전이 아직 별도 검증되지 않았습니다. Supabase의 리전 지정 호출은 해당 리전 장애 시 자동으로 다른 리전으로 우회되지 않을 수 있습니다.
             AdMob 계약 약관에 표시된 계약 당사자는 Google Asia Pacific Pte. Ltd.(싱가포르)입니다. 다만 광고 요청은 Google의 글로벌 인프라에서 처리될 수 있으며, 계약 법인의 소재지가 유일한 처리 국가를 의미하지 않습니다. SDK는 IP 주소, 앱 상호작용, 진단·성능 정보, 기기·계정 식별자를 자동 수집·공유할 수 있습니다.
             Google Forms는 사용자가 등록한 양식별로 작성자와 데이터 저장 설정이 달라집니다. 로그인 사용자가 등록한 양식 링크와 캠프명, 자동 입력에 필요한 문항·연결 정보는 다른 로그인 사용자도 조회할 수 있는 공용 양식 메타데이터로 Supabase에 저장됩니다. 분석 시도별 이메일·오류 접수 내역과 새 개인 채번 이력은 Supabase에 저장하지 않습니다. 다만 채번 요청을 열 때 운송장/주문번호·기사 아이디·수량·캠프 값이 사전 입력 URL 매개변수로 Google Forms에 전달될 수 있고, 사용자가 제출하면 해당 양식 작성자가 응답을 받습니다.
             Android Geocoder는 기기·제조사별 백엔드 제공자가 달라질 수 있고, iOS 빌드는 Apple의 네트워크 역지오코딩을 사용할 수 있습니다. 실제 처리 국가와 보유기간은 앱 코드에서 특정되지 않습니다.
