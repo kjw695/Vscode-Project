@@ -12,14 +12,16 @@ import {
     fetchCampReturnProfile,
     fetchCampReturnRecords,
     saveCampReturnProfile,
-    fetchCampReturnForms
+    fetchCampReturnForms,
+    CHUNGJU_DEFAULT_FORM,
+    isChungjuDefaultFormHidden
 } from '../../services/campReturnNumberingService';
 import CampReturnFormManager from './CampReturnFormManager';
 import { getMonthlyDateRange } from '../../utils/calculator';
 
-const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSd8kBLT6B5iGSTLuG5yyMCbuCJ5l1e5qYpEqbUdtbtCSwUZqg/viewform';
+const FORM_URL = CHUNGJU_DEFAULT_FORM.form_url;
 const CAMPS = ['학천MB', '농소MB'];
-const CHUNGJU_FORM_OPTION = 'chungju_default';
+const CHUNGJU_FORM_OPTION = CHUNGJU_DEFAULT_FORM.id;
 
 function getRegionalCampChoices(form) {
     const mapping = form?.field_map || {};
@@ -171,6 +173,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
     const [storageNotice, setStorageNotice] = useState('');
     const [regionalForms, setRegionalForms] = useState([]);
     const [selectedRegionalFormId, setSelectedRegionalFormId] = useState('');
+    const [chungjuDefaultHidden, setChungjuDefaultHidden] = useState(false);
     const [showFormManager, setShowFormManager] = useState(false);
 
     const userId = user?.id || null;
@@ -186,6 +189,8 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                 fetchAccountDriverId(userId),
                 fetchCampReturnForms(userId)
             ]);
+            const isBuiltInChungjuHidden = isChungjuDefaultFormHidden(userId);
+            setChungjuDefaultHidden(isBuiltInChungjuHidden);
             setDriverId(userId ? accountDriverId : fetchGuestDriverId());
             const availableForms = Array.isArray(forms) ? forms : [];
             const savedDefaultForm = availableForms.find(form => form.id === profile?.default_form_id) || null;
@@ -202,13 +207,13 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                     preferredFormSelection = savedDefaultForm?.id || '';
                 } else {
                     // A profile with no regional form was created by the previous Chungju flow.
-                    preferredFormSelection = CHUNGJU_FORM_OPTION;
+                    preferredFormSelection = isBuiltInChungjuHidden ? '' : CHUNGJU_FORM_OPTION;
                 }
             } else if (lastUsedRegionalForm) {
                 preferredFormSelection = lastUsedRegionalForm.id;
             } else if (latestRecord && !latestFormKey.startsWith('regional:')) {
                 // Restore the former built-in form for users whose profile row is missing.
-                preferredFormSelection = CHUNGJU_FORM_OPTION;
+                preferredFormSelection = isBuiltInChungjuHidden ? '' : CHUNGJU_FORM_OPTION;
             }
 
             const defaultCamp = CAMPS.includes(profile?.default_camp) ? profile.default_camp : CAMPS[0];
@@ -350,8 +355,12 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
         [records, recentWeekStartKey]
     );
     const selectedRegionalForm = regionalForms.find(form => form.id === selectedRegionalFormId) || null;
+    const hasRegisteredChungjuForm = regionalForms.some(
+        form => String(form.form_id) === CHUNGJU_DEFAULT_FORM.form_id
+    );
+    const showChungjuDefaultOption = !chungjuDefaultHidden && !hasRegisteredChungjuForm;
     const isChungjuDefault = selectedRegionalFormId === CHUNGJU_FORM_OPTION;
-    const hasSelectedForm = Boolean(selectedRegionalForm || isChungjuDefault);
+    const hasSelectedForm = Boolean(selectedRegionalForm || (isChungjuDefault && showChungjuDefaultOption));
     const regionalCampChoices = useMemo(
         () => getRegionalCampChoices(selectedRegionalForm),
         [selectedRegionalForm]
@@ -713,7 +722,9 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                             className={inputClass}
                         >
                             <option value="">양식을 선택해주세요</option>
-                            <option value={CHUNGJU_FORM_OPTION}>청주 기본 양식</option>
+                            {showChungjuDefaultOption && (
+                                <option value={CHUNGJU_FORM_OPTION}>청주 기본 양식</option>
+                            )}
                             {regionalForms.map(form => (
                                 <option key={form.id} value={form.id}>{form.camp_name}</option>
                             ))}
