@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import AdultAgeGate from './components/common/AdultAgeGate';
 import reportWebVitals from './reportWebVitals';
 
 // 🔥 [필수] 관리자 파일 임포트 (이 줄이 꼭 있어야 합니다!)
@@ -15,11 +16,13 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 
 root.render(
   <React.StrictMode>
-    <AuthProvider>
+    <AdultAgeGate>
+      <AuthProvider>
       <DeliveryProvider>
         <App />
       </DeliveryProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </AdultAgeGate>
   </React.StrictMode>
 );
 
