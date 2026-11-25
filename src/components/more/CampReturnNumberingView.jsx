@@ -256,12 +256,10 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                     console.warn('[CampReturnNumbering] 기존 양식 선택 복원 실패:', error);
                 });
             }
-            setStorageNotice(userId
-                ? '로그인 계정에 저장됩니다. 다른 기기에서도 본인 기록을 조회할 수 있습니다.'
-                : '현재는 이 기기에만 저장됩니다. 로그인하면 계정별 동기화를 사용할 수 있습니다.');
+            setStorageNotice('채번 기록과 통계는 이 기기에만 저장됩니다. 앱 삭제 또는 앱 데이터 초기화 시 기록이 사라집니다.');
         } catch (error) {
             console.error('[CampReturnNumbering] 데이터 조회 실패:', error);
-            setLoadError('채번 기능의 데이터베이스 설정을 확인할 수 없습니다. Supabase SQL 설정을 먼저 적용했는지 확인해주세요.');
+            setLoadError('Google Forms 양식 정보를 불러오지 못했습니다. 인터넷 연결과 로그인 상태를 확인해주세요.');
         } finally {
             setLoading(false);
         }

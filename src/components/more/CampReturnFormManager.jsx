@@ -15,9 +15,7 @@ import {
     fetchCampReturnForms,
     saveCampReturnForm,
     saveCampReturnProfile,
-    deleteCampReturnForm,
-    checkCampReturnFormAdmin,
-    fetchCampReturnFormReports
+    deleteCampReturnForm
 } from '../../services/campReturnNumberingService';
 
 const EMPTY_MAPPING = {
@@ -275,8 +273,6 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
     const [analysis, setAnalysis] = useState(null);
     const [mapping, setMapping] = useState(EMPTY_MAPPING);
     const [forms, setForms] = useState([]);
-    const [reports, setReports] = useState([]);
-    const [isAdmin, setIsAdmin] = useState(false);
     const [loading, setLoading] = useState(true);
     const [analyzing, setAnalyzing] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -294,28 +290,16 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
         if (!userId) {
             setLoading(false);
             setForms([]);
-            setReports([]);
-            setIsAdmin(false);
             return;
         }
 
         setLoading(true);
         setLoadError('');
         try {
-            const [savedForms, adminAccess] = await Promise.all([
-                fetchCampReturnForms(userId),
-                checkCampReturnFormAdmin()
-            ]);
+            const savedForms = await fetchCampReturnForms(userId);
             setForms(savedForms);
-            setIsAdmin(adminAccess);
-            if (adminAccess) {
-                const adminReports = await fetchCampReturnFormReports();
-                setReports(adminReports);
-            } else {
-                setReports([]);
-            }
         } catch (error) {
-            console.error('[CampReturnFormManager] 데이터 조회 실패:', error);
+            console.error('[CampReturnFormManager] 양식 조회 실패:', error);
             setLoadError(error?.message || '양식 정보를 불러오지 못했습니다.');
         } finally {
             setLoading(false);
@@ -541,7 +525,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
     };
 
     const handleDelete = async (form) => {
-        if (!userId || !form?.id) return;
+        if (!userId || !form?.id || form.user_id !== userId) return;
         if (!window.confirm(`${form.camp_name} 양식을 삭제할까요?`)) return;
 
         setDeletingId(form.id);
@@ -556,8 +540,6 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
             setDeletingId('');
         }
     };
-
-    const reportErrorCount = reports.filter(report => report.status === 'error').length;
 
     return (
         <div className="w-full max-w-3xl mx-auto pb-8">
@@ -833,15 +815,17 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                                                     </span>
                                                     {isExpanded ? <ChevronUp size={17} className={mutedClass} /> : <ChevronDown size={17} className={mutedClass} />}
                                                 </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleDelete(form)}
-                                                    disabled={deletingId === form.id}
-                                                    className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50"
-                                                    aria-label={form.camp_name + ' 양식 삭제'}
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+{form.user_id === userId && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDelete(form)}
+                                                        disabled={deletingId === form.id}
+                                                        className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50"
+                                                        aria-label={form.camp_name + ' 양식 삭제'}
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
                                             </div>
 
                                             {isExpanded && (
@@ -878,63 +862,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                         )}
                     </section>
 
-                    {isAdmin && (
-                        <section className={`rounded-2xl border p-4 ${panelClass}`}>
-                            <div className="flex items-center justify-between gap-3 mb-3">
-                                <div>
-                                    <h3 className="font-bold">전체 캠프 링크 접수 내역</h3>
-                                    <p className={`text-xs mt-1 ${mutedClass}`}>최근 {reports.length}건 · 분석 오류 {reportErrorCount}건</p>
-                                </div>
-                                <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">운영자</span>
-                            </div>
-                            {reports.length === 0 ? (
-                                <p className={`text-sm ${mutedClass}`}>아직 접수된 링크가 없습니다.</p>
-                            ) : (
-                                <div className="space-y-3">
-                                    {reports.map(report => (
-                                        <div key={report.id} className={`rounded-xl border p-3 ${isDark ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-gray-50'}`}>
-                                            <div className="flex items-start justify-between gap-2">
-                                                <div className="min-w-0">
-                                                    <p className="font-semibold text-sm break-words">{report.camp_name || '캠프명 미입력'}</p>
-                                                    <p className={`text-xs mt-1 ${mutedClass}`}>{report.user_email || '이메일 정보 없음'}</p>
-                                                </div>
-                                                <span className={`text-[11px] px-2 py-1 rounded-full flex-shrink-0 ${report.status === 'ready' ? 'bg-emerald-100 text-emerald-700' : report.status === 'error' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}`}>
-                                                    {statusLabel(report.status)}
-                                                </span>
-                                            </div>
-                                            <p className="text-xs font-medium mt-2 break-words">{report.form_title || report.form_id || '양식 제목을 읽지 못함'}</p>
-                                            <a
-                                                href={report.form_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-xs text-blue-500 break-all inline-flex items-center gap-1 mt-1"
-                                            >
-                                                {report.form_url} <ExternalLink size={12} />
-                                            </a>
-                                            {report.error_message && (
-                                                <p className="text-xs text-red-500 mt-2 break-words">오류: {report.error_message}</p>
-                                            )}
-                                            {Array.isArray(report.questions) && report.questions.length > 0 && (
-                                                <details className="mt-2 text-xs">
-                                                    <summary className="cursor-pointer font-semibold">분석된 입력 항목 {report.questions.length}개 보기</summary>
-                                                    <div className="mt-2 space-y-1">
-                                                        {report.questions.map(question => (
-                                                            <p key={question.entry_id} className={mutedClass}>
-                                                                {question.label} · entry.{question.entry_id}{question.required ? ' · 필수' : ''}{question.choices?.length ? ` · 선택값: ${question.choices.join(', ')}` : ''}
-                                                            </p>
-                                                        ))}
-                                                    </div>
-                                                </details>
-                                            )}
-                                            <p className={`text-[11px] mt-2 ${mutedClass}`}>
-                                                {new Intl.DateTimeFormat('ko-KR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(report.created_at))}
-                                            </p>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </section>
-                    )}
+
                 </>
             )}
         </div>
