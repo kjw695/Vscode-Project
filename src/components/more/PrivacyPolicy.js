@@ -1,9 +1,49 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
+import {
+  ADMOB_CONSENT_UPDATED_EVENT,
+  getAdMobConsentInfo,
+  showAdMobPrivacyOptions
+} from '../../services/adMobConsentService';
 
 const PrivacyPolicy = ({ onBack, isDarkMode }) => {
+  const [privacyOptionsRequired, setPrivacyOptionsRequired] = useState(
+    getAdMobConsentInfo()?.privacyOptionsRequirementStatus === 'REQUIRED'
+  );
+  const [openingPrivacyOptions, setOpeningPrivacyOptions] = useState(false);
+
   const sectionTitle = "text-lg font-bold mb-2 text-blue-600 dark:text-blue-400";
   const bodyText = "text-gray-700 dark:text-gray-300";
+
+  useEffect(() => {
+    const updatePrivacyOptions = (event) => {
+      setPrivacyOptionsRequired(
+        event.detail?.privacyOptionsRequirementStatus === 'REQUIRED'
+      );
+    };
+
+    window.addEventListener(ADMOB_CONSENT_UPDATED_EVENT, updatePrivacyOptions);
+    const currentInfo = getAdMobConsentInfo();
+    setPrivacyOptionsRequired(
+      currentInfo?.privacyOptionsRequirementStatus === 'REQUIRED'
+    );
+
+    return () => {
+      window.removeEventListener(ADMOB_CONSENT_UPDATED_EVENT, updatePrivacyOptions);
+    };
+  }, []);
+
+  const handleOpenPrivacyOptions = async () => {
+    setOpeningPrivacyOptions(true);
+    try {
+      await showAdMobPrivacyOptions();
+    } catch (error) {
+      console.error('[PrivacyPolicy] AdMob 개인정보 옵션 화면 열기 실패:', error);
+      window.alert('광고 개인정보 설정을 열지 못했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setOpeningPrivacyOptions(false);
+    }
+  };
 
   return (
     <div className={`flex flex-col h-full ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
@@ -19,6 +59,22 @@ const PrivacyPolicy = ({ onBack, isDarkMode }) => {
           택배메이트는 배송 장부, 회사 직원·근무 관리, 일상점검표 및 반품 채번 기능을 제공하기 위해 필요한 개인정보를 처리합니다.
           이 방침은 2026년 11월 25일부터 적용됩니다.
         </p>
+
+        {privacyOptionsRequired && (
+          <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+            <p className={bodyText}>
+              광고 개인정보 선택을 변경할 수 있습니다.
+            </p>
+            <button
+              type="button"
+              onClick={handleOpenPrivacyOptions}
+              disabled={openingPrivacyOptions}
+              className="mt-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {openingPrivacyOptions ? '여는 중...' : '광고 개인정보 설정'}
+            </button>
+          </div>
+        )}
 
         <section>
           <h3 className={sectionTitle}>1. 처리하는 개인정보 항목</h3>
