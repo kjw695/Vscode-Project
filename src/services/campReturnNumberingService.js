@@ -1,3 +1,4 @@
+import { FunctionRegion } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
 
 const LOCAL_PREFIX = 'campReturnNumbering:v1';
@@ -235,7 +236,8 @@ export async function fetchCampReturnForms(userId) {
 
 export async function analyzeCampReturnForm(formUrl, campName = '') {
     const { data, error } = await supabase.functions.invoke('analyze-camp-return-form', {
-        body: { formUrl, ...(campName ? { campName } : {}) }
+        body: { formUrl, ...(campName ? { campName } : {}) },
+        region: FunctionRegion.ApNortheast2
     });
 
     if (error) {
