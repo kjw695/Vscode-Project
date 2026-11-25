@@ -549,21 +549,18 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
         }
     };
 
-    const handleHideChungjuDefaultForm = () => {
+    const handleDeleteChungjuDefaultForm = () => {
         if (!userId) return;
-        const confirmed = window.confirm(
-            '청주 기본 양식을 이 기기에서 숨길까요? 청주 기본 양식 자체나 다른 사용자의 이용에는 영향이 없습니다. 다시 사용하려면 Google Forms 링크를 등록하면 됩니다.'
-        );
-        if (!confirmed) return;
+        if (!window.confirm('청주 기본 양식 양식을 삭제할까요?')) return;
 
         try {
             hideChungjuDefaultForm(userId);
             setChungjuDefaultHidden(true);
             setExpandedFormId('');
-            showMessage?.('청주 기본 양식을 이 기기에서 숨겼습니다. 다시 사용하려면 Google Forms 링크로 등록해주세요.');
+            showMessage?.('등록한 캠프 양식을 삭제했습니다.');
         } catch (error) {
-            console.error('[CampReturnFormManager] 청주 기본 양식 숨김 실패:', error);
-            showMessage?.('청주 기본 양식을 숨기지 못했습니다. 기기의 저장 공간을 확인해주세요.');
+            console.error('[CampReturnFormManager] 청주 기본 양식 삭제 실패:', error);
+            showMessage?.('양식을 삭제하지 못했습니다.');
         }
     };
 
@@ -826,10 +823,10 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                                             </button>
                                             <button
                                                 type="button"
-                                                onClick={handleHideChungjuDefaultForm}
+                                                onClick={handleDeleteChungjuDefaultForm}
                                                 className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
-                                                aria-label="청주 기본 양식 숨기기"
-                                                title="이 기기에서 숨기기"
+                                                aria-label="청주 기본 양식 삭제"
+                                                title="삭제"
                                             >
                                                 <Trash2 size={16} />
                                             </button>
@@ -848,9 +845,6 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                                                         <span className="font-medium text-right">운송장번호 · 기사님 아이디 · 수량</span>
                                                     </div>
                                                 </div>
-                                                <p className={`mt-3 text-xs leading-5 ${mutedClass}`}>
-                                                    삭제하면 이 기기에서만 목록과 채번 선택지에 표시되지 않습니다. 다시 사용하려면 아래 링크를 등록하면 됩니다.
-                                                </p>
                                                 <a
                                                     href={CHUNGJU_DEFAULT_FORM.form_url}
                                                     target="_blank"
