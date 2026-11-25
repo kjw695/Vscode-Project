@@ -17,8 +17,10 @@
 - [x] Supabase 주요 처리자: Supabase Pte. Ltd. (싱가포르), DPA 주소 65 Chulia Street #38-02/03, OCBC Centre, Singapore 049513.
 - [x] Supabase 안내상 미국 계열사 Supabase Inc.는 기술지원·운영에 관여할 수 있으며, 글로벌 지원인력의 접근은 지원요청/사고 대응 등 필요한 경우 제한되고 기록됨.
 - [x] Supabase 운영 로그·사용량 텔레메트리는 주 DB 리전 밖에서 처리될 수 있고 Supabase는 로그·텔레메트리의 EU 데이터센터 저장을 안내함. DB 리전이 모든 운영정보의 처리 위치를 의미하지 않음.
-- [x] Supabase Edge Functions: 운영 함수 `delete-account`(v3)와 `analyze-camp-return-form`(v11)가 ACTIVE, verify_jwt=true. 앱 호출에 region 지정이 없고 프로젝트 설정에 고정 region 확인 불가.
-- [ ] Supabase Edge Functions의 실제 호출별 `SB_REGION` / `x-sb-edge-region`을 Dashboard Function Logs에서 확인. 현재 Unified Logs에 function invocation region source가 없고 Edge Gateway의 `ICN`는 Cloudflare/API 진입 POP이므로 함수 실행 지역의 증거가 아님.
+- [x] Supabase Edge Functions: `delete-account`와 `analyze-camp-return-form` 모두 ACTIVE, `verify_jwt=true`. 앱 호출에 `FunctionRegion.ApNortheast2`를 지정해 서울(`ap-northeast-2`) 리전을 요청하도록 변경함. 함수 CORS 허용 헤더에 `x-region`을 추가함.
+- [ ] 실제 호출 응답의 `x-sb-edge-region` 또는 함수 로그의 `SB_REGION`이 `ap-northeast-2`인지 운영 기기에서 확인. 코드가 서울을 요청하는 것과 실제 실행 리전 확인은 구분함.
+- [x] 변경 후 운영 함수 배포 확인: `delete-account` v4 ACTIVE, `analyze-camp-return-form` v14 ACTIVE, 두 함수 모두 `verify_jwt=true` 유지.
+- [ ] 서울 리전을 고정하면 해당 리전 장애 시 자동으로 다른 리전으로 우회하지 않는 점을 장애 대응 절차에 반영.
 - [ ] Supabase 로그의 실제 보유기간, 프로젝트별 글로벌 지원 접근 설정, 계약에 적용되는 전체 하위처리자 목록을 DPA/계정에서 확인. Supabase 공통 하위처리자 명단은 프로젝트별 실제 사용을 의미하지 않음.
 - [x] Google Mobile Ads SDK 계약 법인: 사용자가 제공한 AdSense Online Terms 제1조에 Google Asia Pacific Pte. Ltd.라고 명시되어 있고 제16조에 AdMob 서비스별 약관이 연결됨. Google 공식 AdSense 도움말도 APAC 계약 법인이 AdSense·AdMob에 적용될 수 있음을 확인함. 주소: Mapletree Business City II, 70 Pasir Panjang Road, #03-71, Singapore 117371.
 - [x] Google Mobile Ads SDK 자동 수집 항목: IP 주소, 앱 실행·탭·광고 영상 시청 등 앱 상호작용, 진단·성능 정보, 기기·계정 식별자. 목적: 광고, 분석/측정, 부정 사용 방지.
@@ -26,6 +28,8 @@
 - [x] Google 공개 보유 안내: 광고 서버 로그의 IP 일부는 9개월 후, 쿠키 정보는 18개월 후 익명화한다고 안내. 이는 모든 AdMob SDK 데이터의 전체 보유기간이 아니며 보안·사기 방지·법적 필요에 따른 예외가 있음.
 - [ ] AdMob 실제 요청의 전체 목적지 국가 및 실제 수령 계열사/수탁자 목록을 Google 계정 약관·광고 서비스 데이터 보호 약관에서 확인. 개별 광고 요청의 실제 데이터센터 국가는 계정 화면에서 확인 불가하므로 현재 공개 페이지는 최종 고지로 사용하지 않음.
 - [ ] AdMob UMP 동의 메시지/광고 개인정보 설정이 실제 앱에 구현되어 있는지 확인하고, 광고 개인화 거부·제한 광고의 이용자 선택 및 거부 효과를 정리.
+- [x] 코드 확인: `AdBanner.js`는 앱 시작 시 `AdMob.initialize()`와 `showBanner()`를 호출하며 `isTesting:false` 및 Android 운영 광고 단위를 사용함. 광고가 화면에 보이는 탭과 SDK 초기화/요청 시점은 다름.
+- [ ] 앱 내 UMP/개인정보 선택 UI와 광고 ID 제한 설정이 없는지 Android 실제 빌드에서도 확인하고, 출시 지역·광고 유형에 맞는 동의 흐름을 결정.
 - [ ] Google Mobile Ads SDK 버전 및 Android/iOS 실제 빌드별 Data safety 자동 수집 항목을 재확인. iOS 테스트 ID와 Android 운영 광고 ID의 상태를 구분
 - [x] Google Forms 흐름(변경 후): Edge Function은 공개 HTML을 분석만 하며 분석 시도별 이메일·오류 보고서를 저장하지 않음. 사용자가 양식을 저장할 때 링크·form_id·캠프명·제목·문항 구조·자동 입력 매핑만 공용 양식 메타데이터로 Supabase에 저장함. 로그인 사용자 간 동일 form_id는 한 건으로 통합함.
 - [x] 개인 채번 이력: 운송장/주문번호·기사 아이디·수량·캠프·요청 시각과 통계는 기기 로컬에 저장하고, 새 버전부터 Supabase에 신규 저장하지 않음. 기존 서버 기록은 앱 최초 실행 시 계정별로 1회 로컬 이전하며 이전 검증 후 서버 사본을 별도 정리함.
@@ -40,6 +44,8 @@
 - [x] Firebase Hosting 처리: 공개 사이트 방문자의 IP 주소와 요청 정보가 악용 방지·이용량 분석에 처리될 수 있으며, Firebase 공식 문서는 IP 관련 로그 보유를 수개월로 설명함.
 - [x] Firebase Hosting 리전: 특정 국가 리전 선택형이 아닌 Google 글로벌 인프라 서비스로 문서화됨. 데이터는 Google 또는 대리인이 시설을 운영하는 국가에서 처리될 수 있음.
 - [ ] 현재 Firebase 계정의 구체적인 계약 법인·Firebase DPA 적용 관계, 요청 로그의 실제 retention 설정 및 수령자 목록을 Firebase Console/약관에서 확인.
+- [x] `src/firebaseConfig.js`에 Firebase Auth/Firestore 초기화 코드는 있으나 현재 저장소의 앱 코드에서 해당 모듈을 import하는 사용 경로는 검색되지 않음. 공개 사이트 Hosting과 앱의 Supabase Auth/OAuth는 별개로 구분함.
+- [ ] Google/Apple OAuth 인증 과정에서 인증 제공자에게 전달되는 식별정보·처리 법인·국가·보유기간과 Supabase Auth 연계 구조를 별도로 확인.
 
 ## 보관 기간 및 삭제
 - [ ] 일상점검표 서버 기록의 1년 보관기간을 UI·정책·실제 cleanup cron과 일치시킴
