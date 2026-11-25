@@ -27,7 +27,9 @@
 - [ ] AdMob 실제 요청의 전체 목적지 국가 및 실제 수령 계열사/수탁자 목록을 Google 계정 약관·광고 서비스 데이터 보호 약관에서 확인. 개별 광고 요청의 실제 데이터센터 국가는 계정 화면에서 확인 불가하므로 현재 공개 페이지는 최종 고지로 사용하지 않음.
 - [ ] AdMob UMP 동의 메시지/광고 개인정보 설정이 실제 앱에 구현되어 있는지 확인하고, 광고 개인화 거부·제한 광고의 이용자 선택 및 거부 효과를 정리.
 - [ ] Google Mobile Ads SDK 버전 및 Android/iOS 실제 빌드별 Data safety 자동 수집 항목을 재확인. iOS 테스트 ID와 Android 운영 광고 ID의 상태를 구분
-- [x] Google Forms 흐름: Edge Function이 `docs.google.com/forms` 공개 HTML을 가져와 양식 제목·문항·ID를 분석하고 결과(사용자 이메일/ID, 캠프, 양식 URL/ID/제목, 질문·매핑·상태)를 Supabase DB에 저장함.
+- [x] Google Forms 흐름(변경 후): Edge Function은 공개 HTML을 분석만 하며 분석 시도별 이메일·오류 보고서를 저장하지 않음. 사용자가 양식을 저장할 때 링크·form_id·캠프명·제목·문항 구조·자동 입력 매핑만 공용 양식 메타데이터로 Supabase에 저장함. 로그인 사용자 간 동일 form_id는 한 건으로 통합함.
+- [x] 개인 채번 이력: 운송장/주문번호·기사 아이디·수량·캠프·요청 시각과 통계는 기기 로컬에 저장하고, 새 버전부터 Supabase에 신규 저장하지 않음. 기존 서버 기록은 앱 최초 실행 시 계정별로 1회 로컬 이전하며 이전 검증 후 서버 사본을 별도 정리함.
+- [x] 2026-11-25 운영 DB 점검: 개인 채번 이력 4건, 기본 설정 2건, Google Forms 3건(중복 form_id 1종), 과거 분석 접수 36건(이메일 및 링크 포함)을 확인함. 변경 마이그레이션에서 중복 양식을 통합하고 기존 분석 접수 36건을 정리하며, 개인 이력·기본 설정은 로컬 1회 이전을 위해 잠시 보존함.
 - [x] Google Forms 사전 입력: 사용자가 채번 URL을 열 때 운송장/주문번호, 기사 아이디, 수량, 캠프 및 선택된 양식의 매핑된 값이 `entry.*` 쿼리 매개변수로 전달됨. 사용자가 확인 후 제출해야 양식 작성자가 응답을 받음.
 - [ ] 등록된 각 Google Form의 소유자/수령자, 개인·Workspace 계정 유형, 데이터 저장 리전, 응답 보유기간 및 삭제 요청 방법 확인. 사용자가 임의 등록하는 양식이므로 하나의 고정 국가·보유기간으로 통합 고지할 수 없음.
 - [x] Geocoder 구현: package-lock은 `cordova-plugin-nativegeocoder 3.5.1`을 고정. Android는 Android `Geocoder.getFromLocation`, iOS는 `CLGeocoder.reverseGeocodeLocation` 호출.

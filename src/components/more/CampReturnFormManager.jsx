@@ -298,11 +298,10 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
             setForms(savedForms);
         } catch (error) {
             console.error('[CampReturnFormManager] 양식 조회 실패:', error);
-            showMessage?.(error?.message || '등록된 캠프 양식을 불러오지 못했습니다.');
         } finally {
             setLoading(false);
         }
-    }, [userId, showMessage]);
+    }, [userId]);
 
     useEffect(() => {
         loadData();
@@ -772,7 +771,7 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                         {loading ? (
                             <p className={`text-sm ${mutedClass}`}>등록된 캠프를 불러오는 중입니다.</p>
                         ) : forms.length === 0 ? (
-                            <p className={`text-sm ${mutedClass}`}>아직 등록한 캠프가 없습니다. Google Forms 링크를 입력하면 자동 등록됩니다.</p>
+                            <p className={`text-sm ${mutedClass}`}>아직 등록된 캠프가 없습니다. Google Forms 링크를 입력하면 자동 등록됩니다.</p>
                         ) : (
                             <div className="divide-y divide-gray-200 dark:divide-gray-700">
                                 {forms.map(form => {
