@@ -100,7 +100,7 @@ const AdBanner = ({ isVisible, activeTab }) => {
 
     useEffect(() => {
         return () => {
-            if (Capacitor.getPlatform() !== 'web' && bannerReady.current) {
+            if (Capacitor.getPlatform() !== 'web') {
                 AdMob.removeBanner().catch(() => {});
             }
         };
