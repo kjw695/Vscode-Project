@@ -33,7 +33,8 @@ import { exportDataAsCsv, parseCsvData } from './utils/dataHandlers';
 import { calculateData } from './utils/calculator';
 import InstallmentPage from './InstallmentPage'; // 👈 할부
 // [추가] 로고 이미지 (경로는 실제 로고 경로에 맞게 조정 필요, 없으면 텍스트만 표시됨)
-import logoImage from './logo.png'; 
+import logoImage from './logo.png';
+import AdBanner from './AdBanner'; 
 import LoadingOverlay from './components/common/LoadingOverlay';
 import { useAdReward } from './hooks/useAdReward';
 //검색기능
@@ -1724,6 +1725,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
     loadingMessage={loadingMessage} 
     logoImage={logoImage} 
 />
+            <AdBanner isVisible={selectedMainTab === 'more' || selectedMainTab === 'search'} />
             <MessageModal isOpen={modalState.isOpen} content={modalState.content} type={modalState.type} onConfirm={handleConfirm} onClose={closeModal} isDarkMode={isDarkMode} />
             
             {/* ✨ 휴무 등록 모달 연결 */}
