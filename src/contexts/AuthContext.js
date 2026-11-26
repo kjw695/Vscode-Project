@@ -217,7 +217,27 @@ setupDeepLink().catch((error) => {
     }, []);
 
     const signInWithKakao = useCallback(async () => {
-        throw new Error('카카오 로그인은 아직 준비 중입니다.');
+        try {
+            const isWeb = Capacitor.getPlatform() === 'web';
+            const redirectUrl = isWeb ? window.location.origin : 'deliverytracker://login-callback';
+
+            const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: 'kakao',
+                options: {
+                    redirectTo: redirectUrl,
+                    skipBrowserRedirect: !isWeb,
+                }
+            });
+
+            if (error) throw error;
+
+            if (!isWeb && data?.url) {
+                await Browser.open({ url: data.url });
+            }
+        } catch (err) {
+            alert("카카오 로그인 중 에러가 발생했습니다: " + err.message);
+            throw err;
+        }
     }, []);
 
     const signOut = useCallback(async () => {
