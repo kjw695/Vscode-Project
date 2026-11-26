@@ -34,8 +34,6 @@ import { calculateData } from './utils/calculator';
 import InstallmentPage from './InstallmentPage'; // 👈 할부
 // [추가] 로고 이미지 (경로는 실제 로고 경로에 맞게 조정 필요, 없으면 텍스트만 표시됨)
 import logoImage from './logo.png'; 
-import AdBanner from './AdBanner';
-import { AdMob } from '@capacitor-community/admob';
 import LoadingOverlay from './components/common/LoadingOverlay';
 import { useAdReward } from './hooks/useAdReward';
 //검색기능
@@ -116,9 +114,6 @@ const { isLoggedIn, user, profile } = useAuth();
 
 // ✨ 추가: 관리자 센터 수동 오픈 상태
     const [showAdminCenter, setShowAdminCenter] = useState(false);
-
-    // ✨ [추가] 현재 폰이 아이폰(iOS)인지 안드로이드인지 확인하는 마법!
-    const isIOS = Capacitor.getPlatform() === 'ios';
 
     // [수정] isDataLoaded 상태 가져오기
  const { entries, saveEntry, deleteEntry, clearAllEntries, importStrictly, isDataLoaded, pendingSyncCount, syncPendingData } = useDelivery();
@@ -505,25 +500,6 @@ useEffect(() => {
         }
     }, [selectedMainTab, entryToEdit]);
 
-    // ✨ [수정] 탭이 바뀔 때마다, 홈/데이터/통계 화면이면 무조건 광고 스티커 강제로 떼어내기!
-    useEffect(() => {
-        const forceHideBanner = async () => {
-            // 🛡️ 안드로이드는 이미 완벽하니까 건드리지 마! 오직 아이폰(iOS)일 때만 실행해!
-            if (!isIOS) return; 
-
-            if (selectedMainTab !== 'more' && selectedMainTab !== 'search') {
-                // 1차 공격: 즉시 숨기기 시도
-                try { await AdMob.hideBanner(); } catch (error) {}
-                
-                // 2차 시간차 공격: 광고가 구글에서 도착할 시간(0.5초)을 기다렸다가 한 번 더 확실하게 숨김!!
-                setTimeout(async () => {
-                    try { await AdMob.hideBanner(); } catch (error) {}
-                }, 500); 
-            }
-        };
-        forceHideBanner();
-    }, [selectedMainTab, isIOS]);
-
     const resetForm = () => {
         
         setUnitPrice('');
@@ -541,13 +517,7 @@ useEffect(() => {
     const handleConfirm = () => { if (modalState.onConfirm) modalState.onConfirm(); closeModal(); };
     const handleApplyFilters = (newFilters) => { setFilters(newFilters); setIsFilterModalOpen(false); };
 
-     const { handleProtectedTabClick } = useAdReward({
-        showConfirmation,
-        showMessage,
-        setIsLoading,
-        setLoadingMessage,
-        setStatisticsView
-    });
+     const { handleProtectedTabClick } = useAdReward({ setStatisticsView });
 
     const handleSaveGoal = () => {
         const newGoal = parseInt(newGoalAmountInput);
@@ -1754,12 +1724,6 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
     loadingMessage={loadingMessage} 
     logoImage={logoImage} 
 />
-            {/* ✨ 더보기 탭에서만 광고 켜기! 그리고 탭이 바뀔 때마다 신호(activeTab)를 보냅니다 ✨ */}
-            <AdBanner 
-                isVisible={selectedMainTab === 'more' || selectedMainTab === 'search'} 
-                activeTab={selectedMainTab}
-            />
-
             <MessageModal isOpen={modalState.isOpen} content={modalState.content} type={modalState.type} onConfirm={handleConfirm} onClose={closeModal} isDarkMode={isDarkMode} />
             
             {/* ✨ 휴무 등록 모달 연결 */}
