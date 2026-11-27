@@ -123,6 +123,18 @@ const { isLoggedIn, user, profile } = useAuth();
     // [수정] isDataLoaded 상태 가져오기
  const { entries, saveEntry, deleteEntry, clearAllEntries, importStrictly, isDataLoaded, pendingSyncCount, syncPendingData } = useDelivery();
 
+    // 빠르게 완료되는 자동 동기화는 미전송 경고를 깜빡이지 않도록 잠시 기다린 뒤 표시합니다.
+    const [showPendingSyncNotice, setShowPendingSyncNotice] = useState(false);
+    useEffect(() => {
+        if (!isLoggedIn || pendingSyncCount <= 0) {
+            setShowPendingSyncNotice(false);
+            return undefined;
+        }
+
+        const timeoutId = window.setTimeout(() => setShowPendingSyncNotice(true), 2000);
+        return () => window.clearTimeout(timeoutId);
+    }, [isLoggedIn, pendingSyncCount]);
+
     // --- 목표 관리 ---
     const [targetItemKey, setTargetItemKey] = useState(null);
     const [goalAmount, setGoalAmount] = useState(7000000);
@@ -1283,7 +1295,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
         >
             <SystemThemeManager isDarkMode={isDarkMode} />
 {/* ✨ 로그인(연동)된 상태에서만 미전송 데이터 경고 배지가 보이도록 조건 추가 */}
-{isLoggedIn && pendingSyncCount > 0 && (
+{isLoggedIn && pendingSyncCount > 0 && showPendingSyncNotice && (
     <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[9999]">
         <button 
             onClick={async () => {
@@ -1799,7 +1811,7 @@ function CalculatorPageWrapper() {
     const location = useLocation();
     
     const { date, currentRound, incomeConfig, isDarkMode } = location.state || {};
-    const { saveEntry } = useDelivery(); 
+    const { entries, saveEntry } = useDelivery(); 
 
     const handleApply = (results) => {
         saveEntry({
@@ -1815,6 +1827,7 @@ function CalculatorPageWrapper() {
         <CalculatorPage 
             date={date}
             currentRound={currentRound}
+            entries={entries}
             incomeConfig={incomeConfig || []}
             isDarkMode={isDarkMode}
             onBack={() => navigate(-1)} 
