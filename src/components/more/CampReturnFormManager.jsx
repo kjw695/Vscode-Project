@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { showToast } from '../../utils/toast';
 import {
     ArrowLeft,
     ChevronDown,
@@ -476,9 +477,8 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
                 setMapping(EMPTY_MAPPING);
                 setExpandedFormId('');
                 await loadData();
-                showMessage?.(defaultSaved
-                    ? `${detectedCampName} 양식이 등록되고 기본 선택 양식으로 설정되었습니다.`
-                    : `${detectedCampName} 양식은 등록됐지만 기본 선택 저장은 실패했습니다. 채번 화면에서 다시 선택해주세요.`);
+                if (defaultSaved) showToast(`${detectedCampName} 양식이 등록되었습니다.`);
+                else showMessage?.(`${detectedCampName} 양식은 등록됐지만 기본 선택 저장은 실패했습니다. 채번 화면에서 다시 선택해주세요.`);
             } else {
                 await loadData();
                 showMessage?.(`자동 등록 전 확인이 필요한 항목이 있습니다: ${blockers.join(', ') || '문항 연결 확인'}`);
@@ -517,9 +517,8 @@ export default function CampReturnFormManager({ onBack, isDarkMode, user, showMe
             });
             const defaultSaved = await persistAsDefaultForm(savedForm);
             await loadData();
-            showMessage?.(defaultSaved
-                ? '타지역 캠프 양식을 저장하고 기본 선택 양식으로 설정했습니다.'
-                : '양식은 저장됐지만 기본 선택 저장은 실패했습니다. 채번 화면에서 다시 선택해주세요.');
+            if (defaultSaved) showToast('타지역 캠프 양식이 저장되었습니다.');
+            else showMessage?.('양식은 저장됐지만 기본 선택 저장은 실패했습니다. 채번 화면에서 다시 선택해주세요.');
             setAnalysis(null);
             setCampName('');
             setFormUrl('');
