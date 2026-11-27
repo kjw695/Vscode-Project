@@ -201,13 +201,31 @@ export const exportDataAsCsv = async (entries, showMessage) => {
 
         if (Capacitor.isNativePlatform()) {
             try {
-                await Filesystem.writeFile({
+                const savedFile = await Filesystem.writeFile({
                     path: fileName,
                     data: csvWithBom,
                     directory: Directory.Documents,
                     encoding: Encoding.UTF8
                 });
-                showMessage?.('✅ CSV 파일을 휴대폰 문서 폴더에 저장했습니다. 내 파일 > 문서에서 확인하세요.');
+
+                // 파일을 문서 폴더에 먼저 저장한 다음 공유창을 엽니다.
+                // 공유창을 닫거나 취소해도 문서 폴더의 파일은 그대로 남습니다.
+                try {
+                    await Share.share({
+                        title: '배달장부 CSV 파일',
+                        text: `${date} 기준 배달장부 상세 내역 파일입니다.`,
+                        url: savedFile.uri,
+                        dialogTitle: 'CSV 파일 공유하기'
+                    });
+                } catch (shareError) {
+                    if (shareError?.message !== 'Share canceled') {
+                        console.error('CSV Share Failed:', shareError);
+                        showMessage?.('CSV 파일은 문서 폴더에 저장했지만 공유창을 열지 못했습니다. 내 파일 > 문서에서 확인하세요.');
+                        return;
+                    }
+                }
+
+                showMessage?.('✅ CSV 파일을 휴대폰 문서 폴더에 저장했습니다. 공유창에서 앱을 선택하거나 내 파일 > 문서에서 확인하세요.');
             } catch (nativeError) {
                 console.error('Native CSV Save Failed:', nativeError);
                 showMessage?.('CSV 파일을 휴대폰 문서 폴더에 저장하지 못했습니다.');
