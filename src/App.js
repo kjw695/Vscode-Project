@@ -257,6 +257,7 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const [favoriteUnitPrices, setFavoriteUnitPrices] = useState([700]);
     const [adminFavoritePricesInput, setAdminFavoritePricesInput] = useState('700');
     const [isNewCustomerPriceSetup, setIsNewCustomerPriceSetup] = useState(false);
+    const [returnToDataEntryAfterUnitPrice, setReturnToDataEntryAfterUnitPrice] = useState(false);
     const [monthlyStartDay, setMonthlyStartDay] = useState(26);
     const [monthlyEndDay, setMonthlyEndDay] = useState(25);
     const [adminMonthlyStartDayInput, setAdminMonthlyStartDayInput] = useState('26');
@@ -1517,6 +1518,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
     favoriteUnitPrices={isNewCustomerPriceSetup ? [] : favoriteUnitPrices}
     isNewCustomerPriceSetup={isNewCustomerPriceSetup}
     onOpenUnitPriceSettings={() => {
+        setReturnToDataEntryAfterUnitPrice(true);
         mainScrollContainerRef.current?.scrollTo(0, 0);
         setSelectedMainTab('more');
         setActiveContentTab('adminSettings');
@@ -1627,7 +1629,18 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
             registerBackHandler={registerDayOffBackHandler}
     />
 )}
-                                {moreSubView === 'unitPrice' && <UnitPriceView onBack={() => { setMoreSubView('main'); setTargetItemKey(null); }} isDarkMode={isDarkMode} adminFavoritePricesInput={adminFavoritePricesInput} setAdminFavoritePricesInput={setAdminFavoritePricesInput} handleSaveFavoritePrices={handleSaveFavoritePrices} favoriteUnitPrices={favoriteUnitPrices} targetItemKey={targetItemKey} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} />}
+                                {moreSubView === 'unitPrice' && <UnitPriceView onBack={() => {
+                                    if (returnToDataEntryAfterUnitPrice) {
+                                        setReturnToDataEntryAfterUnitPrice(false);
+                                        setMoreSubView('main');
+                                        setSelectedMainTab('data');
+                                        setActiveContentTab('dataEntry');
+                                        setActiveDataTab('entry');
+                                    } else {
+                                        setMoreSubView('main');
+                                        setTargetItemKey(null);
+                                    }
+                                }} isDarkMode={isDarkMode} adminFavoritePricesInput={adminFavoritePricesInput} setAdminFavoritePricesInput={setAdminFavoritePricesInput} handleSaveFavoritePrices={handleSaveFavoritePrices} favoriteUnitPrices={favoriteUnitPrices} targetItemKey={targetItemKey} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} />}
                                 {moreSubView === 'period' && <PeriodView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} adminMonthlyStartDayInput={adminMonthlyStartDayInput} setAdminMonthlyStartDayInput={setAdminMonthlyStartDayInput} adminMonthlyEndDayInput={adminMonthlyEndDayInput} setAdminMonthlyEndDayInput={setAdminMonthlyEndDayInput} handleSaveMonthlyPeriodSettings={handleSaveMonthlyPeriodSettings} monthlyStartDay={monthlyStartDay} monthlyEndDay={monthlyEndDay} />}
                                 {moreSubView === 'data' && <DataSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} handleExportCsv={() => exportDataAsCsv(entries, showMessage)} handleImportCsv={(e) => handleLocalCsvImport(e.target.files[0])} handleDeleteAllData={handleDeleteAllDataRequest} />}
                             {/* ✨ 더보기 메뉴에서 진입할 때는 무조건 '수익(income)' 탭으로 고정! */}
