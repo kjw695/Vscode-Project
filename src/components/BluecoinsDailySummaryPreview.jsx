@@ -935,12 +935,12 @@ const BluecoinsDailySummaryPreview = ({
                     onClick={(event) => event.stopPropagation()}
                     className={`fixed inset-x-0 top-0 z-[81] mx-auto h-[60vh] h-[60dvh] w-full max-w-2xl flex flex-col overflow-hidden rounded-b-2xl border-b p-3 shadow-2xl ${dark ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}
                     style={{
-                        paddingTop: 'calc(0.75rem + env(safe-area-inset-top))',
+                        paddingTop: 'calc(2.25rem + env(safe-area-inset-top))',
                         paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))',
                         animation: 'homeReportSheetEnter 260ms cubic-bezier(0.2, 0.8, 0.2, 1)'
                     }}
                 >
-                    <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
+                    <div className="mb-1 flex shrink-0 items-center justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-1">
                             <button
                                 type="button"
