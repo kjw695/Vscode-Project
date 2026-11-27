@@ -822,11 +822,11 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                     <>
                         <div className="grid grid-cols-2 gap-2 mb-3">
                             <div className={`rounded-xl p-3 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
-                                <p className={`text-xs ${mutedClass}`}>이번 달 채번 수량</p>
+                                <p className={`text-xs ${mutedClass}`}>{isTargetToday ? '이번 달 채번 수량' : '선택 기간 채번 수량'}</p>
                                 <p className="text-2xl font-bold text-emerald-500 mt-1">{monthlyQuantity.toLocaleString()}건</p>
                             </div>
                             <div className={`rounded-xl p-3 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
-                                <p className={`text-xs ${mutedClass}`}>이번 달 요청 기록</p>
+                                <p className={`text-xs ${mutedClass}`}>{isTargetToday ? '이번 달 요청 기록' : '선택 기간 요청 기록'}</p>
                                 <p className="text-2xl font-bold mt-1">{currentMonthRecords.length}회</p>
                             </div>
                         </div>
