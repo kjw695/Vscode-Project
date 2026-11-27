@@ -295,15 +295,37 @@ export const parseCsvData = (file) => {
                 const directAmountAliases = ['직접금액', 'Direct Amount', 'Item Amount'];
                 const itemOrderAliases = ['항목순서', 'Item Order'];
                 const rowKindAliases = ['행종류', 'Row Kind'];
+                const versionAliases = ['형식버전', 'Format Version'];
 
-                if (!hasColumn(dateAliases) || !hasColumn(nameAliases) || !hasColumn(typeAliases)) {
-                    throw new Error('지원하지 않는 CSV 형식입니다. 날짜·구분·항목명 열이 필요합니다.');
+                if (
+                    !hasColumn(dateAliases) ||
+                    !hasColumn(nameAliases) ||
+                    !hasColumn(typeAliases) ||
+                    !hasColumn(countAliases) ||
+                    !hasColumn(unitPriceAliases) ||
+                    !hasColumn(totalAliases)
+                ) {
+                    throw new Error('지원하지 않는 CSV 형식입니다. 날짜·구분·항목명·수량·단가·금액 열이 필요합니다.');
                 }
 
-                const hasV2Metadata = hasColumn(recordIdAliases) &&
-                    hasColumn(recordTypeAliases) &&
-                    hasColumn(itemKeyAliases) &&
-                    hasColumn(directAmountAliases);
+                const v2MetadataColumns = [
+                    recordIdAliases,
+                    recordTypeAliases,
+                    commonPriceAliases,
+                    timestampAliases,
+                    editedAliases,
+                    itemKeyAliases,
+                    directAmountAliases,
+                    itemOrderAliases,
+                    rowKindAliases,
+                    versionAliases
+                ];
+                const hasAnyV2Metadata = v2MetadataColumns.some(hasColumn);
+                const hasV2Metadata = v2MetadataColumns.every(hasColumn);
+
+                if (hasAnyV2Metadata && !hasV2Metadata) {
+                    throw new Error('새 CSV 백업의 복원 정보 열이 일부 누락되었습니다. 파일을 원본 그대로 가져와주세요.');
+                }
 
                 const groupedData = new Map();
                 const rows = Array.isArray(parsed.data) ? parsed.data : [];
@@ -311,7 +333,13 @@ export const parseCsvData = (file) => {
                 rows.forEach((row, index) => {
                     const rowNumber = index + 2;
                     const rawDate = getValue(row, dateAliases);
-                    if (!String(rawDate ?? '').trim()) return;
+                    if (!String(rawDate ?? '').trim()) {
+                        const hasAnyCellValue = Object.values(row).some((value) => String(value ?? '').trim() !== '');
+                        if (hasAnyCellValue) {
+                            throw new Error(`${rowNumber}행에 날짜가 비어 있습니다.`);
+                        }
+                        return;
+                    }
 
                     const date = normalizeCsvDate(rawDate, rowNumber);
                     const round = parseCsvNumber(getValue(row, roundAliases), '회차', rowNumber);
@@ -329,6 +357,10 @@ export const parseCsvData = (file) => {
                     const groupKey = hasV2Metadata && recordId
                         ? \`record:\${recordId}\`
                         : \`legacy:\${date}:\${round}:\${recordType}:\${memo}\`;
+
+                    if (hasV2Metadata && String(getValue(row, versionAliases) ?? '').trim() !== CSV_VERSION) {
+                        throw new Error(`${rowNumber}행의 CSV 형식 버전이 지원되지 않습니다.`);
+                    }
 
                     const commonUnitPrice = hasV2Metadata
                         ? parseCsvNumber(getValue(row, commonPriceAliases), '공통단가', rowNumber)
