@@ -161,7 +161,7 @@ describe('CSV ledger import', () => {
             dialogTitle: 'CSV 파일 공유하기'
         }));
         expect(Toast.show).toHaveBeenCalledWith({
-            text: 'CSV 파일이 저장되었습니다.',
+            text: '문서 폴더에 저장되었습니다.',
             duration: 'short',
             position: 'bottom'
         });
