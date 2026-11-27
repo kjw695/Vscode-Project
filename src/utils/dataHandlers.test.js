@@ -111,7 +111,7 @@ describe('CSV ledger import', () => {
 
     test('round-trips app records through the generated Android CSV file', async () => {
         Capacitor.isNativePlatform.mockReturnValue(true);
-        Filesystem.writeFile.mockResolvedValue({ uri: 'file:///cache/ledger.csv' });
+        Filesystem.writeFile.mockResolvedValue({ uri: 'file:///storage/emulated/0/Documents/배달장부_상세내역_2026-11-28.csv' });
 
         const source = [{
             id: 's18_1790000000000',
@@ -146,14 +146,13 @@ describe('CSV ledger import', () => {
         await exportDataAsCsv(source, showMessage);
 
         expect(Filesystem.writeFile).toHaveBeenCalledTimes(1);
-        expect(Share.share).not.toHaveBeenCalled();
         expect(Filesystem.writeFile).toHaveBeenCalledWith(expect.objectContaining({
             path: expect.stringMatching(/^배달장부_상세내역_.*\.csv$/),
             directory: 'DOCUMENTS',
             encoding: 'utf8'
         }));
         expect(Share.share).toHaveBeenCalledWith(expect.objectContaining({
-            url: 'file:///cache/ledger.csv',
+            url: 'file:///storage/emulated/0/Documents/배달장부_상세내역_2026-11-28.csv',
             dialogTitle: 'CSV 파일 공유하기'
         }));
         expect(Share.share.mock.invocationCallOrder[0]).toBeGreaterThan(
