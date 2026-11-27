@@ -933,7 +933,7 @@ const BluecoinsDailySummaryPreview = ({
                     aria-modal="true"
                     aria-label={`${selectedDateLabel} 상세 내역`}
                     onClick={(event) => event.stopPropagation()}
-                    className={`fixed inset-x-0 top-0 z-[81] mx-auto h-[50vh] h-[50dvh] w-full max-w-2xl flex flex-col overflow-hidden rounded-b-2xl border-b p-3 shadow-2xl ${dark ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}
+                    className={`fixed inset-x-0 top-0 z-[81] mx-auto h-[60vh] h-[60dvh] w-full max-w-2xl flex flex-col overflow-hidden rounded-b-2xl border-b p-3 shadow-2xl ${dark ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}
                     style={{
                         paddingTop: 'calc(0.75rem + env(safe-area-inset-top))',
                         paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))',
@@ -998,12 +998,12 @@ const BluecoinsDailySummaryPreview = ({
                         <button
                             type="button"
                             onClick={() => setIsDayMode(true)}
-                            className={'rounded-md px-2 py-1 ' + (isDayMode ? (dark ? 'bg-slate-700 text-white' : 'bg-white text-blue-600 shadow-sm') : mutedClass)}
+                            className={'min-h-[40px] min-w-[48px] rounded-md px-4 py-2 text-xs ' + (isDayMode ? (dark ? 'bg-slate-700 text-white' : 'bg-white text-blue-600 shadow-sm') : mutedClass)}
                         >일</button>
                         <button
                             type="button"
                             onClick={() => setIsDayMode(false)}
-                            className={'rounded-md px-2 py-1 ' + (!isDayMode ? (dark ? 'bg-slate-700 text-white' : 'bg-white text-blue-600 shadow-sm') : mutedClass)}
+                            className={'min-h-[40px] min-w-[48px] rounded-md px-4 py-2 text-xs ' + (!isDayMode ? (dark ? 'bg-slate-700 text-white' : 'bg-white text-blue-600 shadow-sm') : mutedClass)}
                         >월</button>
                     </div>
                 </div>
