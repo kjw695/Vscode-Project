@@ -994,7 +994,11 @@ const handleTodayClick = () => {
                         entry.customItems.forEach(item => {
                             const count = Number(item.count || 0);
                             const label = itemLabels[item.key] || item.key;
-                            if (selectedItemsForAverage.includes(label)) {
+                            const isFreshBagItem = String(item.key || '').startsWith('freshBagCount');
+                            if (
+                                selectedItemsForAverage.includes(label) ||
+                                (isFreshBagItem && selectedItemsForAverage.includes('프레시백'))
+                            ) {
                                 dailyVolume += count;
                             }
                             if (Object.prototype.hasOwnProperty.call(dailyVolumeBreakdown, item.key)) {
