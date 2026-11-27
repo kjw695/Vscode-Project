@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
 
 const CSV_HEADERS = [
