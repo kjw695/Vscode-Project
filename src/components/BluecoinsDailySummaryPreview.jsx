@@ -6,7 +6,8 @@ import {
     ChevronLeft,
     ChevronRight,
     Layers,
-    ListFilter
+    ListFilter,
+    X
 } from 'lucide-react';
 import { calculateData } from '../utils/calculator';
 import GoalProgressBar from './GoalProgressBar';
@@ -898,10 +899,50 @@ const BluecoinsDailySummaryPreview = ({
             </section>
 
 {isReportVisible && (
-            <section
-                ref={reportSectionRef}
-                className={'mt-2 scroll-mt-3 rounded-2xl border p-3 shadow-sm ' + panelClass}
-            >
+            <>
+                <style>{`
+                    @keyframes homeReportBackdropEnter {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    @keyframes homeReportSheetEnter {
+                        from { transform: translateY(100%); }
+                        to { transform: translateY(0); }
+                    }
+                `}</style>
+                <button
+                    type="button"
+                    aria-label="상세 내역 닫기"
+                    onClick={() => setIsReportVisible(false)}
+                    className="fixed inset-0 z-[80] cursor-default bg-black/45 backdrop-blur-[1px]"
+                    style={{ animation: 'homeReportBackdropEnter 180ms ease-out' }}
+                />
+                <section
+                    ref={reportSectionRef}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="선택 날짜 상세 내역"
+                    onClick={(event) => event.stopPropagation()}
+                    className={`fixed inset-x-0 bottom-0 z-[81] mx-auto max-h-[82vh] max-h-[82dvh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-t-2xl border-t p-3 shadow-2xl ${dark ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}
+                    style={{
+                        paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))',
+                        animation: 'homeReportSheetEnter 260ms cubic-bezier(0.2, 0.8, 0.2, 1)'
+                    }}
+                >
+                    <div className="flex justify-center pb-3 pt-1">
+                        <div className={`h-1.5 w-10 rounded-full ${dark ? 'bg-slate-600' : 'bg-slate-300'}`} />
+                    </div>
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                        <h3 className="text-base font-black">선택 날짜 상세 내역</h3>
+                        <button
+                            type="button"
+                            aria-label="상세 내역 닫기"
+                            onClick={() => setIsReportVisible(false)}
+                            className={`rounded-full p-2 ${dark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
                 <div className={'grid grid-cols-3 rounded-xl p-1 text-[10px] font-black ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
                     <button
                         type="button"
@@ -1115,7 +1156,8 @@ const BluecoinsDailySummaryPreview = ({
                         className="inline-flex items-center gap-1 text-[10px] font-black text-blue-600 dark:text-blue-400"
                     >선택 날짜 내역 보기 <ArrowUpRight size={12} /></button>
                 </div>
-            </section>
+                </section>
+            </>
             )}
         </div>
     );
