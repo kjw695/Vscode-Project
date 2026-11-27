@@ -63,7 +63,9 @@ function EntriesTable({
                   let total = Number(entry[key]) || 0;
                   if (entry.customItems && Array.isArray(entry.customItems)) {
                       entry.customItems.forEach(item => {
-                          if (item.key === key) total += (Number(item.count) || 0);
+                          const isMatchingKey = item.key === key ||
+                              (key === 'freshBagCount' && String(item.key || '').startsWith('freshBagCount'));
+                          if (isMatchingKey) total += (Number(item.count) || 0);
                       });
                   }
                   return total;
