@@ -1255,7 +1255,7 @@ const handleTodayClick = () => {
    if (!isDataLoaded || isAuthLoading) {
 
         return (
-            <div className={`fixed inset-0 w-full h-full flex flex-col items-center justify-center${isDarkMode ? 'bg-[#111827]' : 'bg-white'}`}>
+            <div className={`fixed inset-0 w-full h-full flex flex-col items-center justify-center ${isDarkMode ? 'bg-[#111827]' : 'bg-white'}`}>
                 <div className="animate-pulse flex flex-col items-center">
                     <img src={logoImage} alt="Loading..." className="w-24 h-24 mb-4" />
                     <p className={`text-lg font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
