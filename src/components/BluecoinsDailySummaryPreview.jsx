@@ -144,6 +144,13 @@ const BluecoinsDailySummaryPreview = ({
     const [chartAlignmentVersion, setChartAlignmentVersion] = useState(0);
     // 주간 차트의 기본 날짜는 마지막 배송 기록일이 아니라 기기 기준 오늘입니다.
     const [selectedDate, setSelectedDate] = useState(() => toDateKey(new Date()));
+    const selectedDateLabel = useMemo(() => {
+        const [year, month, day] = String(selectedDate || '').split('-').map(Number);
+        if (!year || !month || !day) return selectedDate || '';
+        const date = new Date(year, month - 1, day);
+        const weekday = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()];
+        return `${month}월 ${day}일 (${weekday})`;
+    }, [selectedDate]);
 
     useEffect(() => {
         onSelectedDateChange?.(selectedDate);
@@ -921,7 +928,7 @@ const BluecoinsDailySummaryPreview = ({
                     ref={reportSectionRef}
                     role="dialog"
                     aria-modal="true"
-                    aria-label="선택 날짜 상세 내역"
+                    aria-label={`${selectedDateLabel} 상세 내역`}
                     onClick={(event) => event.stopPropagation()}
                     className={`fixed inset-x-0 bottom-0 z-[81] mx-auto max-h-[82vh] max-h-[82dvh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-t-2xl border-t p-3 shadow-2xl ${dark ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}
                     style={{
@@ -929,11 +936,8 @@ const BluecoinsDailySummaryPreview = ({
                         animation: 'homeReportSheetEnter 260ms cubic-bezier(0.2, 0.8, 0.2, 1)'
                     }}
                 >
-                    <div className="flex justify-center pb-3 pt-1">
-                        <div className={`h-1.5 w-10 rounded-full ${dark ? 'bg-slate-600' : 'bg-slate-300'}`} />
-                    </div>
                     <div className="mb-3 flex items-center justify-between gap-3">
-                        <h3 className="text-base font-black">선택 날짜 상세 내역</h3>
+                        <h3 className="text-base font-black">{selectedDateLabel}</h3>
                         <button
                             type="button"
                             aria-label="상세 내역 닫기"
