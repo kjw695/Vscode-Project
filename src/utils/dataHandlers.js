@@ -1,5 +1,4 @@
 import Papa from 'papaparse';
-import { Share } from '@capacitor/share';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 
@@ -201,24 +200,16 @@ export const exportDataAsCsv = async (entries, showMessage) => {
 
         if (Capacitor.isNativePlatform()) {
             try {
-                const savedFile = await Filesystem.writeFile({
+                await Filesystem.writeFile({
                     path: fileName,
                     data: csvWithBom,
-                    directory: Directory.Cache,
+                    directory: Directory.Documents,
                     encoding: Encoding.UTF8
                 });
-
-                await Share.share({
-                    title: '배달장부 엑셀 파일',
-                    text: `${date} 기준 상세 내역 파일입니다.`,
-                    url: savedFile.uri,
-                    dialogTitle: '엑셀 파일 공유하기'
-                });
+                showMessage?.('✅ CSV 파일을 휴대폰 문서 폴더에 저장했습니다. 내 파일 > 문서에서 확인하세요.');
             } catch (nativeError) {
-                console.error('Native CSV Share Failed:', nativeError);
-                if (nativeError.message !== 'Share canceled') {
-                    showMessage?.('CSV 파일을 만들거나 공유하는 데 실패했습니다.');
-                }
+                console.error('Native CSV Save Failed:', nativeError);
+                showMessage?.('CSV 파일을 휴대폰 문서 폴더에 저장하지 못했습니다.');
             }
         } else {
             const blob = new Blob([csvWithBom], { type: 'text/csv;charset=utf-8;' });
