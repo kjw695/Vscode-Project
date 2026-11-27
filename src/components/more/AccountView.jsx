@@ -41,8 +41,7 @@ function AccountView({ onBack, isDarkMode, autoEdit = false }) {
   const [showGuestLedgerImport, setShowGuestLedgerImport] = useState(false);
   const [guestEntryCount, setGuestEntryCount] = useState(0);
   const {
-    isLoggedIn, user, profile, signOut, isAuthLoading,
-    signInWithGoogle, signInWithApple, signInWithKakao
+    isLoggedIn, user, profile, signOut, isAuthLoading
   } = useAuth();
   const { pendingSyncCount, syncPendingData, isDataLoaded } = useDelivery();
   const [unclassifiedCount, setUnclassifiedCount] = useState(0);
@@ -58,7 +57,6 @@ function AccountView({ onBack, isDarkMode, autoEdit = false }) {
 
   const [isEditing, setIsEditing] = useState(autoEdit);
   const [isSaving, setIsSaving] = useState(false);
-  const [isProviderConnecting, setIsProviderConnecting] = useState(false);
   const [showUnmasked, setShowUnmasked] = useState(false);
 
   const headerRef = useRef(null);
@@ -398,78 +396,6 @@ const handleEditClick = () => {
   // ✨ 현재 로그인한 계정 종류 확인
   const currentProvider = user?.app_metadata?.provider || '';
 
-  // SNS 아이콘은 게스트 상태에서 선택한 제공자의 OAuth 로그인을 시작합니다.
-  // 로그인된 계정에 다른 제공자를 추가 연결하는 기능은 별도로 지원하지 않습니다.
-  const handleSnsBoxClick = async (id, isLinked) => {
-      if (isAuthLoading || isProviderConnecting) return;
-
-      if (isLoggedIn) {
-          if (!isLinked) {
-              alert('현재 로그인된 계정과 다른 SNS입니다. 다른 SNS를 추가 연결하는 기능은 아직 지원하지 않습니다. 기존 계정 데이터 보호를 위해 계정을 변경하지 않았습니다.');
-          }
-          return;
-      }
-
-      if (id === 'apple') {
-          alert('Apple 로그인은 준비 중입니다.');
-          return;
-      }
-
-      const providerAction = id === 'google' ? signInWithGoogle
-          : id === 'apple' ? signInWithApple
-          : id === 'kakao' ? signInWithKakao
-          : null;
-
-      if (!providerAction) {
-          alert('현재 지원하지 않는 로그인 방식입니다.');
-          return;
-      }
-
-      setIsProviderConnecting(true);
-      try {
-          await providerAction();
-      } catch (error) {
-          // AuthContext의 로그인 함수가 사용자에게 오류를 표시합니다.
-          console.warn(`[${id}] SNS 로그인 시작 실패:`, error);
-      } finally {
-          setIsProviderConnecting(false);
-      }
-  };
-
-  // SNS 연동 박스
-  const renderSnsBox = (name, id, logoSvg, unlinkedBg, unlinkedText) => {
-      const isLinked = isLoggedIn && currentProvider === id;
-
-      return (
-          <button
-              type="button"
-              key={id}
-              onClick={() => handleSnsBoxClick(id, isLinked)}
-              disabled={isAuthLoading || isProviderConnecting}
-              aria-label={`${name} ${isLinked ? '연동됨' : '로그인'}`}
-              className={`w-full flex flex-col items-center justify-center py-2.5 px-2 rounded-xl border transition-all duration-300 cursor-pointer disabled:cursor-wait disabled:opacity-60 ${
-                  isLinked
-                      ? (isDarkMode ? 'bg-gray-800 border-blue-500 shadow-md' : 'bg-white border-blue-400 ring-1 ring-blue-400 shadow-md')
-                      : (isDarkMode ? 'bg-gray-900 border-gray-800 opacity-60' : 'bg-gray-50 border-gray-200 opacity-70 hover:bg-gray-100')
-              }`}
-          >
-              <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xl font-black mb-1.5 shadow-sm ${
-                  isLinked
-                      ? `${unlinkedBg} ${unlinkedText} border ${isDarkMode ? 'border-gray-600' : 'border-gray-100'}`
-                      : `${unlinkedBg} ${unlinkedText} border ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`
-              }`}>
-                  {logoSvg}
-              </span>
-              <span className={`text-[11px] font-bold ${
-                  isLinked
-                      ? (isDarkMode ? 'text-blue-400' : 'text-blue-600')
-                      : (isDarkMode ? 'text-gray-500' : 'text-gray-400')
-              }`}>
-                  {name}
-              </span>
-          </button>
-      );
-  };
 
   return (
     <div className={`w-full max-w-4xl mx-auto px-2 sm:px-4 ${isEditing ? 'pb-80' : 'pb-10'}`}>
@@ -517,56 +443,33 @@ const handleEditClick = () => {
           </div>
         </div>
 
-     {/* ✨ 줄바꿈 안됨(whitespace-nowrap), '...' 절대 안생김! 글자 크기도 시원하게 유지 */}
-        <div className={`mt-3 py-3 w-full flex justify-center items-center rounded-lg ${
-            isLoggedIn 
+       {/* 로그인 제공자 상태를 클라우드 동기화 안내 위에 간결하게 표시 */}
+        <div className="mt-3 flex items-center justify-between gap-2 px-1">
+            <span className={`text-xs font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                계정 연동 상태
+            </span>
+            {isLoggedIn ? (
+                <span className="text-[11px] font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-2.5 py-1 rounded-md whitespace-nowrap">
+                    ✓ {currentProvider === 'google' ? 'Google' : currentProvider === 'apple' ? 'Apple' : currentProvider === 'kakao' ? '카카오' : '계정'} 연결됨
+                </span>
+            ) : (
+                <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-md whitespace-nowrap ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-500'}`}>
+                    미로그인
+                </span>
+            )}
+        </div>
+
+        {/* 클라우드 동기화 안내 */}
+        <div className={`mt-2 py-3 w-full flex justify-center items-center rounded-lg ${
+            isLoggedIn
             ? (isDarkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-700')
             : (isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600')
         }`}>
-            {/* 글자 크기를 최소 12px(text-xs) ~ 13px로 유지하여 가독성 확보 */}
             <span className="text-xs sm:text-[13px] md:text-sm font-medium whitespace-nowrap tracking-tight px-1 sm:px-2">
-                {isLoggedIn 
+                {isLoggedIn
                     ? '현재 데이터가 클라우드에 실시간 동기화되고 있습니다.'
                     : '로그인하시면 다른 기기와 데이터를 안전하게 동기화할 수 있습니다.'}
             </span>
-        </div>
-
-       {/* 계정 연동 상태 영역 */}
-        <div className={`mt-4 pt-4 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-            <h4 className={`text-xs font-bold mb-3 px-1 flex items-center justify-between ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                <span>계정 연동 상태</span>
-                {/* ✨ 수정 4: 연동 상태 텍스트를 헤더 영역으로 이동 */}
-                {!isLoggedIn ? (
-                    <span className="text-[10px] text-blue-500 animate-pulse">{isProviderConnecting ? '연결 화면 여는 중...' : 'Google·카카오 아이콘을 눌러 로그인'}</span>
-                ) : (
-                    <span className="text-[11px] text-green-600 dark:text-green-400 font-black bg-green-50 dark:bg-green-900/30 px-2 py-0.5 rounded-md">
-                        ✓ {currentProvider === 'google' ? 'Google' : currentProvider === 'apple' ? 'Apple' : currentProvider === 'kakao' ? 'Kakao' : ''} 연동 중
-                    </span>
-                )}
-            </h4>
-            <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                {renderSnsBox('Google', 'google', 
-                    <svg viewBox="0 0 48 48" className="w-4 h-4">
-                        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.7 17.74 9.5 24 9.5z"></path>
-                        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
-                        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
-                        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
-                        <path fill="none" d="M0 0h48v48H0z"></path>
-                    </svg>, 
-                'bg-white', 'text-gray-800')}
-                
-                {renderSnsBox('Apple', 'apple', 
-                    <svg viewBox="0 0 384 512" fill="currentColor" className="w-4 h-4 mb-0.5">
-                        <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/>
-                    </svg>, 
-                'bg-black', 'text-white')}
-                
-                {renderSnsBox('Kakao', 'kakao', 
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mb-0.5">
-                        <path d="M12 2.5C6.2 2.5 1.5 6.3 1.5 11c0 3.1 2 5.8 5.1 7.2l-.9 3.1c-.1.5.4.8.8.5l4.1-2.3c.4.1.9.1 1.4.1 5.8 0 10.5-3.8 10.5-8.5S17.8 2.5 12 2.5Z"/>
-                    </svg>, 
-                'bg-[#FEE500]', 'text-black')}
-            </div>
         </div>
       </div>
 
