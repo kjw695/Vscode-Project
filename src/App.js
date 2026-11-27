@@ -49,7 +49,8 @@ import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import BluecoinsDailySummaryPreview from './components/BluecoinsDailySummaryPreview';
 import DailyInspectionView from './components/dailyInspection/DailyInspectionView';
-import { readDailyInspectionRecord } from './services/dailyInspectionService';
+import { getDailyInspectionStoragePrefix, readDailyInspectionRecord } from './services/dailyInspectionService';
+import { getCampReturnNumberingStoragePrefix } from './services/campReturnNumberingService';
 import AverageItemsView from './components/more/AverageItemsView';
 import VolumeCalendarSettingsView from './components/more/VolumeCalendarSettingsView';
 import CampReturnNumberingView from './components/more/CampReturnNumberingView';
@@ -171,7 +172,7 @@ const { isLoggedIn, user, profile } = useAuth();
     const isIOS = Capacitor.getPlatform() === 'ios';
 
     // [수정] isDataLoaded 상태 가져오기
- const { entries, saveEntry, deleteEntry, clearAllEntries, importStrictly, isDataLoaded, pendingSyncCount, syncPendingData } = useDelivery();
+ const { entries, saveEntry, deleteEntry, deletePersonalData, importStrictly, isDataLoaded, pendingSyncCount, syncPendingData } = useDelivery();
 
     // 빠르게 완료되는 자동 동기화는 미전송 경고를 깜빡이지 않도록 잠시 기다린 뒤 표시합니다.
     const [showPendingSyncNotice, setShowPendingSyncNotice] = useState(false);
@@ -740,11 +741,76 @@ useEffect(() => {
         });
     };
 
+    const handleResetSettingsRequest = () => {
+        showConfirmation(
+            "앱 설정을 최초 설치 상태로 되돌릴까요?\n\n단가, 수익·지출 항목, 월별 집계 기간, 목표 금액, 보험사, 홈 화면 구성, 선호 휴무일, 테마 및 반품 채번 프로필 설정이 초기화됩니다.\n\n배송·수익 기록, 일상점검표 기록과 서명, 반품 채번 이력, 계정 정보와 회사 공용 자료는 삭제되지 않습니다.",
+            async () => {
+                setIsLoading(true);
+                try {
+                    if (isLoggedIn && user?.id) {
+                        const { error } = await supabase.rpc('reset_my_app_settings');
+                        if (error) throw error;
+                    }
+
+                    // 현재 계정의 앱 설정만 초기화하고, 다른 계정/게스트 설정은 보존합니다.
+                    localStorage.removeItem(getAppSettingsStorageKey(user?.id));
+                    [
+                        'appSettings',
+                        'dashboardSettings_v2',
+                        'unitPrice_favExpanded',
+                        'unitPrice_individualExpanded',
+                        'preferredDayOffs'
+                    ].forEach((key) => localStorage.removeItem(key));
+
+                    // 채번 프로필은 설정에 해당하므로 초기화하되, 기존 채번 이력은 보존합니다.
+                    const campPrefix = getCampReturnNumberingStoragePrefix(user?.id || null);
+                    localStorage.removeItem(`${campPrefix}profile`);
+                    localStorage.removeItem(`${campPrefix}driverId`);
+
+                    await Preferences.remove({ key: 'isDarkMode' });
+                    window.alert('앱 설정이 최초 설치 상태로 초기화되었습니다.');
+                    window.location.reload();
+                } catch (error) {
+                    console.error('[Settings reset] 초기화 실패:', error);
+                    showMessage(error?.message || '설정을 초기화하지 못했습니다. 네트워크 연결을 확인해주세요.');
+                } finally {
+                    setIsLoading(false);
+                }
+            }
+        );
+    };
+
     const handleDeleteAllDataRequest = () => {
-        showConfirmation("정말로 모든 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.", () => {
-            clearAllEntries(); 
-            showMessage("모든 데이터가 삭제되었습니다.");
-        });
+        showConfirmation(
+            "본인의 배송·수익 장부, 일상점검표 기록과 저장된 서명, 반품 채번 요청 이력 및 본인이 등록한 채번 양식을 삭제할까요?\n\n로그인 상태에서는 서버와 이 기기에 저장된 본인 기록을 함께 삭제합니다. 로그아웃 상태에서는 이 기기의 게스트 기록만 삭제합니다.\n\n계정·회원 정보, 앱 설정과 단가, 반품 채번 프로필, 회사 공용 직원·근무표·업체 자료 및 다른 사람의 기록은 삭제되지 않습니다.\n\n삭제한 기록은 복구할 수 없습니다.",
+            async () => {
+                setIsLoading(true);
+                try {
+                    await deletePersonalData();
+
+                    // 점검표의 계정별 오프라인 기록과 저장된 서명/회사명 캐시를 함께 제거합니다.
+                    const inspectionPrefix = getDailyInspectionStoragePrefix(user?.id || null);
+                    const inspectionKeys = [];
+                    for (let index = 0; index < localStorage.length; index += 1) {
+                        const key = localStorage.key(index);
+                        if (key && key.startsWith(inspectionPrefix)) inspectionKeys.push(key);
+                    }
+                    inspectionKeys.forEach((key) => localStorage.removeItem(key));
+
+                    // 반품 채번은 기록만 삭제하고, 사용자 프로필과 기사 정보는 유지합니다.
+                    const campPrefix = getCampReturnNumberingStoragePrefix(user?.id || null);
+                    localStorage.removeItem(`${campPrefix}records`);
+
+                    window.alert('본인의 기록이 삭제되었습니다. 계정과 앱 설정은 유지됩니다.');
+                    window.location.reload();
+                } catch (error) {
+                    console.error('[Personal data deletion] 삭제 실패:', error);
+                    showMessage(error?.message || '데이터 삭제에 실패했습니다. 네트워크 연결과 계정 권한을 확인해주세요.');
+                } finally {
+                    setIsLoading(false);
+                }
+            }
+        );
     };
 
     const handleDateChange = (days) => {
@@ -1642,7 +1708,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                     }
                                 }} isDarkMode={isDarkMode} adminFavoritePricesInput={adminFavoritePricesInput} setAdminFavoritePricesInput={setAdminFavoritePricesInput} handleSaveFavoritePrices={handleSaveFavoritePrices} favoriteUnitPrices={favoriteUnitPrices} targetItemKey={targetItemKey} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} />}
                                 {moreSubView === 'period' && <PeriodView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} adminMonthlyStartDayInput={adminMonthlyStartDayInput} setAdminMonthlyStartDayInput={setAdminMonthlyStartDayInput} adminMonthlyEndDayInput={adminMonthlyEndDayInput} setAdminMonthlyEndDayInput={setAdminMonthlyEndDayInput} handleSaveMonthlyPeriodSettings={handleSaveMonthlyPeriodSettings} monthlyStartDay={monthlyStartDay} monthlyEndDay={monthlyEndDay} />}
-                                {moreSubView === 'data' && <DataSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} handleExportCsv={() => exportDataAsCsv(entries, showMessage)} handleImportCsv={(e) => handleLocalCsvImport(e.target.files[0])} handleDeleteAllData={handleDeleteAllDataRequest} />}
+                                {moreSubView === 'data' && <DataSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} isLoggedIn={isLoggedIn} handleExportCsv={() => exportDataAsCsv(entries, showMessage)} handleImportCsv={(e) => handleLocalCsvImport(e.target.files[0])} handleResetSettings={handleResetSettingsRequest} handleDeleteAllData={handleDeleteAllDataRequest} />}
                             {/* ✨ 더보기 메뉴에서 진입할 때는 무조건 '수익(income)' 탭으로 고정! */}
                                 {moreSubView === 'expenseSettings' && <ExpenseSettingsView initialTab="income" onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} expenseConfig={expenseConfig} setExpenseConfig={setExpenseConfig} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} onNavigate={(view, key) => { setMoreSubView(view); if (key) setTargetItemKey(key); }} />}
 {moreSubView === 'calendar_volume_settings' && (
