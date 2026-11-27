@@ -512,10 +512,19 @@ export function DeliveryProvider({ children }) {
             if (isLoggedIn && user) {
                 let skippedCount = 0;
 
-                const validRows = incomingData.filter(row => {
-                    const isDup = entries.some(e => isDuplicateEntry(e, row));
-                    if (isDup) { skippedCount++; return false; }
-                    return true;
+                const validRows = [];
+                const knownRows = [...entries];
+
+                incomingData.forEach((row) => {
+                    const isDup = knownRows.some((entry) => isDuplicateEntry(entry, row));
+                    if (isDup) {
+                        skippedCount++;
+                        return;
+                    }
+
+                    validRows.push(row);
+                    // 같은 CSV 안에서 중복된 기록도 두 번 저장되지 않게 현재 비교 목록에 추가합니다.
+                    knownRows.push(row);
                 });
 
                 if (validRows.length === 0) return { added: 0, skipped: skippedCount };
