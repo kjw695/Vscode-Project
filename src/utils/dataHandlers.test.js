@@ -2,15 +2,9 @@ import Papa from 'papaparse';
 import { parseCsvData, exportDataAsCsv } from './dataHandlers';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem } from '@capacitor/filesystem';
-import { Share } from '@capacitor/share';
-
-jest.mock('@capacitor/share', () => ({
-    Share: { share: jest.fn() }
-}));
-
 jest.mock('@capacitor/filesystem', () => ({
     Filesystem: { writeFile: jest.fn() },
-    Directory: { Cache: 'CACHE' },
+    Directory: { Documents: 'DOCUMENTS' },
     Encoding: { UTF8: 'utf8' }
 }));
 
@@ -143,10 +137,16 @@ describe('CSV ledger import', () => {
             ]
         }];
 
-        await exportDataAsCsv(source, jest.fn());
+        const showMessage = jest.fn();
+        await exportDataAsCsv(source, showMessage);
 
         expect(Filesystem.writeFile).toHaveBeenCalledTimes(1);
-        expect(Share.share).toHaveBeenCalledTimes(1);
+        expect(Filesystem.writeFile).toHaveBeenCalledWith(expect.objectContaining({
+            path: expect.stringMatching(/^배달장부_상세내역_.*\\.csv$/),
+            directory: 'DOCUMENTS',
+            encoding: 'utf8'
+        }));
+        expect(showMessage).toHaveBeenCalledWith(expect.stringContaining('내 파일 > 문서'));
         const exportedCsv = Filesystem.writeFile.mock.calls[0][0].data;
         expect(exportedCsv.startsWith('\uFEFF')).toBe(true);
 
