@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ArrowUpRight,
     ArrowRightLeft,
     BarChart3,
     ChevronLeft,
@@ -114,7 +113,6 @@ const BluecoinsDailySummaryPreview = ({
     onToggleCalendarMode,
     onMonthChange,
     onToday,
-    onDateClick,
     onOpenInputForDate,
     onOpenNumberingForDate,
     onCalendarDateSelect,
@@ -1182,7 +1180,7 @@ const BluecoinsDailySummaryPreview = ({
                     <button
                         type="button"
                         onClick={() => onOpenInputForDate?.(selectedDate)}
-                        className="rounded-xl border-2 border-amber-500 bg-gray-800 px-4 py-3 text-sm font-black text-amber-300 shadow-sm active:scale-[0.98]"
+                        className={`rounded-xl border-2 border-amber-500 px-4 py-3 text-sm font-black shadow-sm active:scale-[0.98] ${dark ? 'bg-gray-800 text-amber-300' : 'bg-amber-50 text-amber-800'}`}
                     >입력</button>
                     <button
                         type="button"
