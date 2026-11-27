@@ -1,5 +1,8 @@
 import Papa from 'papaparse';
-import { parseCsvData } from './dataHandlers';
+import { parseCsvData, exportDataAsCsv } from './dataHandlers';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 jest.mock('@capacitor/share', () => ({
     Share: { share: jest.fn() }
@@ -12,8 +15,13 @@ jest.mock('@capacitor/filesystem', () => ({
 }));
 
 jest.mock('@capacitor/core', () => ({
-    Capacitor: { isNativePlatform: () => false }
+    Capacitor: { isNativePlatform: jest.fn(() => false) }
 }));
+
+beforeEach(() => {
+    jest.clearAllMocks();
+    Capacitor.isNativePlatform.mockReturnValue(false);
+});
 
 const parseFile = (csv) => {
     const file = new File([csv], 'ledger.csv', { type: 'text/csv;charset=utf-8' });
@@ -100,6 +108,59 @@ describe('CSV ledger import', () => {
             type: 'expense',
             amount: 30000
         });
+    });
+
+    test('round-trips app records through the generated Android CSV file', async () => {
+        Capacitor.isNativePlatform.mockReturnValue(true);
+        Filesystem.writeFile.mockResolvedValue({ uri: 'file:///cache/ledger.csv' });
+
+        const source = [{
+            id: 's18_1790000000000',
+            date: '2026-11-28',
+            type: 'income',
+            unitPrice: 700,
+            round: 1,
+            memo: '메모, "중요"\n두 번째 줄',
+            timestamp: '2026-11-28T02:00:00.000Z',
+            isEdited: false,
+            customItems: [
+                {
+                    key: 'deliveryCount',
+                    name: '배송, A구역',
+                    type: 'income',
+                    count: 3,
+                    unitPrice: 700,
+                    amount: 0
+                },
+                {
+                    key: 'specialBonus',
+                    name: '보너스 "특별"',
+                    type: 'income',
+                    count: 0,
+                    unitPrice: 0,
+                    amount: 1200
+                }
+            ]
+        }];
+
+        await exportDataAsCsv(source, jest.fn());
+
+        expect(Filesystem.writeFile).toHaveBeenCalledTimes(1);
+        expect(Share.share).toHaveBeenCalledTimes(1);
+        const exportedCsv = Filesystem.writeFile.mock.calls[0][0].data;
+        expect(exportedCsv.startsWith('\uFEFF')).toBe(true);
+
+        const restored = await parseFile(exportedCsv);
+        expect(restored).toHaveLength(1);
+        expect(restored[0]).toMatchObject({
+            date: source[0].date,
+            round: source[0].round,
+            type: source[0].type,
+            unitPrice: source[0].unitPrice,
+            memo: source[0].memo,
+            timestamp: source[0].timestamp
+        });
+        expect(restored[0].customItems).toEqual(source[0].customItems);
     });
 
     test('rejects malformed rows instead of silently importing a partial file', async () => {
