@@ -89,7 +89,7 @@ const LoginPage = ({ onBack, isDarkMode, onMigrationComplete }) => {
                         >
                             <span className="flex items-center justify-center gap-2">
                                 <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 shrink-0" aria-hidden="true">
-                                    <path d="M12 3c-5.5 0-10 3.5-10 8 0 2.8 1.8 5.3 4.5 6.7-.4 1.5-1.4 5.3-1.5 5.6-.1.5.4.6.7.4 1-.6 6-4.1 8-5.5.4 0 .9.1 1.3.1 5.5 0 10-3.5 10-8s-4.5-8-10-8z"/>
+                                    <path d="M12 2.5C6.2 2.5 1.5 6.3 1.5 11c0 3.1 2 5.8 5.1 7.2l-.9 3.1c-.1.5.4.8.8.5l4.1-2.3c.4.1.9.1 1.4.1 5.8 0 10.5-3.8 10.5-8.5S17.8 2.5 12 2.5Z"/>
                                 </svg>
                                 <span>카카오로 계속하기</span>
                             </span>
