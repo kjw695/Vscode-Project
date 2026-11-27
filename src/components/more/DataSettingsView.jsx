@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { ArrowLeft, Download, Upload, Trash2, FileText, AlertTriangle, RefreshCw } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { ArrowLeft, Download, Upload, Trash2, FileText, AlertTriangle, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import DataMigrationTool from './DataMigrationTool';
 
 const DataSettingsView = ({ 
@@ -12,6 +12,8 @@ const DataSettingsView = ({
     isLoggedIn = false
 }) => {
     const fileInputRef = useRef(null);
+    const [showResetDescription, setShowResetDescription] = useState(false);
+    const [showDeleteDescription, setShowDeleteDescription] = useState(false);
 
     const handleUploadClick = () => {
         fileInputRef.current.click();
@@ -81,18 +83,33 @@ const DataSettingsView = ({
                     </div>
                 </div>
 
-                {/* 2. 설정 초기화: 개인 기록과 계정은 보존합니다. */}
+                {/* 2. 설정 초기화: 자세한 설명은 눌러서 확인합니다. */}
                 <div className={cardClass}>
-                    <div className="flex items-center gap-2 mb-3">
-                        <RefreshCw className="text-blue-500" size={20} />
-                        <h2 className="text-lg font-bold">설정 초기화</h2>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2">
+                            <RefreshCw className="text-blue-500" size={20} />
+                            <h2 className="text-lg font-bold">설정 초기화</h2>
+                        </div>
+                        <button
+                            type="button"
+                            aria-expanded={showResetDescription}
+                            onClick={() => setShowResetDescription((value) => !value)}
+                            className={`flex items-center gap-1 text-xs font-semibold whitespace-nowrap ${isDarkMode ? 'text-blue-300' : 'text-blue-700'}`}
+                        >
+                            {showResetDescription ? '설명 접기' : '설명 보기'}
+                            {showResetDescription ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                        </button>
                     </div>
-                    <p className={`text-sm mb-3 leading-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        단가, 수익·지출 항목, 월별 집계 기간, 목표 금액, 보험사, 홈 화면 구성, 선호 휴무일, 테마 및 반품 채번 프로필 설정을 최초 설치 상태로 되돌립니다.
-                    </p>
-                    <p className={`text-xs mb-4 ${isDarkMode ? 'text-green-300' : 'text-green-700'}`}>
-                        배송·수익 기록, 점검표 기록과 서명, 반품 채번 이력, 계정 정보 및 회사 공용 자료는 삭제되지 않습니다.
-                    </p>
+                    {showResetDescription && (
+                        <>
+                            <p className={`text-sm mb-3 leading-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                단가, 수익·지출 항목, 월별 집계 기간, 목표 금액, 보험사, 홈 화면 구성, 선호 휴무일, 테마 및 반품 채번 프로필 설정을 최초 설치 상태로 되돌립니다.
+                            </p>
+                            <p className={`text-xs mb-4 ${isDarkMode ? 'text-green-300' : 'text-green-700'}`}>
+                                배송·수익 기록, 점검표 기록과 서명, 반품 채번 이력, 계정 정보 및 회사 공용 자료는 삭제되지 않습니다.
+                            </p>
+                        </>
+                    )}
                     <button
                         type="button"
                         onClick={handleResetSettings}
@@ -103,21 +120,36 @@ const DataSettingsView = ({
                     </button>
                 </div>
 
-                {/* 3. 데이터 삭제: 본인 소유의 기록만 삭제합니다. */}
+                {/* 3. 데이터 삭제: 자세한 설명은 눌러서 확인합니다. */}
                 <div className={`p-5 rounded-xl shadow-sm border ${isDarkMode ? 'bg-red-900/10 border-red-900/30' : 'bg-red-50 border-red-100'}`}>
-                    <div className="flex items-center gap-2 mb-3 text-red-600 dark:text-red-400">
-                        <AlertTriangle size={20} />
-                        <h2 className="text-lg font-bold">데이터 삭제</h2>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                            <AlertTriangle size={20} />
+                            <h2 className="text-lg font-bold">데이터 삭제</h2>
+                        </div>
+                        <button
+                            type="button"
+                            aria-expanded={showDeleteDescription}
+                            onClick={() => setShowDeleteDescription((value) => !value)}
+                            className={`flex items-center gap-1 text-xs font-semibold whitespace-nowrap ${isDarkMode ? 'text-red-300' : 'text-red-700'}`}
+                        >
+                            {showDeleteDescription ? '설명 접기' : '설명 보기'}
+                            {showDeleteDescription ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                        </button>
                     </div>
-                    <p className={`text-sm mb-3 leading-6 ${isDarkMode ? 'text-red-200/80' : 'text-red-700'}`}>
-                        본인의 배송·수익 장부, 일상점검표 기록과 저장된 서명, 반품 채번 요청 이력 및 본인이 등록한 채번 양식을 삭제합니다.
-                    </p>
-                    <p className={`text-xs mb-4 leading-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        {isLoggedIn
-                            ? '서버와 이 기기에 저장된 본인 기록을 함께 삭제합니다. 계정·앱 설정·단가·반품 채번 프로필, 회사 공용 자료와 다른 사람의 기록은 유지됩니다.'
-                            : '이 기기에 저장된 게스트 기록만 삭제합니다. 로그인 계정과 서버 기록은 삭제하지 않습니다.'}
-                        {' '}삭제한 기록은 복구할 수 없습니다.
-                    </p>
+                    {showDeleteDescription && (
+                        <>
+                            <p className={`text-sm mb-3 leading-6 ${isDarkMode ? 'text-red-200/80' : 'text-red-700'}`}>
+                                본인의 배송·수익 장부, 일상점검표 기록과 저장된 서명, 반품 채번 요청 이력 및 본인이 등록한 채번 양식을 삭제합니다.
+                            </p>
+                            <p className={`text-xs mb-4 leading-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                {isLoggedIn
+                                    ? '서버와 이 기기에 저장된 본인 기록을 함께 삭제합니다. 계정·앱 설정·단가·반품 채번 프로필, 회사 공용 자료와 다른 사람의 기록은 유지됩니다.'
+                                    : '이 기기에 저장된 게스트 기록만 삭제합니다. 로그인 계정과 서버 기록은 삭제하지 않습니다.'}
+                                {' '}삭제한 기록은 복구할 수 없습니다.
+                            </p>
+                        </>
+                    )}
                     <button
                         type="button"
                         onClick={handleDeleteAllData}
