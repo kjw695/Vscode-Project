@@ -140,6 +140,17 @@ const normalizeFreshBagIncomeConfig = (config) => {
         }
     ];
 
+    // 기존 저장 건의 편집 호환을 위해 구 프레시백 키는 숨김 상태로만 유지합니다.
+    if (legacy) {
+        freshBagItems.push({
+            ...legacy,
+            key: 'freshBagCount',
+            isVisible: false,
+            useCustomPrice: false,
+            customPrice: []
+        });
+    }
+
     const sourceIndexes = [legacyIndex, index100, index200].filter(index => index >= 0);
     const insertAt = Math.min(...sourceIndexes);
     const remaining = config.filter(item =>
@@ -988,6 +999,8 @@ const handleTodayClick = () => {
                             }
                             if (Object.prototype.hasOwnProperty.call(dailyVolumeBreakdown, item.key)) {
                                 dailyVolumeBreakdown[item.key] += count;
+                            } else if (String(item.key || '').startsWith('freshBagCount')) {
+                                dailyVolumeBreakdown.freshBagCount += count;
                             }
                         });
                     } else {
