@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { showToast } from '../../utils/toast';
 import { ArrowLeft, Users, PlusCircle, LogIn, Copy, Check } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { createTeam, joinTeamByCode, fetchMyVendorInfo, leaveTeam, requestTeamDeletion, cancelTeamDeletion, fetchTeamDeletionState, registerTeamLeaderCandidate, voteForTeamLeader } from '../../services/teamService';
@@ -177,7 +178,7 @@ useEffect(() => {
             const newTeam = await createTeam(teamNameInput.trim(), currentUser.id);
             setVendorInfo(newTeam);
             setRole('owner');
-            if (showMessage) showMessage(`✅ "${newTeam.name}" 팀이 생성되었습니다!`);
+            showToast(`"${newTeam.name}" 팀이 생성되었습니다.`);
             setTeamNameInput('');
         } catch (e) {
             alert("팀 생성 실패: " + e.message);
@@ -197,7 +198,7 @@ useEffect(() => {
             const res = await joinTeamByCode(inviteCode, currentUser.id);
             setVendorInfo(res.team);
             setRole('member');
-            if (showMessage) showMessage(res.message);
+            showToast(res.message);
             setInviteCodeInput('');
         } catch (e) {
             const errorMessage = String(e?.message || '');
@@ -245,9 +246,7 @@ const handleCopyCode = async (code) => {
 
         setCopied(true);
 
-        if (showMessage) {
-            showMessage('📋 초대 코드가 복사되었습니다!');
-        }
+        showToast('초대 코드가 복사되었습니다.');
 
         setTimeout(() => setCopied(false), 2000);
     } catch (error) {
@@ -308,7 +307,7 @@ const handleCopyCode = async (code) => {
             setActionLoading(true);
             const state = await registerTeamLeaderCandidate();
             setDeletionState(state?.active ? state : null);
-            if (showMessage) showMessage("✅ 팀장 후보로 등록되었습니다.");
+            showToast("팀장 후보로 등록되었습니다.");
         } catch (error) {
             window.alert("후보 등록 실패: " + error.message);
         } finally {
@@ -330,10 +329,10 @@ const handleCopyCode = async (code) => {
                 }
             } else if (result?.active) {
                 setDeletionState(result);
-                if (showMessage) showMessage("✅ 투표가 저장되었습니다.");
+                showToast("투표가 저장되었습니다.");
             } else {
                 await refreshTeamState();
-                if (showMessage) showMessage("투표 처리가 완료되었습니다.");
+                showToast("투표 처리가 완료되었습니다.");
             }
         } catch (error) {
             window.alert("투표 실패: " + error.message);
@@ -349,7 +348,7 @@ const handleCopyCode = async (code) => {
             await leaveTeam(currentUser.id);
             setVendorInfo(null);
             setRole(null);
-            if (showMessage) showMessage("👋 팀을 나왔습니다.");
+            showToast("팀에서 나왔습니다.");
         } catch (e) {
             alert("팀 나가기 실패: " + e.message);
         } finally {
