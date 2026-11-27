@@ -1376,32 +1376,12 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 onToggleCalendarMode={(mode) => setCalendarMode(mode)}
                                 onMonthChange={handleMonthChange}
                                 onToday={handleTodayClick}
-                                onOpenInputForDate={(dateKey) => {
-                                    setBluecoinsSelectedDate(dateKey);
-                                    setSelectedMainTab('data');
-                                    setActiveContentTab('dataEntry');
-                                    setActiveDataTab('entry');
-                                    setEntryToEdit(null);
-                                    setDate(dateKey);
-                                    setUnitPrice('');
-                                    setFormData({});
-                                    setFormType('income');
-                                    setIsFabVisible(false);
-                                }}
-                                onOpenNumberingForDate={(dateKey) => {
-                                    setBluecoinsSelectedDate(dateKey);
-                                    mainScrollContainerRef.current?.scrollTo(0, 0);
-                                    setSelectedMainTab('more');
-                                    setActiveContentTab('adminSettings');
-                                    setMoreSubView('camp_return_numbering');
-                                    setIsFabVisible(false);
-                                }}
                                 onOpenDayOff={() => setIsDayOffModalOpen(true)}
                                 onSelectedDateChange={setBluecoinsSelectedDate}
                                 resetToTodayKey={homeVisitKey}
-                                onCalendarDateSelect={(dateKey) => {
+                                onCalendarDateSelect={(dateKey, isSameDate) => {
                                     setBluecoinsSelectedDate(dateKey);
-                                    setIsFabVisible(false);
+                                    setIsFabVisible((visible) => (isSameDate ? !visible : true));
                                 }}
                                 onRequestEditDate={(dateKey) => {
                                     const [, month, day] = dateKey.split('-');
@@ -1659,7 +1639,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                             else setIsFabVisible(true);
                         }
                     }} 
-                    className={`fixed z-40 right-2 px-6 py-2.5 rounded-full shadow-lg transition-all duration-300 flex justify-center items-center font-bold tracking-widest border-2 ${
+                    className={`fixed ${activeContentTab === 'bluecoinsDailySummary' && isFabVisible ? 'z-[90]' : 'z-40'} right-2 px-6 py-2.5 rounded-full shadow-lg transition-all duration-300 flex justify-center items-center font-bold tracking-widest border-2 ${
                         isDarkMode ? 'bg-gray-900 border-yellow-500 text-yellow-400' : 'bg-gray-800 border-gray-700 text-yellow-400'
                     } ${
                         /* 리스트 화면에서는 투명해지지 않고 항상 100% 보이게 설정 */
@@ -1681,7 +1661,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                         setMoreSubView('camp_return_numbering');
                         setIsFabVisible(false);
                     }}
-                    className={`fixed z-40 right-2 px-6 py-2.5 rounded-full shadow-lg transition-all duration-300 flex justify-center items-center font-bold tracking-widest border-2 ${
+                    className={`fixed ${activeContentTab === 'bluecoinsDailySummary' && isFabVisible ? 'z-[90]' : 'z-40'} right-2 px-6 py-2.5 rounded-full shadow-lg transition-all duration-300 flex justify-center items-center font-bold tracking-widest border-2 ${
                         isDarkMode ? 'bg-blue-700 border-blue-500 text-white' : 'bg-blue-600 border-blue-700 text-white'
                     } ${
                         (activeContentTab === 'dataEntry' && activeDataTab === 'list')
