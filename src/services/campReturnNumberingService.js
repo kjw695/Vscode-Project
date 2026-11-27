@@ -208,6 +208,7 @@ export async function addCampReturnRecord(userId, request) {
         quantity: Number(request.quantity),
         camp: String(request.camp || ''),
         form_key: String(request.formKey || 'chungju1_return_numbering_v1'),
+        ...(request.targetDate ? { target_date: String(request.targetDate).trim() } : {}),
         user_confirmed_at: now,
         created_at: now
     };
