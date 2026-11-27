@@ -81,7 +81,7 @@ const DataSettingsView = ({
                     </div>
                 </div>
 
-                {/* 3. 설정 초기화: 개인 기록과 계정은 보존합니다. */}
+                {/* 2. 설정 초기화: 개인 기록과 계정은 보존합니다. */}
                 <div className={cardClass}>
                     <div className="flex items-center gap-2 mb-3">
                         <RefreshCw className="text-blue-500" size={20} />
@@ -103,7 +103,7 @@ const DataSettingsView = ({
                     </button>
                 </div>
 
-                {/* 4. 데이터 삭제: 본인 소유의 기록만 삭제합니다. */}
+                {/* 3. 데이터 삭제: 본인 소유의 기록만 삭제합니다. */}
                 <div className={`p-5 rounded-xl shadow-sm border ${isDarkMode ? 'bg-red-900/10 border-red-900/30' : 'bg-red-50 border-red-100'}`}>
                     <div className="flex items-center gap-2 mb-3 text-red-600 dark:text-red-400">
                         <AlertTriangle size={20} />
