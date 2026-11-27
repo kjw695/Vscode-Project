@@ -113,8 +113,6 @@ const BluecoinsDailySummaryPreview = ({
     onToggleCalendarMode,
     onMonthChange,
     onToday,
-    onOpenInputForDate,
-    onOpenNumberingForDate,
     onCalendarDateSelect,
     onRequestEditDate,
     onOpenDayOff,
@@ -935,7 +933,7 @@ const BluecoinsDailySummaryPreview = ({
                     aria-modal="true"
                     aria-label={`${selectedDateLabel} 상세 내역`}
                     onClick={(event) => event.stopPropagation()}
-                    className={`fixed inset-x-0 top-0 z-[81] mx-auto h-[82vh] h-[82dvh] w-full max-w-2xl flex flex-col overflow-hidden rounded-b-2xl border-b p-3 shadow-2xl ${dark ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}
+                    className={`fixed inset-x-0 top-0 z-[81] mx-auto h-[50vh] h-[50dvh] w-full max-w-2xl flex flex-col overflow-hidden rounded-b-2xl border-b p-3 shadow-2xl ${dark ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}
                     style={{
                         paddingTop: 'calc(0.75rem + env(safe-area-inset-top))',
                         paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))',
@@ -1176,18 +1174,7 @@ const BluecoinsDailySummaryPreview = ({
                     )}
                 </div>
 
-                <div className={`mt-3 grid shrink-0 grid-cols-2 gap-2 border-t pt-3 ${dividerClass}`}>
-                    <button
-                        type="button"
-                        onClick={() => onOpenInputForDate?.(selectedDate)}
-                        className={`rounded-xl border-2 border-amber-500 px-4 py-3 text-sm font-black shadow-sm active:scale-[0.98] ${dark ? 'bg-gray-800 text-amber-300' : 'bg-amber-50 text-amber-800'}`}
-                    >입력</button>
-                    <button
-                        type="button"
-                        onClick={() => onOpenNumberingForDate?.(selectedDate)}
-                        className="rounded-xl border-2 border-blue-600 bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-sm active:scale-[0.98]"
-                    >채번</button>
-                </div>
+
                 </section>
             </>
             )}
