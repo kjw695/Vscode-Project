@@ -477,7 +477,7 @@ useEffect(() => {
                 { key: 'deliveryInterruptionAmount', label: '중단', isVisible: true },
                 { key: 'returnCount', label: '반품', isVisible: true },
                 { key: 'freshBagCount100', label: '프레시백 100원', isVisible: true, useCustomPrice: true, customPrice: [100] },
-            { key: 'freshBagCount200', label: '프레시백 200원', isVisible: true, useCustomPrice: true, customPrice: [200] },
+                { key: 'freshBagCount200', label: '프레시백 200원', isVisible: true, useCustomPrice: true, customPrice: [200] },
                 { key: 'assignmentCount', label: '채번', isVisible: false },
                 { key: 'promotionAmount', label: '프로모션', isVisible: false, useCustomPrice: true, customPrice: [1] }
             ];
