@@ -148,6 +148,14 @@ function formatDate(value) {
     }).format(new Date(value));
 }
 
+function formatTargetDate(value) {
+    const [year, month, day] = String(value || '').split('-').map(Number);
+    if (!year || !month || !day) return String(value || '');
+    const date = new Date(year, month - 1, day);
+    const weekday = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()];
+    return `${month}월 ${day}일 (${weekday})`;
+}
+
 function parseInvoiceDetails(value) {
     const text = String(value || '').replace(/\s+/g, ' ').trim();
     const trackingNumber = text.match(/운송장\s*번호\s*[:：]?\s*([0-9]+)/i)?.[1] || '';
@@ -157,7 +165,7 @@ function parseInvoiceDetails(value) {
     return { trackingNumber, orderNumber };
 }
 
-export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkMode, user, showMessage, monthlyStartDay = 26, monthlyEndDay = 25 }) {
+export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkMode, user, showMessage, monthlyStartDay = 26, monthlyEndDay = 25, targetDate = localDateKey(new Date()) }) {
     const [driverId, setDriverId] = useState('');
     const [invoiceText, setInvoiceText] = useState('');
     const [quantity, setQuantity] = useState('');
@@ -178,6 +186,8 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
 
     const userId = user?.id || null;
     const isDark = !!isDarkMode;
+    const targetDateKey = String(targetDate || localDateKey(new Date()));
+    const isTargetToday = targetDateKey === localDateKey(new Date());
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -281,8 +291,12 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
 
     const todayKey = localDateKey(new Date());
     const todayRecords = useMemo(
-        () => records.filter(record => record.user_confirmed_at && localDateKey(record.user_confirmed_at) === todayKey),
-        [records, todayKey]
+        () => records.filter(record => {
+            const recordTargetDate = record.target_date ||
+                (record.user_confirmed_at ? localDateKey(record.user_confirmed_at) : '');
+            return recordTargetDate === targetDateKey;
+        }),
+        [records, targetDateKey]
     );
     const todayQuantity = todayRecords.reduce((sum, record) => sum + (Number(record.quantity) || 0), 0);
     const campTotals = useMemo(() => {
@@ -300,7 +314,10 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
     const monthlyPeriod = useMemo(() => {
         const startDay = Number(monthlyStartDay) || 26;
         const endDay = Number(monthlyEndDay) || 25;
-        const now = new Date();
+        const [targetYear, targetMonth, targetDay] = targetDateKey.split('-').map(Number);
+        const now = targetYear && targetMonth && targetDay
+            ? new Date(targetYear, targetMonth - 1, targetDay)
+            : new Date();
         let periodYear = now.getFullYear();
         let periodMonth = now.getMonth() + 1;
 
@@ -320,12 +337,12 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
             endDay
         );
         return { year: periodYear, month: periodMonth, startStr, endStr };
-    }, [monthlyStartDay, monthlyEndDay]);
+    }, [monthlyStartDay, monthlyEndDay, targetDateKey]);
 
     const currentMonthRecords = useMemo(
         () => records.filter(record => {
             if (!record.user_confirmed_at) return false;
-            const recordDate = localDateKey(record.user_confirmed_at);
+            const recordDate = record.target_date || localDateKey(record.user_confirmed_at);
             return recordDate >= monthlyPeriod.startStr && recordDate <= monthlyPeriod.endStr;
         }),
         [records, monthlyPeriod]
@@ -514,7 +531,8 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                 camp: selectedRegionalForm
                     ? (selectedMobileCamp || selectedRegionalForm.camp_name)
                     : camp,
-                formKey: selectedRegionalForm ? `regional:${selectedRegionalForm.id}` : 'chungju1_return_numbering_v1'
+                formKey: selectedRegionalForm ? `regional:${selectedRegionalForm.id}` : 'chungju1_return_numbering_v1',
+                targetDate: targetDateKey
             };
             const url = selectedRegionalForm
                 ? buildRegionalPrefilledFormUrl(selectedRegionalForm, request)
@@ -625,7 +643,8 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
             )}
 
             <section className={`rounded-2xl border p-4 mb-4 ${panelClass}`}>
-                <h3 className="font-bold mb-3">채번 요청 정보</h3>
+                <h3 className="font-bold mb-1">채번 요청 정보</h3>
+                <p className={`mb-3 text-xs font-semibold ${mutedClass}`}>작업 기준 날짜: {formatTargetDate(targetDateKey)}</p>
                 <div className="space-y-3">
                     <div>
                         <label className="block text-sm font-semibold mb-1.5">운송장번호</label>
@@ -786,7 +805,9 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                     <div className="flex items-center gap-2 min-w-0">
                         <History size={18} />
                         <h3 className="font-bold truncate">
-                            {showMonthlySummary ? `${monthLabel} 채번 현황` : '오늘의 채번 현황'}
+                            {showMonthlySummary
+                                ? `${monthLabel} 채번 현황`
+                                : (isTargetToday ? '오늘의 채번 현황' : `${formatTargetDate(targetDateKey)} 채번 현황`)}
                         </h3>
                     </div>
                     <button
@@ -828,11 +849,11 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                     <>
                         <div className="grid grid-cols-2 gap-2 mb-3">
                             <div className={`rounded-xl p-3 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
-                                <p className={`text-xs ${mutedClass}`}>오늘 채번 수량</p>
+                                <p className={`text-xs ${mutedClass}`}>{isTargetToday ? '오늘 채번 수량' : '선택 날짜 채번 수량'}</p>
                                 <p className="text-2xl font-bold text-emerald-500 mt-1">{todayQuantity.toLocaleString()}건</p>
                             </div>
                             <div className={`rounded-xl p-3 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
-                                <p className={`text-xs ${mutedClass}`}>오늘 요청 기록</p>
+                                <p className={`text-xs ${mutedClass}`}>{isTargetToday ? '오늘 요청 기록' : '선택 날짜 요청 기록'}</p>
                                 <p className="text-2xl font-bold mt-1">{todayRecords.length}회</p>
                             </div>
                         </div>
