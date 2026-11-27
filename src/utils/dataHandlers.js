@@ -54,7 +54,7 @@ const parseCsvNumber = (value, fieldName, rowNumber) => {
     if (!normalized) return 0;
     const parsed = Number(normalized);
     if (!Number.isFinite(parsed)) {
-        throw new Error(\`\${rowNumber}행의 \${fieldName} 값이 숫자가 아닙니다.\`);
+        throw new Error(`${rowNumber}행의 ${fieldName} 값이 숫자가 아닙니다.`);
     }
     return parsed;
 };
@@ -74,7 +74,7 @@ const normalizeEntryType = (value) => {
 const normalizeCsvDate = (value, rowNumber) => {
     const raw = String(value ?? '').trim();
     const match = raw.match(/^(\d{4})[-/.]\s*(\d{1,2})[-/.]\s*(\d{1,2})/);
-    if (!match) throw new Error(\`\${rowNumber}행의 날짜 형식이 올바르지 않습니다.\`);
+    if (!match) throw new Error(`${rowNumber}행의 날짜 형식이 올바르지 않습니다.`);
 
     const year = Number(match[1]);
     const month = Number(match[2]);
@@ -85,10 +85,10 @@ const normalizeCsvDate = (value, rowNumber) => {
         date.getMonth() !== month - 1 ||
         date.getDate() !== day
     ) {
-        throw new Error(\`\${rowNumber}행의 날짜가 실제 달력에 존재하지 않습니다.\`);
+        throw new Error(`${rowNumber}행의 날짜가 실제 달력에 존재하지 않습니다.`);
     }
 
-    return \`\${year}-\${String(month).padStart(2, '0')}-\${String(day).padStart(2, '0')}\`;
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 };
 
 const getEntryTypeLabel = (type) => type === 'expense' ? '지출' : '수익';
@@ -106,7 +106,7 @@ const createCsvRow = (entry, entryIndex, item, itemOrder, rowKind = 'item') => {
     const count = Number(item?.count) || 0;
     const unitPrice = Number(item?.unitPrice) || 0;
     const amount = Number(item?.amount) || 0;
-    const recordId = entry.id != null ? String(entry.id) : \`record-\${entryIndex}\`;
+    const recordId = entry.id != null ? String(entry.id) : `record-${entryIndex}`;
 
     return [
         entry.date ?? '',
@@ -196,7 +196,7 @@ export const exportDataAsCsv = async (entries, showMessage) => {
         );
 
         const date = new Date().toISOString().split('T')[0];
-        const fileName = \`배달장부_상세내역_\${date}.csv\`;
+        const fileName = `배달장부_상세내역_${date}.csv`;
         const csvWithBom = '\uFEFF' + csvContent;
 
         if (Capacitor.isNativePlatform()) {
@@ -210,7 +210,7 @@ export const exportDataAsCsv = async (entries, showMessage) => {
 
                 await Share.share({
                     title: '배달장부 엑셀 파일',
-                    text: \`\${date} 기준 상세 내역 파일입니다.\`,
+                    text: `${date} 기준 상세 내역 파일입니다.`,
                     url: savedFile.uri,
                     dialogTitle: '엑셀 파일 공유하기'
                 });
@@ -263,7 +263,7 @@ export const parseCsvData = (file) => {
                 if (parsed.errors?.length) {
                     const firstError = parsed.errors[0];
                     const rowNumber = Number.isInteger(firstError.row) ? firstError.row + 2 : '확인할 수 없는';
-                    throw new Error(\`CSV \${rowNumber}행을 읽을 수 없습니다. 파일 내용을 확인해주세요.\`);
+                    throw new Error(`CSV ${rowNumber}행을 읽을 수 없습니다. 파일 내용을 확인해주세요.`);
                 }
 
                 const fields = parsed.meta?.fields || [];
@@ -348,15 +348,15 @@ export const parseCsvData = (file) => {
                     const recordTypeValue = hasV2Metadata ? getValue(row, recordTypeAliases) : '';
                     const itemType = normalizeEntryType(rowTypeValue || recordTypeValue);
                     if (!itemType) {
-                        throw new Error(\`\${rowNumber}행의 구분은 수익 또는 지출이어야 합니다.\`);
+                        throw new Error(`${rowNumber}행의 구분은 수익 또는 지출이어야 합니다.`);
                     }
 
                     const memo = String(getValue(row, memoAliases) ?? '');
                     const recordId = String(getValue(row, recordIdAliases) ?? '').trim();
                     const recordType = normalizeEntryType(recordTypeValue) || itemType;
                     const groupKey = hasV2Metadata && recordId
-                        ? \`record:\${recordId}\`
-                        : \`legacy:\${date}:\${round}:\${recordType}:\${memo}\`;
+                        ? `record:${recordId}`
+                        : `legacy:${date}:${round}:${recordType}:${memo}`;
 
                     if (hasV2Metadata && String(getValue(row, versionAliases) ?? '').trim() !== CSV_VERSION) {
                         throw new Error(`${rowNumber}행의 CSV 형식 버전이 지원되지 않습니다.`);
@@ -373,7 +373,7 @@ export const parseCsvData = (file) => {
                     if (!groupedData.has(groupKey)) {
                         groupedData.set(groupKey, {
                             entry: {
-                                id: \`csv-\${Date.now()}-\${groupedData.size}\`,
+                                id: `csv-${Date.now()}-${groupedData.size}`,
                                 date,
                                 round,
                                 type: recordType,
@@ -396,12 +396,12 @@ export const parseCsvData = (file) => {
                         entry.type !== recordType ||
                         (entry.memo || '') !== memo
                     ) {
-                        throw new Error(\`\${rowNumber}행의 기록 정보가 같은 기록ID의 다른 행과 일치하지 않습니다.\`);
+                        throw new Error(`${rowNumber}행의 기록 정보가 같은 기록ID의 다른 행과 일치하지 않습니다.`);
                     }
 
                     const rowKind = String(getValue(row, rowKindAliases) ?? 'item').trim().toLowerCase();
                     if (rowKind === 'record') return;
-                    if (!name) throw new Error(\`\${rowNumber}행에 항목명이 없습니다.\`);
+                    if (!name) throw new Error(`${rowNumber}행에 항목명이 없습니다.`);
 
                     const count = parseCsvNumber(getValue(row, countAliases), '수량', rowNumber);
                     const unitPrice = parseCsvNumber(getValue(row, unitPriceAliases), '단가', rowNumber);
@@ -460,7 +460,7 @@ export const shareBackupData = async (entries) => {
     try {
         const jsonString = JSON.stringify(entries, null, 2);
         const date = new Date().toISOString().split('T')[0];
-        const fileName = \`delivery_backup_\${date}.json\`;
+        const fileName = `delivery_backup_${date}.json`;
 
         if (Capacitor.isNativePlatform()) {
             try {
@@ -473,7 +473,7 @@ export const shareBackupData = async (entries) => {
 
                 await Share.share({
                     title: '배달 앱 데이터 백업',
-                    text: \`\${date} 기준 배달 데이터 백업 파일입니다.\`,
+                    text: `${date} 기준 배달 데이터 백업 파일입니다.`,
                     url: savedFile.uri
                 });
                 return true;
@@ -487,7 +487,7 @@ export const shareBackupData = async (entries) => {
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({
                 title: '배달 앱 데이터 백업',
-                text: \`\${date} 기준 배달 데이터 백업 파일입니다.\`,
+                text: `${date} 기준 배달 데이터 백업 파일입니다.`,
                 files: [file]
             });
             return true;
