@@ -171,7 +171,7 @@ describe('CSV ledger import', () => {
         expect(Share.share.mock.invocationCallOrder[0]).toBeGreaterThan(
             Toast.show.mock.invocationCallOrder[0]
         );
-        expect(showMessage).toHaveBeenCalledWith(expect.stringContaining('내 파일 > 문서'));
+        expect(showMessage).not.toHaveBeenCalled();
         const exportedCsv = Filesystem.writeFile.mock.calls[0][0].data;
         expect(exportedCsv.startsWith('\uFEFF')).toBe(true);
 
