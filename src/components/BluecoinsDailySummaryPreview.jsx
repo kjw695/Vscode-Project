@@ -59,6 +59,12 @@ const formatLargeManWon = (amount) => {
 const getSelectedVolume = (profit, selectedItems) => {
     const details = profit?.revenueDetails || {};
     return (selectedItems || []).reduce((total, itemName) => {
+        if (itemName === '프레시백') {
+            const freshBagCount = Object.entries(details).reduce((sum, [name, value]) => (
+                String(name).includes('프레시백') ? sum + (Number(value?.count) || 0) : sum
+            ), 0);
+            return total + freshBagCount;
+        }
         return total + (Number(details[itemName]?.count) || 0);
     }, 0);
 };
