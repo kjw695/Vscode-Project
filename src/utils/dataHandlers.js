@@ -1,6 +1,7 @@
 import Papa from 'papaparse';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { Toast } from '@capacitor/toast';
 import { Capacitor } from '@capacitor/core';
 
 const CSV_HEADERS = [
@@ -208,8 +209,19 @@ export const exportDataAsCsv = async (entries, showMessage) => {
                     encoding: Encoding.UTF8
                 });
 
-                // 파일을 문서 폴더에 먼저 저장한 다음 공유창을 엽니다.
-                // 공유창을 닫거나 취소해도 문서 폴더의 파일은 그대로 남습니다.
+                // 저장이 끝나는 즉시 Android 네이티브 토스트를 표시합니다.
+                // 공유창을 닫을 때까지 기다리는 모달 안내와 분리합니다.
+                try {
+                    await Toast.show({
+                        text: 'CSV 파일이 저장되었습니다.',
+                        duration: 'short',
+                        position: 'bottom'
+                    });
+                } catch (toastError) {
+                    console.warn('CSV save toast could not be shown:', toastError);
+                }
+
+                // 저장과 토스트를 먼저 실행한 뒤 공유창을 엽니다.
                 try {
                     await Share.share({
                         title: '배달장부 CSV 파일',
@@ -225,7 +237,6 @@ export const exportDataAsCsv = async (entries, showMessage) => {
                     }
                 }
 
-                showMessage?.('✅ CSV 파일을 휴대폰 문서 폴더에 저장했습니다. 공유창에서 앱을 선택하거나 내 파일 > 문서에서 확인하세요.');
             } catch (nativeError) {
                 console.error('Native CSV Save Failed:', nativeError);
                 showMessage?.('CSV 파일을 휴대폰 문서 폴더에 저장하지 못했습니다.');
