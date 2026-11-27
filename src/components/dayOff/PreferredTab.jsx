@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { showToast } from '../../utils/toast';
 import { Check } from 'lucide-react';
 
 const DAYS_OF_WEEK = [
@@ -27,7 +28,7 @@ export default function PreferredTab({ isDarkMode, showMessage }) {
 
     const handleSavePreferences = () => {
         localStorage.setItem('preferredDayOffs', JSON.stringify(preferredDays));
-        showMessage("✅ 선호 휴무일이 저장되었습니다.\n팀 배치 시 우선 반영됩니다.");
+        showToast("선호 휴무일이 저장되었습니다.");
     };
 
     return (
