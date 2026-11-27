@@ -326,6 +326,7 @@ export default function EmployeeManager({ onBack }) {
         }));
 
         setSelectedEmployee(null);
+        showToast(editingNewEmployee ? '직원이 등록되었습니다.' : '직원 정보가 저장되었습니다.');
     };
 
     const copyInviteCode = () => {
