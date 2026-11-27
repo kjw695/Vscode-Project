@@ -152,6 +152,13 @@ describe('CSV ledger import', () => {
             directory: 'DOCUMENTS',
             encoding: 'utf8'
         }));
+        expect(Share.share).toHaveBeenCalledWith(expect.objectContaining({
+            url: 'file:///cache/ledger.csv',
+            dialogTitle: 'CSV 파일 공유하기'
+        }));
+        expect(Share.share.mock.invocationCallOrder[0]).toBeGreaterThan(
+            Filesystem.writeFile.mock.invocationCallOrder[0]
+        );
         expect(showMessage).toHaveBeenCalledWith(expect.stringContaining('내 파일 > 문서'));
         const exportedCsv = Filesystem.writeFile.mock.calls[0][0].data;
         expect(exportedCsv.startsWith('\uFEFF')).toBe(true);
