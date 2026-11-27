@@ -213,7 +213,7 @@ export const exportDataAsCsv = async (entries, showMessage) => {
                 // 공유창을 닫을 때까지 기다리는 모달 안내와 분리합니다.
                 try {
                     await Toast.show({
-                        text: 'CSV 파일이 저장되었습니다.',
+                        text: '문서 폴더에 저장되었습니다.',
                         duration: 'short',
                         position: 'bottom'
                     });
