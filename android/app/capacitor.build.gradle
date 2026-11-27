@@ -22,6 +22,7 @@ dependencies {
     implementation project(':capawesome-capacitor-app-update')
     implementation project(':capgo-capacitor-navigation-bar')
     implementation project(':hamjad-capacitor-pedometer')
+    implementation project(':capacitor-local-notifications')
 
 }
 
