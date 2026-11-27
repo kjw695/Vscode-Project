@@ -115,6 +115,8 @@ const BluecoinsDailySummaryPreview = ({
     onMonthChange,
     onToday,
     onDateClick,
+    onOpenInputForDate,
+    onOpenNumberingForDate,
     onCalendarDateSelect,
     onRequestEditDate,
     onOpenDayOff,
@@ -454,6 +456,11 @@ const BluecoinsDailySummaryPreview = ({
         selectDateAndAlignChart(dateKey);
         setIsReportVisible((visible) => (isSameDate ? !visible : true));
         onCalendarDateSelect?.(dateKey, isSameDate);
+    };
+
+    const moveReportDate = (amount) => {
+        const nextDate = getShiftedDateKey(selectedDate, amount);
+        selectDateAndAlignChart(nextDate);
     };
 
     useEffect(() => () => {
@@ -913,7 +920,7 @@ const BluecoinsDailySummaryPreview = ({
                         to { opacity: 1; }
                     }
                     @keyframes homeReportSheetEnter {
-                        from { transform: translateY(100%); }
+                        from { transform: translateY(-100%); }
                         to { transform: translateY(0); }
                     }
                 `}</style>
@@ -930,14 +937,33 @@ const BluecoinsDailySummaryPreview = ({
                     aria-modal="true"
                     aria-label={`${selectedDateLabel} 상세 내역`}
                     onClick={(event) => event.stopPropagation()}
-                    className={`fixed inset-x-0 bottom-0 z-[81] mx-auto h-[82vh] h-[82dvh] w-full max-w-2xl flex flex-col overflow-hidden rounded-t-2xl border-t p-3 shadow-2xl ${dark ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}
+                    className={`fixed inset-x-0 top-0 z-[81] mx-auto h-[82vh] h-[82dvh] w-full max-w-2xl flex flex-col overflow-hidden rounded-b-2xl border-b p-3 shadow-2xl ${dark ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}
                     style={{
-                        paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))',
+                        paddingTop: 'calc(0.75rem + env(safe-area-inset-top))',
+                        paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))',
                         animation: 'homeReportSheetEnter 260ms cubic-bezier(0.2, 0.8, 0.2, 1)'
                     }}
                 >
                     <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
-                        <h3 className="text-base font-black">{selectedDateLabel}</h3>
+                        <div className="flex min-w-0 items-center gap-1">
+                            <button
+                                type="button"
+                                aria-label="이전 날짜"
+                                onClick={() => moveReportDate(-1)}
+                                className={`rounded-lg p-2 ${dark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}
+                            >
+                                <ChevronLeft size={20} />
+                            </button>
+                            <h3 className="min-w-[132px] text-center text-base font-black tabular-nums">{selectedDateLabel}</h3>
+                            <button
+                                type="button"
+                                aria-label="다음 날짜"
+                                onClick={() => moveReportDate(1)}
+                                className={`rounded-lg p-2 ${dark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}
+                            >
+                                <ChevronRight size={20} />
+                            </button>
+                        </div>
                         <button
                             type="button"
                             aria-label="상세 내역 닫기"
@@ -1152,13 +1178,17 @@ const BluecoinsDailySummaryPreview = ({
                     )}
                 </div>
 
-                <div className={'mt-3 flex shrink-0 items-center justify-between border-t pt-2 ' + dividerClass}>
-                    <span className={'text-[9px] ' + mutedClass}>미리보기 화면 · 실제 장부 데이터를 읽기 전용으로 표시</span>
+                <div className={`mt-3 grid shrink-0 grid-cols-2 gap-2 border-t pt-3 ${dividerClass}`}>
                     <button
                         type="button"
-                        onClick={() => onDateClick?.(selectedDate)}
-                        className="inline-flex items-center gap-1 text-[10px] font-black text-blue-600 dark:text-blue-400"
-                    >선택 날짜 내역 보기 <ArrowUpRight size={12} /></button>
+                        onClick={() => onOpenInputForDate?.(selectedDate)}
+                        className="rounded-xl border-2 border-amber-500 bg-gray-800 px-4 py-3 text-sm font-black text-amber-300 shadow-sm active:scale-[0.98]"
+                    >입력</button>
+                    <button
+                        type="button"
+                        onClick={() => onOpenNumberingForDate?.(selectedDate)}
+                        className="rounded-xl border-2 border-blue-600 bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-sm active:scale-[0.98]"
+                    >채번</button>
                 </div>
                 </section>
             </>
