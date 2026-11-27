@@ -133,6 +133,7 @@ const BluecoinsDailySummaryPreview = ({
         : '확인 중';
     const [activeReportTab, setActiveReportTab] = useState('categories');
     const [isDayMode, setIsDayMode] = useState(true);
+    const [isReportVisible, setIsReportVisible] = useState(false);
     const chartScrollRef = useRef(null);
     const calendarSwipeStartRef = useRef(null);
     const reportSectionRef = useRef(null);
@@ -443,6 +444,7 @@ const BluecoinsDailySummaryPreview = ({
 
         const isSameDate = dateKey === selectedDate;
         selectDateAndAlignChart(dateKey);
+        setIsReportVisible((visible) => (isSameDate ? !visible : true));
         onCalendarDateSelect?.(dateKey, isSameDate);
     };
 
@@ -456,6 +458,7 @@ const BluecoinsDailySummaryPreview = ({
         const todayKey = toDateKey(new Date());
         chartAlignmentRequestRef.current = { dateKey: todayKey, behavior: 'auto' };
         setSelectedDate(todayKey);
+        setIsReportVisible(false);
         setChartAlignmentVersion((version) => version + 1);
     }, [resetToTodayKey]);
 
@@ -894,6 +897,7 @@ const BluecoinsDailySummaryPreview = ({
                 </div>
             </section>
 
+{isReportVisible && (
             <section
                 ref={reportSectionRef}
                 className={'mt-2 scroll-mt-3 rounded-2xl border p-3 shadow-sm ' + panelClass}
@@ -1112,6 +1116,7 @@ const BluecoinsDailySummaryPreview = ({
                     >선택 날짜 내역 보기 <ArrowUpRight size={12} /></button>
                 </div>
             </section>
+            )}
         </div>
     );
 };
