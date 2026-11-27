@@ -603,6 +603,36 @@ export function DeliveryProvider({ children }) {
         }
     }, [isLoggedIn, user]);
 
+    // 장부뿐 아니라 로그인 계정의 개인 기록 전체를 서버와 기기에서 삭제합니다.
+    // 게스트는 해당 기기에 저장된 게스트 기록만 삭제합니다.
+    const deletePersonalData = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            if (isLoggedIn && user?.id) {
+                const { error } = await supabase.rpc('delete_my_personal_data');
+                if (error) throw error;
+            }
+
+            const ownerId = isLoggedIn && user?.id ? user.id : null;
+            localStorage.removeItem(getDeliveryEntriesStorageKey(ownerId));
+
+            if (!ownerId) {
+                localStorage.removeItem(GUEST_ENTRIES_STORAGE_KEY);
+                localStorage.removeItem(GUEST_ENTRIES_IMPORT_BACKUP_KEY);
+            }
+
+            lastSRef.current = 0;
+            lastZRef.current = 0;
+            setEntries([]);
+            return { success: true };
+        } catch (error) {
+            console.error('[DeliveryContext] 본인 기록 삭제 실패:', error);
+            throw error;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [isLoggedIn, user]);
+
     // ✨ 화면(App.js)에 미전송 건수와 동기화 함수를 전달!
     const activeOwnerId = isLoggedIn && user?.id ? user.id : null;
     const isCurrentOwnerLoaded = !isAuthLoading && entriesOwnerId === activeOwnerId;
@@ -621,10 +651,10 @@ export function DeliveryProvider({ children }) {
     }, [isKoreanSystem, visibleEntries]);
 
     const memoizedValue = useMemo(() => ({
-        entries: visibleEntries, saveEntry, deleteEntry, clearAllEntries, importStrictly, importGuestEntries, getExportData,
+        entries: visibleEntries, saveEntry, deleteEntry, clearAllEntries, deletePersonalData, importStrictly, importGuestEntries, getExportData,
         isLoading: isLoading || !isCurrentOwnerLoaded, isDataLoaded: visibleIsDataLoaded,
         syncPendingData, pendingSyncCount // ✨ 미전송 처리용 신규 무기 장착
-    }), [visibleEntries, saveEntry, deleteEntry, clearAllEntries, importStrictly, importGuestEntries, getExportData, isLoading, isCurrentOwnerLoaded, visibleIsDataLoaded, syncPendingData, pendingSyncCount]); 
+    }), [visibleEntries, saveEntry, deleteEntry, clearAllEntries, deletePersonalData, importStrictly, importGuestEntries, getExportData, isLoading, isCurrentOwnerLoaded, visibleIsDataLoaded, syncPendingData, pendingSyncCount]); 
 
     return (
         <DeliveryContext.Provider value={memoizedValue}>
