@@ -142,7 +142,7 @@ describe('CSV ledger import', () => {
 
         expect(Filesystem.writeFile).toHaveBeenCalledTimes(1);
         expect(Filesystem.writeFile).toHaveBeenCalledWith(expect.objectContaining({
-            path: expect.stringMatching(/^배달장부_상세내역_.*\\.csv$/),
+            path: expect.stringMatching(/^배달장부_상세내역_.*\.csv$/),
             directory: 'DOCUMENTS',
             encoding: 'utf8'
         }));
