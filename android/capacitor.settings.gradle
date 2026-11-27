@@ -40,3 +40,6 @@ project(':capgo-capacitor-navigation-bar').projectDir = new File('../node_module
 
 include ':hamjad-capacitor-pedometer'
 project(':hamjad-capacitor-pedometer').projectDir = new File('../node_modules/@hamjad/capacitor-pedometer/android')
+
+include ':capacitor-local-notifications'
+project(':capacitor-local-notifications').projectDir = new File('../node_modules/@capacitor/local-notifications/android')
