@@ -1,5 +1,6 @@
 // src/admin/EmployeeManager.jsx
 import React, { useEffect, useMemo, useState } from 'react';
+import { showToast } from '../utils/toast';
 import { fetchMyVendorInfo } from '../services/teamService';
 import { Users, Truck, ArrowLeft, UserPlus, X, Copy, CheckCircle2, Plus, Search, ChevronDown } from 'lucide-react';
 import BiweeklyPairManager from './BiweeklyPairManager';
@@ -335,7 +336,7 @@ export default function EmployeeManager({ onBack }) {
         }
         if (navigator.clipboard?.writeText) {
             navigator.clipboard.writeText(code)
-                .then(() => window.alert('초대 코드를 복사했습니다.'))
+                .then(() => showToast('초대 코드가 복사되었습니다.'))
                 .catch(() => window.prompt('초대 코드를 복사하세요.', code));
         } else {
             window.prompt('초대 코드를 복사하세요.', code);
