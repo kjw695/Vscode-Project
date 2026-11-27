@@ -43,7 +43,8 @@
     "react-tooltip": "^5.29.1",
     "tailwind-merge": "^3.3.0",
     "web-vitals": "^2.1.4",
-    "@capacitor/local-notifications": "7.0.7"
+    "@capacitor/local-notifications": "7.0.7",
+    "@capacitor/toast": "7.0.4"
   },
   "scripts": {
     "start": "react-scripts start",
