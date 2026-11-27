@@ -110,6 +110,45 @@ const DEFAULT_HOME_CALENDAR_VOLUME_ITEMS = {
     freshBagCount: true
 };
 
+const normalizeFreshBagIncomeConfig = (config) => {
+    if (!Array.isArray(config)) return config;
+    const legacyIndex = config.findIndex(item => item?.key === 'freshBagCount');
+    const index100 = config.findIndex(item => item?.key === 'freshBagCount100');
+    const index200 = config.findIndex(item => item?.key === 'freshBagCount200');
+    if (legacyIndex < 0 && index100 < 0 && index200 < 0) return config;
+
+    const legacy = legacyIndex >= 0 ? config[legacyIndex] : null;
+    const existing100 = index100 >= 0 ? config[index100] : null;
+    const existing200 = index200 >= 0 ? config[index200] : null;
+    const fallbackVisible = legacy?.isVisible ?? existing100?.isVisible ?? existing200?.isVisible ?? true;
+    const freshBagItems = [
+        {
+            ...(existing100 || {}),
+            key: 'freshBagCount100',
+            label: '프레시백 100원',
+            isVisible: existing100?.isVisible ?? fallbackVisible,
+            useCustomPrice: true,
+            customPrice: [100]
+        },
+        {
+            ...(existing200 || {}),
+            key: 'freshBagCount200',
+            label: '프레시백 200원',
+            isVisible: existing200?.isVisible ?? fallbackVisible,
+            useCustomPrice: true,
+            customPrice: [200]
+        }
+    ];
+
+    const sourceIndexes = [legacyIndex, index100, index200].filter(index => index >= 0);
+    const insertAt = Math.min(...sourceIndexes);
+    const remaining = config.filter(item =>
+        !['freshBagCount', 'freshBagCount100', 'freshBagCount200'].includes(item?.key)
+    );
+    remaining.splice(Math.min(insertAt, remaining.length), 0, ...freshBagItems);
+    return remaining;
+};
+
 function AppContent() {
     useMigrationOnLogin();
 const { isLoggedIn, user, profile } = useAuth();
@@ -206,6 +245,7 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     // --- 설정값 관리 ---
     const [favoriteUnitPrices, setFavoriteUnitPrices] = useState([700]);
     const [adminFavoritePricesInput, setAdminFavoritePricesInput] = useState('700');
+    const [isNewCustomerPriceSetup, setIsNewCustomerPriceSetup] = useState(false);
     const [monthlyStartDay, setMonthlyStartDay] = useState(26);
     const [monthlyEndDay, setMonthlyEndDay] = useState(25);
     const [adminMonthlyStartDayInput, setAdminMonthlyStartDayInput] = useState('26');
@@ -229,14 +269,15 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const [incomeConfig, setIncomeConfig] = useState(() => {
         const savedSettings = localStorage.getItem(getAppSettingsStorageKey(user?.id));
         const parsedSettings = savedSettings ? JSON.parse(savedSettings) : {};
-        return parsedSettings.incomeConfig || [
+        return normalizeFreshBagIncomeConfig(parsedSettings.incomeConfig || [
             { key: 'deliveryCount', label: '배송', isVisible: true },
             { key: 'deliveryInterruptionAmount', label: '중단', isVisible: true },
             { key: 'returnCount', label: '반품', isVisible: true },
-            { key: 'freshBagCount', label: '프레시백', isVisible: true, useCustomPrice: true, customPrice: [100, 200] },
+            { key: 'freshBagCount100', label: '프레시백 100원', isVisible: true, useCustomPrice: true, customPrice: [100] },
+            { key: 'freshBagCount200', label: '프레시백 200원', isVisible: true, useCustomPrice: true, customPrice: [200] },
             { key: 'assignmentCount', label: '채번', isVisible: false },
             { key: 'promotionAmount', label: '프로모션', isVisible: false, useCustomPrice: true, customPrice: [1] }
-        ];
+        ]);
     });
 
     // --- 정렬 및 필터 ---
@@ -423,7 +464,8 @@ useEffect(() => {
                 { key: 'deliveryCount', label: '배송', isVisible: true },
                 { key: 'deliveryInterruptionAmount', label: '중단', isVisible: true },
                 { key: 'returnCount', label: '반품', isVisible: true },
-                { key: 'freshBagCount', label: '프레시백', isVisible: true, useCustomPrice: true, customPrice: [100, 200] },
+                { key: 'freshBagCount100', label: '프레시백 100원', isVisible: true, useCustomPrice: true, customPrice: [100] },
+            { key: 'freshBagCount200', label: '프레시백 200원', isVisible: true, useCustomPrice: true, customPrice: [200] },
                 { key: 'assignmentCount', label: '채번', isVisible: false },
                 { key: 'promotionAmount', label: '프로모션', isVisible: false, useCustomPrice: true, customPrice: [1] }
             ];
@@ -439,7 +481,14 @@ useEffect(() => {
             setSelectedInsurance(settings.selectedInsurance || null);
             setSelectedItemsForAverage(settings.selectedItemsForAverage || ['배송', '반품']);
             setExpenseConfig(settings.expenseConfig || defaultExpenseConfig);
-            setIncomeConfig(settings.incomeConfig || defaultIncomeConfig);
+            const normalizedIncomeConfig = normalizeFreshBagIncomeConfig(settings.incomeConfig || defaultIncomeConfig);
+            setIncomeConfig(normalizedIncomeConfig);
+            if (settings.incomeConfig && JSON.stringify(settings.incomeConfig) !== JSON.stringify(normalizedIncomeConfig)) {
+                localStorage.setItem(
+                    getAppSettingsStorageKey(user?.id),
+                    JSON.stringify({ ...settings, incomeConfig: normalizedIncomeConfig })
+                );
+            }
             setHomeCalendarDesign(settings.homeCalendarDesign === 'classic' ? 'classic' : 'current');
             setHomeCalendarVolumeItems({
                 ...DEFAULT_HOME_CALENDAR_VOLUME_ITEMS,
@@ -450,6 +499,21 @@ useEffect(() => {
             console.error("계정별 설정 로드 실패:", error);
         }
     }, [user?.id, isAuthLoading]);
+
+    useEffect(() => {
+        if (isAuthLoading || !isDataLoaded) return;
+        try {
+            const savedSettings = localStorage.getItem(getAppSettingsStorageKey(user?.id));
+            const settings = savedSettings ? JSON.parse(savedSettings) : {};
+            const hasPreviousSettings = Object.keys(settings).length > 0;
+            const isNewCustomer = entries.length === 0 && !hasPreviousSettings;
+            setIsNewCustomerPriceSetup(isNewCustomer);
+            if (isNewCustomer) setUnitPrice('');
+        } catch (error) {
+            console.warn('신규 고객 단가 설정 상태 확인 실패:', error);
+            setIsNewCustomerPriceSetup(false);
+        }
+    }, [user?.id, isAuthLoading, isDataLoaded, entries.length]);
 
     useEffect(() => {
         const now = new Date();
@@ -746,6 +810,7 @@ useEffect(() => {
         const pricesArray = adminFavoritePricesInput.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
         if (pricesArray.length === 0) { showMessage("유효한 단가를 입력해주세요."); return; }
         setFavoriteUnitPrices(pricesArray);
+        setIsNewCustomerPriceSetup(false);
         saveSettingsToLocal({ favoriteUnitPrices: pricesArray });
         if (pricesArray.length === 1) setUnitPrice(pricesArray[0].toString());
         else setUnitPrice('');
@@ -1432,7 +1497,15 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
 
    incomeConfig={incomeConfig} 
     expenseConfig={expenseConfig}
-    favoriteUnitPrices={favoriteUnitPrices}
+    favoriteUnitPrices={isNewCustomerPriceSetup ? [] : favoriteUnitPrices}
+    isNewCustomerPriceSetup={isNewCustomerPriceSetup}
+    onOpenUnitPriceSettings={() => {
+        mainScrollContainerRef.current?.scrollTo(0, 0);
+        setSelectedMainTab('more');
+        setActiveContentTab('adminSettings');
+        setMoreSubView('unitPrice');
+        setIsFabVisible(false);
+    }}
     
     onNavigate={(tab) => { 
         setActiveDataTab(tab); 
