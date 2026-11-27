@@ -2,9 +2,14 @@ import Papa from 'papaparse';
 import { parseCsvData, exportDataAsCsv } from './dataHandlers';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem } from '@capacitor/filesystem';
+import { Toast } from '@capacitor/toast';
 import { Share } from '@capacitor/share';
 jest.mock('@capacitor/share', () => ({
     Share: { share: jest.fn() }
+}));
+
+jest.mock('@capacitor/toast', () => ({
+    Toast: { show: jest.fn() }
 }));
 
 jest.mock('@capacitor/filesystem', () => ({
@@ -155,8 +160,16 @@ describe('CSV ledger import', () => {
             url: 'file:///storage/emulated/0/Documents/배달장부_상세내역_2026-11-28.csv',
             dialogTitle: 'CSV 파일 공유하기'
         }));
-        expect(Share.share.mock.invocationCallOrder[0]).toBeGreaterThan(
+        expect(Toast.show).toHaveBeenCalledWith({
+            text: 'CSV 파일이 저장되었습니다.',
+            duration: 'short',
+            position: 'bottom'
+        });
+        expect(Toast.show.mock.invocationCallOrder[0]).toBeGreaterThan(
             Filesystem.writeFile.mock.invocationCallOrder[0]
+        );
+        expect(Share.share.mock.invocationCallOrder[0]).toBeGreaterThan(
+            Toast.show.mock.invocationCallOrder[0]
         );
         expect(showMessage).toHaveBeenCalledWith(expect.stringContaining('내 파일 > 문서'));
         const exportedCsv = Filesystem.writeFile.mock.calls[0][0].data;
