@@ -802,32 +802,32 @@ if (viewMode === 'installment') return (
     </div>
 )}
 
-                {/* 신규 고객은 공통 단가 대신 단가 설정 바로가기를 표시합니다. */}
+                {/* 신규 고객도 기존 공통 단가 카드의 크기와 배치를 유지하고, 즐겨찾기 자리만 설정 버튼으로 대체합니다. */}
                 {formType === 'income' && (
-                    isNewCustomerPriceSetup ? (
-                        <div className={`w-full px-4 py-3 rounded-xl shadow mb-2 transition-colors duration-200 ${boxBottomLineClass} ${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-black'}`}>
-                            <div className="flex items-center justify-between gap-3">
-                                <label className={`text-xs font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>공통 단가 (원)</label>
-                                <button
-                                    type="button"
-                                    onClick={onOpenUnitPriceSettings}
-                                    className={`rounded-lg border px-4 py-2 text-sm font-black shadow-sm active:scale-95 ${isDarkMode ? 'border-blue-500 bg-blue-900/40 text-blue-300' : 'border-blue-200 bg-blue-50 text-blue-700'}`}
-                                >
-                                    단가설정
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className={`w-full px-4 py-3 rounded-xl shadow mb-2 transition-colors duration-200 ${boxBottomLineClass} ${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-black'}`}
-                            onClick={() => {
-                                const input = document.getElementById('unit-price-input');
-                                if(input) input.focus();
-                            }}
-                        >
-                            <div className="flex justify-between items-center mb-1">
-                                <label className={`text-xs font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>공통 단가 (원)</label>
-                                <div className="flex gap-1">
-                                    {(favoriteUnitPrices || []).map((price) => (
+                    <div
+                        className={`w-full px-4 py-3 rounded-xl shadow mb-2 transition-colors duration-200 ${boxBottomLineClass} ${isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-black'}`}
+                        onClick={() => {
+                            const input = document.getElementById('unit-price-input');
+                            if (input) input.focus();
+                        }}
+                    >
+                        <div className="flex justify-between items-center mb-1">
+                            <label className={`text-xs font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>공통 단가 (원)</label>
+                            <div className="flex gap-1">
+                                {isNewCustomerPriceSetup ? (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            onOpenUnitPriceSettings?.();
+                                        }}
+                                        className={`px-2 py-0.5 text-[10px] rounded border font-extrabold shadow-sm ${isDarkMode ? 'bg-blue-900/40 text-blue-300 border-blue-500' : 'bg-blue-50 text-blue-700 border-blue-200'}`}
+                                    >
+                                        단가설정
+                                    </button>
+                                ) : (
+                                    (favoriteUnitPrices || []).map((price) => (
                                         <button
                                             key={price}
                                             type="button"
@@ -841,21 +841,21 @@ if (viewMode === 'installment') return (
                                         >
                                             {price}
                                         </button>
-                                    ))}
-                                </div>
+                                    ))
+                                )}
                             </div>
-                            <input
-                                id="unit-price-input"
-                                type="text"
-                                inputMode="numeric"
-                                value={formatNumber(unitPrice)}
-                                onChange={(e) => setUnitPrice(unformatNumber(e.target.value))}
-                                onFocus={handleFocus}
-                                className={`w-full h-10 text-xl font-bold bg-transparent outline-none ${isDarkMode ? 'text-white' : 'text-black'}`}
-                                placeholder="0"
-                            />
                         </div>
-                    )
+                        <input
+                            id="unit-price-input"
+                            type="text"
+                            inputMode="numeric"
+                            value={formatNumber(unitPrice)}
+                            onChange={(e) => setUnitPrice(unformatNumber(e.target.value))}
+                            onFocus={handleFocus}
+                            className={`w-full h-10 text-xl font-bold bg-transparent outline-none ${isDarkMode ? 'text-white' : 'text-black'}`}
+                            placeholder="0"
+                        />
+                    </div>
                 )}
             </div>
 
