@@ -9,7 +9,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 
 const LoginPage = ({ onBack, isDarkMode, onMigrationComplete }) => {
-    const { signInWithGoogle, signInWithApple, signInWithKakao, isLoggedIn, user } = useAuth();
+    const { signInWithGoogle, signInWithKakao, isLoggedIn, user } = useAuth();
     const [isProcessing, setIsProcessing] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
