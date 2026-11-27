@@ -655,7 +655,7 @@ else {
     const primaryItems = (formType === 'income' ? (incomeConfig || []) : (expenseConfig || [])).filter(item => item.isVisible !== false);
     const hiddenItems = (formType === 'income' ? (incomeConfig || []) : (expenseConfig || [])).filter(item => item.isVisible === false);
 
-    if (viewMode === 'calculator') return <CalculatorPage onBack={handleCalculatorBack} onApply={handleCalculatorApply} date={date} currentRound={currentRound} incomeConfig={incomeConfig} isDarkMode={isDarkMode} />;
+    if (viewMode === 'calculator') return <CalculatorPage onBack={handleCalculatorBack} onApply={handleCalculatorApply} date={date} currentRound={currentRound} entries={entries} incomeConfig={incomeConfig} isDarkMode={isDarkMode} />;
 
 if (viewMode === 'installment') return (
         <InstallmentPage 
