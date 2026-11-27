@@ -2,6 +2,7 @@ import Papa from 'papaparse';
 import { parseCsvData, exportDataAsCsv } from './dataHandlers';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 jest.mock('@capacitor/share', () => ({
     Share: { share: jest.fn() }
 }));
@@ -145,6 +146,7 @@ describe('CSV ledger import', () => {
         await exportDataAsCsv(source, showMessage);
 
         expect(Filesystem.writeFile).toHaveBeenCalledTimes(1);
+        expect(Share.share).not.toHaveBeenCalled();
         expect(Filesystem.writeFile).toHaveBeenCalledWith(expect.objectContaining({
             path: expect.stringMatching(/^배달장부_상세내역_.*\.csv$/),
             directory: 'DOCUMENTS',
