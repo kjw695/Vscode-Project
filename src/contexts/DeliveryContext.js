@@ -428,28 +428,40 @@ export function DeliveryProvider({ children }) {
         } catch (err) { alert(err.message); } finally { setIsLoading(false); }
     }, [isLoggedIn, user]);
 
-    const clearAllEntries = useCallback(async () => {
-        if (window.confirm("새로 만드시겠습니까?")) {
-            setIsLoading(true);
-            try {
-                if (isLoggedIn && user) {
-                    await supabase.from('entries').delete().eq('user_id', user.id);
-                    setEntries([]);
-                    localStorage.removeItem('deliveryEntries');
-                } else {
-                    lastSRef.current = 0; lastZRef.current = 0; setEntries([]); localStorage.removeItem('deliveryEntries');
-                }
-            } catch (err) { alert(err.message); } finally { setIsLoading(false); }
+    const deletePersonalData = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            if (isLoggedIn && user) {
+                const { error } = await supabase.rpc('delete_my_personal_data');
+                if (error) throw error;
+            }
+
+            lastSRef.current = 0;
+            lastZRef.current = 0;
+            setEntries([]);
+            localStorage.removeItem('deliveryEntries');
+            return { success: true };
+        } catch (error) {
+            console.error('[DeliveryContext] 본인 기록 삭제 실패:', error);
+            throw error;
+        } finally {
+            setIsLoading(false);
         }
     }, [isLoggedIn, user]);
+
+    // 기존 API 호환성을 위해 유지합니다. 실제 데이터 관리 화면은 확인 팝업 후 deletePersonalData를 사용합니다.
+    const clearAllEntries = useCallback(async () => {
+        if (!window.confirm("배송·수익 장부의 모든 기록을 삭제할까요? 이 작업은 복구할 수 없습니다.")) return;
+        return deletePersonalData();
+    }, [deletePersonalData]);
 
     // ✨ 화면(App.js)에 미전송 건수와 동기화 함수를 전달!
     const pendingSyncCount = entries.filter(e => e.isSynced === false).length;
 
     const memoizedValue = useMemo(() => ({
-        entries, saveEntry, deleteEntry, clearAllEntries, importStrictly, getExportData, isLoading, isDataLoaded,
+        entries, saveEntry, deleteEntry, clearAllEntries, deletePersonalData, importStrictly, getExportData, isLoading, isDataLoaded,
         syncPendingData, pendingSyncCount // ✨ 미전송 처리용 신규 무기 장착
-    }), [entries, saveEntry, deleteEntry, clearAllEntries, importStrictly, isLoading, isDataLoaded, syncPendingData, pendingSyncCount]); 
+    }), [entries, saveEntry, deleteEntry, clearAllEntries, deletePersonalData, importStrictly, isLoading, isDataLoaded, syncPendingData, pendingSyncCount]); 
 
     return (
         <DeliveryContext.Provider value={memoizedValue}>
