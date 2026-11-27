@@ -289,7 +289,6 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
         loadData();
     }, [loadData]);
 
-    const todayKey = localDateKey(new Date());
     const todayRecords = useMemo(
         () => records.filter(record => {
             const recordTargetDate = record.target_date ||
