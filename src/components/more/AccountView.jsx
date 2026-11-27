@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { showToast } from '../../utils/toast';
 import { ChevronLeft, UserX, AlertCircle, Cloud, LogOut, Eye, EyeOff, FileText, ArrowRight } from 'lucide-react';
 import LoginPage from '../auth/LoginPage';
 import GuestLedgerImportView from './GuestLedgerImportView';
@@ -232,7 +233,7 @@ const handleEditClick = () => {
 
           if (error) throw error;
 
-          alert('내 정보가 안전하게 저장되었습니다.');
+          showToast('내 정보가 저장되었습니다.');
           setIsEditing(false);
       } catch (error) {
           if (error?.code === '23505' ||
