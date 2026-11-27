@@ -255,8 +255,8 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const [monthlyStatsSubTab, setMonthlyStatsSubTab] = useState('overview');
 
     // --- 설정값 관리 ---
-    const [favoriteUnitPrices, setFavoriteUnitPrices] = useState([700]);
-    const [adminFavoritePricesInput, setAdminFavoritePricesInput] = useState('700');
+    const [favoriteUnitPrices, setFavoriteUnitPrices] = useState([]);
+    const [adminFavoritePricesInput, setAdminFavoritePricesInput] = useState('');
     const [isNewCustomerPriceSetup, setIsNewCustomerPriceSetup] = useState(false);
     const [returnToDataEntryAfterUnitPrice, setReturnToDataEntryAfterUnitPrice] = useState(false);
     const [monthlyStartDay, setMonthlyStartDay] = useState(26);
@@ -463,7 +463,7 @@ useEffect(() => {
             const settings = savedSettings ? JSON.parse(savedSettings) : {};
             const startDay = settings.monthlyPeriod?.startDay || 26;
             const endDay = settings.monthlyPeriod?.endDay || 25;
-            const favoritePrices = settings.favoriteUnitPrices || [700];
+            const favoritePrices = Array.isArray(settings.favoriteUnitPrices) ? settings.favoriteUnitPrices : [];
             const defaultExpenseConfig = [
                 { key: 'penaltyAmount', label: '패널티', isVisible: true },
                 { key: 'industrialAccidentCost', label: '산재', isVisible: true },
@@ -518,10 +518,13 @@ useEffect(() => {
         try {
             const savedSettings = localStorage.getItem(getAppSettingsStorageKey(user?.id));
             const settings = savedSettings ? JSON.parse(savedSettings) : {};
-            const hasPreviousSettings = Object.keys(settings).length > 0;
-            const isNewCustomer = entries.length === 0 && !hasPreviousSettings;
-            setIsNewCustomerPriceSetup(isNewCustomer);
-            if (isNewCustomer) setUnitPrice('');
+            const savedFavoritePrices = Array.isArray(settings.favoriteUnitPrices)
+                ? settings.favoriteUnitPrices
+                : [];
+            // 공통 즐겨찾기 단가가 없으면 신규 계정/기존 계정 구분 없이 단가설정 바로가기를 보여줍니다.
+            const needsUnitPriceSetup = savedFavoritePrices.length === 0;
+            setIsNewCustomerPriceSetup(needsUnitPriceSetup);
+            if (needsUnitPriceSetup) setUnitPrice('');
         } catch (error) {
             console.warn('신규 고객 단가 설정 상태 확인 실패:', error);
             setIsNewCustomerPriceSetup(false);
@@ -771,11 +774,11 @@ useEffect(() => {
                         throw new Error('저장된 단가 및 앱 설정을 초기화하지 못했습니다.');
                     }
 
-                    // React 메모리 상태의 즐겨찾기 단가도 최초 기본값(700원)으로 즉시 되돌립니다.
-                    setFavoriteUnitPrices([700]);
-                    setAdminFavoritePricesInput('700');
-                    setUnitPrice('700');
-                    setIsNewCustomerPriceSetup(entries.length === 0);
+                    // 공통 즐겨찾기 단가와 입력값은 모두 비웁니다. 기본 700원은 자동 등록하지 않습니다.
+                    setFavoriteUnitPrices([]);
+                    setAdminFavoritePricesInput('');
+                    setUnitPrice('');
+                    setIsNewCustomerPriceSetup(true);
 
                     // 채번 프로필은 설정에 해당하므로 초기화하되, 기존 채번 이력은 보존합니다.
                     const campPrefix = getCampReturnNumberingStoragePrefix(user?.id || null);
@@ -783,7 +786,7 @@ useEffect(() => {
                     localStorage.removeItem(`${campPrefix}driverId`);
 
                     await Preferences.remove({ key: 'isDarkMode' });
-                    window.alert('앱 설정이 최초 설치 상태로 초기화되었습니다. 공통 단가는 기본값 700원으로 복원됩니다.');
+                    window.alert('앱 설정이 초기화되었습니다. 공통 단가와 즐겨찾기 목록은 비어 있으며, 단가설정에서 직접 등록할 수 있습니다.');
                     window.location.reload();
                 } catch (error) {
                     console.error('[Settings reset] 초기화 실패:', error);
