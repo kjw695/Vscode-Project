@@ -930,13 +930,13 @@ const BluecoinsDailySummaryPreview = ({
                     aria-modal="true"
                     aria-label={`${selectedDateLabel} 상세 내역`}
                     onClick={(event) => event.stopPropagation()}
-                    className={`fixed inset-x-0 bottom-0 z-[81] mx-auto max-h-[82vh] max-h-[82dvh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-t-2xl border-t p-3 shadow-2xl ${dark ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}
+                    className={`fixed inset-x-0 bottom-0 z-[81] mx-auto h-[82vh] h-[82dvh] w-full max-w-2xl flex flex-col overflow-hidden rounded-t-2xl border-t p-3 shadow-2xl ${dark ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}
                     style={{
                         paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))',
                         animation: 'homeReportSheetEnter 260ms cubic-bezier(0.2, 0.8, 0.2, 1)'
                     }}
                 >
-                    <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
                         <h3 className="text-base font-black">{selectedDateLabel}</h3>
                         <button
                             type="button"
@@ -947,7 +947,7 @@ const BluecoinsDailySummaryPreview = ({
                             <X size={18} />
                         </button>
                     </div>
-                <div className={'grid grid-cols-3 rounded-xl p-1 text-[10px] font-black ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
+                <div className={'grid shrink-0 grid-cols-3 rounded-xl p-1 text-[10px] font-black ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
                     <button
                         type="button"
                         onClick={() => setActiveReportTab('categories')}
@@ -965,7 +965,7 @@ const BluecoinsDailySummaryPreview = ({
                     ><ListFilter size={13} /> 회전별 내역</button>
                 </div>
 
-                <div className="mt-3 flex items-center justify-between gap-2 px-1">
+                <div className="mt-3 flex shrink-0 items-center justify-between gap-2 px-1">
                     <div className="min-w-0">
                         <p className={'truncate text-[10px] font-bold ' + mutedClass}>{reportTitle} · {reportEntries.length}개 기록</p>
                         <h3 className="mt-0.5 text-base font-black">
@@ -986,7 +986,7 @@ const BluecoinsDailySummaryPreview = ({
                     </div>
                 </div>
 
-                <div className="mt-3">
+                <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain">
                     {activeReportTab === 'categories' && (
                         categoryRows.length === 0 ? (
                             <p className={'py-8 text-center text-xs ' + mutedClass}>해당 기간에 기록된 데이터가 없습니다.</p>
@@ -1152,7 +1152,7 @@ const BluecoinsDailySummaryPreview = ({
                     )}
                 </div>
 
-                <div className={'mt-3 flex items-center justify-between border-t pt-2 ' + dividerClass}>
+                <div className={'mt-3 flex shrink-0 items-center justify-between border-t pt-2 ' + dividerClass}>
                     <span className={'text-[9px] ' + mutedClass}>미리보기 화면 · 실제 장부 데이터를 읽기 전용으로 표시</span>
                     <button
                         type="button"
