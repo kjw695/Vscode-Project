@@ -343,6 +343,13 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
         };
     }, []);
         const [moreSubView, setMoreSubView] = useState('main');
+
+    // 데이터관리 진입 시 더보기 화면에서 유지된 바깥 스크롤 위치를 초기화합니다.
+    useEffect(() => {
+        if (activeContentTab === 'adminSettings' && moreSubView === 'data') {
+            mainScrollContainerRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        }
+    }, [activeContentTab, moreSubView]);
     const [autoEditAccountProfile, setAutoEditAccountProfile] = useState(false);
     const [returnToCampNumbering, setReturnToCampNumbering] = useState(false);
 
