@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ArrowUp, ArrowDown, Home, BarChart2, List, MoreHorizontal } from 'lucide-react';
 import { Preferences } from '@capacitor/preferences';
+import { showToast } from './utils/toast';
 import MessageModal from './components/common/MessageModal';
 import StatsDisplay from './StatsDisplay';
 import FilterModal from './components/DataScreen/FilterModal';
@@ -695,7 +696,7 @@ useEffect(() => {
 
         try {
             saveEntry(newEntryData);
-            showMessage(entryToEdit ? "✅ 수정되었습니다." : "✅ 저장되었습니다."); 
+            showToast(entryToEdit ? "수정되었습니다." : "저장되었습니다."); 
             setEntryToEdit(null);
             resetForm();
         } catch (err) {
@@ -917,7 +918,7 @@ useEffect(() => {
         saveSettingsToLocal({ favoriteUnitPrices: pricesArray });
         if (pricesArray.length === 1) setUnitPrice(pricesArray[0].toString());
         else setUnitPrice('');
-        showMessage("즐겨찾는 단가가 저장되었습니다.");
+        showToast("즐겨찾는 단가가 저장되었습니다.");
     };
 
     const handleSaveMonthlyPeriodSettings = async () => {
@@ -927,7 +928,7 @@ useEffect(() => {
         setMonthlyStartDay(startDay);
         setMonthlyEndDay(endDay);
         saveSettingsToLocal({ monthlyPeriod: { startDay, endDay } });
-        showMessage("월별 집계 기간이 저장되었습니다.");
+        showToast("월별 집계 기간이 저장되었습니다.");
     };
 
     const handleLogout = () => { showMessage("로컬 모드입니다."); };
@@ -1748,7 +1749,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
             };
             setHomeCalendarVolumeItems(nextVolumeItems);
             saveSettingsToLocal({ homeCalendarVolumeItems: nextVolumeItems });
-            showMessage("✅ 물량 달력 표시 설정이 저장되었습니다.");
+            showToast("물량 달력 표시 설정이 저장되었습니다.");
         }}
     />
 )}
@@ -1757,8 +1758,8 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 {moreSubView === 'privacyPolicy' && <PrivacyPolicy onBack={() => setMoreSubView('legalInfo')} isDarkMode={isDarkMode} />}
                                 {moreSubView === 'openSource' && <OpenSourceLicenses onBack={() => setMoreSubView('legalInfo')} isDarkMode={isDarkMode} />}
                                 {moreSubView === 'contact' && <ContactView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} />}
-                                {moreSubView === 'goal' && <GoalSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} goalAmount={goalAmount} onSaveGoal={(amount) => { setGoalAmount(amount); saveSettingsToLocal({ goalAmount: amount }); showMessage("목표 금액이 성공적으로 변경되었습니다!"); }} />}
-                                {moreSubView === 'insurance' && <InsuranceView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} selectedInsurance={selectedInsurance} onSelect={(ins) => { setSelectedInsurance(ins); saveSettingsToLocal({ selectedInsurance: ins }); showMessage("✅ 보험사가 홈 화면에 설정되었습니다."); }} />}
+                                {moreSubView === 'goal' && <GoalSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} goalAmount={goalAmount} onSaveGoal={(amount) => { setGoalAmount(amount); saveSettingsToLocal({ goalAmount: amount }); showToast("목표 금액이 변경되었습니다."); }} />}
+                                {moreSubView === 'insurance' && <InsuranceView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} selectedInsurance={selectedInsurance} onSelect={(ins) => { setSelectedInsurance(ins); saveSettingsToLocal({ selectedInsurance: ins }); showToast("보험사가 변경되었습니다."); }} />}
                                 {moreSubView === 'camp_return_numbering' && (
                                     <CampReturnNumberingView
                                         onBack={() => setMoreSubView('main')}
@@ -1784,7 +1785,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
     onSelect={(newList) => {
       setSelectedItemsForAverage(newList);
       saveSettingsToLocal({ selectedItemsForAverage: newList }); // 저장
-      showMessage("✅ 설정이 반영되었습니다."); // 화면 안나가고 메시지만!
+      showToast("평균 계산 항목이 저장되었습니다.");
     }}
   />
 )}
