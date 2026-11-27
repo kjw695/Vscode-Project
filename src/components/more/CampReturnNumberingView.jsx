@@ -815,7 +815,7 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                         onClick={() => setShowMonthlySummary(value => !value)}
                         className={`flex-shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold ${isDark ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-300 hover:bg-gray-50'}`}
                     >
-                        {showMonthlySummary ? '오늘' : '월간'}
+                        {showMonthlySummary ? (isTargetToday ? '오늘' : '선택일') : '월간'}
                     </button>
                 </div>
 
@@ -887,7 +887,10 @@ export default function CampReturnNumberingView({ onBack, onGoToProfile, isDarkM
                             return (
                                 <div key={record.id} className="py-3 flex items-center justify-between gap-3">
                                     <div className="min-w-0 flex-1">
-                                        <div className="text-sm font-semibold">{record.camp} · {formatDate(record.user_confirmed_at)} {formatTime(record.user_confirmed_at)}</div>
+                                        <div className="text-sm font-semibold">{record.camp} · 요청 {formatDate(record.user_confirmed_at)} {formatTime(record.user_confirmed_at)}</div>
+                                        {record.target_date && (
+                                            <div className={`mt-1 text-xs ${mutedClass}`}>작업 기준일 · {formatTargetDate(record.target_date)}</div>
+                                        )}
                                         {invoiceDetails ? (
                                             <div className={"grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 text-xs mt-1 " + mutedClass}>
                                                 {invoiceDetails.trackingNumber && (
