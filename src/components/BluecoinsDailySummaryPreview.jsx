@@ -310,7 +310,10 @@ const BluecoinsDailySummaryPreview = ({
             if (!isExpenseEntry) transactionVolumeMetrics.forEach((metric) => {
                 const customItemLabels = Array.isArray(entry?.customItems)
                     ? entry.customItems
-                        .filter((item) => item?.key === metric.key)
+                        .filter((item) => (
+                            item?.key === metric.key ||
+                            (metric.key === 'freshBagCount' && String(item?.key || '').startsWith('freshBagCount'))
+                        ))
                         .map((item) => itemLabels[item.key] || item.name || item.key)
                     : [];
                 const labelCandidates = new Set([
