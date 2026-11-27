@@ -22,8 +22,41 @@ export const getMonthlyDateRange = (year, month, startDay, endDay) => {
     return { startStr, endStr };
 };
 
+const normalizeComparableItems = (items) => {
+    if (!Array.isArray(items)) return [];
+
+    return items.map((item) => {
+        const normalized = {};
+        Object.keys(item || {})
+            .filter((key) => key !== 'id' && item[key] !== undefined)
+            .sort()
+            .forEach((key) => {
+                normalized[key] = item[key];
+            });
+        return normalized;
+    });
+};
+
+const normalizeTimestamp = (value) => {
+    if (!value) return null;
+    const timestamp = new Date(value).getTime();
+    return Number.isFinite(timestamp) ? timestamp : String(value);
+};
+
 export const isDuplicateEntry = (existing, incoming) => {
-    return existing.date === incoming.date && existing.type === incoming.type && JSON.stringify(existing.customItems || []) === JSON.stringify(incoming.customItems || []);
+    if (!existing || !incoming) return false;
+
+    const sameTimestamp = !existing.timestamp || !incoming.timestamp ||
+        normalizeTimestamp(existing.timestamp) === normalizeTimestamp(incoming.timestamp);
+
+    return existing.date === incoming.date &&
+        existing.type === incoming.type &&
+        (Number(existing.round) || 0) === (Number(incoming.round) || 0) &&
+        (Number(existing.unitPrice) || 0) === (Number(incoming.unitPrice) || 0) &&
+        String(existing.memo || '') === String(incoming.memo || '') &&
+        sameTimestamp &&
+        JSON.stringify(normalizeComparableItems(existing.customItems)) ===
+            JSON.stringify(normalizeComparableItems(incoming.customItems));
 };
 
 export const calculateData = (filteredEntries, itemLabels = {}) => {
