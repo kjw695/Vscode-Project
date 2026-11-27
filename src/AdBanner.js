@@ -1,5 +1,5 @@
 // src/AdBanner.js
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import {
     AdMob,
@@ -13,6 +13,7 @@ const AdBanner = ({ isVisible, activeTab }) => {
     const isInitialized = useRef(false);
     const bannerReady = useRef(false);
     const isVisibleRef = useRef(isVisible);
+    const [showContactFallback, setShowContactFallback] = useState(false);
 
     useEffect(() => {
         isVisibleRef.current = isVisible;
@@ -21,32 +22,73 @@ const AdBanner = ({ isVisible, activeTab }) => {
     // Refresh UMP consent first. Initialize Mobile Ads and request a banner
     // only when UMP reports that ads may be requested.
     useEffect(() => {
-        if (Capacitor.getPlatform() === 'web') return undefined;
+        if (Capacitor.getPlatform() === 'web') {
+            setShowContactFallback(true);
+            return undefined;
+        }
 
         let isMounted = true;
         let loadedListener = null;
+        let failedListener = null;
+        let fallbackTimer = null;
+        let bannerLoaded = false;
+
+        const clearFallbackTimer = () => {
+            if (fallbackTimer !== null) {
+                window.clearTimeout(fallbackTimer);
+                fallbackTimer = null;
+            }
+        };
 
         const initializeBanner = async () => {
             if (isInitialized.current) return;
 
             try {
                 const canRequestAds = await initializeAdMobWithConsent();
-                if (!isMounted || !canRequestAds) return;
+                if (!isMounted) return;
+
+                if (!canRequestAds) {
+                    setShowContactFallback(true);
+                    return;
+                }
 
                 isInitialized.current = true;
 
+                // Register both events before requesting the banner so the
+                // first load result is not missed.
                 loadedListener = await AdMob.addListener(
                     BannerAdPluginEvents.Loaded,
                     () => {
+                        bannerLoaded = true;
+                        clearFallbackTimer();
+                        setShowContactFallback(false);
+
                         if (!isVisibleRef.current) {
                             AdMob.hideBanner().catch(() => {});
                         }
                     }
                 );
 
+                failedListener = await AdMob.addListener(
+                    BannerAdPluginEvents.FailedToLoad,
+                    (error) => {
+                        clearFallbackTimer();
+                        setShowContactFallback(true);
+                        console.warn('AdMob 배너 로드 실패:', error);
+                    }
+                );
+
                 const adId = Capacitor.getPlatform() === 'android'
                     ? 'ca-app-pub-9892155087017006/1760220755'
                     : 'ca-app-pub-3940256099942544/2934735716';
+
+                // Show a contact fallback if no load result arrives.
+                // A late successful load event automatically hides it.
+                fallbackTimer = window.setTimeout(() => {
+                    if (isMounted && !bannerLoaded) {
+                        setShowContactFallback(true);
+                    }
+                }, 10000);
 
                 await AdMob.showBanner({
                     adId,
@@ -57,6 +99,7 @@ const AdBanner = ({ isVisible, activeTab }) => {
                 });
 
                 if (!isMounted) {
+                    clearFallbackTimer();
                     await AdMob.removeBanner().catch(() => {});
                     return;
                 }
@@ -66,6 +109,8 @@ const AdBanner = ({ isVisible, activeTab }) => {
                     await AdMob.hideBanner().catch(() => {});
                 }
             } catch (error) {
+                clearFallbackTimer();
+                if (isMounted) setShowContactFallback(true);
                 console.error('AdMob 동의 확인 또는 배너 초기화 실패:', error);
             }
         };
@@ -75,7 +120,9 @@ const AdBanner = ({ isVisible, activeTab }) => {
         return () => {
             isMounted = false;
             bannerReady.current = false;
+            clearFallbackTimer();
             loadedListener?.remove();
+            failedListener?.remove();
         };
     }, []);
 
@@ -106,7 +153,35 @@ const AdBanner = ({ isVisible, activeTab }) => {
         };
     }, []);
 
-    return null;
+    const inquirySubject = encodeURIComponent('[택배메이트] 배너 광고 제휴 문의');
+    const inquiryMailto = `mailto:kjw891224@gmail.com?subject=${inquirySubject}`;
+
+    if (!isVisible || !showContactFallback) return null;
+
+    return (
+        <div
+            className="fixed left-0 right-0 z-[9998] px-0 pointer-events-none"
+            style={{ top: 'max(env(safe-area-inset-top, 0px), 28px)' }}
+            aria-label="배너 광고 제휴 문의"
+        >
+            <div className="flex h-[50px] w-full items-center justify-between border-y border-gray-200 bg-white/95 px-4 shadow-sm pointer-events-auto dark:border-gray-700 dark:bg-gray-800/95">
+                <div className="min-w-0 pr-3">
+                    <div className="truncate text-xs font-bold text-gray-800 dark:text-gray-100">
+                        택배메이트 배너 광고
+                    </div>
+                    <div className="truncate text-[10px] text-gray-500 dark:text-gray-300">
+                        이 영역에 광고를 게재해 보세요
+                    </div>
+                </div>
+                <a
+                    href={inquiryMailto}
+                    className="shrink-0 rounded-md bg-blue-600 px-3 py-2 text-xs font-semibold text-white active:bg-blue-700"
+                >
+                    제휴 문의
+                </a>
+            </div>
+        </div>
+    );
 };
 
 export default AdBanner;

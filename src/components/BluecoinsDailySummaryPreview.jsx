@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ArrowUpRight,
     ArrowRightLeft,
     BarChart3,
     ChevronLeft,
     ChevronRight,
     Layers,
-    ListFilter
+    ListFilter,
+    X
 } from 'lucide-react';
 import { calculateData } from '../utils/calculator';
 import GoalProgressBar from './GoalProgressBar';
@@ -59,6 +59,12 @@ const formatLargeManWon = (amount) => {
 const getSelectedVolume = (profit, selectedItems) => {
     const details = profit?.revenueDetails || {};
     return (selectedItems || []).reduce((total, itemName) => {
+        if (itemName === '프레시백') {
+            const freshBagCount = Object.entries(details).reduce((sum, [name, value]) => (
+                String(name).includes('프레시백') ? sum + (Number(value?.count) || 0) : sum
+            ), 0);
+            return total + freshBagCount;
+        }
         return total + (Number(details[itemName]?.count) || 0);
     }, 0);
 };
@@ -113,7 +119,6 @@ const BluecoinsDailySummaryPreview = ({
     onToggleCalendarMode,
     onMonthChange,
     onToday,
-    onDateClick,
     onCalendarDateSelect,
     onRequestEditDate,
     onOpenDayOff,
@@ -133,6 +138,7 @@ const BluecoinsDailySummaryPreview = ({
         : '확인 중';
     const [activeReportTab, setActiveReportTab] = useState('categories');
     const [isDayMode, setIsDayMode] = useState(true);
+    const [isReportVisible, setIsReportVisible] = useState(false);
     const chartScrollRef = useRef(null);
     const calendarSwipeStartRef = useRef(null);
     const reportSectionRef = useRef(null);
@@ -142,6 +148,13 @@ const BluecoinsDailySummaryPreview = ({
     const [chartAlignmentVersion, setChartAlignmentVersion] = useState(0);
     // 주간 차트의 기본 날짜는 마지막 배송 기록일이 아니라 기기 기준 오늘입니다.
     const [selectedDate, setSelectedDate] = useState(() => toDateKey(new Date()));
+    const selectedDateLabel = useMemo(() => {
+        const [year, month, day] = String(selectedDate || '').split('-').map(Number);
+        if (!year || !month || !day) return selectedDate || '';
+        const date = new Date(year, month - 1, day);
+        const weekday = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()];
+        return `${month}월 ${day}일 (${weekday})`;
+    }, [selectedDate]);
 
     useEffect(() => {
         onSelectedDateChange?.(selectedDate);
@@ -303,7 +316,10 @@ const BluecoinsDailySummaryPreview = ({
             if (!isExpenseEntry) transactionVolumeMetrics.forEach((metric) => {
                 const customItemLabels = Array.isArray(entry?.customItems)
                     ? entry.customItems
-                        .filter((item) => item?.key === metric.key)
+                        .filter((item) => (
+                            item?.key === metric.key ||
+                            (metric.key === 'freshBagCount' && String(item?.key || '').startsWith('freshBagCount'))
+                        ))
                         .map((item) => itemLabels[item.key] || item.name || item.key)
                     : [];
                 const labelCandidates = new Set([
@@ -443,7 +459,13 @@ const BluecoinsDailySummaryPreview = ({
 
         const isSameDate = dateKey === selectedDate;
         selectDateAndAlignChart(dateKey);
+        setIsReportVisible((visible) => (isSameDate ? !visible : true));
         onCalendarDateSelect?.(dateKey, isSameDate);
+    };
+
+    const moveReportDate = (amount) => {
+        const nextDate = getShiftedDateKey(selectedDate, amount);
+        selectDateAndAlignChart(nextDate);
     };
 
     useEffect(() => () => {
@@ -456,6 +478,7 @@ const BluecoinsDailySummaryPreview = ({
         const todayKey = toDateKey(new Date());
         chartAlignmentRequestRef.current = { dateKey: todayKey, behavior: 'auto' };
         setSelectedDate(todayKey);
+        setIsReportVisible(false);
         setChartAlignmentVersion((version) => version + 1);
     }, [resetToTodayKey]);
 
@@ -894,11 +917,68 @@ const BluecoinsDailySummaryPreview = ({
                 </div>
             </section>
 
-            <section
-                ref={reportSectionRef}
-                className={'mt-2 scroll-mt-3 rounded-2xl border p-3 shadow-sm ' + panelClass}
-            >
-                <div className={'grid grid-cols-3 rounded-xl p-1 text-[10px] font-black ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
+{isReportVisible && (
+            <>
+                <style>{`
+                    @keyframes homeReportBackdropEnter {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    @keyframes homeReportSheetEnter {
+                        from { transform: translateY(-100%); }
+                        to { transform: translateY(0); }
+                    }
+                `}</style>
+                <button
+                    type="button"
+                    aria-label="상세 내역 닫기"
+                    onClick={() => setIsReportVisible(false)}
+                    className="fixed inset-0 z-[80] cursor-default bg-black/45 backdrop-blur-[1px]"
+                    style={{ animation: 'homeReportBackdropEnter 180ms ease-out' }}
+                />
+                <section
+                    ref={reportSectionRef}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={`${selectedDateLabel} 상세 내역`}
+                    onClick={(event) => event.stopPropagation()}
+                    className={`fixed inset-x-0 top-0 z-[81] mx-auto h-[60vh] h-[60dvh] w-full max-w-2xl flex flex-col overflow-hidden rounded-b-2xl border-b p-3 shadow-2xl ${dark ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}
+                    style={{
+                        paddingTop: 'calc(2.25rem + env(safe-area-inset-top))',
+                        paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))',
+                        animation: 'homeReportSheetEnter 260ms cubic-bezier(0.2, 0.8, 0.2, 1)'
+                    }}
+                >
+                    <div className="mb-1 flex shrink-0 items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-1">
+                            <button
+                                type="button"
+                                aria-label="이전 날짜"
+                                onClick={() => moveReportDate(-1)}
+                                className={`rounded-lg p-2 ${dark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}
+                            >
+                                <ChevronLeft size={20} />
+                            </button>
+                            <h3 className="min-w-[132px] text-center text-base font-black tabular-nums">{selectedDateLabel}</h3>
+                            <button
+                                type="button"
+                                aria-label="다음 날짜"
+                                onClick={() => moveReportDate(1)}
+                                className={`rounded-lg p-2 ${dark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}
+                            >
+                                <ChevronRight size={20} />
+                            </button>
+                        </div>
+                        <button
+                            type="button"
+                            aria-label="상세 내역 닫기"
+                            onClick={() => setIsReportVisible(false)}
+                            className={`rounded-full p-2 ${dark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+                <div className={'grid shrink-0 grid-cols-3 rounded-xl p-1 text-[10px] font-black ' + (dark ? 'bg-slate-800' : 'bg-slate-100')}>
                     <button
                         type="button"
                         onClick={() => setActiveReportTab('categories')}
@@ -916,7 +996,7 @@ const BluecoinsDailySummaryPreview = ({
                     ><ListFilter size={13} /> 회전별 내역</button>
                 </div>
 
-                <div className="mt-3 flex items-center justify-between gap-2 px-1">
+                <div className="mt-3 flex shrink-0 items-center justify-between gap-2 px-1">
                     <div className="min-w-0">
                         <p className={'truncate text-[10px] font-bold ' + mutedClass}>{reportTitle} · {reportEntries.length}개 기록</p>
                         <h3 className="mt-0.5 text-base font-black">
@@ -927,17 +1007,17 @@ const BluecoinsDailySummaryPreview = ({
                         <button
                             type="button"
                             onClick={() => setIsDayMode(true)}
-                            className={'rounded-md px-2 py-1 ' + (isDayMode ? (dark ? 'bg-slate-700 text-white' : 'bg-white text-blue-600 shadow-sm') : mutedClass)}
+                            className={'min-h-[40px] min-w-[48px] rounded-md px-4 py-2 text-xs ' + (isDayMode ? (dark ? 'bg-slate-700 text-white' : 'bg-white text-blue-600 shadow-sm') : mutedClass)}
                         >일</button>
                         <button
                             type="button"
                             onClick={() => setIsDayMode(false)}
-                            className={'rounded-md px-2 py-1 ' + (!isDayMode ? (dark ? 'bg-slate-700 text-white' : 'bg-white text-blue-600 shadow-sm') : mutedClass)}
+                            className={'min-h-[40px] min-w-[48px] rounded-md px-4 py-2 text-xs ' + (!isDayMode ? (dark ? 'bg-slate-700 text-white' : 'bg-white text-blue-600 shadow-sm') : mutedClass)}
                         >월</button>
                     </div>
                 </div>
 
-                <div className="mt-3">
+                <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain">
                     {activeReportTab === 'categories' && (
                         categoryRows.length === 0 ? (
                             <p className={'py-8 text-center text-xs ' + mutedClass}>해당 기간에 기록된 데이터가 없습니다.</p>
@@ -1103,15 +1183,10 @@ const BluecoinsDailySummaryPreview = ({
                     )}
                 </div>
 
-                <div className={'mt-3 flex items-center justify-between border-t pt-2 ' + dividerClass}>
-                    <span className={'text-[9px] ' + mutedClass}>미리보기 화면 · 실제 장부 데이터를 읽기 전용으로 표시</span>
-                    <button
-                        type="button"
-                        onClick={() => onDateClick?.(selectedDate)}
-                        className="inline-flex items-center gap-1 text-[10px] font-black text-blue-600 dark:text-blue-400"
-                    >선택 날짜 내역 보기 <ArrowUpRight size={12} /></button>
-                </div>
-            </section>
+
+                </section>
+            </>
+            )}
         </div>
     );
 };

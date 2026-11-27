@@ -9,7 +9,8 @@ const CalculatorPage = ({
     date, 
     currentRound, 
     incomeConfig, 
-    isDarkMode 
+    isDarkMode,
+    entries = []
 }) => {
     const [totalInputs, setTotalInputs] = useState({});
     const [previousData, setPreviousData] = useState({});
@@ -20,7 +21,7 @@ const CalculatorPage = ({
     // 1. 데이터 불러오기
     useEffect(() => {
         if (!date) return;
-        const allData = JSON.parse(localStorage.getItem('deliveryEntries') || '[]'); 
+        const allData = Array.isArray(entries) ? entries : [];
         const prevDataSum = {};
         const breakdown = {};
 
@@ -69,7 +70,7 @@ const CalculatorPage = ({
 
         setPreviousData(prevDataSum);
         setPreviousBreakdown(breakdown);
-    }, [date, currentRound]);
+    }, [date, currentRound, entries]);
 
     // 2. 저장 핸들러 (마이너스 경고 팝업)
     const handleSave = (e) => {

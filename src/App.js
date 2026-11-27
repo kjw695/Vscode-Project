@@ -4,7 +4,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ArrowUp, ArrowDown, Home, BarChart2, List, MoreHorizontal } from 'lucide-react';
-import { backupToDrive, restoreFromDrive } from './utils/googleDrive';
 import { Preferences } from '@capacitor/preferences';
 import MessageModal from './components/common/MessageModal';
 import StatsDisplay from './StatsDisplay';
@@ -111,6 +110,56 @@ const DEFAULT_HOME_CALENDAR_VOLUME_ITEMS = {
     freshBagCount: true
 };
 
+const normalizeFreshBagIncomeConfig = (config) => {
+    if (!Array.isArray(config)) return config;
+    const legacyIndex = config.findIndex(item => item?.key === 'freshBagCount');
+    const index100 = config.findIndex(item => item?.key === 'freshBagCount100');
+    const index200 = config.findIndex(item => item?.key === 'freshBagCount200');
+    if (legacyIndex < 0 && index100 < 0 && index200 < 0) return config;
+
+    const legacy = legacyIndex >= 0 ? config[legacyIndex] : null;
+    const existing100 = index100 >= 0 ? config[index100] : null;
+    const existing200 = index200 >= 0 ? config[index200] : null;
+    const fallbackVisible = legacy?.isVisible ?? existing100?.isVisible ?? existing200?.isVisible ?? true;
+    const freshBagItems = [
+        {
+            ...(existing100 || {}),
+            key: 'freshBagCount100',
+            label: '프레시백',
+            isVisible: existing100?.isVisible ?? fallbackVisible,
+            useCustomPrice: true,
+            customPrice: [100]
+        },
+        {
+            ...(existing200 || {}),
+            key: 'freshBagCount200',
+            label: '프레시백',
+            isVisible: existing200?.isVisible ?? fallbackVisible,
+            useCustomPrice: true,
+            customPrice: [200]
+        }
+    ];
+
+    // 기존 저장 건의 편집 호환을 위해 구 프레시백 키는 숨김 상태로만 유지합니다.
+    if (legacy) {
+        freshBagItems.push({
+            ...legacy,
+            key: 'freshBagCount',
+            isVisible: false,
+            useCustomPrice: false,
+            customPrice: []
+        });
+    }
+
+    const sourceIndexes = [legacyIndex, index100, index200].filter(index => index >= 0);
+    const insertAt = Math.min(...sourceIndexes);
+    const remaining = config.filter(item =>
+        !['freshBagCount', 'freshBagCount100', 'freshBagCount200'].includes(item?.key)
+    );
+    remaining.splice(Math.min(insertAt, remaining.length), 0, ...freshBagItems);
+    return remaining;
+};
+
 function AppContent() {
     useMigrationOnLogin();
 const { isLoggedIn, user, profile } = useAuth();
@@ -123,6 +172,18 @@ const { isLoggedIn, user, profile } = useAuth();
 
     // [수정] isDataLoaded 상태 가져오기
  const { entries, saveEntry, deleteEntry, clearAllEntries, importStrictly, isDataLoaded, pendingSyncCount, syncPendingData } = useDelivery();
+
+    // 빠르게 완료되는 자동 동기화는 미전송 경고를 깜빡이지 않도록 잠시 기다린 뒤 표시합니다.
+    const [showPendingSyncNotice, setShowPendingSyncNotice] = useState(false);
+    useEffect(() => {
+        if (!isLoggedIn || pendingSyncCount <= 0) {
+            setShowPendingSyncNotice(false);
+            return undefined;
+        }
+
+        const timeoutId = window.setTimeout(() => setShowPendingSyncNotice(true), 2000);
+        return () => window.clearTimeout(timeoutId);
+    }, [isLoggedIn, pendingSyncCount]);
 
     // --- 목표 관리 ---
     const [targetItemKey, setTargetItemKey] = useState(null);
@@ -195,6 +256,8 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     // --- 설정값 관리 ---
     const [favoriteUnitPrices, setFavoriteUnitPrices] = useState([700]);
     const [adminFavoritePricesInput, setAdminFavoritePricesInput] = useState('700');
+    const [isNewCustomerPriceSetup, setIsNewCustomerPriceSetup] = useState(false);
+    const [returnToDataEntryAfterUnitPrice, setReturnToDataEntryAfterUnitPrice] = useState(false);
     const [monthlyStartDay, setMonthlyStartDay] = useState(26);
     const [monthlyEndDay, setMonthlyEndDay] = useState(25);
     const [adminMonthlyStartDayInput, setAdminMonthlyStartDayInput] = useState('26');
@@ -218,14 +281,15 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const [incomeConfig, setIncomeConfig] = useState(() => {
         const savedSettings = localStorage.getItem(getAppSettingsStorageKey(user?.id));
         const parsedSettings = savedSettings ? JSON.parse(savedSettings) : {};
-        return parsedSettings.incomeConfig || [
+        return normalizeFreshBagIncomeConfig(parsedSettings.incomeConfig || [
             { key: 'deliveryCount', label: '배송', isVisible: true },
             { key: 'deliveryInterruptionAmount', label: '중단', isVisible: true },
             { key: 'returnCount', label: '반품', isVisible: true },
-            { key: 'freshBagCount', label: '프레시백', isVisible: true, useCustomPrice: true, customPrice: [100, 200] },
+            { key: 'freshBagCount100', label: '프레시백', isVisible: true, useCustomPrice: true, customPrice: [100] },
+            { key: 'freshBagCount200', label: '프레시백', isVisible: true, useCustomPrice: true, customPrice: [200] },
             { key: 'assignmentCount', label: '채번', isVisible: false },
             { key: 'promotionAmount', label: '프로모션', isVisible: false, useCustomPrice: true, customPrice: [1] }
-        ];
+        ]);
     });
 
     // --- 정렬 및 필터 ---
@@ -412,7 +476,8 @@ useEffect(() => {
                 { key: 'deliveryCount', label: '배송', isVisible: true },
                 { key: 'deliveryInterruptionAmount', label: '중단', isVisible: true },
                 { key: 'returnCount', label: '반품', isVisible: true },
-                { key: 'freshBagCount', label: '프레시백', isVisible: true, useCustomPrice: true, customPrice: [100, 200] },
+                { key: 'freshBagCount100', label: '프레시백', isVisible: true, useCustomPrice: true, customPrice: [100] },
+                { key: 'freshBagCount200', label: '프레시백', isVisible: true, useCustomPrice: true, customPrice: [200] },
                 { key: 'assignmentCount', label: '채번', isVisible: false },
                 { key: 'promotionAmount', label: '프로모션', isVisible: false, useCustomPrice: true, customPrice: [1] }
             ];
@@ -428,7 +493,14 @@ useEffect(() => {
             setSelectedInsurance(settings.selectedInsurance || null);
             setSelectedItemsForAverage(settings.selectedItemsForAverage || ['배송', '반품']);
             setExpenseConfig(settings.expenseConfig || defaultExpenseConfig);
-            setIncomeConfig(settings.incomeConfig || defaultIncomeConfig);
+            const normalizedIncomeConfig = normalizeFreshBagIncomeConfig(settings.incomeConfig || defaultIncomeConfig);
+            setIncomeConfig(normalizedIncomeConfig);
+            if (settings.incomeConfig && JSON.stringify(settings.incomeConfig) !== JSON.stringify(normalizedIncomeConfig)) {
+                localStorage.setItem(
+                    getAppSettingsStorageKey(user?.id),
+                    JSON.stringify({ ...settings, incomeConfig: normalizedIncomeConfig })
+                );
+            }
             setHomeCalendarDesign(settings.homeCalendarDesign === 'classic' ? 'classic' : 'current');
             setHomeCalendarVolumeItems({
                 ...DEFAULT_HOME_CALENDAR_VOLUME_ITEMS,
@@ -439,6 +511,21 @@ useEffect(() => {
             console.error("계정별 설정 로드 실패:", error);
         }
     }, [user?.id, isAuthLoading]);
+
+    useEffect(() => {
+        if (isAuthLoading || !isDataLoaded) return;
+        try {
+            const savedSettings = localStorage.getItem(getAppSettingsStorageKey(user?.id));
+            const settings = savedSettings ? JSON.parse(savedSettings) : {};
+            const hasPreviousSettings = Object.keys(settings).length > 0;
+            const isNewCustomer = entries.length === 0 && !hasPreviousSettings;
+            setIsNewCustomerPriceSetup(isNewCustomer);
+            if (isNewCustomer) setUnitPrice('');
+        } catch (error) {
+            console.warn('신규 고객 단가 설정 상태 확인 실패:', error);
+            setIsNewCustomerPriceSetup(false);
+        }
+    }, [user?.id, isAuthLoading, isDataLoaded, entries.length]);
 
     useEffect(() => {
         const now = new Date();
@@ -466,18 +553,6 @@ useEffect(() => {
         const updatedSettings = { ...currentSettings, ...newSettings };
         localStorage.setItem(settingsKey, JSON.stringify(updatedSettings));
     };
-const handleCloudRestore = async () => {
-        try {
-            const restoredData = await restoreFromDrive(); // 구글 드라이브에서 데이터 가져오기
-            if (restoredData) {
-                const result = await importStrictly(restoredData); // 데이터 덮어쓰기/병합
-                showMessage(`✅ 복원 완료!\n총 ${result.added}건이 복구되었습니다.`);
-            }
-        } catch (error) {
-            showMessage(`❌ 복원 실패: ${error.message}`);
-        }
-    };
-    
     const handleLocalCsvImport = async (file) => {
         try {
             const parsedData = await parseCsvData(file);
@@ -747,6 +822,7 @@ const handleCloudRestore = async () => {
         const pricesArray = adminFavoritePricesInput.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
         if (pricesArray.length === 0) { showMessage("유효한 단가를 입력해주세요."); return; }
         setFavoriteUnitPrices(pricesArray);
+        setIsNewCustomerPriceSetup(false);
         saveSettingsToLocal({ favoriteUnitPrices: pricesArray });
         if (pricesArray.length === 1) setUnitPrice(pricesArray[0].toString());
         else setUnitPrice('');
@@ -919,11 +995,17 @@ const handleTodayClick = () => {
                         entry.customItems.forEach(item => {
                             const count = Number(item.count || 0);
                             const label = itemLabels[item.key] || item.key;
-                            if (selectedItemsForAverage.includes(label)) {
+                            const isFreshBagItem = String(item.key || '').startsWith('freshBagCount');
+                            if (
+                                selectedItemsForAverage.includes(label) ||
+                                (isFreshBagItem && selectedItemsForAverage.includes('프레시백'))
+                            ) {
                                 dailyVolume += count;
                             }
                             if (Object.prototype.hasOwnProperty.call(dailyVolumeBreakdown, item.key)) {
                                 dailyVolumeBreakdown[item.key] += count;
+                            } else if (String(item.key || '').startsWith('freshBagCount')) {
+                                dailyVolumeBreakdown.freshBagCount += count;
                             }
                         });
                     } else {
@@ -1256,7 +1338,7 @@ const handleTodayClick = () => {
    if (!isDataLoaded || isAuthLoading) {
 
         return (
-            <div className={`fixed inset-0 w-full h-full flex flex-col items-center justify-center${isDarkMode ? 'bg-[#111827]' : 'bg-white'}`}>
+            <div className={`fixed inset-0 w-full h-full flex flex-col items-center justify-center ${isDarkMode ? 'bg-[#111827]' : 'bg-white'}`}>
                 <div className="animate-pulse flex flex-col items-center">
                     <img src={logoImage} alt="Loading..." className="w-24 h-24 mb-4" />
                     <p className={`text-lg font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
@@ -1296,7 +1378,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
         >
             <SystemThemeManager isDarkMode={isDarkMode} />
 {/* ✨ 로그인(연동)된 상태에서만 미전송 데이터 경고 배지가 보이도록 조건 추가 */}
-{isLoggedIn && pendingSyncCount > 0 && (
+{isLoggedIn && pendingSyncCount > 0 && showPendingSyncNotice && (
     <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[9999]">
         <button 
             onClick={async () => {
@@ -1377,7 +1459,6 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 onToggleCalendarMode={(mode) => setCalendarMode(mode)}
                                 onMonthChange={handleMonthChange}
                                 onToday={handleTodayClick}
-                                onDateClick={handleCalendarDateClick}
                                 onOpenDayOff={() => setIsDayOffModalOpen(true)}
                                 onSelectedDateChange={setBluecoinsSelectedDate}
                                 resetToTodayKey={homeVisitKey}
@@ -1434,7 +1515,16 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
 
    incomeConfig={incomeConfig} 
     expenseConfig={expenseConfig}
-    favoriteUnitPrices={favoriteUnitPrices}
+    favoriteUnitPrices={isNewCustomerPriceSetup ? [] : favoriteUnitPrices}
+    isNewCustomerPriceSetup={isNewCustomerPriceSetup}
+    onOpenUnitPriceSettings={() => {
+        setReturnToDataEntryAfterUnitPrice(true);
+        mainScrollContainerRef.current?.scrollTo(0, 0);
+        setSelectedMainTab('more');
+        setActiveContentTab('adminSettings');
+        setMoreSubView('unitPrice');
+        setIsFabVisible(false);
+    }}
     
     onNavigate={(tab) => { 
         setActiveDataTab(tab); 
@@ -1539,9 +1629,20 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
             registerBackHandler={registerDayOffBackHandler}
     />
 )}
-                                {moreSubView === 'unitPrice' && <UnitPriceView onBack={() => { setMoreSubView('main'); setTargetItemKey(null); }} isDarkMode={isDarkMode} adminFavoritePricesInput={adminFavoritePricesInput} setAdminFavoritePricesInput={setAdminFavoritePricesInput} handleSaveFavoritePrices={handleSaveFavoritePrices} favoriteUnitPrices={favoriteUnitPrices} targetItemKey={targetItemKey} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} />}
+                                {moreSubView === 'unitPrice' && <UnitPriceView onBack={() => {
+                                    if (returnToDataEntryAfterUnitPrice) {
+                                        setReturnToDataEntryAfterUnitPrice(false);
+                                        setMoreSubView('main');
+                                        setSelectedMainTab('data');
+                                        setActiveContentTab('dataEntry');
+                                        setActiveDataTab('entry');
+                                    } else {
+                                        setMoreSubView('main');
+                                        setTargetItemKey(null);
+                                    }
+                                }} isDarkMode={isDarkMode} adminFavoritePricesInput={adminFavoritePricesInput} setAdminFavoritePricesInput={setAdminFavoritePricesInput} handleSaveFavoritePrices={handleSaveFavoritePrices} favoriteUnitPrices={favoriteUnitPrices} targetItemKey={targetItemKey} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} />}
                                 {moreSubView === 'period' && <PeriodView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} adminMonthlyStartDayInput={adminMonthlyStartDayInput} setAdminMonthlyStartDayInput={setAdminMonthlyStartDayInput} adminMonthlyEndDayInput={adminMonthlyEndDayInput} setAdminMonthlyEndDayInput={setAdminMonthlyEndDayInput} handleSaveMonthlyPeriodSettings={handleSaveMonthlyPeriodSettings} monthlyStartDay={monthlyStartDay} monthlyEndDay={monthlyEndDay} />}
-                                {moreSubView === 'data' && <DataSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} handleExportCsv={() => exportDataAsCsv(entries, showMessage)} handleImportCsv={(e) => handleLocalCsvImport(e.target.files[0])} handleDeleteAllData={handleDeleteAllDataRequest} handleBackupToDrive={() => backupToDrive(entries)} handleRestoreFromDrive={handleCloudRestore} />}
+                                {moreSubView === 'data' && <DataSettingsView onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} handleExportCsv={() => exportDataAsCsv(entries, showMessage)} handleImportCsv={(e) => handleLocalCsvImport(e.target.files[0])} handleDeleteAllData={handleDeleteAllDataRequest} />}
                             {/* ✨ 더보기 메뉴에서 진입할 때는 무조건 '수익(income)' 탭으로 고정! */}
                                 {moreSubView === 'expenseSettings' && <ExpenseSettingsView initialTab="income" onBack={() => setMoreSubView('main')} isDarkMode={isDarkMode} expenseConfig={expenseConfig} setExpenseConfig={setExpenseConfig} incomeConfig={incomeConfig} setIncomeConfig={setIncomeConfig} onNavigate={(view, key) => { setMoreSubView(view); if (key) setTargetItemKey(key); }} />}
 {moreSubView === 'calendar_volume_settings' && (
@@ -1580,6 +1681,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                         showMessage={showMessage}
                                         monthlyStartDay={monthlyStartDay}
                                         monthlyEndDay={monthlyEndDay}
+                                        targetDate={bluecoinsSelectedDate || getTodayLocal()}
                                     />
                                 )}
                                 {moreSubView === 'average_settings' && (
@@ -1640,7 +1742,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                             else setIsFabVisible(true);
                         }
                     }} 
-                    className={`fixed z-40 right-2 px-6 py-2.5 rounded-full shadow-lg transition-all duration-300 flex justify-center items-center font-bold tracking-widest border-2 ${
+                    className={`fixed ${activeContentTab === 'bluecoinsDailySummary' && isFabVisible ? 'z-[90]' : 'z-40'} right-2 px-6 py-2.5 rounded-full shadow-lg transition-all duration-300 flex justify-center items-center font-bold tracking-widest border-2 ${
                         isDarkMode ? 'bg-gray-900 border-yellow-500 text-yellow-400' : 'bg-gray-800 border-gray-700 text-yellow-400'
                     } ${
                         /* 리스트 화면에서는 투명해지지 않고 항상 100% 보이게 설정 */
@@ -1662,7 +1764,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                         setMoreSubView('camp_return_numbering');
                         setIsFabVisible(false);
                     }}
-                    className={`fixed z-40 right-2 px-6 py-2.5 rounded-full shadow-lg transition-all duration-300 flex justify-center items-center font-bold tracking-widest border-2 ${
+                    className={`fixed ${activeContentTab === 'bluecoinsDailySummary' && isFabVisible ? 'z-[90]' : 'z-40'} right-2 px-6 py-2.5 rounded-full shadow-lg transition-all duration-300 flex justify-center items-center font-bold tracking-widest border-2 ${
                         isDarkMode ? 'bg-blue-700 border-blue-500 text-white' : 'bg-blue-600 border-blue-700 text-white'
                     } ${
                         (activeContentTab === 'dataEntry' && activeDataTab === 'list')
@@ -1812,7 +1914,7 @@ function CalculatorPageWrapper() {
     const location = useLocation();
     
     const { date, currentRound, incomeConfig, isDarkMode } = location.state || {};
-    const { saveEntry } = useDelivery(); 
+    const { entries, saveEntry } = useDelivery(); 
 
     const handleApply = (results) => {
         saveEntry({
@@ -1828,6 +1930,7 @@ function CalculatorPageWrapper() {
         <CalculatorPage 
             date={date}
             currentRound={currentRound}
+            entries={entries}
             incomeConfig={incomeConfig || []}
             isDarkMode={isDarkMode}
             onBack={() => navigate(-1)} 
