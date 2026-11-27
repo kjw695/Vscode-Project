@@ -1377,6 +1377,26 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 onMonthChange={handleMonthChange}
                                 onToday={handleTodayClick}
                                 onDateClick={handleCalendarDateClick}
+                                onOpenInputForDate={(dateKey) => {
+                                    setBluecoinsSelectedDate(dateKey);
+                                    setSelectedMainTab('data');
+                                    setActiveContentTab('dataEntry');
+                                    setActiveDataTab('entry');
+                                    setEntryToEdit(null);
+                                    setDate(dateKey);
+                                    setUnitPrice('');
+                                    setFormData({});
+                                    setFormType('income');
+                                    setIsFabVisible(false);
+                                }}
+                                onOpenNumberingForDate={(dateKey) => {
+                                    setBluecoinsSelectedDate(dateKey);
+                                    mainScrollContainerRef.current?.scrollTo(0, 0);
+                                    setSelectedMainTab('more');
+                                    setActiveContentTab('adminSettings');
+                                    setMoreSubView('camp_return_numbering');
+                                    setIsFabVisible(false);
+                                }}
                                 onOpenDayOff={() => setIsDayOffModalOpen(true)}
                                 onSelectedDateChange={setBluecoinsSelectedDate}
                                 resetToTodayKey={homeVisitKey}
@@ -1579,6 +1599,7 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                         showMessage={showMessage}
                                         monthlyStartDay={monthlyStartDay}
                                         monthlyEndDay={monthlyEndDay}
+                                        targetDate={bluecoinsSelectedDate || getTodayLocal()}
                                     />
                                 )}
                                 {moreSubView === 'average_settings' && (
