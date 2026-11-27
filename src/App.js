@@ -753,7 +753,10 @@ useEffect(() => {
                     }
 
                     // 현재 계정의 앱 설정만 초기화하고, 다른 계정/게스트 설정은 보존합니다.
-                    localStorage.removeItem(getAppSettingsStorageKey(user?.id));
+                    const accountSettingsKey = getAppSettingsStorageKey(user?.id);
+                    localStorage.removeItem(accountSettingsKey);
+
+                    // 이전 버전에서 사용하던 공용 설정 키와 단가 화면 펼침 상태도 정리합니다.
                     [
                         'appSettings',
                         'dashboardSettings_v2',
@@ -762,13 +765,25 @@ useEffect(() => {
                         'preferredDayOffs'
                     ].forEach((key) => localStorage.removeItem(key));
 
+                    // 저장소가 정상적으로 비워졌는지 확인해 잔존 설정을 조용히 남기지 않습니다.
+                    if (localStorage.getItem(accountSettingsKey) !== null ||
+                        localStorage.getItem('appSettings') !== null) {
+                        throw new Error('저장된 단가 및 앱 설정을 초기화하지 못했습니다.');
+                    }
+
+                    // React 메모리 상태의 즐겨찾기 단가도 최초 기본값(700원)으로 즉시 되돌립니다.
+                    setFavoriteUnitPrices([700]);
+                    setAdminFavoritePricesInput('700');
+                    setUnitPrice('700');
+                    setIsNewCustomerPriceSetup(entries.length === 0);
+
                     // 채번 프로필은 설정에 해당하므로 초기화하되, 기존 채번 이력은 보존합니다.
                     const campPrefix = getCampReturnNumberingStoragePrefix(user?.id || null);
                     localStorage.removeItem(`${campPrefix}profile`);
                     localStorage.removeItem(`${campPrefix}driverId`);
 
                     await Preferences.remove({ key: 'isDarkMode' });
-                    window.alert('앱 설정이 최초 설치 상태로 초기화되었습니다.');
+                    window.alert('앱 설정이 최초 설치 상태로 초기화되었습니다. 공통 단가는 기본값 700원으로 복원됩니다.');
                     window.location.reload();
                 } catch (error) {
                     console.error('[Settings reset] 초기화 실패:', error);
