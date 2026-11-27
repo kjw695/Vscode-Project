@@ -56,7 +56,7 @@ function MoreView({ onNavigate, isDarkMode, toggleDarkMode }) {
 
             <MenuSection title="배송 및 정산">
                 <MenuItem icon={<CircleDollarSign size={24} />} text="단가 설정" onClick={() => onNavigate('unitPrice')} isDarkMode={isDarkMode} />
-                <MenuItem icon={<CreditCard size={24} />} text="수익·지출 항목 관리" onClick={() => onNavigate('expenseSettings')} isDarkMode={isDarkMode} />
+                <MenuItem icon={<CreditCard size={24} />} text="항목 관리" onClick={() => onNavigate('expenseSettings')} isDarkMode={isDarkMode} />
                 <MenuItem icon={<CalendarDays size={24} />} text="월별 집계 기간 설정" onClick={() => onNavigate('period')} isDarkMode={isDarkMode} />
                 <MenuItem icon={<Target size={24} />} text="목표 금액 설정" onClick={() => onNavigate('goal')} isDarkMode={isDarkMode} />
                 <MenuItem icon={<ShieldCheck size={24} />} text="보험사 설정" onClick={() => onNavigate('insurance')} isDarkMode={isDarkMode} />
