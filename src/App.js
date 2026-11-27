@@ -1376,7 +1376,6 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 onToggleCalendarMode={(mode) => setCalendarMode(mode)}
                                 onMonthChange={handleMonthChange}
                                 onToday={handleTodayClick}
-                                onDateClick={handleCalendarDateClick}
                                 onOpenInputForDate={(dateKey) => {
                                     setBluecoinsSelectedDate(dateKey);
                                     setSelectedMainTab('data');
@@ -1400,9 +1399,9 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                 onOpenDayOff={() => setIsDayOffModalOpen(true)}
                                 onSelectedDateChange={setBluecoinsSelectedDate}
                                 resetToTodayKey={homeVisitKey}
-                                onCalendarDateSelect={(dateKey, isSameDate) => {
+                                onCalendarDateSelect={(dateKey) => {
                                     setBluecoinsSelectedDate(dateKey);
-                                    setIsFabVisible((visible) => (isSameDate ? !visible : true));
+                                    setIsFabVisible(false);
                                 }}
                                 onRequestEditDate={(dateKey) => {
                                     const [, month, day] = dateKey.split('-');
