@@ -121,7 +121,7 @@ const { isLoggedIn, user, profile } = useAuth();
     const isIOS = Capacitor.getPlatform() === 'ios';
 
     // [수정] isDataLoaded 상태 가져오기
- const { entries, saveEntry, deleteEntry, clearAllEntries, deletePersonalData, importStrictly, isDataLoaded, pendingSyncCount, syncPendingData } = useDelivery();
+ const { entries, saveEntry, deleteEntry, deletePersonalData, importStrictly, isDataLoaded, pendingSyncCount, syncPendingData } = useDelivery();
 
     // --- 목표 관리 ---
     const [targetItemKey, setTargetItemKey] = useState(null);
