@@ -2,6 +2,10 @@ import Papa from 'papaparse';
 import { parseCsvData, exportDataAsCsv } from './dataHandlers';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem } from '@capacitor/filesystem';
+jest.mock('@capacitor/share', () => ({
+    Share: { share: jest.fn() }
+}));
+
 jest.mock('@capacitor/filesystem', () => ({
     Filesystem: { writeFile: jest.fn() },
     Directory: { Documents: 'DOCUMENTS' },
