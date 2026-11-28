@@ -19,6 +19,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         
         registerPlugin(DailyInspectionPrintPlugin.class);
+        registerPlugin(OpenSourceLicensesPlugin.class);
 
         EdgeToEdge.enable(this);
 
