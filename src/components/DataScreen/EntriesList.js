@@ -372,7 +372,9 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                                                 ))}
                                                             </>
                                                         ) : (
-                                                            <span className="text-xs text-gray-400">집계된 항목이 없습니다.</span>
+                                                            !dailyEntries.some(isStandaloneDayOffEntry) && (
+                                                                <span className="text-xs text-gray-400">집계된 항목이 없습니다.</span>
+                                                            )
                                                         )}
                                                     </div>
                                                 </div>
