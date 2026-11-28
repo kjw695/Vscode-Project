@@ -1,5 +1,4 @@
 import React, { createContext, useState, useEffect, useContext, useCallback, useMemo, useRef } from 'react';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { isDuplicateEntry } from '../utils/calculator';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from './AuthContext';
@@ -338,11 +337,6 @@ export function DeliveryProvider({ children }) {
                 syncToStorage(nextEntries, ownerId);
                 return nextEntries;
             });
-            // 로컬 저장 완료 시 짧은 진동 피드백 (서버 동기화와는 독립적으로 실행)
-            Haptics.impact({ style: ImpactStyle.Light }).catch((hapticError) => {
-                console.warn('[Haptics] 저장 완료 진동 실행 실패:', hapticError);
-            });
-
             lastSaveTimeRef.current = Date.now();
 
             // 4. 비동기로 서버에 조용히 쏴보기
