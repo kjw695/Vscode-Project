@@ -128,7 +128,9 @@ const BluecoinsDailySummaryPreview = ({
     resetToTodayKey = 0,
     homeCalendarDesign = 'current',
     homeCalendarVolumeItems = {},
-    incomeConfig = []
+    incomeConfig = [],
+    showEstimatedSalary = false,
+    onCloseEstimatedSalary
 }) => {
     const dark = Boolean(isDarkMode);
     const { weatherData, locationName } = useWeather();
@@ -207,42 +209,56 @@ const BluecoinsDailySummaryPreview = ({
     const workingDays = Number(monthlyProfit?.totalWorkingDays) || 0;
     const dailyAverageIncome = workingDays > 0 ? Math.round(currentRevenue / workingDays) : 0;
     const dailyAverageVolume = workingDays > 0 ? Math.round(currentVolume / workingDays) : 0;
-    const salaryRemainingCalendarDays = useMemo(() => {
-        if (!selectedMonth || !monthlyEndDay) return 1;
-        try {
-            const [year, month] = selectedMonth.split('-').map(Number);
-            const endDate = new Date(year, month - 1, monthlyEndDay);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const diffDays = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-            return diffDays > 0 ? diffDays : 1;
-        } catch (error) {
-            return 1;
-        }
+    const todayDateKey = toDateKey(new Date());
+    const todayHasRevenue = (Number(dailyMap[todayDateKey]?.totalRevenue) || 0) > 0;
+
+    const salaryPeriodEndDate = useMemo(() => {
+        if (!selectedMonth || !monthlyEndDay) return null;
+        const [year, month] = selectedMonth.split('-').map(Number);
+        if (!year || !month) return null;
+        return new Date(year, month - 1, monthlyEndDay);
     }, [selectedMonth, monthlyEndDay]);
 
-    const salaryFutureHolidays = useMemo(() => {
-        if (!Array.isArray(entries) || entries.length === 0) return 0;
+    const salaryRemainingCalendarDays = useMemo(() => {
+        if (!salaryPeriodEndDate) return 0;
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+        const diffDays = Math.floor((salaryPeriodEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        const inclusiveRemainingDays = Math.max(0, diffDays + 1);
+        // 오늘 매출이 이미 누적 매출·일평균에 반영되었다면 오늘을 다시 예상 근무일로 세지 않습니다.
+        return Math.max(0, inclusiveRemainingDays - (todayHasRevenue ? 1 : 0));
+    }, [salaryPeriodEndDate, todayHasRevenue]);
 
-        return entries.filter((entry) => {
-            if (!entry || !entry.date || typeof entry.date !== 'string') return false;
+    const salaryFutureHolidays = useMemo(() => {
+        if (!Array.isArray(entries) || !salaryPeriodEndDate) return 0;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const holidayDates = new Set();
+
+        entries.forEach((entry) => {
+            if (!entry || !entry.date || typeof entry.date !== 'string') return;
             const parts = entry.date.split('-');
-            if (parts.length !== 3) return false;
+            if (parts.length !== 3) return;
 
             const [year, month, day] = parts.map(Number);
             const entryDate = new Date(year, month - 1, day);
+            const isStillRemaining = todayHasRevenue ? entryDate > today : entryDate >= today;
+            if (!isStillRemaining || entryDate > salaryPeriodEndDate) return;
 
             const hasHolidayMemo = typeof entry.memo === 'string' && entry.memo.includes('휴무');
             const isDayOffType = entry.isDayOff === true;
             const hasDayOffCustomItem = Array.isArray(entry.customItems) &&
                 entry.customItems.some((item) => item?.key === 'dayOff' || item?.key === '휴무');
-            return entryDate >= today && (hasHolidayMemo || isDayOffType || hasDayOffCustomItem);
-        }).length;
-    }, [entries]);
+            if (hasHolidayMemo || isDayOffType || hasDayOffCustomItem) {
+                holidayDates.add(entry.date);
+            }
+        });
+
+        return holidayDates.size;
+    }, [entries, salaryPeriodEndDate, todayHasRevenue]);
 
     const salaryRemainingWorkDays = Math.max(0, salaryRemainingCalendarDays - salaryFutureHolidays);
+    const estimatedSalary = currentRevenue + (dailyAverageIncome * salaryRemainingWorkDays);;
     
     const holidayCount = calendarDays.filter((day) => day?.isCurrentMonth && day?.isDayOff).length;
     const totalOffDays = holidayCount;
@@ -634,7 +650,31 @@ const BluecoinsDailySummaryPreview = ({
         : (selectedMonth || '') + ' 장부 기간 전체 요약';
 
     return (
-        <div className="flex w-full flex-col gap-1 px-2 pb-4">
+        <>
+            {showEstimatedSalary && (
+                <div
+                    className="pointer-events-none fixed inset-x-0 z-[80] flex justify-center px-4"
+                    style={{ top: 'calc(env(safe-area-inset-top) + 12px)' }}
+                >
+                    <button
+                        type="button"
+                        aria-label="예상 월급 패널 닫기"
+                        onClick={onCloseEstimatedSalary}
+                        className={'pointer-events-auto flex w-full max-w-sm items-center justify-between gap-2 rounded-2xl border px-4 py-3 shadow-xl ' + (
+                            dark
+                                ? 'border-slate-700 bg-slate-900/95 text-white'
+                                : 'border-slate-200 bg-white/95 text-slate-900'
+                        )}
+                    >
+                        <span className="shrink-0 text-sm font-bold">예상 월급</span>
+                        <span className="min-w-0 truncate text-right text-[clamp(1.4rem,6vw,2rem)] font-black leading-none tracking-tight tabular-nums">
+                            {formatLargeManWon(estimatedSalary)}
+                        </span>
+                        <span aria-hidden="true" className={'shrink-0 text-lg leading-none ' + mutedClass}>×</span>
+                    </button>
+                </div>
+            )}
+            <div className="flex w-full flex-col gap-1 px-2 pb-4">
             <section className={'overflow-hidden rounded-2xl border shadow-sm ' + panelClass}>
                 <div className={'grid grid-cols-4 divide-x ' + dividerClass}>
                     <div className="min-w-0 px-1 py-2 text-center">
@@ -1250,7 +1290,8 @@ const BluecoinsDailySummaryPreview = ({
                 </section>
             </>
             )}
-        </div>
+            </div>
+        </>
     );
 };
 
