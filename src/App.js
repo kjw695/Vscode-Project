@@ -205,6 +205,7 @@ const { isLoggedIn, user, profile } = useAuth();
         return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     });
     const [isFabVisible, setIsFabVisible] = useState(false);
+    const [isEstimatedSalaryVisible, setIsEstimatedSalaryVisible] = useState(false);
 
     const [activeDataTab, setActiveDataTab] = useState('entry');
 
@@ -321,10 +322,17 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
     const touchEndY = useRef(null);
     const mainTouchStartX = useRef(null); // ✨ [추가] 바탕화면 스와이프 전용
     const mainTouchStartY = useRef(null);
+    const mainTouchStartScrollTop = useRef(0);
     const mainScrollContainerRef = useRef(null);
     const [selectedMainTab, setSelectedMainTab] = useState('home');
     const [activeContentTab, setActiveContentTab] = useState('bluecoinsDailySummary');
     const [homeVisitKey, setHomeVisitKey] = useState(0);
+
+    useEffect(() => {
+        if (selectedMainTab !== 'home' || activeContentTab !== 'bluecoinsDailySummary') {
+            setIsEstimatedSalaryVisible(false);
+        }
+    }, [selectedMainTab, activeContentTab]);
 
     // 업무 전 점검 알림을 누르면 바로 일상점검표 입력 화면을 엽니다.
     useEffect(() => {
@@ -1497,26 +1505,37 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
             onTouchStart={(e) => {
                 mainTouchStartX.current = e.targetTouches[0].clientX;
                 mainTouchStartY.current = e.targetTouches[0].clientY;
+                mainTouchStartScrollTop.current = mainScrollContainerRef.current?.scrollTop || 0;
             }}
             onTouchEnd={(e) => {
-                if (!mainTouchStartY.current || !mainTouchStartX.current) return;
+                if (mainTouchStartY.current === null || mainTouchStartX.current === null) return;
                 const endX = e.changedTouches[0].clientX;
                 const endY = e.changedTouches[0].clientY;
-                
+
                 const deltaX = mainTouchStartX.current - endX;
                 const deltaY = mainTouchStartY.current - endY;
-                
-                // ✨ 달력 넘기기(좌우) 등과 겹치지 않게, 위아래 이동 폭이 40px 이상일 때만 작동!
+                const startedAtTop = mainTouchStartScrollTop.current <= 2;
+                const isHomeSummary = selectedMainTab === 'home' && activeContentTab === 'bluecoinsDailySummary';
+
+                // 세로 스와이프만 처리합니다. 홈 최상단에서 아래로 당기면 예상 월급만 표시합니다.
                 if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 40) {
                     if (deltaY > 0) {
-                        setIsFabVisible(true);  // 화면을 위로 슬라이드 -> [입력] 버튼 등장!
+                        if (isEstimatedSalaryVisible) {
+                            setIsEstimatedSalaryVisible(false);
+                        } else {
+                            setIsFabVisible(true);
+                        }
+                    } else if (isHomeSummary && startedAtTop) {
+                        setIsEstimatedSalaryVisible(true);
+                        setIsFabVisible(false);
                     } else {
-                        setIsFabVisible(false); // 화면을 아래로 슬라이드 -> [입력] 버튼 숨김!
+                        setIsFabVisible(false);
                     }
                 }
-                
+
                 mainTouchStartX.current = null;
                 mainTouchStartY.current = null;
+                mainTouchStartScrollTop.current = 0;
             }}
           >
                 {isAuthReady && (
@@ -1536,6 +1555,8 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                         {activeContentTab === 'bluecoinsDailySummary' && (
                             <BluecoinsDailySummaryPreview
                                 entries={entries}
+                                showEstimatedSalary={isEstimatedSalaryVisible}
+                                onCloseEstimatedSalary={() => setIsEstimatedSalaryVisible(false)}
                                 monthlyProfit={monthlyProfit}
                                 previousMonthlyProfit={previousMonthlyProfit}
                                 selectedMonth={selectedMonth}
