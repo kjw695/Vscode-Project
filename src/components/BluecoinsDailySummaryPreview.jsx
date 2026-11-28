@@ -1179,38 +1179,24 @@ const BluecoinsDailySummaryPreview = ({
                                                                         return (
                                                                             <div
                                                                                 key={record.entry?.id || row.key + '-' + recordIndex}
-                                                                                className={'rounded-lg border px-2.5 py-2 ' + (dark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-white')}
+                                                                                className={'flex min-w-0 items-center gap-1.5 border-b px-1 py-1.5 last:border-b-0 ' + (dark ? 'border-slate-800' : 'border-slate-200')}
                                                                             >
-                                                                                <div className="flex items-start justify-between gap-2">
-                                                                                    <div className="min-w-0 flex-1">
-                                                                                        <p className={'text-[10px] font-black ' + (dark ? 'text-slate-200' : 'text-slate-800')}>
-                                                                                            기록 {recordIndex + 1}
-                                                                                        </p>
-                                                                                        <p className={'mt-1 break-words text-[10px] ' + mutedClass}>
-                                                                                            {detailText || '상세 항목 정보가 없습니다.'}
-                                                                                        </p>
-                                                                                        {record.entry?.memo && (
-                                                                                            <p className={'mt-1 whitespace-pre-wrap break-words text-[10px] ' + mutedClass}>
-                                                                                                메모: {record.entry.memo}
-                                                                                            </p>
-                                                                                        )}
-                                                                                    </div>
-                                                                                    <span className={'shrink-0 whitespace-nowrap text-[11px] font-black tabular-nums ' + (row.rowType === 'expense' ? 'text-blue-500' : (dark ? 'text-white' : 'text-neutral-900'))}>
-                                                                                        {row.rowType === 'expense' ? '-' : '+'}{recordAmount.toLocaleString()}원
-                                                                                    </span>
-                                                                                </div>
-                                                                                <div className="mt-2 flex justify-end gap-1.5">
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => onEditEntry?.(record.entry)}
-                                                                                        className={'rounded-md border px-3 py-1.5 text-[10px] font-bold ' + (dark ? 'border-slate-600 bg-slate-800 text-slate-100' : 'border-slate-200 bg-white text-slate-700')}
-                                                                                    >수정</button>
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => onDeleteEntry?.(record.entry?.id)}
-                                                                                        className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-[10px] font-bold text-red-600 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400"
-                                                                                    >삭제</button>
-                                                                                </div>
+                                                                                <p className={'min-w-0 flex-1 truncate text-[10px] ' + mutedClass} title={detailText || ''}>
+                                                                                    {detailText || '상세 항목 정보가 없습니다.'}
+                                                                                </p>
+                                                                                <span className={'shrink-0 whitespace-nowrap text-[10px] font-black tabular-nums ' + (row.rowType === 'expense' ? 'text-blue-500' : (dark ? 'text-white' : 'text-neutral-900'))}>
+                                                                                    {row.rowType === 'expense' ? '-' : '+'}{recordAmount.toLocaleString()}원
+                                                                                </span>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => onEditEntry?.(record.entry)}
+                                                                                    className={'shrink-0 rounded px-1.5 py-1 text-[10px] font-bold ' + (dark ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-700')}
+                                                                                >수정</button>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => onDeleteEntry?.(record.entry?.id)}
+                                                                                    className="shrink-0 rounded px-1.5 py-1 text-[10px] font-bold text-red-600 dark:text-red-400"
+                                                                                >삭제</button>
                                                                             </div>
                                                                         );
                                                                     })}
