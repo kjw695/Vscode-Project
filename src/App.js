@@ -627,7 +627,7 @@ useEffect(() => {
 
     const resetForm = () => {
         
-        setUnitPrice('');
+        setUnitPrice(favoriteUnitPrices.length === 1 ? favoriteUnitPrices[0].toString() : '');
         setFormData({});
         setFormType('income');
     };
@@ -696,8 +696,9 @@ useEffect(() => {
         }
 
         try {
-            saveEntry(newEntryData);
-            showToast(entryToEdit ? "수정되었습니다." : "저장되었습니다."); triggerHaptic('light'); 
+            await saveEntry(newEntryData);
+            showToast(entryToEdit ? "수정되었습니다." : "저장되었습니다.");
+            await triggerHaptic('medium'); 
             setEntryToEdit(null);
             resetForm();
         } catch (err) {
