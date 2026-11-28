@@ -69,7 +69,7 @@ dependencies {
     implementation "androidx.core:core:1.13.1"
 
     // Android에 실제 포함되는 네이티브 오픈소스 라이선스 고지 화면
-    implementation 'com.google.android.gms:play-services-oss-licenses:17.5.3'
+    implementation 'com.google.android.gms:play-services-oss-licenses:17.5.2'
 
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
