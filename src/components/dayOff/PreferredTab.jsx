@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { showToast } from '../../utils/toast';
+import { triggerHaptic } from '../../utils/haptics';
 import { Check } from 'lucide-react';
 
 const DAYS_OF_WEEK = [
@@ -28,7 +29,7 @@ export default function PreferredTab({ isDarkMode, showMessage }) {
 
     const handleSavePreferences = () => {
         localStorage.setItem('preferredDayOffs', JSON.stringify(preferredDays));
-        showToast("선호 휴무일이 저장되었습니다.");
+        showToast("선호 휴무일이 저장되었습니다."); triggerHaptic('light');
     };
 
     return (
