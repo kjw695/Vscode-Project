@@ -262,7 +262,7 @@ const DataEntryForm = ({
     // [초기화] 값이 없으면 ''(빈칸)으로 설정
     useEffect(() => {
         if (!entryToEdit) {
-            setUnitPrice('');
+            setUnitPrice(favoriteUnitPrices?.length === 1 ? favoriteUnitPrices[0].toString() : '');
             setFormType('income');
             setTimeout(() => {
                 if (handleInputChange) {
