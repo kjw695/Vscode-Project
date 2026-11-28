@@ -44,15 +44,25 @@ function OpenSourceLicenses({ onBack, isDarkMode }) {
             </p>
           )}
           <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            <strong>저장소:</strong>
-            {licenses[key].repository ? (
-              <a href={licenses[key].repository} target="_blank" rel="noopener noreferrer" className="ml-1 text-blue-400 hover:underline">
-                {licenses[key].repository}
+            <strong>{licenses[key].repository ? '저장소:' : '패키지 정보:'}</strong>
+            {(licenses[key].repository || licenses[key].packageUrl) ? (
+              <a
+                href={licenses[key].repository || licenses[key].packageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-1 text-blue-400 hover:underline"
+              >
+                {licenses[key].repository || licenses[key].packageUrl}
               </a>
             ) : (
               <span className="ml-1">정보 없음</span>
             )}
           </p>
+          {licenses[key].licenseNote && (
+            <p className={`${isDarkMode ? 'text-yellow-300' : 'text-amber-700'}`}>
+              <strong>참고:</strong> {licenses[key].licenseNote}
+            </p>
+          )}
         </div>
       ));
     }
