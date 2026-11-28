@@ -1,6 +1,26 @@
 import React, { useState, useMemo } from 'react';
 import { Edit, Trash2, ChevronDown, ChevronUp, AlertCircle, Clock, Calendar } from 'lucide-react';
 
+// 기존에 저장된 0원 단독 휴무 기록만 수익·지출과 분리해서 표시합니다.
+const isStandaloneDayOffEntry = (entry) => {
+    const items = Array.isArray(entry?.customItems)
+        ? entry.customItems
+        : Array.isArray(entry?.custom_items)
+            ? entry.custom_items
+            : [];
+    const hasDayOffMarker = entry?.memo === '[휴무]' ||
+        items.some(item => item?.key === 'dayOff' || item?.key === '휴무');
+    const hasOnlyDayOffItems = items.every(item =>
+        item?.key === 'dayOff' || item?.key === '휴무'
+    );
+
+    return entry?.type === 'income' &&
+        Number(entry.unitPrice ?? entry.unit_price ?? 0) === 0 &&
+        Number(entry.round ?? 0) === 0 &&
+        hasDayOffMarker &&
+        hasOnlyDayOffItems;
+};
+
 const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, onOpenFilter, filterType }) => {
     const [expandedDate, setExpandedDate] = useState(null);
     const [collapsedMonths, setCollapsedMonths] = useState({});
@@ -44,6 +64,9 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
 
         if (entry.customItems && Array.isArray(entry.customItems)) {
             entry.customItems.forEach(item => {
+                const isDayOffItem = item?.key === 'dayOff' || item?.key === '휴무';
+                if (isDayOffItem) return;
+
                 const amount = safeNum(item.amount);
                 const itemPrice = item.unitPrice !== undefined ? safeNum(item.unitPrice) : amount;
                 const itemCount = item.count ? safeNum(item.count) : 1;
@@ -100,10 +123,13 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
         }
         
         const currentId = entry.id || `${entry.date}-${index}`;
+        const isDayOffEntry = isStandaloneDayOffEntry(entry);
         const isExpenseCard = totalExpense > 0 && totalRevenue === 0;
-        const borderClass = !isExpenseCard 
-            ? (isDarkMode ? 'border-red-900/40' : 'border-red-100') 
-            : (isDarkMode ? 'border-blue-900/40' : 'border-blue-100');
+        const borderClass = isDayOffEntry
+            ? (isDarkMode ? 'border-emerald-900/40' : 'border-emerald-100')
+            : !isExpenseCard
+                ? (isDarkMode ? 'border-red-900/40' : 'border-red-100')
+                : (isDarkMode ? 'border-blue-900/40' : 'border-blue-100');
 
         return (
             <div key={currentId} className={`rounded-xl border-2 ${borderClass} shadow-sm overflow-hidden mb-3 transition-all ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
@@ -111,7 +137,7 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                     <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-2">
                             <span className={`text-xs font-bold px-2 py-0.5 rounded ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
-                                {entry.round ? `${entry.round}회전` : (isExpenseCard ? '지출' : '기록')}
+                                {isDayOffEntry ? '휴무' : entry.round ? `${entry.round}회전` : (isExpenseCard ? '지출' : '기록')}
                             </span>
                             {inputTime && (
                                 <span className="text-[11px] text-gray-400 flex items-center">
@@ -122,6 +148,18 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                             )}
                         </div>
                     </div>
+
+                    {isDayOffEntry && (
+                        <div className={`mb-4 p-3 rounded-lg border ${isDarkMode ? 'bg-emerald-900/10 border-emerald-800/40' : 'bg-emerald-50 border-emerald-100'}`}>
+                            <div className={`flex items-center gap-2 font-bold ${isDarkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>
+                                <Calendar size={15} />
+                                <span>휴무일</span>
+                            </div>
+                            <p className={`mt-1 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                수익·지출과 별도로 기록된 휴무입니다.
+                            </p>
+                        </div>
+                    )}
 
                     {totalRevenue > 0 && (
                         <div className="mb-4">
@@ -168,7 +206,7 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                         </div>
                     )}
                     
-                    {entry.memo && (
+                    {entry.memo && !(isDayOffEntry && entry.memo === '[휴무]') && (
                         <div className={`mb-4 p-3 rounded-lg border ${isDarkMode ? 'bg-yellow-900/20 border-yellow-800/50' : 'bg-yellow-50 border-yellow-200'}`}>
                             <span className={`text-xs font-bold block mb-1 ${isDarkMode ? 'text-yellow-500' : 'text-yellow-700'}`}>📝 메모</span>
                             <p className={`text-[13px] whitespace-pre-wrap ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{entry.memo}</p>
@@ -258,13 +296,16 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
 
                                         const incomeList = [];
                                         const expenseList = [];
+                                        const dayOffList = [];
 
                                         dailyEntries.forEach((entry, index) => {
                                             const stats = processFinancials(entry);
                                             const netProfit = stats.totalRevenue - stats.totalExpense;
                                             const entryData = { entry, index, stats, netProfit };
-                                            
-                                            if (stats.totalExpense > 0 && stats.totalRevenue === 0) {
+
+                                            if (isStandaloneDayOffEntry(entry)) {
+                                                dayOffList.push(entryData);
+                                            } else if (stats.totalExpense > 0 && stats.totalRevenue === 0) {
                                                 expenseList.push(entryData);
                                             } else {
                                                 incomeList.push(entryData);
@@ -306,7 +347,9 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                                                 )}
                                                                 {/* 수익도 지출도 0원일 때 안전장치 */}
                                                                 {dailySummary.revenue === 0 && dailySummary.expense === 0 && (
-                                                                    <span className="font-bold text-gray-500 text-[13px]">0원</span>
+                                                                    <span className={`font-bold text-[13px] ${dailyEntries.some(isStandaloneDayOffEntry) ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500'}`}>
+                                                                        {dailyEntries.some(isStandaloneDayOffEntry) ? '휴무' : '0원'}
+                                                                    </span>
                                                                 )}
                                                             </div>
                                                             {isDateExpanded ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
@@ -368,6 +411,26 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
                                                                         {expenseList.map(item => renderEntryCard(item))}
                                                                     </div>
                                                                 </div>
+                                                            )}
+
+                                                            {dayOffList.length > 0 && (
+                                                                <>
+                                                                    {(incomeList.length > 0 || expenseList.length > 0) && (
+                                                                        <hr className={`border-dashed ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`} />
+                                                                    )}
+                                                                    <div className="space-y-3">
+                                                                        <div className="flex items-center gap-1.5 ml-1">
+                                                                            <Calendar size={15} className="text-emerald-500" />
+                                                                            <span className={`text-sm font-black ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>휴무 내역</span>
+                                                                            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 ml-auto bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full">
+                                                                                {dayOffList.length}일
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="space-y-2">
+                                                                            {dayOffList.map(item => renderEntryCard(item))}
+                                                                        </div>
+                                                                    </div>
+                                                                </>
                                                             )}
                                                         </div>
                                                     </div>
