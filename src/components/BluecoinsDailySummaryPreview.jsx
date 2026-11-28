@@ -258,7 +258,7 @@ const BluecoinsDailySummaryPreview = ({
     }, [entries, salaryPeriodEndDate, todayHasRevenue]);
 
     const salaryRemainingWorkDays = Math.max(0, salaryRemainingCalendarDays - salaryFutureHolidays);
-    const estimatedSalary = currentRevenue + (dailyAverageIncome * salaryRemainingWorkDays);;
+    const estimatedSalary = currentRevenue + (dailyAverageIncome * salaryRemainingWorkDays);
     
     const holidayCount = calendarDays.filter((day) => day?.isCurrentMonth && day?.isDayOff).length;
     const totalOffDays = holidayCount;
