@@ -52,8 +52,9 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "licenses": "npm-license-crawler --onlyProd --json public/licenses.json",
-    "postinstall": "node scripts/fix-gradle.js"
+    "licenses": "npm-license-crawler --onlyProd --json public/licenses.json && node scripts/fix-license-metadata.js",
+    "postinstall": "node scripts/fix-gradle.js",
+    "licenses:fix": "node scripts/fix-license-metadata.js"
   },
   "jest": {
     "moduleNameMapper": {
