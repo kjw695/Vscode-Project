@@ -121,6 +121,8 @@ const BluecoinsDailySummaryPreview = ({
     onToday,
     onCalendarDateSelect,
     onRequestEditDate,
+    onEditEntry,
+    onDeleteEntry,
     onOpenDayOff,
     onSelectedDateChange,
     resetToTodayKey = 0,
@@ -139,6 +141,7 @@ const BluecoinsDailySummaryPreview = ({
     const [activeReportTab, setActiveReportTab] = useState('categories');
     const [isDayMode, setIsDayMode] = useState(true);
     const [isReportVisible, setIsReportVisible] = useState(false);
+    const [expandedTransactionKey, setExpandedTransactionKey] = useState(null);
     const chartScrollRef = useRef(null);
     const calendarSwipeStartRef = useRef(null);
     const reportSectionRef = useRef(null);
@@ -159,6 +162,10 @@ const BluecoinsDailySummaryPreview = ({
     useEffect(() => {
         onSelectedDateChange?.(selectedDate);
     }, [selectedDate, onSelectedDateChange]);
+
+    useEffect(() => {
+        setExpandedTransactionKey(null);
+    }, [selectedDate, isDayMode]);
 
     const dailyMap = useMemo(() => {
         const grouped = {};
@@ -297,6 +304,7 @@ const BluecoinsDailySummaryPreview = ({
                     rowType: isExpenseEntry ? 'expense' : 'round',
                     round,
                     recordCount: 0,
+                    records: [],
                     dates: new Set(),
                     income: 0,
                     expense: 0,
@@ -309,6 +317,7 @@ const BluecoinsDailySummaryPreview = ({
 
             const row = groupedByRound.get(key);
             row.recordCount += 1;
+            row.records.push({ entry, data });
             if (entry?.date) row.dates.add(entry.date);
             row.income += Number(data.totalRevenue) || 0;
             row.expense += Number(data.totalExpenses) || 0;
@@ -368,10 +377,6 @@ const BluecoinsDailySummaryPreview = ({
         income: 0
     }), [transactionRows]);
 
-    const rotationTransactionRows = transactionRows.filter((row) => row.rowType !== 'expense');
-    const expenseTotal = transactionRows.reduce((total, row) => (
-        total + (row.rowType === 'expense' ? (Number(row.expense) || 0) : 0)
-    ), 0);
 
     const panelClass = dark
         ? 'bg-slate-900 border-slate-800 text-slate-100'
@@ -1114,33 +1119,108 @@ const BluecoinsDailySummaryPreview = ({
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {rotationTransactionRows.map((row, index) => (
-                                            <tr key={row.key} className={dark
-                                                ? (index % 2 === 0 ? 'border-b border-slate-800 bg-slate-900' : 'border-b border-slate-800 bg-slate-800/50')
-                                                : (index % 2 === 0 ? 'border-b border-slate-100 bg-white' : 'border-b border-slate-100 bg-[#F7F7F7]')
-                                            }>
-                                                <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black">
-                                                    {row.rowType === 'expense' ? '지출' : (row.round === 0 ? '기타' : row.round + '회전')}
-                                                </td>
-                                                <td className="whitespace-nowrap px-0.5 py-1.5 text-center tabular-nums">
-                                                    {row.rowType === 'expense' ? '' : row.volumeBreakdown.deliveryCount.toLocaleString() + '건'}
-                                                </td>
-                                                <td className="whitespace-nowrap px-0.5 py-1.5 text-center tabular-nums">
-                                                    {row.rowType === 'expense' ? '' : row.volumeBreakdown.deliveryInterruptionAmount.toLocaleString() + '건'}
-                                                </td>
-                                                <td className="whitespace-nowrap px-0.5 py-1.5 text-center tabular-nums">
-                                                    {row.rowType === 'expense' ? '' : row.volumeBreakdown.returnCount.toLocaleString() + '건'}
-                                                </td>
-                                                <td className="whitespace-nowrap px-0.5 py-1.5 text-center tabular-nums">
-                                                    {row.rowType === 'expense' ? '' : row.volumeBreakdown.freshBagCount.toLocaleString() + '건'}
-                                                </td>
-                                                <td className={'whitespace-nowrap px-0.5 py-1.5 text-right font-black tabular-nums ' + (dark ? 'text-white' : 'text-neutral-900')}>
-                                                    {row.rowType === 'expense'
-                                                        ? '-' + row.expense.toLocaleString() + '원'
-                                                        : row.income.toLocaleString() + '원'}
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {transactionRows.map((row, index) => {
+                                            const isExpanded = expandedTransactionKey === row.key;
+                                            return (
+                                                <React.Fragment key={row.key}>
+                                                    <tr className={dark
+                                                        ? (index % 2 === 0 ? 'border-b border-slate-800 bg-slate-900' : 'border-b border-slate-800 bg-slate-800/50')
+                                                        : (index % 2 === 0 ? 'border-b border-slate-100 bg-white' : 'border-b border-slate-100 bg-[#F7F7F7]')
+                                                    }>
+                                                        <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black">
+                                                            <button
+                                                                type="button"
+                                                                aria-expanded={isExpanded}
+                                                                onClick={() => setExpandedTransactionKey((current) => current === row.key ? null : row.key)}
+                                                                className="flex w-full flex-col items-center justify-center gap-0.5"
+                                                            >
+                                                                <span>{row.rowType === 'expense' ? '지출' : (row.round === 0 ? '기타' : row.round + '회전')}</span>
+                                                                <span className={'text-[8px] font-semibold ' + mutedClass}>
+                                                                    {row.recordCount.toLocaleString()}개 {isExpanded ? '▲' : '▼'}
+                                                                </span>
+                                                            </button>
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-0.5 py-1.5 text-center tabular-nums">
+                                                            {row.rowType === 'expense' ? '' : row.volumeBreakdown.deliveryCount.toLocaleString() + '건'}
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-0.5 py-1.5 text-center tabular-nums">
+                                                            {row.rowType === 'expense' ? '' : row.volumeBreakdown.deliveryInterruptionAmount.toLocaleString() + '건'}
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-0.5 py-1.5 text-center tabular-nums">
+                                                            {row.rowType === 'expense' ? '' : row.volumeBreakdown.returnCount.toLocaleString() + '건'}
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-0.5 py-1.5 text-center tabular-nums">
+                                                            {row.rowType === 'expense' ? '' : row.volumeBreakdown.freshBagCount.toLocaleString() + '건'}
+                                                        </td>
+                                                        <td className={'whitespace-nowrap px-0.5 py-1.5 text-right font-black tabular-nums ' + (dark ? 'text-white' : 'text-neutral-900')}>
+                                                            {row.rowType === 'expense'
+                                                                ? '-' + row.expense.toLocaleString() + '원'
+                                                                : row.income.toLocaleString() + '원'}
+                                                        </td>
+                                                    </tr>
+                                                    {isExpanded && (
+                                                        <tr className={dark ? 'border-b border-slate-800 bg-slate-950/50' : 'border-b border-slate-200 bg-slate-50'}>
+                                                            <td colSpan={6} className="px-2 py-2">
+                                                                <div className="space-y-2">
+                                                                    {row.records.map((record, recordIndex) => {
+                                                                        const detailSource = row.rowType === 'expense'
+                                                                            ? (record.data.expenseDetails || {})
+                                                                            : (record.data.revenueDetails || {});
+                                                                        const detailText = Object.entries(detailSource).map(([name, value]) => {
+                                                                            const count = Number(value?.count) || 0;
+                                                                            const amount = Number(value?.amount) || 0;
+                                                                            return row.rowType === 'expense'
+                                                                                ? name + ' ' + amount.toLocaleString() + '원'
+                                                                                : name + ' ' + (count > 0 ? count.toLocaleString() + '건' : amount.toLocaleString() + '원');
+                                                                        }).join(' · ');
+                                                                        const recordAmount = row.rowType === 'expense'
+                                                                            ? (Number(record.data.totalExpenses) || 0)
+                                                                            : (Number(record.data.totalRevenue) || 0);
+                                                                        return (
+                                                                            <div
+                                                                                key={record.entry?.id || row.key + '-' + recordIndex}
+                                                                                className={'rounded-lg border px-2.5 py-2 ' + (dark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-white')}
+                                                                            >
+                                                                                <div className="flex items-start justify-between gap-2">
+                                                                                    <div className="min-w-0 flex-1">
+                                                                                        <p className={'text-[10px] font-black ' + (dark ? 'text-slate-200' : 'text-slate-800')}>
+                                                                                            기록 {recordIndex + 1}
+                                                                                        </p>
+                                                                                        <p className={'mt-1 break-words text-[10px] ' + mutedClass}>
+                                                                                            {detailText || '상세 항목 정보가 없습니다.'}
+                                                                                        </p>
+                                                                                        {record.entry?.memo && (
+                                                                                            <p className={'mt-1 whitespace-pre-wrap break-words text-[10px] ' + mutedClass}>
+                                                                                                메모: {record.entry.memo}
+                                                                                            </p>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    <span className={'shrink-0 whitespace-nowrap text-[11px] font-black tabular-nums ' + (row.rowType === 'expense' ? 'text-blue-500' : (dark ? 'text-white' : 'text-neutral-900'))}>
+                                                                                        {row.rowType === 'expense' ? '-' : '+'}{recordAmount.toLocaleString()}원
+                                                                                    </span>
+                                                                                </div>
+                                                                                <div className="mt-2 flex justify-end gap-1.5">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => onEditEntry?.(record.entry)}
+                                                                                        className={'rounded-md border px-3 py-1.5 text-[10px] font-bold ' + (dark ? 'border-slate-600 bg-slate-800 text-slate-100' : 'border-slate-200 bg-white text-slate-700')}
+                                                                                    >수정</button>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => onDeleteEntry?.(record.entry?.id)}
+                                                                                        className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-[10px] font-bold text-red-600 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400"
+                                                                                    >삭제</button>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </React.Fragment>
+                                            );
+                                        })}
                                     </tbody>
                                     <tfoot>
                                         <tr className={dark
@@ -1164,18 +1244,6 @@ const BluecoinsDailySummaryPreview = ({
                                                 {transactionTotal.income.toLocaleString()}원
                                             </td>
                                         </tr>
-                                        {expenseTotal > 0 && (
-                                            <tr className={dark
-                                                ? 'border-t border-slate-700 bg-slate-900 text-slate-300'
-                                                : 'border-t border-slate-200 bg-white text-neutral-700'
-                                            }>
-                                                <td className="whitespace-nowrap px-0.5 py-1.5 text-center font-black">지출</td>
-                                                <td colSpan={4} />
-                                                <td className="whitespace-nowrap px-0.5 py-1.5 text-right font-black tabular-nums">
-                                                    -{expenseTotal.toLocaleString()}원
-                                                </td>
-                                            </tr>
-                                        )}
                                     </tfoot>
                                 </table>
                             </div>
