@@ -1567,6 +1567,11 @@ console.log("🚨 [로딩 완료 후] 현재 유저 ID:", user?.id);
                                         handleCalendarDateClick(dateKey);
                                     });
                                 }}
+                                onEditEntry={(entry) => {
+                                    setIsFabVisible(false);
+                                    handleEdit(entry);
+                                }}
+                                onDeleteEntry={handleDelete}
                                 homeCalendarDesign={homeCalendarDesign}
                                 homeCalendarVolumeItems={homeCalendarVolumeItems}
                                 incomeConfig={incomeConfig}
