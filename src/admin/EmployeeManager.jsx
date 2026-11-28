@@ -1,6 +1,7 @@
 // src/admin/EmployeeManager.jsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { showToast } from '../utils/toast';
+import { triggerHaptic } from '../utils/haptics';
 import { fetchMyVendorInfo } from '../services/teamService';
 import { Users, Truck, ArrowLeft, UserPlus, X, Copy, CheckCircle2, Plus, Search, ChevronDown } from 'lucide-react';
 import BiweeklyPairManager from './BiweeklyPairManager';
@@ -326,7 +327,7 @@ export default function EmployeeManager({ onBack }) {
         }));
 
         setSelectedEmployee(null);
-        showToast(editingNewEmployee ? '직원이 등록되었습니다.' : '직원 정보가 저장되었습니다.');
+        showToast(editingNewEmployee ? '직원이 등록되었습니다.' : '직원 정보가 저장되었습니다.'); triggerHaptic('light');
     };
 
     const copyInviteCode = () => {
