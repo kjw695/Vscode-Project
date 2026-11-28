@@ -651,29 +651,6 @@ const BluecoinsDailySummaryPreview = ({
 
     return (
         <>
-            {showEstimatedSalary && (
-                <div
-                    className="pointer-events-none fixed inset-x-0 z-[80] flex justify-center px-4"
-                    style={{ top: 'calc(env(safe-area-inset-top) + 56px)' }}
-                >
-                    <button
-                        type="button"
-                        aria-label="예상 월급 패널 닫기"
-                        onClick={onCloseEstimatedSalary}
-                        className={'pointer-events-auto flex w-full max-w-sm items-center justify-between gap-2 rounded-2xl border px-4 py-3 shadow-xl ' + (
-                            dark
-                                ? 'border-slate-700 bg-slate-900/95 text-white'
-                                : 'border-slate-200 bg-white/95 text-slate-900'
-                        )}
-                    >
-                        <span className="shrink-0 text-sm font-bold">예상 월급</span>
-                        <span className="min-w-0 truncate text-right text-[clamp(1.4rem,6vw,2rem)] font-black leading-none tracking-tight tabular-nums">
-                            {formatLargeManWon(estimatedSalary)}
-                        </span>
-                        <span aria-hidden="true" className={'shrink-0 text-lg leading-none ' + mutedClass}>×</span>
-                    </button>
-                </div>
-            )}
             <div className="flex w-full flex-col gap-1 px-2 pb-4">
             <section className={'overflow-hidden rounded-2xl border shadow-sm ' + panelClass}>
                 <div className={'grid grid-cols-4 divide-x ' + dividerClass}>
@@ -698,6 +675,19 @@ const BluecoinsDailySummaryPreview = ({
                 </div>
             </section>
 
+            {showEstimatedSalary && (
+                <button
+                    type="button"
+                    aria-label="예상 월급 패널 닫기"
+                    onClick={onCloseEstimatedSalary}
+                    className={'flex w-full items-center justify-between gap-2 rounded-2xl border px-3 py-3 text-left shadow-sm ' + panelClass}
+                >
+                    <span className={'shrink-0 text-sm font-bold ' + mutedClass}>예상 월급</span>
+                    <span className="min-w-0 truncate text-right text-[clamp(1.4rem,6vw,2rem)] font-black leading-none tracking-tight tabular-nums">
+                        {formatLargeManWon(estimatedSalary)}
+                    </span>
+                </button>
+            )}
             <section className={'overflow-hidden rounded-2xl border px-3 pt-3 pb-1.5 shadow-sm ' + panelClass}>
                 <div className="flex min-w-0 items-center justify-between gap-1.5">
                     <h2 className={'shrink-0 whitespace-nowrap text-[clamp(12px,3.5vw,15px)] font-black ' + mutedClass}>이번 달 총 금액</h2>
