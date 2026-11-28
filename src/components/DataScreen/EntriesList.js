@@ -64,7 +64,8 @@ const EntriesList = ({ entries, summary, handleEdit, handleDelete, isDarkMode, o
 
         if (entry.customItems && Array.isArray(entry.customItems)) {
             entry.customItems.forEach(item => {
-                const isDayOffItem = item?.key === 'dayOff' || item?.key === '휴무';
+                const isDayOffItem = item?.key === 'dayOff' || item?.key === '휴무' ||
+                    item?.name === '휴무' || item?.label === '휴무';
                 if (isDayOffItem) return;
 
                 const amount = safeNum(item.amount);
