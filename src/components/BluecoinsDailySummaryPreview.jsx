@@ -654,7 +654,7 @@ const BluecoinsDailySummaryPreview = ({
             {showEstimatedSalary && (
                 <div
                     className="pointer-events-none fixed inset-x-0 z-[80] flex justify-center px-4"
-                    style={{ top: 'calc(env(safe-area-inset-top) + 12px)' }}
+                    style={{ top: 'calc(env(safe-area-inset-top) + 56px)' }}
                 >
                     <button
                         type="button"
