@@ -834,7 +834,7 @@ if (viewMode === 'installment') return (
                                             onClick={(e) => {
                                                 e.preventDefault();
                                                 e.stopPropagation();
-                                                if (unitPrice === price.toString()) setUnitPrice('');
+                                                if (unitPrice === price.toString() && favoriteUnitPrices.length > 1) setUnitPrice('');
                                                 else setUnitPrice(price.toString());
                                             }}
                                             className={`px-2 py-0.5 text-[10px] rounded border font-extrabold shadow-sm ${unitPrice === price.toString() ? 'bg-black !text-yellow-400 border-yellow-400' : 'bg-white text-gray-800 border-gray-300'}`}
