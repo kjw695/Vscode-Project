@@ -1176,11 +1176,20 @@ const BluecoinsDailySummaryPreview = ({
                                                                         const recordAmount = row.rowType === 'expense'
                                                                             ? (Number(record.data.totalExpenses) || 0)
                                                                             : (Number(record.data.totalRevenue) || 0);
+                                                                        const recordDateParts = String(record.entry?.date || '').split('-');
+                                                                        const recordDateLabel = recordDateParts.length === 3
+                                                                            ? Number(recordDateParts[1]) + '/' + Number(recordDateParts[2])
+                                                                            : '';
                                                                         return (
                                                                             <div
                                                                                 key={record.entry?.id || row.key + '-' + recordIndex}
                                                                                 className={'flex min-w-0 items-center gap-1.5 border-b px-1 py-1.5 last:border-b-0 ' + (dark ? 'border-slate-800' : 'border-slate-200')}
                                                                             >
+                                                                                {!isDayMode && recordDateLabel && (
+                                                                                    <span className={'shrink-0 whitespace-nowrap text-[10px] font-bold tabular-nums ' + (dark ? 'text-amber-300' : 'text-amber-700')}>
+                                                                                        {recordDateLabel}
+                                                                                    </span>
+                                                                                )}
                                                                                 <p className={'min-w-0 flex-1 truncate text-[10px] ' + mutedClass} title={detailText || ''}>
                                                                                     {detailText || '상세 항목 정보가 없습니다.'}
                                                                                 </p>
